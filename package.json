@@ -1,0 +1,8 @@
+{
+  "name": "device-linker-api",
+  "version": "1.0.0",
+  "main": "api/airdrop.js",
+  "dependencies": {
+    "ethers": "^6.11.1"
+  }
+}

@@ -1,29 +1,30 @@
-import admin from "firebase-admin";
-
-if (!admin.apps.length) {
-    // 確保環境變數被正確解析為 JSON 物件
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
-}
-
-const db = admin.firestore();
+import { ethers } from "ethers";
+import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
 
 export default async function handler(req, res) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+    // 支援 GET (方便測試) 或 POST
+    const address = req.method === 'POST' ? req.body.address : req.query.address;
 
-    const { address } = req.body;
-    if (!address) return res.status(400).json({ error: 'Missing address' });
+    if (!address || !ethers.isAddress(address)) {
+        return res.status(400).json({ success: false, error: "請提供正確的錢包地址" });
+    }
 
     try {
-        const userDoc = await db.collection('users').doc(address).get();
-        const balance = userDoc.exists ? (userDoc.data().balance || "0") : "0";
-        // User requested response format check: { success: true, balance: ... }
-        return res.status(200).json({ success: true, balance: balance });
+        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        // 只定義我們需要的 balanceOf 函式
+        const abi = ["function balanceOf(address owner) view returns (uint256)"];
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
+
+        const balance = await contract.balanceOf(address);
+        const formattedBalance = ethers.formatUnits(balance, 18);
+
+        return res.status(200).json({
+            success: true,
+            address: address,
+            balance: formattedBalance
+        });
     } catch (error) {
-        console.error("Balance fetch error:", error);
-        return res.status(500).json({ success: false, message: error.message });
+        console.error("Get Balance Error:", error);
+        return res.status(500).json({ success: false, error: error.message });
     }
 }

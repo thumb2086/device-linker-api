@@ -1,4 +1,6 @@
 import { ethers } from "ethers";
+import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
+
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -19,19 +21,17 @@ export default async function handler(req, res) {
     if (!privateKey.startsWith('0x')) privateKey = '0x' + privateKey;
 
     // --- 3. 檢查合約地址 ---
-    // ⚠️ 請確保這裡手寫的地址是正確的 0x 開頭，不要有空格
-    const contractAddress = "你的合約地址";
-    if (!ethers.isAddress(contractAddress)) {
-      throw new Error(`合約地址格式錯誤: ${contractAddress}`);
+    if (!ethers.isAddress(CONTRACT_ADDRESS)) {
+      throw new Error(`合約地址格式錯誤: ${CONTRACT_ADDRESS} `);
     }
 
     // 設定網路
-    const provider = new ethers.JsonRpcProvider("https://sepolia.base.org");
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
     const wallet = new ethers.Wallet(privateKey, provider);
 
     // --- 4. 建立合約實例 ---
     const abi = ["function mint(address to, uint256 amount) public"];
-    const contract = new ethers.Contract(contractAddress, abi, wallet);
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet);
 
     // --- 5. 執行交易 ---
     // 使用 parseUnits 確保數量單位正確 (假設是 1 顆，若為無位數 Token 則直接 1)

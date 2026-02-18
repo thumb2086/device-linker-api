@@ -1,6 +1,9 @@
-import { ethers } from "ethers"; // 確保這行在最頂部，且沒有被註解掉
+import { ethers } from "ethers";
 
-// 1. 解析 Android KeyStore 產出的 DER 格式簽名為 r, s
+/**
+ * 1. 解析 Android KeyStore 產出的 DER 格式簽名
+ * 確保 r, s 被提取為正確的 32-byte 16進制字串
+ */
 function parseDERSignature(signatureBase64) {
     const sig = Buffer.from(signatureBase64, 'base64');
     let pos = 0;
@@ -12,7 +15,7 @@ function parseDERSignature(signatureBase64) {
         let len = sig[pos++];
         let val = sig.slice(pos, pos + len);
         pos += len;
-        // 移除 DER 可能存在的 00 正數補位前綴
+        // 移除 DER 可能存在的 00 正數補位前綴 (Padding)
         if (val.length > 32 && val[0] === 0x00) val = val.slice(1);
         return Buffer.from(val).toString('hex').padStart(64, '0');
     };
@@ -24,7 +27,7 @@ function parseDERSignature(signatureBase64) {
 }
 
 export default async function handler(req, res) {
-    // 限制僅接受 POST 請求
+    // 僅允許 POST
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
@@ -32,32 +35,40 @@ export default async function handler(req, res) {
     const { from, to, amount, signature } = req.body;
 
     try {
-        // --- A. 數據清洗 (必須與 Android MainActivity 的字串處理 100% 一致) ---
+        // --- A. 數據清洗：必須與 Android 端 100% 一致 ---
         const cleanFrom = from.trim().toLowerCase();
         const cleanTo = to.toLowerCase().trim();
         const cleanAmount = amount.toString().trim().replace(/\.0$/, "");
 
-        // 構建與 Android 端相同的原始訊息
+        // 構建原始訊息字串
         const message = `transfer:${cleanTo}:${cleanAmount}`;
 
-        // --- B. 哈希對齊：使用 SHA-256 (對應 Android 的 SHA256withECDSA) ---
-        // Android 硬體在簽名時會自動對原始 messageBytes 做一次 SHA256
+        // --- B. 哈希對齊：使用 SHA-256 ---
+        // 對應 Android V3 的 SHA256withECDSA 硬體行為
         const sha256Digest = ethers.sha256(ethers.toUtf8Bytes(message));
 
-        // --- C. 解析與恢復地址 ---
+        // --- C. 解析簽名與強健地址恢復 ---
         const { r, s } = parseDERSignature(signature);
         let recoveredAddress = "";
 
-        // 窮舉 v 值 (Recovery ID)。Android 硬體通常不回傳 v，故需窮舉 27,28 或 0,1
-        for (let v of [27, 28, 0, 1]) {
+        // 窮舉 v 值：使用 Signature.from 確保 ethers 內部轉換正確
+        // 根據數學驗證，你的 Android 簽名對應 v = 28
+        for (let v_val of [27, 28, 0, 1]) {
             try {
-                const addr = ethers.recoverAddress(sha256Digest, { r, s, v });
+                const sigObj = ethers.Signature.from({
+                    r: r,
+                    s: s,
+                    v: v_val
+                });
+                const addr = ethers.recoverAddress(sha256Digest, sigObj);
+
                 if (addr.toLowerCase() === cleanFrom) {
                     recoveredAddress = addr;
+                    console.log(`Bingo! Matched at v = ${v_val}`);
                     break;
                 }
             } catch (e) {
-                continue;
+                continue; // 嘗試下一個 v 值
             }
         }
 
@@ -75,13 +86,13 @@ export default async function handler(req, res) {
             });
         }
 
-        // --- D. 驗證通過，發起區塊鏈轉帳 ---
-        const RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com"; // 或從環境變數讀取
-        const CONTRACT_ADDRESS = "0x789c566675204487D43076935C19356860fC62A4"; // 你的 ZHIXI Token 合約
+        // --- D. 驗證通過，執行合約轉帳 ---
+        // 這些建議放在 Vercel 的 Environment Variables 中
+        const RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
+        const CONTRACT_ADDRESS = "0x789c566675204487D43076935C19356860fC62A4";
 
         const provider = new ethers.JsonRpcProvider(RPC_URL);
 
-        // 從 Vercel Environment Variables 獲取管理員私鑰
         let adminKey = process.env.ADMIN_PRIVATE_KEY;
         if (!adminKey.startsWith('0x')) adminKey = '0x' + adminKey;
         const adminWallet = new ethers.Wallet(adminKey, provider);
@@ -90,7 +101,7 @@ export default async function handler(req, res) {
             "function adminTransfer(address from, address to, uint256 amount) public"
         ], adminWallet);
 
-        // 執行轉帳交易
+        // 發送交易
         const tx = await contract.adminTransfer(
             ethers.getAddress(cleanFrom), // 轉為 Checksum 格式
             ethers.getAddress(cleanTo),
@@ -98,10 +109,11 @@ export default async function handler(req, res) {
             { gasLimit: 250000 }
         );
 
+        // 回傳成功結果
         return res.status(200).json({
             success: true,
             txHash: tx.hash,
-            mode: "V3_SHA256withECDSA"
+            mode: "V3_SHA256_STABLE"
         });
 
     } catch (error) {

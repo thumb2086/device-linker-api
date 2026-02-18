@@ -1,64 +1,98 @@
 import { ethers } from "ethers";
 
+// 1. 強健的 DER 解析：處理動態長度與 Leading Zeros
+function parseDERSignature(signatureBase64) {
+    const sig = Buffer.from(signatureBase64, 'base64');
+    let pos = 0;
+    if (sig[pos++] !== 0x30) throw new Error("Invalid DER prefix");
+    pos++; // skip length
+    const extractInt = () => {
+        if (sig[pos++] !== 0x02) throw new Error("Expected Integer mark");
+        let len = sig[pos++];
+        let val = sig.slice(pos, pos + len);
+        pos += len;
+        // 移除 0x00 前綴並補齊至 32 bytes (64 chars)
+        if (val.length > 32 && val[0] === 0x00) val = val.slice(1);
+        return '0x' + Buffer.from(val).toString('hex').padStart(64, '0');
+    };
+    const r = extractInt();
+    const s = extractInt();
+    return { r, s };
+}
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
     const { from, to, amount, signature, publicKey } = req.body;
 
     try {
-        if (!publicKey) throw new Error("缺少公鑰參數");
-
         const cleanFrom = from.trim().toLowerCase();
         const cleanTo = to.toLowerCase().trim();
         const cleanAmount = amount.toString().trim().replace(/\.0$/, "");
         const message = `transfer:${cleanTo}:${cleanAmount}`;
 
-        // 1. 計算 SHA-256 哈希 (對齊 Android SHA256withECDSA)
+        // Android V3 簽的是 SHA256 (對應 SHA256withECDSA)
         const sha256Digest = ethers.sha256(ethers.toUtf8Bytes(message));
 
-        // 2. 準備公鑰與簽名
-        const pubKeyHex = '0x' + Buffer.from(publicKey, 'base64').toString('hex');
-        const sigBase64 = signature; // 原始簽名 (Base64)
+        // 解析原始 r, s
+        const { r, s: originalS } = parseDERSignature(signature);
 
-        // 3. 驗證地址一致性 (這步最關鍵，確保公鑰是使用者的)
-        const derivedAddrFromPub = ethers.computeAddress(pubKeyHex).toLowerCase();
-        if (derivedAddrFromPub !== cleanFrom) {
-            throw new Error("公鑰地址不匹配");
+        // --- Low-S Normalization (EIP-2) ---
+        // secp256k1 的 order n
+        const n = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+        const sVal = BigInt(originalS);
+        const lowSVal = sVal > n / 2n ? n - sVal : sVal;
+        const sLowHex = '0x' + lowSVal.toString(16).padStart(64, '0');
+
+        let recoveredAddress = null;
+        let matchedV = -1;
+
+        // --- 終極窮舉：考慮 v 偏移與 s 翻轉 ---
+        // Android 硬體簽名可能需要我們手動將 s 轉為 low-s 並調整 v
+        const possibleVs = [27, 28, 0, 1];
+        for (let baseV of possibleVs) {
+            // 嘗試原始 S 和 Low-S (Flip) 兩種情況
+            for (let sToTry of [originalS, sLowHex]) {
+                try {
+                    const sigObj = ethers.Signature.from({
+                        r,
+                        s: sToTry,
+                        v: baseV
+                    });
+                    const addr = ethers.recoverAddress(sha256Digest, sigObj).toLowerCase();
+                    if (addr === cleanFrom) {
+                        recoveredAddress = addr;
+                        matchedV = baseV;
+                        break;
+                    }
+                } catch (e) { }
+            }
+            if (recoveredAddress) break;
         }
 
-        // 4. 使用 ethers 內建的 SigningKey 驗證簽名 (繞過 v 值)
-        // 注意：ethers 驗證 DER 格式簽名需要先恢復地址來比對
-        let isValid = false;
-        const sigBuffer = Buffer.from(sigBase64, 'base64');
+        if (!recoveredAddress) {
+            // 診斷輔助：如果傳了公鑰，檢查它對應的地址
+            let pubDerived = "未提供公鑰";
+            if (publicKey) {
+                const pubKeyHex = '0x' + Buffer.from(publicKey, 'base64').toString('hex');
+                pubDerived = ethers.computeAddress(pubKeyHex).toLowerCase();
+            }
 
-        // 暴力窮舉 v 來檢查簽名是否有效 (利用公鑰作為基準)
-        for (let v of [27, 28, 0, 1]) {
-            try {
-                // 從簽名中嘗試還原地址
-                const recovered = ethers.recoverAddress(sha256Digest, {
-                    r: '0x' + sigBuffer.slice(4, 36).toString('hex'), // 簡化 DER 提取邏輯
-                    s: '0x' + sigBuffer.slice(38, 70).toString('hex'),
-                    v: v
-                });
-                if (recovered.toLowerCase() === cleanFrom) {
-                    isValid = true;
-                    break;
-                }
-            } catch (e) { }
-        }
-
-        if (!isValid) {
             return res.status(200).json({
                 success: false,
-                error: "簽名驗證失敗 (ECDSA Mismatch)",
-                debug: { digest: sha256Digest }
+                error: "簽名驗證失敗：無法恢復地址",
+                debug: {
+                    expected: cleanFrom,
+                    pubKeyAddr: pubDerived,
+                    r,
+                    s: originalS
+                }
             });
         }
 
-        // 5. 執行合約轉帳
+        // --- 驗證成功，執行轉帳 ---
         const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
-        const adminKey = process.env.ADMIN_PRIVATE_KEY;
-        const wallet = new ethers.Wallet(adminKey, provider);
+        const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
         const contract = new ethers.Contract("0x789c566675204487D43076935C19356860fC62A4", [
             "function adminTransfer(address from, address to, uint256 amount) public"
         ], wallet);
@@ -70,7 +104,7 @@ export default async function handler(req, res) {
             { gasLimit: 250000 }
         );
 
-        return res.status(200).json({ success: true, txHash: tx.hash });
+        return res.status(200).json({ success: true, txHash: tx.hash, matchedV });
 
     } catch (error) {
         return res.status(200).json({ success: false, error: error.message });

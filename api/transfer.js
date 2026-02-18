@@ -1,128 +1,98 @@
 import { ethers } from "ethers";
-
-function parseDERSignature(signatureBase64) {
-    const sig = Buffer.from(signatureBase64, 'base64');
-    let pos = 0;
-
-    if (sig[pos++] !== 0x30) throw new Error("Invalid DER prefix");
-    pos++; // skip total length
-
-    const extractInt = () => {
-        if (sig[pos++] !== 0x02) throw new Error("Expected Integer mark");
-        let len = sig[pos++];
-        let val = sig.slice(pos, pos + len);
-        pos += len;
-        if (val.length > 32 && val[0] === 0x00) val = val.slice(1);
-        return '0x' + Buffer.from(val).toString('hex').padStart(64, '0');
-    };
-
-    const r = extractInt();
-    const s = extractInt();
-
-    return { r, s };
-}
+import { verify } from "crypto"; // 引入原生 crypto 模組
+import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
 
 export default async function handler(req, res) {
+    // 設置 CORS (如果需要)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    if (req.method === 'OPTIONS') return res.status(200).end();
+
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const { from, to, amount, signature } = req.body;
+    // 1. 接收參數 (注意：必須包含 publicKey)
+    const { from, to, amount, signature, publicKey } = req.body;
 
-    if (!from || !to || !amount || !signature) {
-        return res.status(400).json({ error: '缺少必要參數' });
+    if (!from || !to || !amount || !signature || !publicKey) {
+        return res.status(400).json({ error: '缺少參數: 需要 signature 與 publicKey' });
     }
 
     try {
+        // 2. 格式化參數 (符合新標準)
         const cleanFrom = from.trim().toLowerCase();
-        const cleanTo = to.trim().toLowerCase().replace(/^0x/, ''); // 去掉可能的 0x 前綴
-        const cleanAmount = amount.toString().trim().replace(/\.0$/, "");
+        const cleanTo = to.trim().toLowerCase().replace(/^0x/, ''); // 移除 0x
+        const cleanAmount = amount.toString().trim().replace(/\.0+$/, ""); // 移除 .0
 
-        // 加入暗號，與 Android 端完全一致
-        const secret = "大拇哥是帥歌";
-        const message = `transfer:${cleanTo}:${cleanAmount}${secret}`;
+        // 3. 重建簽名訊息 (無暗號版本)
+        // 格式: transfer:{to}:{amount}
+        const message = `transfer:${cleanTo}:${cleanAmount}`;
 
-        // 計算 digest
-        const digest = ethers.sha256(ethers.toUtf8Bytes(message));
+        console.log("---------------- NEW STANDARD VERIFICATION ----------------");
+        console.log("Server Message  :", message);
+        console.log("Received PubKey :", publicKey.substring(0, 30) + "...");
 
-        const { r, s: originalS } = parseDERSignature(signature);
+        // 4. 轉換公鑰格式 (Android Base64 -> PEM)
+        // Android 傳來的 publicKey 是純 Base64 字串 (X.509 SPKI)
+        const publicKeyPEM = `-----BEGIN PUBLIC KEY-----\n${publicKey}\n-----END PUBLIC KEY-----`;
 
-        // secp256k1 order n
-        const n = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
-        let sVal = BigInt(originalS.slice(2), 16); // 去掉 0x
-        let sHex = originalS;
+        // 5. 執行驗證 (使用 crypto 支援 NIST P-256)
+        const isVerified = verify(
+            "sha256", // 對應 Android 的 SHA256withECDSA
+            Buffer.from(message, 'utf-8'),
+            {
+                key: publicKeyPEM,
+                padding: undefined,
+            },
+            Buffer.from(signature, 'base64')
+        );
 
-        // 如果 s > n/2，翻轉成 low-s
-        if (sVal > n / 2n) {
-            sVal = n - sVal;
-            sHex = '0x' + sVal.toString(16).padStart(64, '0');
-        }
-
-        let recovered = null;
-        let usedV = -1;
-        let attempts = [];
-
-        // 窮舉常見 v 值
-        for (let v of [27, 28, 0, 1]) {
-            try {
-                const sig = ethers.Signature.from({ r, s: sHex, v });
-                const addr = ethers.recoverAddress(digest, sig).toLowerCase();
-                attempts.push({ v, addr });
-                if (addr === cleanFrom) {
-                    recovered = addr;
-                    usedV = v;
-                    break;
-                }
-            } catch (e) {
-                attempts.push({ v, error: e.message });
-            }
-        }
-
-        if (!recovered) {
+        if (!isVerified) {
+            console.error("❌ Signature Verification Failed");
             return res.status(200).json({
                 success: false,
-                error: "簽名驗證失敗，無法恢復地址",
+                error: "簽名驗證失敗 (Crypto)",
                 debug: {
-                    expectedFrom: cleanFrom,
-                    digest,
-                    r,
-                    originalS,
-                    lowSUsed: sHex,
-                    messageWithSecret: message,
-                    messageLength: message.length,
-                    recoverAttempts: attempts
+                    generatedMessage: message,
+                    receivedSignature: signature
                 }
             });
         }
 
-        // 驗證成功 → 執行合約轉帳
-        const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
+        console.log("✅ Signature Verified! Executing Transaction...");
+
+        // 6. 區塊鏈互動
+        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        if (!process.env.ADMIN_PRIVATE_KEY) throw new Error("Server Error: Missing ADMIN_PRIVATE_KEY");
+
         const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
 
         const contract = new ethers.Contract(
-            "0x789c566675204487D43076935C19356860fC62A4",
+            ethers.getAddress(CONTRACT_ADDRESS),
             ["function adminTransfer(address from, address to, uint256 amount) public"],
             wallet
         );
 
+        // 這裡我們信任簽名成功代表使用者授權，使用前端傳來的 from 地址
         const tx = await contract.adminTransfer(
             ethers.getAddress(cleanFrom),
-            ethers.getAddress("0x" + cleanTo), // 補回 0x
-            ethers.parseUnits(cleanAmount, 18),
-            { gasLimit: 250000 }
+            ethers.getAddress("0x" + cleanTo), // 補回 0x 發給合約
+            ethers.parseUnits(cleanAmount, 18)
         );
+
+        console.log("Tx Hash:", tx.hash);
 
         return res.status(200).json({
             success: true,
-            txHash: tx.hash,
-            v: usedV
+            txHash: tx.hash
         });
 
     } catch (error) {
-        console.error("Transfer error:", error);
-        return res.status(200).json({
+        console.error("Transfer Error:", error);
+        return res.status(500).json({
             success: false,
-            error: error.message || "未知錯誤"
+            error: error.message || "伺服器內部錯誤"
         });
     }
 }

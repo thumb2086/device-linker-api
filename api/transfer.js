@@ -22,7 +22,7 @@ function parseDERSignature(signatureBase64) {
             val = val.slice(1);
         }
 
-        // 確保長度為 32 bytes 並補零，轉為 hex 格式
+        // 確保長度為 32 bytes (64 hex chars) 並補零
         return '0x' + Buffer.from(val).toString('hex').padStart(64, '0');
     };
 
@@ -32,7 +32,6 @@ function parseDERSignature(signatureBase64) {
 }
 
 export default async function handler(req, res) {
-    // 只允許 POST 請求
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
@@ -40,76 +39,74 @@ export default async function handler(req, res) {
     const { from, to, amount, signature } = req.body;
 
     try {
-        // 1. 基本參數檢查
         if (!from || !to || !amount || !signature) {
             throw new Error("缺少必要參數 (from, to, amount, signature)");
         }
 
-        // 2. 地址與合約正規化
+        // 1. 地址正規化
         const cleanFrom = ethers.getAddress(from.toLowerCase());
         const cleanTo = ethers.getAddress(to.toLowerCase());
         const cleanContract = ethers.getAddress(CONTRACT_ADDRESS.toLowerCase());
 
-        // 3. 構建與 Android 端完全一致的訊息與 Hash
-        // 格式必須為 "transfer:小寫地址:數量"
+        // 2. 構建訊息與 Hash (需與 Android 端完全一致)
         const message = `transfer:${to.toLowerCase()}:${amount}`;
         const messageHash = ethers.sha256(ethers.toUtf8Bytes(message));
 
-        // 4. 解析 DER 簽名獲取 r, s
+        // 3. 解析 DER 簽名獲取十六進制的 r 和 s
         let r, s;
         try {
             const sig = parseDERSignature(signature);
             r = sig.r;
             s = sig.s;
         } catch (e) {
-            return res.status(200).json({ success: false, error: "簽名解析失敗: " + e.message });
+            return res.status(200).json({ success: false, error: "簽名格式解析失敗: " + e.message });
         }
 
-        // 5. 窮舉 v 值 (27, 28) 嘗試恢復地址
+        // 4. 恢復地址 (窮舉 v = 27, 28)
         let recoveredAddress = "";
         for (let v of [27, 28]) {
             try {
+                // 修正重點：傳入包含 r, s, v 的物件，而非原始 Base64 字串
                 const addr = ethers.recoverAddress(messageHash, { r, s, v });
+
                 if (addr.toLowerCase() === cleanFrom.toLowerCase()) {
                     recoveredAddress = addr;
                     break;
                 }
             } catch (e) {
-                // 如果這個 v 值恢復失敗，繼續嘗試下一個
+                // 如果該 v 值導致簽名不合法，跳過並嘗試下一個
                 continue;
             }
         }
 
-        // 6. 驗證恢復結果
+        // 5. 驗證恢復結果
         if (!recoveredAddress) {
             return res.status(200).json({
                 success: false,
                 error: "簽名驗證失敗：還原地址與發送者不符",
                 debug: {
                     messageUsed: message,
-                    messageHash: messageHash,
-                    recovered: recoveredAddress || "none"
+                    recovered: recoveredAddress || "none",
+                    r: r,
+                    s: s
                 }
             });
         }
 
-        // 7. 初始化 Provider 與管理員錢包
+        // 6. 初始化 Provider 與管理員錢包
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         let pk = process.env.ADMIN_PRIVATE_KEY;
         if (!pk) throw new Error("環境變數 ADMIN_PRIVATE_KEY 未設定");
         if (!pk.startsWith('0x')) pk = '0x' + pk;
-
         const wallet = new ethers.Wallet(pk, provider);
 
-        // 8. 連結合約並執行神權轉帳
+        // 7. 連結合約
         const contract = new ethers.Contract(cleanContract, [
             "function adminTransfer(address from, address to, uint256 amount) public"
         ], wallet);
 
-        // 獲取最新 Nonce 防止連續交易卡單
+        // 8. 獲取 Nonce 並執行轉帳
         const nonce = await provider.getTransactionCount(wallet.address, "latest");
-
-        console.log(`正在執行神權轉帳: ${cleanFrom} -> ${cleanTo}, 數量: ${amount}`);
 
         const tx = await contract.adminTransfer(
             cleanFrom,
@@ -121,7 +118,6 @@ export default async function handler(req, res) {
             }
         );
 
-        // 9. 回傳交易成功資訊
         return res.status(200).json({
             success: true,
             txHash: tx.hash,
@@ -129,8 +125,7 @@ export default async function handler(req, res) {
         });
 
     } catch (error) {
-        console.error("Transfer Error Details:", error);
-        // 捕捉所有錯誤並以 JSON 形式回傳，避免前端收到 500 HTML 頁面
+        console.error("Transfer Detailed Error:", error);
         return res.status(200).json({
             success: false,
             error: error.reason || error.message || "伺服器內部錯誤"

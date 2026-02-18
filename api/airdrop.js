@@ -8,69 +8,51 @@ export default async function handler(req, res) {
   }
 
   try {
+    // 從 App 的請求內容中獲取使用者的錢包地址
     const { address } = req.body;
 
-    // 1. 檢查接收地址是否存在且格式正確
     if (!address || !ethers.isAddress(address)) {
-      return res.status(400).json({ error: "請提供有效的收幣錢包地址" });
+      return res.status(400).json({ success: false, error: "請提供有效的錢包地址" });
     }
 
-    // 2. 取得並處理私鑰
-    let privateKey = process.env.ADMIN_PRIVATE_KEY;
-    if (!privateKey) {
-      throw new Error("環境變數 ADMIN_PRIVATE_KEY 未設定");
-    }
-    if (!privateKey.startsWith('0x')) {
-      privateKey = '0x' + privateKey;
-    }
-
-    // 3. 建立 Provider 與 Wallet
+    // 1. 初始化 Provider 與管理員錢包
     const provider = new ethers.JsonRpcProvider(RPC_URL);
+    let privateKey = process.env.ADMIN_PRIVATE_KEY;
+    if (!privateKey) throw new Error("ADMIN_PRIVATE_KEY 未設定");
+    if (!privateKey.startsWith('0x')) privateKey = '0x' + privateKey;
     const wallet = new ethers.Wallet(privateKey, provider);
 
-    // 4. 定義合約 ABI (只需要 mint 函數)
-    const abi = ["function mint(address to, uint256 amount) external"];
+    // 2. 定義新合約的 mint 函數
+    const abi = ["function mint(address to, uint256 amount) public"];
     const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet);
 
-    // 5. 獲取當前最新的 Nonce
-    const nonce = await provider.getTransactionCount(wallet.address, "latest");
-
-    // 6. 設定領取數量 (100 顆，18 位小數)
+    // 3. 設定領取數量：100 顆 (考慮到 18 位小數)
     const amount = ethers.parseUnits("100", 18);
 
-    console.log(`正在發送 mint 請求至: ${address}`);
+    // 取得最新 Nonce 避免交易卡住
+    const nonce = await provider.getTransactionCount(wallet.address, "latest");
 
-    // 7. 執行交易
-    // 使用 mint 而不是 transfer
+    console.log(`正在為地址 ${address} 領取 100 顆子熙幣...`);
+
+    // 4. 執行增發交易
     const tx = await contract.mint(address, amount, {
       nonce: nonce,
-      gasLimit: 150000 // Mint 消耗比轉帳高，設定 15 萬比較保險
+      gasLimit: 120000
     });
 
-    console.log(`交易已發送，Hash: ${tx.hash}`);
-
-    // 8. 回傳成功結果
+    // 5. 回傳結果給 App
     return res.status(200).json({
       success: true,
       txHash: tx.hash,
-      message: "子熙幣增發成功！請稍候在錢包查看餘額",
+      message: "100 顆子熙幣已發送！",
       scanUrl: `https://sepolia.etherscan.io/tx/${tx.hash}`
     });
 
   } catch (error) {
-    console.error("Airdrop Error:", error);
-
-    // 處理常見錯誤
-    let errorMsg = error.message;
-    if (error.message.includes("insufficient funds")) {
-      errorMsg = "管理員錢包 Sepolia ETH 不足，無法支付手續費";
-    } else if (error.message.includes("owner")) {
-      errorMsg = "只有合約擁有者(Owner)才能執行 Mint 操作";
-    }
-
+    console.error("Airdrop 錯誤:", error);
     return res.status(500).json({
       success: false,
-      error: errorMsg
+      message: error.reason || error.message || "領取失敗，請聯絡管理員"
     });
   }
 }

@@ -1,134 +1,97 @@
 import { ethers } from "ethers";
+import { p256 } from "@noble/curves/p256"; // 支援 Android 硬體 r1 曲線
 import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
 
 /**
- * 解析 Android KeyStore 產出的 DER 格式簽名為以太坊 r, s
+ * 解析 Android KeyStore 產出的 DER 格式簽名
  */
 function parseDERSignature(signatureBase64) {
     const sigBuffer = Buffer.from(signatureBase64, 'base64');
     let offset = 0;
-
     if (sigBuffer[offset++] !== 0x30) throw new Error("無效的 DER 前綴");
-    offset++; // 跳過總長度標記
-
+    offset++; // 跳過總長度
     const extractInteger = () => {
         if (sigBuffer[offset++] !== 0x02) throw new Error("預期為 Integer 標記");
         let len = sigBuffer[offset++];
         let val = sigBuffer.slice(offset, offset + len);
         offset += len;
-
-        // 核心修正：去除 DER 為了處理正負號補的前導 0x00
-        if (val.length > 32 && val[0] === 0x00) {
-            val = val.slice(1);
-        }
-
-        // 確保長度為 32 bytes (64 hex chars) 並補零
+        if (val.length > 32 && val[0] === 0x00) val = val.slice(1);
         return '0x' + Buffer.from(val).toString('hex').padStart(64, '0');
     };
-
-    const r = extractInteger();
-    const s = extractInteger();
-    return { r, s };
+    return { r: extractInteger(), s: extractInteger() };
 }
 
 export default async function handler(req, res) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method Not Allowed' });
-    }
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
     const { from, to, amount, signature } = req.body;
 
     try {
-        if (!from || !to || !amount || !signature) {
-            throw new Error("缺少必要參數 (from, to, amount, signature)");
-        }
+        if (!from || !to || !amount || !signature) throw new Error("缺少必要參數");
 
-        // 1. 地址正規化
-        const cleanFrom = ethers.getAddress(from.toLowerCase());
-        const cleanTo = ethers.getAddress(to.toLowerCase());
-        const cleanContract = ethers.getAddress(CONTRACT_ADDRESS.toLowerCase());
+        // 1. 數據清洗 (同步 Android 端)
+        const cleanFrom = from.trim().toLowerCase();
+        const cleanTo = to.trim().toLowerCase();
+        const cleanAmount = amount.toString().trim().replace(/\.0$/, "");
 
-        // 2. 構建訊息與 Hash (需與 Android 端完全一致)
-        const message = `transfer:${to.toLowerCase()}:${amount}`;
+        // 2. 構建原始訊息 Hash (Android 硬體簽名的對象)
+        const message = `transfer:${cleanTo}:${cleanAmount}`;
         const messageHash = ethers.sha256(ethers.toUtf8Bytes(message));
+        const msgHashBytes = ethers.getBytes(messageHash);
 
-        // 3. 解析 DER 簽名獲取十六進制的 r 和 s
-        let r, s;
-        try {
-            const sig = parseDERSignature(signature);
-            r = sig.r;
-            s = sig.s;
-        } catch (e) {
-            return res.status(200).json({ success: false, error: "簽名格式解析失敗: " + e.message });
-        }
+        // 3. 解析 DER 獲取 r, s
+        const { r, s } = parseDERSignature(signature);
+        const rBigInt = BigInt(r);
+        const sBigInt = BigInt(s);
 
-        // 4. 恢復地址 (窮舉 v = 27, 28)
+        // 4. 針對 r1 曲線 (P-256) 進行地址恢復
         let recoveredAddress = "";
-        for (let v of [27, 28]) {
+        for (let recovery of [0, 1]) {
             try {
-                // 修正重點：傳入包含 r, s, v 的物件，而非原始 Base64 字串
-                const addr = ethers.recoverAddress(messageHash, { r, s, v });
+                const sig = new p256.Signature(rBigInt, sBigInt).addRecoveryBit(recovery);
+                const point = sig.recoverPublicKey(msgHashBytes);
+                const pubHex = point.toHex(false); // 未壓縮公鑰 (04...)
 
-                if (addr.toLowerCase() === cleanFrom.toLowerCase()) {
+                // 以太坊地址 = Keccak256(公鑰後64位) 的後20字節
+                const addr = ethers.computeAddress("0x" + pubHex);
+
+                if (addr.toLowerCase() === cleanFrom) {
                     recoveredAddress = addr;
                     break;
                 }
-            } catch (e) {
-                // 如果該 v 值導致簽名不合法，跳過並嘗試下一個
-                continue;
-            }
+            } catch (e) { continue; }
         }
 
-        // 5. 驗證恢復結果
         if (!recoveredAddress) {
             return res.status(200).json({
                 success: false,
-                error: "簽名驗證失敗：還原地址與發送者不符",
-                debug: {
-                    messageUsed: message,
-                    recovered: recoveredAddress || "none",
-                    r: r,
-                    s: s
-                }
+                error: "簽名驗證失敗：r1 曲線地址不匹配",
+                debug: { message, expected: cleanFrom }
             });
         }
 
-        // 6. 初始化 Provider 與管理員錢包
+        // 5. 執行合約轉帳
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         let pk = process.env.ADMIN_PRIVATE_KEY;
-        if (!pk) throw new Error("環境變數 ADMIN_PRIVATE_KEY 未設定");
         if (!pk.startsWith('0x')) pk = '0x' + pk;
         const wallet = new ethers.Wallet(pk, provider);
 
-        // 7. 連結合約
-        const contract = new ethers.Contract(cleanContract, [
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, [
             "function adminTransfer(address from, address to, uint256 amount) public"
         ], wallet);
 
-        // 8. 獲取 Nonce 並執行轉帳
         const nonce = await provider.getTransactionCount(wallet.address, "latest");
-
         const tx = await contract.adminTransfer(
-            cleanFrom,
-            cleanTo,
-            ethers.parseUnits(amount.toString(), 18),
-            {
-                gasLimit: 200000,
-                nonce: nonce
-            }
+            ethers.getAddress(cleanFrom),
+            ethers.getAddress(cleanTo),
+            ethers.parseUnits(cleanAmount, 18),
+            { gasLimit: 200000, nonce }
         );
 
-        return res.status(200).json({
-            success: true,
-            txHash: tx.hash,
-            message: "轉帳成功"
-        });
+        return res.status(200).json({ success: true, txHash: tx.hash });
 
     } catch (error) {
-        console.error("Transfer Detailed Error:", error);
-        return res.status(200).json({
-            success: false,
-            error: error.reason || error.message || "伺服器內部錯誤"
-        });
+        console.error("Critical Transfer Error:", error);
+        return res.status(200).json({ success: false, error: error.message });
     }
 }

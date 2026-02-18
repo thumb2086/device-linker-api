@@ -1,2 +1,2 @@
-export const CONTRACT_ADDRESS = "0x531aa0c02ee61bfdaf2077356293f2550a969142";
-export const RPC_URL = "https://sepolia.base.org";
+export const CONTRACT_ADDRESS = "0x531AA0C02Ee61bFDAf2077356293F2550a969142";
+export const RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";

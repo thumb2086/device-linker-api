@@ -8,29 +8,20 @@ export default async function handler(req, res) {
         const { address } = req.body;
         if (!address) return res.status(400).json({ error: "缺少地址" });
 
-        // 建立連線
+        // 核心防禦：先轉小寫，再由 ethers 正規化
+        const cleanAddress = ethers.getAddress(address.toLowerCase());
+        const cleanContract = ethers.getAddress(CONTRACT_ADDRESS.toLowerCase());
+
         const provider = new ethers.JsonRpcProvider(RPC_URL);
-
-        // 定義查詢餘額所需的最小 ABI
         const abi = ["function balanceOf(address owner) view returns (uint256)"];
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, provider);
+        const contract = new ethers.Contract(cleanContract, abi, provider);
 
-        // 呼叫合約
-        const balance = await contract.balanceOf(address);
-
-        // 將 BigInt 轉為可讀的人類格式 (考慮 18 位小數)
-        const formattedBalance = ethers.formatUnits(balance, 18);
-
+        const balance = await contract.balanceOf(cleanAddress);
         return res.status(200).json({
             success: true,
-            balance: formattedBalance
+            balance: ethers.formatUnits(balance, 18)
         });
     } catch (error) {
-        console.error("Get Balance Error:", error);
-        return res.status(500).json({
-            success: false,
-            error: "無法從區塊鏈取得數據，請檢查 RPC_URL 或合約地址",
-            details: error.message
-        });
+        return res.status(500).json({ success: false, error: error.message });
     }
 }

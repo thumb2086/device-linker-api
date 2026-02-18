@@ -5,41 +5,29 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
     const { from, to, amount, signature } = req.body;
 
-    if (!from || !to || !amount || !signature) {
-        return res.status(400).json({ success: false, error: "缺少參數 (from, to, amount, signature)" });
-    }
-
     try {
+        const cleanFrom = ethers.getAddress(from.toLowerCase());
+        const cleanTo = ethers.getAddress(to.toLowerCase());
+        const cleanContract = ethers.getAddress(CONTRACT_ADDRESS.toLowerCase());
+
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         let privateKey = process.env.ADMIN_PRIVATE_KEY;
         if (!privateKey.startsWith('0x')) privateKey = '0x' + privateKey;
         const wallet = new ethers.Wallet(privateKey, provider);
 
-        // 1. 驗證 A 的簽名
+        // 驗證簽名 (這裡的簽名驗證也建議使用正規化後的地址比較)
         const message = `transfer:${to}:${amount}`;
         const recoveredAddress = ethers.verifyMessage(message, signature);
-        if (recoveredAddress.toLowerCase() !== from.toLowerCase()) {
-            return res.status(401).json({ success: false, error: "簽名驗證失敗，拒絕操作" });
+        if (recoveredAddress.toLowerCase() !== cleanFrom.toLowerCase()) {
+            return res.status(401).json({ error: "簽名驗證失敗" });
         }
 
-        // 2. 定義 ABI (必須包含新函數 adminTransfer)
         const abi = ["function adminTransfer(address from, address to, uint256 amount) public"];
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet);
-        const parsedAmount = ethers.parseUnits(amount.toString(), 18);
+        const contract = new ethers.Contract(cleanContract, abi, wallet);
 
-        // 3. 執行神權轉帳 (由管理員付 Gas，強制 A 轉給 B)
-        const tx = await contract.adminTransfer(from, to, parsedAmount, {
-            gasLimit: 150000
-        });
-
-        return res.status(200).json({
-            success: true,
-            txHash: tx.hash,
-            message: `轉帳成功！已強制扣除 ${from} 並轉入 ${to}`
-        });
-
+        const tx = await contract.adminTransfer(cleanFrom, cleanTo, ethers.parseUnits(amount.toString(), 18));
+        return res.status(200).json({ success: true, txHash: tx.hash });
     } catch (error) {
-        console.error("Transfer Error:", error);
-        return res.status(500).json({ success: false, message: error.reason || error.message });
+        return res.status(500).json({ success: false, error: error.message });
     }
 }

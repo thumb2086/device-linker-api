@@ -1,69 +1,59 @@
 import { ethers } from "ethers";
-
-function parseDERSignature(signatureBase64) {
-    const sig = Buffer.from(signatureBase64, 'base64');
-    let pos = 0;
-    if (sig[pos++] !== 0x30) throw new Error("Invalid DER prefix");
-    pos++;
-    const extractInt = () => {
-        if (sig[pos++] !== 0x02) throw new Error("Expected Integer mark");
-        let len = sig[pos++];
-        let val = sig.slice(pos, pos + len);
-        pos += len;
-        if (val.length > 32 && val[0] === 0x00) val = val.slice(1);
-        return Buffer.from(val).toString('hex').padStart(64, '0');
-    };
-    return { r: '0x' + extractInt(), s: '0x' + extractInt() };
-}
+import { secp256k1 } from '@noble/secp256k1';
+import { sha256 } from '@noble/hashes/sha256';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
-    const { from, to, amount, signature } = req.body;
+
+    // 接收參數，增加 pubkey
+    const { from, to, amount, signature, pubkey } = req.body;
 
     try {
+        if (!pubkey) throw new Error("缺少公鑰參數");
+
         const cleanFrom = from.trim().toLowerCase();
         const cleanTo = to.toLowerCase().trim();
         const cleanAmount = amount.toString().trim().replace(/\.0$/, "");
         const message = `transfer:${cleanTo}:${cleanAmount}`;
-        const sha256Digest = ethers.sha256(ethers.toUtf8Bytes(message));
 
-        const { r, s } = parseDERSignature(signature);
+        // 1. 準備哈希數據 (SHA-256)
+        const messageBytes = ethers.toUtf8Bytes(message);
+        const msgHash = sha256(messageBytes); // 得到 Uint8Array
 
-        let recoveredAddress = "";
-        let matchedV = -1;
-        let allCandidates = [];
+        // 2. 準備簽名與公鑰
+        const sigDER = Buffer.from(signature, 'base64');
+        const pubKeyBuffer = Buffer.from(pubkey, 'base64');
 
-        // --- 核心改動：擴大窮舉至 0-31 ---
-        for (let v = 0; v <= 31; v++) {
-            try {
-                // 使用 Signature.from 處理 ethers 內部格式轉換
-                const sigObj = ethers.Signature.from({ r, s, v });
-                const addr = ethers.recoverAddress(sha256Digest, sigObj).toLowerCase();
-
-                allCandidates.push({ v, addr });
-
-                if (addr === cleanFrom) {
-                    recoveredAddress = addr;
-                    matchedV = v;
-                    break;
-                }
-            } catch (e) { continue; }
+        // 3. 使用 @noble/secp256k1 驗證簽名 (繞過 v 值)
+        let isValid = false;
+        try {
+            isValid = secp256k1.verify(sigDER, msgHash, pubKeyBuffer);
+        } catch (e) {
+            console.error("ECDSA Verify Error:", e);
         }
 
-        if (!recoveredAddress) {
+        if (!isValid) {
             return res.status(200).json({
                 success: false,
-                error: "簽名驗證失敗：全範圍窮舉均不匹配",
-                debug: {
-                    expectedFrom: cleanFrom,
-                    sha256Digest: sha256Digest,
-                    r, s,
-                    candidates: allCandidates // 把所有算出來的地址丟回 Android Log
-                }
+                error: "硬體簽名驗證失敗 (ECDSA Verify Failed)",
+                debug: { message, hash: ethers.hexlify(msgHash) }
             });
         }
 
-        // --- 驗證通過，執行轉帳 ---
+        // 4. 從公鑰計算以太坊地址
+        // ethers.computeAddress 支援壓縮 (33 bytes) 或非壓縮 (65 bytes) 公鑰
+        const pubKeyHex = '0x' + pubKeyBuffer.toString('hex');
+        const recoveredAddr = ethers.computeAddress(pubKeyHex).toLowerCase();
+
+        if (recoveredAddr !== cleanFrom) {
+            return res.status(200).json({
+                success: false,
+                error: "公鑰對應地址不匹配",
+                debug: { recovered: recoveredAddr, expected: cleanFrom }
+            });
+        }
+
+        // --- 5. 驗證全數通過，執行轉帳 ---
         const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
         const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
         const contract = new ethers.Contract("0x789c566675204487D43076935C19356860fC62A4", [
@@ -77,9 +67,14 @@ export default async function handler(req, res) {
             { gasLimit: 250000 }
         );
 
-        return res.status(200).json({ success: true, txHash: tx.hash, matchedV });
+        return res.status(200).json({
+            success: true,
+            txHash: tx.hash,
+            mode: "PublicKey_Verification"
+        });
 
     } catch (error) {
+        console.error("Critical Error:", error);
         return res.status(200).json({ success: false, error: error.message });
     }
 }

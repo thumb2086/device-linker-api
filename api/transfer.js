@@ -1,61 +1,64 @@
 import { ethers } from "ethers";
-import { secp256k1 } from '@noble/secp256k1';
-import { sha256 } from '@noble/hashes/sha256';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-    // 接收參數，增加 pubkey
-    const { from, to, amount, signature, pubkey } = req.body;
+    const { from, to, amount, signature, publicKey } = req.body;
 
     try {
-        if (!pubkey) throw new Error("缺少公鑰參數");
+        if (!publicKey) throw new Error("缺少公鑰參數");
 
         const cleanFrom = from.trim().toLowerCase();
         const cleanTo = to.toLowerCase().trim();
         const cleanAmount = amount.toString().trim().replace(/\.0$/, "");
         const message = `transfer:${cleanTo}:${cleanAmount}`;
 
-        // 1. 準備哈希數據 (SHA-256)
-        const messageBytes = ethers.toUtf8Bytes(message);
-        const msgHash = sha256(messageBytes); // 得到 Uint8Array
+        // 1. 計算 SHA-256 哈希 (對齊 Android SHA256withECDSA)
+        const sha256Digest = ethers.sha256(ethers.toUtf8Bytes(message));
 
-        // 2. 準備簽名與公鑰
-        const sigDER = Buffer.from(signature, 'base64');
-        const pubKeyBuffer = Buffer.from(pubkey, 'base64');
+        // 2. 準備公鑰與簽名
+        const pubKeyHex = '0x' + Buffer.from(publicKey, 'base64').toString('hex');
+        const sigBase64 = signature; // 原始簽名 (Base64)
 
-        // 3. 使用 @noble/secp256k1 驗證簽名 (繞過 v 值)
+        // 3. 驗證地址一致性 (這步最關鍵，確保公鑰是使用者的)
+        const derivedAddrFromPub = ethers.computeAddress(pubKeyHex).toLowerCase();
+        if (derivedAddrFromPub !== cleanFrom) {
+            throw new Error("公鑰地址不匹配");
+        }
+
+        // 4. 使用 ethers 內建的 SigningKey 驗證簽名 (繞過 v 值)
+        // 注意：ethers 驗證 DER 格式簽名需要先恢復地址來比對
         let isValid = false;
-        try {
-            isValid = secp256k1.verify(sigDER, msgHash, pubKeyBuffer);
-        } catch (e) {
-            console.error("ECDSA Verify Error:", e);
+        const sigBuffer = Buffer.from(sigBase64, 'base64');
+
+        // 暴力窮舉 v 來檢查簽名是否有效 (利用公鑰作為基準)
+        for (let v of [27, 28, 0, 1]) {
+            try {
+                // 從簽名中嘗試還原地址
+                const recovered = ethers.recoverAddress(sha256Digest, {
+                    r: '0x' + sigBuffer.slice(4, 36).toString('hex'), // 簡化 DER 提取邏輯
+                    s: '0x' + sigBuffer.slice(38, 70).toString('hex'),
+                    v: v
+                });
+                if (recovered.toLowerCase() === cleanFrom) {
+                    isValid = true;
+                    break;
+                }
+            } catch (e) { }
         }
 
         if (!isValid) {
             return res.status(200).json({
                 success: false,
-                error: "硬體簽名驗證失敗 (ECDSA Verify Failed)",
-                debug: { message, hash: ethers.hexlify(msgHash) }
+                error: "簽名驗證失敗 (ECDSA Mismatch)",
+                debug: { digest: sha256Digest }
             });
         }
 
-        // 4. 從公鑰計算以太坊地址
-        // ethers.computeAddress 支援壓縮 (33 bytes) 或非壓縮 (65 bytes) 公鑰
-        const pubKeyHex = '0x' + pubKeyBuffer.toString('hex');
-        const recoveredAddr = ethers.computeAddress(pubKeyHex).toLowerCase();
-
-        if (recoveredAddr !== cleanFrom) {
-            return res.status(200).json({
-                success: false,
-                error: "公鑰對應地址不匹配",
-                debug: { recovered: recoveredAddr, expected: cleanFrom }
-            });
-        }
-
-        // --- 5. 驗證全數通過，執行轉帳 ---
+        // 5. 執行合約轉帳
         const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
-        const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
+        const adminKey = process.env.ADMIN_PRIVATE_KEY;
+        const wallet = new ethers.Wallet(adminKey, provider);
         const contract = new ethers.Contract("0x789c566675204487D43076935C19356860fC62A4", [
             "function adminTransfer(address from, address to, uint256 amount) public"
         ], wallet);
@@ -67,14 +70,9 @@ export default async function handler(req, res) {
             { gasLimit: 250000 }
         );
 
-        return res.status(200).json({
-            success: true,
-            txHash: tx.hash,
-            mode: "PublicKey_Verification"
-        });
+        return res.status(200).json({ success: true, txHash: tx.hash });
 
     } catch (error) {
-        console.error("Critical Error:", error);
         return res.status(200).json({ success: false, error: error.message });
     }
 }

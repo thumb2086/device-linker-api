@@ -31,7 +31,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            overflow: hidden;
+            overflow-x: hidden;
         }
 
         /* 核心卡片容器 */
@@ -45,6 +45,7 @@
             width: 420px;
             text-align: center;
             box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
+            position: relative;
         }
 
         h1 {
@@ -63,12 +64,13 @@
             margin-bottom: 20px;
         }
 
+        /* QR Code 區域 */
         #qr-box {
             background: white;
             padding: 15px;
             border-radius: 20px;
             display: inline-block;
-            margin: 20px 0;
+            margin: 25px 0;
             box-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
             min-width: 230px;
             min-height: 230px;
@@ -78,7 +80,7 @@
             display: block;
         }
 
-        /* 3D 硬幣 */
+        /* 3D 硬幣動畫 */
         .coin-box {
             perspective: 1000px;
             margin: 40px auto;
@@ -91,7 +93,7 @@
             height: 100%;
             position: relative;
             transform-style: preserve-3d;
-            transition: transform 3s cubic-bezier(0.1, 0.8, 0.2, 1);
+            transition: transform 3.5s cubic-bezier(0.1, 0.8, 0.2, 1);
         }
 
         .coin div {
@@ -173,7 +175,7 @@
             filter: brightness(1.2);
         }
 
-        /* 狀態 */
+        /* 狀態訊息 */
         #status-msg {
             margin-top: 30px;
             font-size: 1.1rem;
@@ -216,15 +218,15 @@
 <body>
 
     <div class="casino-card">
-        <!-- 登入介面 -->
+        <!-- 1. 登入授權畫面 -->
         <div id="auth-ui">
             <h1>門禁驗證</h1>
-            <p>掃描以連結你的子熙錢包</p>
+            <p>請使用手機掃描登入</p>
             <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
             <div id="auth-msg"><span class="loader"></span> 等待硬體授權中...</div>
         </div>
 
-        <!-- 遊戲介面 -->
+        <!-- 2. 賭博遊戲畫面 -->
         <div id="game-ui" class="hidden">
             <h1 id="user-display">ZXC CASINO</h1>
             <div class="coin-box">
@@ -251,9 +253,10 @@
 
     <script>
         let user = { address: "", publicKey: "" };
+        // 產生本次網頁會話的唯一 ID
         const sessionId = "session_" + Math.random().toString(36).substring(7);
 
-        // --- QR Code 產生邏輯 (修正版) ---
+        // --- 初始化 QR Code ---
         function init() {
             const canvas = document.getElementById('qr-canvas');
             const loginStr = `dlinker:login:${sessionId}`;
@@ -261,81 +264,92 @@
             if (typeof QRCode !== 'undefined') {
                 QRCode.toCanvas(canvas, loginStr, { width: 200, margin: 2 }, function (error) {
                     if (error) {
-                        console.error(error);
+                        console.error("QR 產生失敗:", error);
                     } else {
-                        console.log("QR產生成功:", loginStr);
+                        console.log("QR 產生成功，正在輪詢登入狀態...");
                         startAuthPolling();
                     }
                 });
             } else {
-                setTimeout(init, 500); // 套件還沒好就等 0.5 秒
+                setTimeout(init, 500); // 如果套件沒加載完就等 0.5 秒
             }
         }
 
-        // --- 輪詢登入狀態 ---
+        // --- 輪詢：檢查手機是否已掃碼並 POST 授權資料 ---
         function startAuthPolling() {
             const interval = setInterval(async () => {
                 try {
-                    const res = await fetch(`/api/auth?sessionId=${sessionId}`);
+                    // 加入 t=Date.now() 強制破解瀏覽器 304 快取
+                    const res = await fetch(`/api/auth?sessionId=${sessionId}&t=${Date.now()}`);
                     const data = await res.json();
+
                     if (data.status === "authorized") {
                         clearInterval(interval);
                         user = data;
                         showGame();
                     }
-                } catch (e) { console.error("Polling error", e); }
+                } catch (e) {
+                    console.warn("登入輪詢中...");
+                }
             }, 2000);
         }
 
         function showGame() {
             document.getElementById('auth-ui').classList.add('hidden');
             document.getElementById('game-ui').classList.remove('hidden');
-            document.getElementById('user-display').innerText = user.address.substring(0, 10) + "...";
+            // 顯示簡短地址
+            document.getElementById('user-display').innerText = user.address.substring(0, 8) + "...";
         }
 
-        // --- 賭博邏輯 ---
+        // --- 賭博遊戲邏輯 ---
         async function play(choice) {
             const amount = document.getElementById('bet-amount').value;
             const status = document.getElementById('status-msg');
             const coin = document.getElementById('main-coin');
             const txLog = document.getElementById('tx-log');
 
-            // 產生一個唯一的遊戲 ID
+            // 生成這次遊戲的 ID，讓手機 POST 結果時對應
             const gameId = "game_" + Math.random().toString(36).substring(7);
 
             status.innerHTML = `<span class="loader"></span> 請在 App 簽名這次下注...`;
             txLog.innerHTML = "";
+            coin.style.transition = "transform 0.5s"; // 重置旋轉速度
+            coin.style.transform = `rotateY(0deg)`;
 
-            // 提示使用者 (在 App 中這串字要拿去簽名)
-            console.log("Android 應簽名此訊息:", `coinflip:${choice}:${amount}`);
-            console.log("Android 應 POST 的 sessionId:", gameId);
+            // 提示訊息 (Debug 用)
+            console.log("Android 簽名內容: coinflip:" + choice + ":" + amount);
+            console.log("Android 下注 POST 的 sessionId: " + gameId);
 
-            // 開始輪詢遊戲結果
+            // 開始輪詢遊戲結果 (等待手機 POST 到 /api/coinflip)
             const gameInterval = setInterval(async () => {
                 try {
-                    const res = await fetch(`/api/coinflip?sessionId=${gameId}`);
+                    // 同樣加入隨機參數破解 304 快取
+                    const res = await fetch(`/api/coinflip?sessionId=${gameId}&t=${Date.now()}`);
                     const result = await res.json();
 
                     if (result.status === "finished") {
                         clearInterval(gameInterval);
 
-                        // 執行旋轉動畫
-                        // 正面轉 1800度 (5圈), 反面再多轉 180度
+                        // 設定硬幣旋轉動畫
+                        coin.style.transition = "transform 3.5s cubic-bezier(0.1, 0.8, 0.2, 1)";
+                        // 正面轉 1800度, 反面轉 1980度
                         const rotation = result.resultSide === 'heads' ? 1800 : 1980;
                         coin.style.transform = `rotateY(${rotation}deg)`;
 
                         setTimeout(() => {
                             if (result.isWin) {
-                                status.innerText = "🏆 恭喜中獎！獎金已發放";
+                                status.innerText = "🏆 恭喜大贏家！已發放雙倍獎勵";
                                 status.style.color = "#00ff88";
                             } else {
-                                status.innerText = "💀 輸了... 硬幣已被銷毀";
+                                status.innerText = "💀 輸了... 賭注已被銷毀 (Burn)";
                                 status.style.color = "#ff4444";
                             }
-                            txLog.innerHTML = `<a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank">查看鏈上交易證明</a>`;
-                        }, 3100);
+                            txLog.innerHTML = `<a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank">查看區塊鏈交易證明</a>`;
+                        }, 3600);
                     }
-                } catch (e) { console.error(e); }
+                } catch (e) {
+                    console.warn("等待遊戲開獎...");
+                }
             }, 2000);
         }
 

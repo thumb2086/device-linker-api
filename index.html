@@ -83,20 +83,17 @@
                     if (data.status === "authorized") {
                         clearInterval(pollInterval);
 
-                        // 儲存使用者資料
                         user.address = data.address;
                         user.publicKey = data.publicKey;
 
-                        // UI 切換
                         document.getElementById('auth-ui').classList.add('hidden');
                         document.getElementById('game-ui').classList.remove('hidden');
 
-                        // 更新餘額、VIP 等資訊
                         updateUI(data);
 
-                        console.log('🎉 授權成功！已進入遊戲畫面', data);
+                        // 🔥 新增這行：登入成功後立刻用 get-balance 再確認一次
+                        setTimeout(refreshBalance, 800);
 
-                        // 每 30 秒自動刷新一次真實餘額（防止樂觀更新偏差）
                         setInterval(refreshBalance, 30000);
                     }
                 } catch (err) {

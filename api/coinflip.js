@@ -15,61 +15,72 @@ export default async function handler(req, res) {
         const sessionData = await kv.get(`session:${sessionId}`);
         if (!sessionData) return res.status(403).json({ error: "會話過期，請重新登入" });
 
-        // 1. 開獎邏輯
-        const resultSide = Math.random() > 0.5 ? "heads" : "tails";
-        const isWin = (choice === resultSide);
-
-        // 2. 更新 KV 數據 (累計押注)
-        const totalBetRaw = await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, parseFloat(amount));
-        const totalBet = parseFloat(totalBetRaw).toFixed(2);
-
-        // 判斷 VIP
-        let vipLevel = "普通會員";
-        if (totalBet >= 100000) vipLevel = "👑 鑽石 VIP";
-        else if (totalBet >= 50000) vipLevel = "🥇 黃金會員";
-        else if (totalBet >= 10000) vipLevel = "🥈 白銀會員";
-
-        // 3. 區塊鏈操作準備
+        // 1. 先準備合約連線 (為了查餘額)
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
 
         const contract = new ethers.Contract(CONTRACT_ADDRESS, [
             "function mint(address to, uint256 amount) public",
             "function adminTransfer(address from, address to, uint256 amount) public",
-            "function decimals() view returns (uint8)"
+            "function decimals() view returns (uint8)",
+            "function balanceOf(address) view returns (uint256)" // 👈 必須加入這個來查餘額
         ], wallet);
 
-        // 4. 取得精度與計算金額
+        // 2. 取得精度與轉換金額
         let decimals = 18n;
-        try {
-            decimals = await contract.decimals();
-        } catch (e) {
-            console.log("無法讀取精度，預設使用 18");
-        }
+        try { decimals = await contract.decimals(); } catch (e) { }
 
         const betWei = ethers.parseUnits(amount.toString(), decimals);
-        let tx;
 
-        // 5. 執行交易 (修正賠率邏輯)
-        if (isWin) {
-            // ✅ 修正點在這裡：
-            // 因為本金還在用戶錢包裡，我們只發放 0.8 倍的利潤
-            // 總資產變化： 本金(1.0) + 利潤(0.8) = 1.8 倍
-            const profitWei = (betWei * 80n) / 100n; // 0.8 倍
+        // 3. 🔥【關鍵修正】檢查餘額是否足夠 🔥
+        // 在讓遊戲開始前，先確認他賠不賠得起
+        const userBalanceWei = await contract.balanceOf(address);
 
-            console.log(`贏了！發放利潤: ${ethers.formatUnits(profitWei, decimals)}`);
-            tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
-
-        } else {
-            // 輸了：把本金轉到黑洞 (銷毀)
-            // 總資產變化： 本金(1.0) - 本金(1.0) = 0
-            const burnAddress = "0x000000000000000000000000000000000000dEaD";
-
-            console.log(`輸了... 銷毀本金: ${amount}`);
-            tx = await contract.adminTransfer(address, burnAddress, betWei, { gasLimit: 200000 });
+        if (userBalanceWei < betWei) {
+            return res.status(400).json({
+                error: "餘額不足！請先充值再試"
+            });
         }
 
-        // 6. 回傳結果
+        // --- 餘額夠，遊戲才正式開始 ---
+
+        const resultSide = Math.random() > 0.5 ? "heads" : "tails";
+        const isWin = (choice === resultSide);
+
+        // 4. 更新 KV 數據 (現在確認有錢了才更新)
+        const totalBetRaw = await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, parseFloat(amount));
+        const totalBet = parseFloat(totalBetRaw).toFixed(2);
+
+        let vipLevel = "普通會員";
+        if (totalBet >= 100000) vipLevel = "👑 鑽石 VIP";
+        else if (totalBet >= 50000) vipLevel = "🥇 黃金會員";
+        else if (totalBet >= 10000) vipLevel = "🥈 白銀會員";
+
+        let tx;
+
+        // 5. 執行交易
+        try {
+            if (isWin) {
+                const profitWei = (betWei * 80n) / 100n; // 0.8 倍利潤
+                console.log(`贏了！發放利潤...`);
+                tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
+            } else {
+                const burnAddress = "0x000000000000000000000000000000000000dEaD";
+                console.log(`輸了... 扣除本金...`);
+                tx = await contract.adminTransfer(address, burnAddress, betWei, { gasLimit: 200000 });
+            }
+        } catch (blockchainError) {
+            // 如果這一步失敗 (例如 Gas 不足)，我們應該要回滾 KV (雖然後端很難真的回滾 KV，但至少報錯)
+            console.error("交易失敗:", blockchainError);
+            // 簡單的補救：把剛剛加上的 totalBet 扣回來 (為了數據準確)
+            await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, -parseFloat(amount));
+
+            return res.status(500).json({
+                error: "區塊鏈交易失敗 (可能是 Gas 不足)",
+                details: blockchainError.message
+            });
+        }
+
         return res.status(200).json({
             status: "success",
             isWin,

@@ -11,16 +11,14 @@ export default async function handler(req, res) {
 
     try {
         if (!sessionId) return res.status(400).json({ error: "缺少 sessionId" });
-
-        // 1. 檢查授權狀態
         const sessionData = await kv.get(`session:${sessionId}`);
-        if (!sessionData) return res.status(403).json({ error: "會話過期，請重新登入" });
+        if (!sessionData) return res.status(403).json({ error: "授權過期" });
 
-        // 2. 隨機開獎 (50/50 概率)
+        // 1. 隨機開獎
         const resultSide = Math.random() > 0.5 ? "heads" : "tails";
         const isWin = (choice === resultSide);
 
-        // 3. 區塊鏈設定
+        // 2. 鏈上連線
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, [
@@ -32,53 +30,41 @@ export default async function handler(req, res) {
         const betWei = ethers.parseUnits(amount.toString(), 18);
         let tx;
 
-        // 4. 執行鏈上動作
         if (isWin) {
-            // 贏了：發放 1.8 倍獎金 (例如押 10 拿 18)
+            // 贏了：Mint 1.8x
             const winAmountWei = (betWei * 180n) / 100n;
-            tx = await contract.mint(address, winAmountWei, { gasLimit: 250000 });
+            tx = await contract.mint(address, winAmountWei, { gasLimit: 150000 });
         } else {
-            // 輸了：銷毀押注金額 (將錢從使用者轉到 0 地址)
-            tx = await contract.adminTransfer(
-                address,
-                "0x0000000000000000000000000000000000000000",
-                betWei,
-                { gasLimit: 250000 }
-            );
+            // 💀 輸了：執行銷毀
+            // 🚀 關鍵修正：改用 dEaD 地址，防止合約檢查零地址報錯
+            const burnAddress = "0x000000000000000000000000000000000000dEaD";
+            tx = await contract.adminTransfer(address, burnAddress, betWei, { gasLimit: 150000 });
         }
 
-        // 🚀 關鍵：等待區塊鏈打包確認，否則網頁餘額不會變
+        // 3. 等待確認 (加入超時保護，避免網頁卡死)
         const receipt = await tx.wait();
-        console.log(`交易成功，Hash: ${receipt.hash}`);
 
-        // 5. 更新 KV 數據 (累計押注與 VIP)
+        // 4. 更新數據與 VIP
         const totalBet = await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, parseFloat(amount));
-        let vipLevel = totalBet >= 1000 ? "👑 鑽石 VIP" : (totalBet >= 500 ? "🥇 黃金會員" : (totalBet >= 100 ? "🥈 白銀會員" : "普通會員"));
-
-        // 6. 抓取最新餘額回傳
         const newBalanceRaw = await contract.balanceOf(address);
         const newBalance = ethers.formatUnits(newBalanceRaw, 18);
 
-        const gameResult = {
-            status: "finished",
-            isWin,
-            resultSide,
+        let vipLevel = "普通會員";
+        if (totalBet >= 1000) vipLevel = "👑 鑽石 VIP";
+        else if (totalBet >= 500) vipLevel = "🥇 黃金會員";
+        else if (totalBet >= 100) vipLevel = "🥈 白銀會員";
+
+        return res.status(200).json({
+            status: "finished", isWin, resultSide,
             txHash: receipt.hash,
-            newBalance,
-            totalBet: totalBet.toFixed(2),
-            vipLevel
-        };
-
-        // 將結果存入 KV 供前端查詢 (雙重保險)
-        await kv.set(`game:${sessionId}`, gameResult, { ex: 600 });
-
-        return res.status(200).json(gameResult);
+            newBalance, totalBet: totalBet.toFixed(2), vipLevel
+        });
 
     } catch (e) {
-        console.error("Coinflip System Error:", e);
+        console.error("Critical System Error:", e);
         return res.status(200).json({
             success: false,
-            error: "鏈上執行失敗: " + (e.reason || "餘額不足或 Admin 權限未開啟")
+            error: "鏈上執行失敗: " + (e.reason || "請確認 Admin 權限或餘額是否足夠扣除")
         });
     }
 }

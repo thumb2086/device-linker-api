@@ -1,48 +1,44 @@
 import { kv } from '@vercel/kv';
+import { ethers } from "ethers";
+import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
 
 export default async function handler(req, res) {
-    // 1. 強制處理跨域與快取
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-
-    if (req.method === 'OPTIONS') return res.status(200).end();
-
-    // 2. 抓取 sessionId (從 Query 或 Body 找)
-    const sessionId = req.query.sessionId || (req.body && req.body.sessionId);
-
-    // Debug: 這裡的內容會出現在 Vercel 的 Logs 分頁
-    console.log(`[AUTH] Method: ${req.method}, sessionId: ${sessionId}`);
+    const { sessionId } = req.query;
 
     if (req.method === 'GET') {
-        if (!sessionId) return res.status(200).json({ status: "pending", error: "No ID" });
         const data = await kv.get(`session:${sessionId}`);
-        return res.status(200).json(data ? { status: "authorized", ...data } : { status: "pending" });
-    }
+        if (data) {
+            try {
+                const provider = new ethers.JsonRpcProvider(RPC_URL);
+                const contract = new ethers.Contract(
+                    CONTRACT_ADDRESS,
+                    ["function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)"],
+                    provider
+                );
 
-    if (req.method === 'POST') {
-        const { address, publicKey } = req.body;
+                // 同時抓取餘額與小數位數
+                const [rawBalance, decimals] = await Promise.all([
+                    contract.balanceOf(data.address),
+                    contract.decimals().catch(() => 18) // 如果合約沒寫 decimals，預設 18
+                ]);
 
-        // Debug Log
-        console.log("[AUTH POST] Received Data:", { address, publicKey, sessionId });
+                const formattedBalance = ethers.formatUnits(rawBalance, decimals);
+                const totalBet = await kv.get(`total_bet:${data.address.toLowerCase()}`) || 0;
 
-        if (!sessionId || !address || !publicKey) {
-            return res.status(400).json({ error: "Missing required fields", received: req.body });
+                return res.status(200).json({
+                    status: "authorized",
+                    address: data.address,
+                    publicKey: data.publicKey,
+                    balance: formattedBalance,
+                    totalBet: parseFloat(totalBet).toFixed(2),
+                    vipLevel: totalBet >= 1000 ? "👑 鑽石 VIP" : (totalBet >= 500 ? "🥇 黃金會員" : (totalBet >= 100 ? "🥈 白銀會員" : "普通會員"))
+                });
+            } catch (e) {
+                console.error("Balance Fetch Error:", e);
+                return res.status(200).json({ status: "authorized", ...data, balance: "Error", error: e.message });
+            }
         }
-
-        try {
-            // 存入 KV
-            await kv.set(`session:${sessionId}`, {
-                address: address.toLowerCase(),
-                publicKey
-            }, { ex: 600 });
-
-            console.log("[AUTH] Success! Session stored in KV.");
-            return res.status(200).json({ success: true });
-        } catch (error) {
-            console.error("[KV ERROR]", error);
-            return res.status(500).json({ error: "KV Storage failed", details: error.message });
-        }
+        return res.status(200).json({ status: "pending" });
     }
 }

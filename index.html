@@ -3,14 +3,284 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>子熙幣 ZXC | 豪華 VIP 賭場</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- 引入 QR Code 產生器 -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+    <style>
+        /* --- 豪華黑金風格 CSS (無省略) --- */
+        :root {
+            --gold: #ffcc00;
+            --gold-glow: rgba(255, 204, 0, 0.4);
+            --bg-dark: #080808;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+            --diamond-blue: #00bfff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg-dark);
+            background-image: radial-gradient(circle at 50% 50%, #1a1500 0%, var(--bg-dark) 80%);
+            color: white;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 核心卡片容器 */
+        .casino-card {
+            background: var(--glass);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--border);
+            border-radius: 35px;
+            padding: 40px;
+            width: 440px;
+            text-align: center;
+            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        /* 鑽石 VIP 特效 */
+        .vip-diamond {
+            box-shadow: 0 0 50px rgba(0, 191, 255, 0.3);
+            border-color: var(--diamond-blue);
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 900;
+            background: linear-gradient(180deg, #fff 0%, var(--gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        p {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        /* 數據面板 */
+        .user-stats {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 20px;
+            padding: 18px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 204, 0, 0.1);
+            text-align: left;
+        }
+
+        #vip-badge {
+            font-weight: 900;
+            color: var(--gold);
+            text-shadow: 0 0 10px var(--gold-glow);
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: #aaa;
+            margin: 5px 0;
+        }
+
+        .stat-row span {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        /* QR Code 區域 */
+        #qr-box {
+            background: white;
+            padding: 15px;
+            border-radius: 20px;
+            display: inline-block;
+            margin: 20px 0;
+            box-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
+            min-width: 200px;
+        }
+
+        /* 3D 硬幣動畫 */
+        .coin-box {
+            perspective: 1000px;
+            margin: 30px auto;
+            width: 140px;
+            height: 140px;
+        }
+
+        .coin {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 3.5s cubic-bezier(0.1, 0.8, 0.2, 1);
+        }
+
+        .coin div {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 6px solid #d4af37;
+            background: radial-gradient(circle, #ffdf33 0%, #b8860b 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            backface-visibility: hidden;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2), 0 0 30px var(--gold-glow);
+        }
+
+        .side-tails {
+            transform: rotateY(180deg);
+        }
+
+        /* 輸入與按鈕 */
+        input[type="number"] {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+            color: var(--gold);
+            padding: 15px;
+            width: 100%;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 1.6rem;
+            font-weight: 800;
+            outline: none;
+            margin-bottom: 20px;
+            transition: 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 15px var(--gold-glow);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 18px;
+            border-radius: 16px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-heads {
+            background: var(--gold);
+            color: #221a00;
+            box-shadow: 0 10px 20px var(--gold-glow);
+        }
+
+        .btn-tails {
+            background: #222;
+            color: white;
+            border: 1px solid #444;
+        }
+
+        button:hover {
+            transform: translateY(-3px) scale(1.02);
+            filter: brightness(1.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* 狀態文字與讀取條 */
+        #status-msg {
+            margin-top: 25px;
+            font-weight: 600;
+            min-height: 35px;
+            color: var(--gold);
+            font-size: 1.1rem;
+            line-height: 1.4;
+        }
+
+        .loader {
+            width: 22px;
+            height: 22px;
+            border: 3px solid #333;
+            border-top: 3px solid var(--gold);
+            border-radius: 50%;
+            display: inline-block;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #tx-log {
+            margin-top: 15px;
+        }
+
+        #tx-log a {
+            color: #666;
+            text-decoration: none;
+            border-bottom: 1px solid #333;
+            font-size: 0.8rem;
+            transition: 0.3s;
+        }
+
+        #tx-log a:hover {
+            color: white;
+            border-color: var(--gold);
+        }
+
+        /* 震動動畫 (失敗時用) */
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-10px);
+            }
+
+            75% {
+                transform: translateX(10px);
+            }
+        }
+    </style>
 </head>
 
 <body>
 
     <div class="casino-card" id="main-card">
+        <!-- 1. 門禁授權畫面 -->
         <div id="auth-ui">
             <h1>門禁驗證</h1>
             <p>掃描以連結你的子熙錢包</p>
@@ -18,6 +288,7 @@
             <div id="auth-msg"><span class="loader"></span> 等待硬體授權...</div>
         </div>
 
+        <!-- 2. 賭博遊戲畫面 -->
         <div id="game-ui" class="hidden">
             <div class="user-stats">
                 <span id="vip-badge">普通會員</span>
@@ -33,12 +304,14 @@
             </div>
 
             <input type="number" id="bet-amount" value="10" min="1">
+
             <div class="btn-group">
                 <button class="btn-heads" onclick="play('heads')">賭 正面</button>
                 <button class="btn-tails" onclick="play('tails')">賭 反面</button>
             </div>
+
             <p id="status-msg"></p>
-            <div id="tx-log" style="margin-top: 15px;"></div>
+            <div id="tx-log"></div>
         </div>
     </div>
 
@@ -46,6 +319,7 @@
         let user = { address: "", publicKey: "" };
         const sessionId = "session_" + Math.random().toString(36).substring(7);
 
+        // --- 初始化 QR Code ---
         function init() {
             const canvas = document.getElementById('qr-canvas');
             if (typeof QRCode !== 'undefined') {
@@ -54,38 +328,54 @@
             } else { setTimeout(init, 500); }
         }
 
+        // --- 更新數據 UI ---
         function updateUI(data) {
-            if (data.balance) document.getElementById('balance-val').innerText = parseFloat(data.balance).toLocaleString();
-            if (data.totalBet) document.getElementById('total-bet-val').innerText = data.totalBet;
+            if (data.balance !== undefined) {
+                document.getElementById('balance-val').innerText = parseFloat(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
+            }
+            if (data.totalBet !== undefined) {
+                document.getElementById('total-bet-val').innerText = data.totalBet;
+            }
             if (data.vipLevel) {
                 const badge = document.getElementById('vip-badge');
                 badge.innerText = data.vipLevel;
-                if (data.vipLevel.includes("鑽石")) document.getElementById('main-card').classList.add('vip-diamond');
+                if (data.vipLevel.includes("鑽石")) {
+                    document.getElementById('main-card').classList.add('vip-diamond');
+                } else {
+                    document.getElementById('main-card').classList.remove('vip-diamond');
+                }
             }
         }
 
+        // --- 輪詢：檢查手機是否已授權登入 ---
         async function startAuthPolling() {
             const interval = setInterval(async () => {
-                const res = await fetch(`/api/auth?sessionId=${sessionId}&t=${Date.now()}`);
-                const data = await res.json();
-                if (data.status === "authorized") {
-                    clearInterval(interval);
-                    user = data;
-                    document.getElementById('auth-ui').classList.add('hidden');
-                    document.getElementById('game-ui').classList.remove('hidden');
-                    updateUI(data);
-                }
+                try {
+                    const res = await fetch(`/api/auth?sessionId=${sessionId}&t=${Date.now()}`);
+                    const data = await res.json();
+                    if (data.status === "authorized") {
+                        clearInterval(interval);
+                        user = data;
+                        document.getElementById('auth-ui').classList.add('hidden');
+                        document.getElementById('game-ui').classList.remove('hidden');
+                        updateUI(data);
+                    }
+                } catch (e) { console.warn("登入輪詢中..."); }
             }, 2000);
         }
 
+        // --- 核心遊戲邏輯 (免下注簽名版) ---
         async function play(choice) {
             const amount = document.getElementById('bet-amount').value;
             const status = document.getElementById('status-msg');
             const coin = document.getElementById('main-coin');
             const txLog = document.getElementById('tx-log');
 
-            status.innerHTML = `<span class="loader"></span> 與區塊鏈同步中... 🎰`;
+            if (amount <= 0) { alert("請輸入有效的押注金額"); return; }
+
+            status.innerHTML = `<span class="loader"></span> 與區塊鏈同步中... 🎰<br><small style="color:#666">正在執行 Mint/Burn 交易</small>`;
             txLog.innerHTML = "";
+
             coin.style.transition = "none";
             coin.style.transform = `rotateY(0deg)`;
 
@@ -100,6 +390,7 @@
                         sessionId: sessionId
                     })
                 });
+
                 const result = await res.json();
 
                 if (result.txHash) {
@@ -109,24 +400,32 @@
 
                     setTimeout(() => {
                         if (result.isWin) {
-                            status.innerText = "🏆 贏了！獎勵 1.8x";
+                            status.innerText = "🏆 贏了！獎勵 1.8x 已入帳";
                             status.style.color = "#00ff88";
                         } else {
-                            status.innerText = "💀 輸了... 已執行銷毀";
+                            status.innerText = "💀 輸了... 賭注已執行銷毀";
                             status.style.color = "#ff4444";
                         }
+
                         updateUI({
                             balance: result.newBalance,
                             totalBet: result.totalBet,
                             vipLevel: result.vipLevel
                         });
-                        txLog.innerHTML = `<a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank">查看鏈上證明</a>`;
+
+                        txLog.innerHTML = `<a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank">查看區塊鏈交易證明</a>`;
                     }, 3600);
                 } else {
-                    status.innerText = "失敗: " + result.error;
+                    status.innerHTML = `<span style="color:#ff4444">❌ 失敗: ${result.error || "開獎異常"}</span>`;
+                    document.getElementById('main-card').style.animation = "shake 0.5s";
+                    setTimeout(() => document.getElementById('main-card').style.animation = "", 500);
                 }
-            } catch (e) { status.innerText = "網路連線失敗"; }
+            } catch (e) {
+                status.innerHTML = `<span style="color:#ff4444">❌ 網路異常，請稍後再試</span>`;
+            }
         }
+
+        // 頁面加載完成後啟動 QR Code
         window.onload = init;
     </script>
 </body>

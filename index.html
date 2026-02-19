@@ -5,9 +5,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>子熙幣 ZXC | 閃電賭場</title>
-    <!-- 引用你原本的 CSS -->
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+    <style>
+        /* 新增的賠率樣式 */
+        #odds-banner {
+            color: #ffcc00;
+            font-size: 1.2rem;
+            font-weight: 800;
+            margin: -10px 0 25px 0;
+            text-shadow: 0 0 15px rgba(255, 204, 0, 0.5);
+            letter-spacing: 2px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+            }
+
+            50% {
+                transform: scale(1.05);
+                text-shadow: 0 0 25px rgba(255, 204, 0, 0.8), 0 0 5px white;
+            }
+
+            100% {
+                transform: scale(1);
+                text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -38,6 +66,9 @@
 
             <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入金額">
 
+            <!-- 🔥 新增賠率顯示 🔥 -->
+            <div id="odds-banner">🔥 賠率 1.8 倍 (獲利 80%) 🔥</div>
+
             <div class="btn-group">
                 <button class="btn-heads" onclick="play('heads')" id="play-btn">賭 正面</button>
                 <button class="btn-tails" onclick="play('tails')" id="play-btn-2">賭 反面</button>
@@ -45,21 +76,17 @@
 
             <p id="status-msg">準備開始...</p>
 
-            <!-- 新增：顯示區塊鏈交易連結的區域 -->
             <div id="tx-log" style="margin-top: 15px; min-height: 20px; font-size: 0.85rem;"></div>
         </div>
     </div>
 
     <script>
         let user = { address: "", publicKey: "" };
-        // 產生隨機 Session ID
         const sessionId = "session_" + Math.random().toString(36).substring(7);
 
-        // --- 初始化 ---
         function init() {
             const canvas = document.getElementById('qr-canvas');
             if (typeof QRCode !== 'undefined') {
-                // 產生登入 QRCode
                 QRCode.toCanvas(canvas, `dlinker:login:${sessionId}`, { width: 200, margin: 2 });
                 startAuthPolling();
             } else {
@@ -67,27 +94,18 @@
             }
         }
 
-        // --- 更新介面數據 ---
         function updateUI(data) {
             if (!data) return;
-
-            // 更新餘額 (加上逗號分隔)
             if (data.balance !== undefined) {
                 document.getElementById('balance-val').innerText = parseFloat(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
             }
-
-            // 更新總押注
             if (data.totalBet !== undefined) {
                 document.getElementById('total-bet-val').innerText = parseFloat(data.totalBet).toFixed(2);
             }
-
-            // 更新 VIP 等級
             if (data.vipLevel) {
                 const badge = document.getElementById('vip-badge');
                 badge.innerText = data.vipLevel;
                 const card = document.getElementById('main-card');
-
-                // 簡單的 VIP 樣式切換
                 if (data.vipLevel.includes("鑽石") || data.vipLevel.includes("VIP")) {
                     card.classList.add('vip-diamond');
                 } else {
@@ -96,46 +114,29 @@
             }
         }
 
-        // --- 輪詢授權狀態 (登入邏輯) ---
         async function startAuthPolling() {
-            console.log('🚀 開始等待授權... Session:', sessionId);
-
             const pollInterval = setInterval(async () => {
                 try {
-                    const res = await fetch(`/api/auth?sessionId=${sessionId}`, {
-                        cache: 'no-store',
-                        headers: { 'Cache-Control': 'no-cache' }
-                    });
-
+                    const res = await fetch(`/api/auth?sessionId=${sessionId}`);
                     if (!res.ok) return;
                     const data = await res.json();
 
-                    // 登入成功
                     if (data.status === "authorized") {
-                        clearInterval(pollInterval); // 停止輪詢
-
+                        clearInterval(pollInterval);
                         user.address = data.address;
                         user.publicKey = data.publicKey;
 
-                        // 切換畫面
                         document.getElementById('auth-ui').classList.add('hidden');
                         document.getElementById('game-ui').classList.remove('hidden');
 
                         updateUI(data);
-
-                        // 登入後立刻刷新一次真實餘額
                         setTimeout(refreshBalance, 800);
-
-                        // 每 30 秒自動刷新餘額
                         setInterval(refreshBalance, 30000);
                     }
-                } catch (err) {
-                    console.error('Polling error:', err);
-                }
+                } catch (err) { console.error(err); }
             }, 1500);
         }
 
-        // --- 核心遊戲邏輯 ---
         async function play(choice) {
             const amountInput = document.getElementById('bet-amount');
             const amount = parseFloat(amountInput.value);
@@ -150,20 +151,18 @@
                 return;
             }
 
-            // 1. 鎖定按鈕與清空舊訊息
             btn1.disabled = true;
             btn2.disabled = true;
             status.innerHTML = `<span class="loader"></span> 區塊鏈交易中...`;
-            status.style.color = "var(--gold)";
+            status.style.color = "#ffcc00";
             txLog.innerHTML = "";
 
-            // 2. 樂觀更新 (假裝餘額已經扣除，提升體驗)
+            // 樂觀更新
             const currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
             const tempBalance = currentBalance - amount;
             document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
             try {
-                // 3. 發送請求給後端
                 const res = await fetch('/api/coinflip', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -177,60 +176,45 @@
 
                 const result = await res.json();
 
-                if (result.error) {
-                    throw new Error(result.error);
-                }
+                if (result.error) throw new Error(result.error);
 
-                // 4. 開始旋轉動畫
-                // 為了確保動畫每次都跑，我們先移除 transition 再加回去 (如果需要重置)
-                // 這裡簡單處理：根據結果決定旋轉角度
-                const baseRotation = 1800; // 轉 5 圈
+                const baseRotation = 1800;
                 const targetRotation = result.resultSide === 'heads' ? baseRotation : baseRotation + 180;
 
                 coin.style.transition = "transform 3s cubic-bezier(0.1, 0.8, 0.2, 1)";
                 coin.style.transform = `rotateY(${targetRotation}deg)`;
 
-                // 更新累積下注額與 VIP
                 updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
 
-                // 5. 等待動畫結束後顯示結果 (3秒)
                 setTimeout(() => {
-                    // 重置硬幣角度 (為了下一次動畫順暢，可選)
                     coin.style.transition = "none";
                     coin.style.transform = result.resultSide === 'heads' ? "rotateY(0deg)" : "rotateY(180deg)";
 
                     if (result.isWin) {
                         status.innerText = "🏆 恭喜！你贏了！";
-                        status.style.color = "#00ff88"; // 綠色
-
-                        // 贏了：把本金加獎金加回去顯示 (樂觀更新)
+                        status.style.color = "#00ff88";
+                        // 贏了：本金還在，只加回利潤 (0.8倍) + 剛剛扣掉的本金顯示回來
+                        // 邏輯：顯示餘額 = 扣掉本金後的餘額 + 本金 + 利潤
                         const winAmount = amount * 1.8;
                         const newBalance = tempBalance + winAmount;
                         document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
                     } else {
                         status.innerText = "💀 可惜，下次好運！";
-                        status.style.color = "#ff4444"; // 紅色
-                        // 輸了：餘額已經在前面扣過了，不用動
+                        status.style.color = "#ff4444";
                     }
 
-                    // 6. 顯示交易雜湊 (關鍵修正)
                     if (result.txHash) {
                         txLog.innerHTML = `
                             <a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank" style="color: #888; text-decoration: underline;">
                                 🔗 查看區塊鏈交易憑證 (Etherscan)
                             </a>`;
-                    } else {
-                        txLog.innerHTML = `<span style="color:orange">⚠️ 交易已送出但未回傳 Hash，請稍後刷新餘額</span>`;
                     }
 
-                    // 解鎖按鈕
                     btn1.disabled = false;
                     btn2.disabled = false;
-
-                    // 10秒後去鏈上抓真實餘額校正
                     setTimeout(refreshBalance, 10000);
 
-                }, 3000); // 配合 CSS transition 時間
+                }, 3000);
 
             } catch (e) {
                 console.error(e);
@@ -238,15 +222,12 @@
                 status.style.color = "red";
                 btn1.disabled = false;
                 btn2.disabled = false;
-                // 發生錯誤，把餘額加回去 (回復樂觀更新)
                 document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
             }
         }
 
-        // --- 從區塊鏈獲取最新餘額 ---
         async function refreshBalance() {
             if (!user.address) return;
-
             try {
                 const res = await fetch(`/api/get-balance`, {
                     method: 'POST',
@@ -254,30 +235,16 @@
                     body: JSON.stringify({ address: user.address })
                 });
                 const data = await res.json();
-
                 if (data.success) {
                     const el = document.getElementById('balance-val');
-                    // 添加一個淡入淡出的效果提示更新
-                    el.style.opacity = 0.5;
-                    setTimeout(() => {
-                        el.innerText = parseFloat(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
-                        el.style.opacity = 1;
-                    }, 200);
+                    el.innerText = parseFloat(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
                 }
-            } catch (e) {
-                console.log("餘額更新失敗 (可能是網絡問題)");
-            }
+            } catch (e) { console.log("Balance refresh failed"); }
         }
 
-        // 頁面載入
         window.onload = () => {
             init();
-            // 二次檢查防止 QRCode 庫載入延遲
-            setTimeout(() => {
-                const canvas = document.getElementById('qr-canvas');
-                // 檢查 canvas 是否為空，是的話重繪
-                if (canvas.width === 0) init();
-            }, 1000);
+            setTimeout(() => { if (!document.getElementById('qr-canvas').hasChildNodes()) init(); }, 1000);
         };
     </script>
 </body>

@@ -14,6 +14,7 @@ export default async function handler(req, res) {
     try {
         const sessionId = req.query.sessionId || (req.body && req.body.sessionId);
 
+
         // --- GET 請求：網頁端輪詢狀態 ---
         if (req.method === 'GET') {
             if (!sessionId) return res.status(200).json({ status: "pending" });
@@ -31,14 +32,14 @@ export default async function handler(req, res) {
                         CONTRACT_ADDRESS,
                         [
                             "function balanceOf(address) view returns (uint256)",
-                            "function decimals() view returns (uint8)"   // ← 新增這行
+                            "function decimals() view returns (uint8)"   // ← 關鍵：動態取得
                         ],
                         provider
                     );
 
                     const balanceRaw = await contract.balanceOf(sessionData.address);
-                    const decimals = await contract.decimals();           // ← 動態取得
-                    balance = ethers.formatUnits(balanceRaw, decimals);   // ← 改這裡
+                    const decimals = await contract.decimals();           // ← 這裡會抓到你的 12
+                    balance = ethers.formatUnits(balanceRaw, decimals);   // ← 正確格式化
 
                     totalBet = await kv.get(`total_bet:${sessionData.address.toLowerCase()}`) || 0;
                     if (totalBet >= 1000) vipLevel = "👑 鑽石 VIP";

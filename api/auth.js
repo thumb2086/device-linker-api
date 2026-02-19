@@ -21,16 +21,24 @@ export default async function handler(req, res) {
             const sessionData = await kv.get(`session:${sessionId}`);
 
             if (sessionData) {
-                // 🚀 關鍵修正：將區塊鏈查詢包在獨立的 try-catch 中
                 let balance = "0.00";
                 let totalBet = 0;
                 let vipLevel = "普通會員";
 
                 try {
                     const provider = new ethers.JsonRpcProvider(RPC_URL);
-                    const contract = new ethers.Contract(CONTRACT_ADDRESS, ["function balanceOf(address) view returns (uint256)"], provider);
+                    const contract = new ethers.Contract(
+                        CONTRACT_ADDRESS,
+                        [
+                            "function balanceOf(address) view returns (uint256)",
+                            "function decimals() view returns (uint8)"   // ← 新增這行
+                        ],
+                        provider
+                    );
+
                     const balanceRaw = await contract.balanceOf(sessionData.address);
-                    balance = ethers.formatUnits(balanceRaw, 18);
+                    const decimals = await contract.decimals();           // ← 動態取得
+                    balance = ethers.formatUnits(balanceRaw, decimals);   // ← 改這裡
 
                     totalBet = await kv.get(`total_bet:${sessionData.address.toLowerCase()}`) || 0;
                     if (totalBet >= 1000) vipLevel = "👑 鑽石 VIP";
@@ -39,7 +47,6 @@ export default async function handler(req, res) {
 
                 } catch (blockchainError) {
                     console.error("無法從鏈上獲取數據，但仍允許登入:", blockchainError.message);
-                    // 就算查不到餘額，也要回傳授權成功，讓使用者先進遊戲
                 }
 
                 return res.status(200).json({

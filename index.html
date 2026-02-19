@@ -56,6 +56,7 @@
         }
 
         function updateUI(data) {
+            if (!data) return;
             if (data.balance !== undefined) document.getElementById('balance-val').innerText = parseFloat(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
             if (data.totalBet !== undefined) document.getElementById('total-bet-val').innerText = data.totalBet;
             if (data.vipLevel) {
@@ -65,7 +66,43 @@
         }
 
         async function startAuthPolling() {
-            // ... (這部分邏輯與之前版本相同)
+            console.log('🚀 開始輪詢授權狀態... sessionId:', sessionId);
+
+            const pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/auth?sessionId=${sessionId}`, {
+                        cache: 'no-store',
+                        headers: { 'Cache-Control': 'no-cache' }
+                    });
+
+                    if (!res.ok) return;
+
+                    const data = await res.json();
+
+                    // 🔥 授權成功 → 切換畫面
+                    if (data.status === "authorized") {
+                        clearInterval(pollInterval);
+
+                        // 儲存使用者資料
+                        user.address = data.address;
+                        user.publicKey = data.publicKey;
+
+                        // UI 切換
+                        document.getElementById('auth-ui').classList.add('hidden');
+                        document.getElementById('game-ui').classList.remove('hidden');
+
+                        // 更新餘額、VIP 等資訊
+                        updateUI(data);
+
+                        console.log('🎉 授權成功！已進入遊戲畫面', data);
+
+                        // 每 30 秒自動刷新一次真實餘額（防止樂觀更新偏差）
+                        setInterval(refreshBalance, 30000);
+                    }
+                } catch (err) {
+                    console.error('Polling 失敗（可忽略）:', err);
+                }
+            }, 1200); // 每 1.2 秒輪詢一次，夠快又不浪費
         }
 
         // --- 閃電賭博邏輯 (樂觀更新) ---
@@ -150,7 +187,15 @@
             }
         }
 
-        window.onload = init;
+        window.onload = () => {
+            init();
+            // 防止 QRCode 載入失敗
+            setTimeout(() => {
+                if (!document.getElementById('qr-canvas').hasAttribute('data-qr')) {
+                    init();
+                }
+            }, 800);
+        };
     </script>
 </body>
 

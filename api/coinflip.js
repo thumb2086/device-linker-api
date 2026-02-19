@@ -1,3 +1,4 @@
+// api/coinflip.js
 import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";

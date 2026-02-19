@@ -3,84 +3,56 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>子熙幣 ZXC | 頂級豪華賭場</title>
-    <!-- 引入 QR Code 產生器 -->
+    <title>子熙幣 ZXC | 豪華地下賭場</title>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     <style>
         :root {
             --gold: #ffcc00;
-            --gold-glow: rgba(255, 204, 0, 0.4);
-            --bg-dark: #080808;
+            --dark: #080808;
             --glass: rgba(255, 255, 255, 0.05);
-            --border: rgba(255, 255, 255, 0.1);
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
         }
 
         body {
-            background: var(--bg-dark);
-            background-image: radial-gradient(circle at 50% 50%, #1a1500 0%, var(--bg-dark) 80%);
+            background: var(--dark);
             color: white;
-            font-family: 'Segoe UI', -apple-system, sans-serif;
+            font-family: 'Inter', sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            overflow-x: hidden;
+            margin: 0;
+            overflow: hidden;
         }
 
-        /* 核心卡片容器 */
         .casino-card {
             background: var(--glass);
             backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border: 1px solid var(--border);
-            border-radius: 32px;
-            padding: 50px 40px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            padding: 50px;
             width: 420px;
             text-align: center;
-            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
-            position: relative;
+            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.7);
         }
 
         h1 {
             font-size: 2.2rem;
-            font-weight: 900;
-            background: linear-gradient(180deg, #fff 0%, var(--gold) 100%);
+            background: linear-gradient(180deg, #fff, var(--gold));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 10px;
-            letter-spacing: 1px;
         }
 
-        p {
-            color: #888;
-            font-size: 0.9rem;
-            margin-bottom: 20px;
-        }
-
-        /* QR Code 區域 */
         #qr-box {
             background: white;
             padding: 15px;
             border-radius: 20px;
             display: inline-block;
             margin: 25px 0;
-            box-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
             min-width: 230px;
             min-height: 230px;
         }
 
-        #qr-canvas {
-            display: block;
-        }
-
-        /* 3D 硬幣動畫 */
         .coin-box {
             perspective: 1000px;
             margin: 40px auto;
@@ -108,80 +80,37 @@
             justify-content: center;
             font-size: 50px;
             backface-visibility: hidden;
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2), 0 0 30px var(--gold-glow);
         }
 
         .side-tails {
             transform: rotateY(180deg);
         }
 
-        /* 輸入與按鈕 */
-        .input-container {
-            margin: 25px 0;
-            text-align: left;
-        }
-
-        .input-container label {
-            display: block;
-            color: #666;
-            font-size: 0.8rem;
-            margin-bottom: 8px;
-            margin-left: 5px;
-        }
-
-        input[type="number"] {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid #333;
-            color: var(--gold);
-            padding: 18px;
-            width: 100%;
-            border-radius: 15px;
-            text-align: center;
-            font-size: 1.5rem;
-            font-weight: bold;
-            outline: none;
-        }
-
         .btn-group {
             display: flex;
             gap: 15px;
+            margin-top: 25px;
         }
 
         button {
             flex: 1;
             padding: 18px;
-            border-radius: 16px;
+            border-radius: 15px;
             border: none;
-            font-size: 1rem;
-            font-weight: 800;
+            font-weight: 900;
             cursor: pointer;
             transition: 0.3s;
         }
 
         .btn-heads {
             background: var(--gold);
-            color: #332200;
-            box-shadow: 0 10px 20px var(--gold-glow);
+            color: black;
         }
 
         .btn-tails {
             background: #222;
             color: white;
             border: 1px solid #444;
-        }
-
-        button:hover {
-            transform: translateY(-3px);
-            filter: brightness(1.2);
-        }
-
-        /* 狀態訊息 */
-        #status-msg {
-            margin-top: 30px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            min-height: 30px;
-            color: var(--gold);
         }
 
         .loader {
@@ -205,28 +134,17 @@
         .hidden {
             display: none !important;
         }
-
-        #tx-log a {
-            color: #888;
-            text-decoration: none;
-            border-bottom: 1px solid #444;
-            font-size: 0.8rem;
-        }
     </style>
 </head>
 
 <body>
-
     <div class="casino-card">
-        <!-- 1. 登入授權畫面 -->
         <div id="auth-ui">
             <h1>門禁驗證</h1>
             <p>請使用手機掃描登入</p>
             <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
             <div id="auth-msg"><span class="loader"></span> 等待硬體授權中...</div>
         </div>
-
-        <!-- 2. 賭博遊戲畫面 -->
         <div id="game-ui" class="hidden">
             <h1 id="user-display">ZXC CASINO</h1>
             <div class="coin-box">
@@ -235,124 +153,58 @@
                     <div class="side-tails">🧧</div>
                 </div>
             </div>
-
-            <div class="input-container">
-                <label>下注金額 (ZXC)</label>
-                <input type="number" id="bet-amount" value="10" min="1">
-            </div>
-
-            <div class="btn-group">
-                <button class="btn-heads" onclick="play('heads')">賭 正面</button>
-                <button class="btn-tails" onclick="play('tails')">賭 反面</button>
-            </div>
-
-            <p id="status-msg"></p>
-            <div id="tx-log" style="margin-top: 15px;"></div>
+            <input type="number" id="bet-amount" value="10"
+                style="background: rgba(255,255,255,0.05); border: 1px solid #333; color: gold; padding: 15px; width: 80%; border-radius: 12px; text-align: center; font-size: 1.5rem; outline: none;">
+            <div class="btn-group"><button class="btn-heads" onclick="play('heads')">賭 正面</button><button
+                    class="btn-tails" onclick="play('tails')">賭 反面</button></div>
+            <p id="status-msg" style="margin-top: 25px; font-weight: bold; color: var(--gold);"></p>
+            <div id="tx-log" style="margin-top: 15px; font-size: 0.8rem;"></div>
         </div>
     </div>
-
     <script>
         let user = { address: "", publicKey: "" };
-        // 產生本次網頁會話的唯一 ID
         const sessionId = "session_" + Math.random().toString(36).substring(7);
-
-        // --- 初始化 QR Code ---
         function init() {
             const canvas = document.getElementById('qr-canvas');
-            const loginStr = `dlinker:login:${sessionId}`;
-
             if (typeof QRCode !== 'undefined') {
-                QRCode.toCanvas(canvas, loginStr, { width: 200, margin: 2 }, function (error) {
-                    if (error) {
-                        console.error("QR 產生失敗:", error);
-                    } else {
-                        console.log("QR 產生成功，正在輪詢登入狀態...");
-                        startAuthPolling();
-                    }
-                });
-            } else {
-                setTimeout(init, 500); // 如果套件沒加載完就等 0.5 秒
-            }
+                QRCode.toCanvas(canvas, `dlinker:login:${sessionId}`, { width: 200, margin: 2 });
+                startAuthPolling();
+            } else { setTimeout(init, 500); }
         }
-
-        // --- 輪詢：檢查手機是否已掃碼並 POST 授權資料 ---
-        function startAuthPolling() {
+        async function startAuthPolling() {
             const interval = setInterval(async () => {
-                try {
-                    // 加入 t=Date.now() 強制破解瀏覽器 304 快取
-                    const res = await fetch(`/api/auth?sessionId=${sessionId}&t=${Date.now()}`);
-                    const data = await res.json();
-
-                    if (data.status === "authorized") {
-                        clearInterval(interval);
-                        user = data;
-                        showGame();
-                    }
-                } catch (e) {
-                    console.warn("登入輪詢中...");
+                const res = await fetch(`/api/auth?sessionId=${sessionId}&t=${Date.now()}`);
+                const data = await res.json();
+                if (data.status === "authorized") {
+                    clearInterval(interval);
+                    user = data;
+                    document.getElementById('auth-ui').classList.add('hidden');
+                    document.getElementById('game-ui').classList.remove('hidden');
+                    document.getElementById('user-display').innerText = user.address.substring(0, 10) + "...";
                 }
             }, 2000);
         }
-
-        function showGame() {
-            document.getElementById('auth-ui').classList.add('hidden');
-            document.getElementById('game-ui').classList.remove('hidden');
-            // 顯示簡短地址
-            document.getElementById('user-display').innerText = user.address.substring(0, 8) + "...";
-        }
-
-        // --- 賭博遊戲邏輯 ---
         async function play(choice) {
             const amount = document.getElementById('bet-amount').value;
             const status = document.getElementById('status-msg');
             const coin = document.getElementById('main-coin');
-            const txLog = document.getElementById('tx-log');
-
-            // 生成這次遊戲的 ID，讓手機 POST 結果時對應
             const gameId = "game_" + Math.random().toString(36).substring(7);
-
-            status.innerHTML = `<span class="loader"></span> 請在 App 簽名這次下注...`;
-            txLog.innerHTML = "";
-            coin.style.transition = "transform 0.5s"; // 重置旋轉速度
-            coin.style.transform = `rotateY(0deg)`;
-
-            // 提示訊息 (Debug 用)
-            console.log("Android 簽名內容: coinflip:" + choice + ":" + amount);
-            console.log("Android 下注 POST 的 sessionId: " + gameId);
-
-            // 開始輪詢遊戲結果 (等待手機 POST 到 /api/coinflip)
+            status.innerHTML = `<span class="loader"></span> 請在手機確認下注...`;
             const gameInterval = setInterval(async () => {
-                try {
-                    // 同樣加入隨機參數破解 304 快取
-                    const res = await fetch(`/api/coinflip?sessionId=${gameId}&t=${Date.now()}`);
-                    const result = await res.json();
-
-                    if (result.status === "finished") {
-                        clearInterval(gameInterval);
-
-                        // 設定硬幣旋轉動畫
-                        coin.style.transition = "transform 3.5s cubic-bezier(0.1, 0.8, 0.2, 1)";
-                        // 正面轉 1800度, 反面轉 1980度
-                        const rotation = result.resultSide === 'heads' ? 1800 : 1980;
-                        coin.style.transform = `rotateY(${rotation}deg)`;
-
-                        setTimeout(() => {
-                            if (result.isWin) {
-                                status.innerText = "🏆 恭喜大贏家！已發放雙倍獎勵";
-                                status.style.color = "#00ff88";
-                            } else {
-                                status.innerText = "💀 輸了... 賭注已被銷毀 (Burn)";
-                                status.style.color = "#ff4444";
-                            }
-                            txLog.innerHTML = `<a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank">查看區塊鏈交易證明</a>`;
-                        }, 3600);
-                    }
-                } catch (e) {
-                    console.warn("等待遊戲開獎...");
+                const res = await fetch(`/api/coinflip?sessionId=${gameId}&t=${Date.now()}`);
+                const result = await res.json();
+                if (result.status === "finished") {
+                    clearInterval(gameInterval);
+                    const rotation = result.resultSide === 'heads' ? 1800 : 1980;
+                    coin.style.transform = `rotateY(${rotation}deg)`;
+                    setTimeout(() => {
+                        status.innerText = result.isWin ? "🏆 贏了！獎金已發放" : "💀 輸了... 已銷毀硬幣";
+                        status.style.color = result.isWin ? "#00ff88" : "#ff4444";
+                        document.getElementById('tx-log').innerHTML = `<a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank" style="color:#888;">查看鏈上證明</a>`;
+                    }, 3600);
                 }
             }, 2000);
         }
-
         window.onload = init;
     </script>
 </body>

@@ -1,62 +1,33 @@
-/* 變數定義 */
 :root {
     --gold: #ffcc00;
-    --gold-glow: rgba(255, 204, 0, 0.4);
-    --bg-dark: #080808;
-    --glass: rgba(255, 255, 255, 0.05);
-    --border: rgba(255, 255, 255, 0.1);
-}
-
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+    --gold-glow: rgba(255, 204, 0, 0.3);
+    --bg: #050505;
 }
 
 body {
-    background: var(--bg-dark);
-    background-image: radial-gradient(circle at 50% 50%, #1a1500 0%, var(--bg-dark) 80%);
+    background: var(--bg);
     color: white;
-    font-family: 'Inter', -apple-system, sans-serif;
+    font-family: 'Inter', sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
+    height: 100vh;
+    margin: 0;
 }
 
-/* 核心卡片容器 */
+/* 豪華卡片 */
 .casino-card {
-    background: var(--glass);
-    backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
-    border: 1px solid var(--border);
-    border-radius: 32px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 40px;
     padding: 60px 40px;
-    width: 420px;
+    width: 400px;
     text-align: center;
-    box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
 }
 
-h1 {
-    font-size: 2.2rem;
-    font-weight: 900;
-    background: linear-gradient(180deg, #fff 0%, var(--gold) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 10px;
-    letter-spacing: 1px;
-}
-
-#qr-box {
-    background: white;
-    padding: 15px;
-    border-radius: 20px;
-    display: inline-block;
-    margin: 25px 0;
-    box-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
-}
-
-/* 3D 硬幣 */
+/* 3D 硬幣動畫 */
 .coin-box {
     perspective: 1000px;
     margin: 40px auto;
@@ -69,7 +40,7 @@ h1 {
     height: 100%;
     position: relative;
     transform-style: preserve-3d;
-    transition: transform 3s cubic-bezier(0.1, 0.8, 0.2, 1);
+    transition: transform 3s;
 }
 
 .coin div {
@@ -77,73 +48,35 @@ h1 {
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    border: 5px solid #d4af37;
+    border: 6px solid #d4af37;
     background: radial-gradient(circle, #ffdf33 0%, #b8860b 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 50px;
     backface-visibility: hidden;
-    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2), 0 0 30px var(--gold-glow);
+    box-shadow: 0 0 30px var(--gold-glow);
 }
 
 .side-tails {
     transform: rotateY(180deg);
 }
 
-/* 下注輸入框 */
-.input-container {
-    margin: 25px 0;
-    text-align: left;
-}
-
-.input-container label {
-    display: block;
-    color: #666;
-    font-size: 0.8rem;
-    margin-bottom: 8px;
-    margin-left: 5px;
-}
-
-input[type="number"] {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid #333;
-    color: var(--gold);
-    padding: 18px;
-    width: 100%;
-    border-radius: 15px;
-    text-align: center;
-    font-size: 1.5rem;
-    font-weight: bold;
-    outline: none;
-    transition: 0.3s;
-}
-
-input[type="number"]:focus {
-    border-color: var(--gold);
-    box-shadow: 0 0 15px var(--gold-glow);
-}
-
-/* 按鈕群組 */
-.btn-group {
-    display: flex;
-    gap: 15px;
-}
-
+/* 金色按鈕 */
 button {
     flex: 1;
     padding: 18px;
-    border-radius: 16px;
+    border-radius: 15px;
     border: none;
-    font-size: 1rem;
-    font-weight: 800;
+    font-weight: 900;
     cursor: pointer;
     transition: 0.3s;
+    font-size: 1.1rem;
 }
 
 .btn-heads {
     background: var(--gold);
-    color: #332200;
+    color: black;
     box-shadow: 0 10px 20px var(--gold-glow);
 }
 
@@ -158,42 +91,20 @@ button:hover {
     filter: brightness(1.2);
 }
 
-button:active {
-    transform: translateY(0);
-}
-
-/* 狀態訊息 */
-#status-msg {
-    margin-top: 30px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    min-height: 30px;
-}
-
-/* 載入動畫 */
-.loader {
-    width: 20px;
-    height: 20px;
-    border: 2px solid #333;
-    border-top: 2px solid var(--gold);
-    border-radius: 50%;
-    display: inline-block;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    100% {
-        transform: rotate(360deg);
-    }
+/* 下注輸入 */
+input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333;
+    color: gold;
+    padding: 15px;
+    width: 80%;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 1.5rem;
+    outline: none;
+    margin-bottom: 20px;
 }
 
 .hidden {
     display: none !important;
-}
-
-#tx-log a {
-    color: #888;
-    text-decoration: none;
-    border-bottom: 1px solid #444;
-    padding-bottom: 2px;
 }

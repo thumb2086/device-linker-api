@@ -1,212 +1,51 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
+async function play(choice) {
+const amount = document.getElementById('bet-amount').value;
+const status = document.getElementById('status-msg');
+const coin = document.getElementById('main-coin');
+const txLog = document.getElementById('tx-log');
 
-<head>
-    <meta charset="UTF-8">
-    <title>子熙幣 ZXC | 豪華地下賭場</title>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
-    <style>
-        :root {
-            --gold: #ffcc00;
-            --dark: #080808;
-            --glass: rgba(255, 255, 255, 0.05);
-        }
+status.innerHTML = `<span class="loader"></span> 正在開獎中... 🎰`;
+txLog.innerHTML = "";
 
-        body {
-            background: var(--dark);
-            color: white;
-            font-family: 'Inter', sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            overflow: hidden;
-        }
+// 重置硬幣
+coin.style.transition = "none";
+coin.style.transform = `rotateY(0deg)`;
 
-        .casino-card {
-            background: var(--glass);
-            backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 30px;
-            padding: 50px;
-            width: 420px;
-            text-align: center;
-            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.7);
-        }
+try {
+// 🚀 直接呼叫後端開獎，不需要手機簽名
+const res = await fetch('/api/coinflip', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+address: user.address,
+amount: amount,
+choice: choice,
+sessionId: sessionId // 帶上登入時的 sessionId 即可
+})
+});
 
-        h1 {
-            font-size: 2.2rem;
-            background: linear-gradient(180deg, #fff, var(--gold));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 10px;
-        }
+const result = await res.json();
 
-        #qr-box {
-            background: white;
-            padding: 15px;
-            border-radius: 20px;
-            display: inline-block;
-            margin: 25px 0;
-            min-width: 230px;
-            min-height: 230px;
-        }
+if (result.isWin !== undefined) {
+// 執行旋轉動畫
+coin.style.transition = "transform 3s cubic-bezier(0.1, 0.8, 0.2, 1)";
+const rotation = result.resultSide === 'heads' ? 1800 : 1980;
+coin.style.transform = `rotateY(${rotation}deg)`;
 
-        .coin-box {
-            perspective: 1000px;
-            margin: 40px auto;
-            width: 140px;
-            height: 140px;
-        }
-
-        .coin {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform 3.5s cubic-bezier(0.1, 0.8, 0.2, 1);
-        }
-
-        .coin div {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            border: 5px solid #d4af37;
-            background: radial-gradient(circle, #ffdf33 0%, #b8860b 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 50px;
-            backface-visibility: hidden;
-        }
-
-        .side-tails {
-            transform: rotateY(180deg);
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 15px;
-            margin-top: 25px;
-        }
-
-        button {
-            flex: 1;
-            padding: 18px;
-            border-radius: 15px;
-            border: none;
-            font-weight: 900;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-
-        .btn-heads {
-            background: var(--gold);
-            color: black;
-        }
-
-        .btn-tails {
-            background: #222;
-            color: white;
-            border: 1px solid #444;
-        }
-
-        .loader {
-            width: 18px;
-            height: 18px;
-            border: 2px solid #333;
-            border-top: 2px solid var(--gold);
-            border-radius: 50%;
-            display: inline-block;
-            animation: spin 1s linear infinite;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-
-        @keyframes spin {
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        .hidden {
-            display: none !important;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="casino-card">
-        <div id="auth-ui">
-            <h1>門禁驗證</h1>
-            <p>請使用手機掃描登入</p>
-            <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
-            <div id="auth-msg"><span class="loader"></span> 等待硬體授權中...</div>
-        </div>
-        <div id="game-ui" class="hidden">
-            <h1 id="user-display">ZXC CASINO</h1>
-            <div class="coin-box">
-                <div id="main-coin" class="coin">
-                    <div class="side-heads">🪙</div>
-                    <div class="side-tails">🧧</div>
-                </div>
-            </div>
-            <input type="number" id="bet-amount" value="10"
-                style="background: rgba(255,255,255,0.05); border: 1px solid #333; color: gold; padding: 15px; width: 80%; border-radius: 12px; text-align: center; font-size: 1.5rem; outline: none;">
-            <div class="btn-group"><button class="btn-heads" onclick="play('heads')">賭 正面</button><button
-                    class="btn-tails" onclick="play('tails')">賭 反面</button></div>
-            <p id="status-msg" style="margin-top: 25px; font-weight: bold; color: var(--gold);"></p>
-            <div id="tx-log" style="margin-top: 15px; font-size: 0.8rem;"></div>
-        </div>
-    </div>
-    <script>
-        let user = { address: "", publicKey: "" };
-        const sessionId = "session_" + Math.random().toString(36).substring(7);
-        function init() {
-            const canvas = document.getElementById('qr-canvas');
-            if (typeof QRCode !== 'undefined') {
-                QRCode.toCanvas(canvas, `dlinker:login:${sessionId}`, { width: 200, margin: 2 });
-                startAuthPolling();
-            } else { setTimeout(init, 500); }
-        }
-        async function startAuthPolling() {
-            const interval = setInterval(async () => {
-                const res = await fetch(`/api/auth?sessionId=${sessionId}&t=${Date.now()}`);
-                const data = await res.json();
-                if (data.status === "authorized") {
-                    clearInterval(interval);
-                    user = data;
-                    document.getElementById('auth-ui').classList.add('hidden');
-                    document.getElementById('game-ui').classList.remove('hidden');
-                    document.getElementById('user-display').innerText = user.address.substring(0, 10) + "...";
-                }
-            }, 2000);
-        }
-        async function play(choice) {
-            const amount = document.getElementById('bet-amount').value;
-            const status = document.getElementById('status-msg');
-            const coin = document.getElementById('main-coin');
-            const gameId = "game_" + Math.random().toString(36).substring(7);
-            status.innerHTML = `<span class="loader"></span> 請在手機確認下注...`;
-            const gameInterval = setInterval(async () => {
-                const res = await fetch(`/api/coinflip?sessionId=${gameId}&t=${Date.now()}`);
-                const result = await res.json();
-                if (result.status === "finished") {
-                    clearInterval(gameInterval);
-                    const rotation = result.resultSide === 'heads' ? 1800 : 1980;
-                    coin.style.transform = `rotateY(${rotation}deg)`;
-                    setTimeout(() => {
-                        status.innerText = result.isWin ? "🏆 贏了！獎金已發放" : "💀 輸了... 已銷毀硬幣";
-                        status.style.color = result.isWin ? "#00ff88" : "#ff4444";
-                        document.getElementById('tx-log').innerHTML = `<a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank" style="color:#888;">查看鏈上證明</a>`;
-                    }, 3600);
-                }
-            }, 2000);
-        }
-        window.onload = init;
-    </script>
-</body>
-
-</html>
+setTimeout(() => {
+if (result.isWin) {
+status.innerText = "🏆 贏了！獎金已入帳";
+status.style.color = "#00ff88";
+} else {
+status.innerText = "💀 輸了... 餘額已銷毀";
+status.style.color = "#ff4444";
+}
+txLog.innerHTML = `<a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank">查看區塊鏈證明</a>`;
+}, 3100);
+} else {
+status.innerText = "失敗: " + result.error;
+}
+} catch (e) {
+status.innerText = "網路錯誤";
+}
+}

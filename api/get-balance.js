@@ -23,9 +23,9 @@ export default async function handler(req, res) {
         // 4. 呼叫合約取得原始 BigInt 餘額
         const balance = await contract.balanceOf(cleanAddress);
 
-        // 5. 格式化輸出 (考慮 18 位小數)
-        // 使用 formatUnits 將 10000100000000000000000000 轉為 10000100
-        const formattedBalance = ethers.formatUnits(balance, 18);
+        // 5. 格式化輸出 (改為動態獲取或正確的 12)
+        const decimals = await contract.decimals ? await contract.decimals() : 12;
+        const formattedBalance = ethers.formatUnits(balance, decimals);
 
         console.log(`查詢地址: ${cleanAddress}, 餘額: ${formattedBalance}`);
 

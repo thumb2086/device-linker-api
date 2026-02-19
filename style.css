@@ -1,33 +1,49 @@
 :root {
     --gold: #ffcc00;
-    --gold-glow: rgba(255, 204, 0, 0.3);
-    --bg: #050505;
+    --gold-glow: rgba(255, 204, 0, 0.4);
+    --bg-dark: #080808;
+    --glass: rgba(255, 255, 255, 0.05);
 }
 
 body {
-    background: var(--bg);
+    background: var(--bg-dark);
+    background-image: radial-gradient(circle at 50% 50%, #1a1500 0%, var(--bg-dark) 80%);
     color: white;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Segoe UI', sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     margin: 0;
 }
 
-/* 豪華卡片 */
 .casino-card {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(20px);
+    background: var(--glass);
+    backdrop-filter: blur(25px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 40px;
-    padding: 60px 40px;
-    width: 400px;
+    border-radius: 35px;
+    padding: 50px;
+    width: 420px;
     text-align: center;
-    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
 }
 
-/* 3D 硬幣動畫 */
+h1 {
+    font-size: 2.2rem;
+    font-weight: 900;
+    background: linear-gradient(180deg, #fff, var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+#qr-box {
+    background: white;
+    padding: 15px;
+    border-radius: 20px;
+    display: inline-block;
+    margin: 25px 0;
+}
+
 .coin-box {
     perspective: 1000px;
     margin: 40px auto;
@@ -40,7 +56,7 @@ body {
     height: 100%;
     position: relative;
     transform-style: preserve-3d;
-    transition: transform 3s;
+    transition: transform 3s cubic-bezier(0.1, 0.8, 0.2, 1);
 }
 
 .coin div {
@@ -62,16 +78,32 @@ body {
     transform: rotateY(180deg);
 }
 
-/* 金色按鈕 */
+input[type="number"] {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333;
+    color: gold;
+    padding: 15px;
+    width: 100%;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 1.5rem;
+    outline: none;
+    margin-bottom: 25px;
+}
+
+.btn-group {
+    display: flex;
+    gap: 15px;
+}
+
 button {
     flex: 1;
     padding: 18px;
-    border-radius: 15px;
+    border-radius: 16px;
     border: none;
     font-weight: 900;
     cursor: pointer;
     transition: 0.3s;
-    font-size: 1.1rem;
 }
 
 .btn-heads {
@@ -91,20 +123,38 @@ button:hover {
     filter: brightness(1.2);
 }
 
-/* 下注輸入 */
-input {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid #333;
-    color: gold;
-    padding: 15px;
-    width: 80%;
-    border-radius: 12px;
-    text-align: center;
-    font-size: 1.5rem;
-    outline: none;
-    margin-bottom: 20px;
+#status-msg {
+    margin-top: 25px;
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: var(--gold);
+}
+
+#tx-log a {
+    color: #888;
+    text-decoration: none;
+    font-size: 0.8rem;
+    border-bottom: 1px solid #333;
 }
 
 .hidden {
     display: none !important;
+}
+
+.loader {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #333;
+    border-top: 2px solid var(--gold);
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin 1s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
 }

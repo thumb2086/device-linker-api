@@ -1,51 +1,117 @@
-async function play(choice) {
-const amount = document.getElementById('bet-amount').value;
-const status = document.getElementById('status-msg');
-const coin = document.getElementById('main-coin');
-const txLog = document.getElementById('tx-log');
+<!DOCTYPE html>
+<html lang="zh-TW">
 
-status.innerHTML = `<span class="loader"></span> 正在開獎中... 🎰`;
-txLog.innerHTML = "";
+<head>
+    <meta charset="UTF-8">
+    <title>子熙幣 ZXC | 豪華地下賭場</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+</head>
 
-// 重置硬幣
-coin.style.transition = "none";
-coin.style.transform = `rotateY(0deg)`;
+<body>
+    <div class="casino-card">
+        <div id="auth-ui">
+            <h1>門禁驗證</h1>
+            <p>掃描連結錢包即可開始遊戲</p>
+            <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
+            <div id="auth-msg"><span class="loader"></span> 等待硬體授權...</div>
+        </div>
 
-try {
-// 🚀 直接呼叫後端開獎，不需要手機簽名
-const res = await fetch('/api/coinflip', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({
-address: user.address,
-amount: amount,
-choice: choice,
-sessionId: sessionId // 帶上登入時的 sessionId 即可
-})
-});
+        <div id="game-ui" class="hidden">
+            <h1 id="user-display">ZXC CASINO</h1>
+            <div class="coin-box">
+                <div id="main-coin" class="coin">
+                    <div class="side-heads">🪙</div>
+                    <div class="side-tails">🧧</div>
+                </div>
+            </div>
+            <input type="number" id="bet-amount" value="10" min="1">
+            <div class="btn-group">
+                <button class="btn-heads" onclick="play('heads')">賭 正面</button>
+                <button class="btn-tails" onclick="play('tails')">賭 反面</button>
+            </div>
+            <p id="status-msg"></p>
+            <div id="tx-log" style="margin-top: 15px;"></div>
+        </div>
+    </div>
 
-const result = await res.json();
+    <script>
+        let user = { address: "", publicKey: "" };
+        const sessionId = "session_" + Math.random().toString(36).substring(7);
 
-if (result.isWin !== undefined) {
-// 執行旋轉動畫
-coin.style.transition = "transform 3s cubic-bezier(0.1, 0.8, 0.2, 1)";
-const rotation = result.resultSide === 'heads' ? 1800 : 1980;
-coin.style.transform = `rotateY(${rotation}deg)`;
+        function init() {
+            const canvas = document.getElementById('qr-canvas');
+            if (typeof QRCode !== 'undefined') {
+                QRCode.toCanvas(canvas, `dlinker:login:${sessionId}`, { width: 200, margin: 2 });
+                startAuthPolling();
+            } else { setTimeout(init, 500); }
+        }
 
-setTimeout(() => {
-if (result.isWin) {
-status.innerText = "🏆 贏了！獎金已入帳";
-status.style.color = "#00ff88";
-} else {
-status.innerText = "💀 輸了... 餘額已銷毀";
-status.style.color = "#ff4444";
-}
-txLog.innerHTML = `<a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank">查看區塊鏈證明</a>`;
-}, 3100);
-} else {
-status.innerText = "失敗: " + result.error;
-}
-} catch (e) {
-status.innerText = "網路錯誤";
-}
-}
+        async function startAuthPolling() {
+            const interval = setInterval(async () => {
+                const res = await fetch(`/api/auth?sessionId=${sessionId}&t=${Date.now()}`);
+                const data = await res.json();
+                if (data.status === "authorized") {
+                    clearInterval(interval);
+                    user = data;
+                    document.getElementById('auth-ui').classList.add('hidden');
+                    document.getElementById('game-ui').classList.remove('hidden');
+                    document.getElementById('user-display').innerText = user.address.substring(0, 10) + "...";
+                }
+            }, 2000);
+        }
+
+        // 🚀 修改後的 play 函數：點擊即開獎
+        async function play(choice) {
+            const amount = document.getElementById('bet-amount').value;
+            const status = document.getElementById('status-msg');
+            const coin = document.getElementById('main-coin');
+            const txLog = document.getElementById('tx-log');
+
+            status.innerHTML = `<span class="loader"></span> 正在開獎中... 🎰`;
+            txLog.innerHTML = "";
+            coin.style.transition = "none";
+            coin.style.transform = `rotateY(0deg)`;
+
+            try {
+                // 發送請求給後端，後端會檢查 sessionId 是否已在 KV 中被授權過
+                const res = await fetch('/api/coinflip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        address: user.address,
+                        amount: amount,
+                        choice: choice,
+                        sessionId: sessionId
+                    })
+                });
+
+                const result = await res.json();
+
+                if (result.isWin !== undefined) {
+                    coin.style.transition = "transform 3s cubic-bezier(0.1, 0.8, 0.2, 1)";
+                    const rotation = result.resultSide === 'heads' ? 1800 : 1980;
+                    coin.style.transform = `rotateY(${rotation}deg)`;
+
+                    setTimeout(() => {
+                        if (result.isWin) {
+                            status.innerText = "🏆 贏了！獎勵已發放";
+                            status.style.color = "#00ff88";
+                        } else {
+                            status.innerText = "💀 輸了... 已銷毀硬幣";
+                            status.style.color = "#ff4444";
+                        }
+                        txLog.innerHTML = `<a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank">查看鏈上交易證明</a>`;
+                    }, 3100);
+                } else {
+                    status.innerText = "失敗: " + result.error;
+                }
+            } catch (e) {
+                status.innerText = "網路錯誤";
+            }
+        }
+        window.onload = init;
+    </script>
+</body>
+
+</html>

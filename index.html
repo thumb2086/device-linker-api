@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>子熙幣 ZXC | 頂級豪華賭場</title>
+    <!-- 引入外部 CSS -->
+    <link rel="stylesheet" href="style.css">
+    <!-- 引入 QR Code 產生器 -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+</head>
+
+<body>
+
+    <div class="casino-card">
+        <!-- 登入介面 -->
+        <div id="auth-ui">
+            <h1>門禁驗證</h1>
+            <p>掃描以連結你的子熙錢包</p>
+            <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
+            <div id="auth-msg"><span class="loader"></span> 等待硬體授權中...</div>
+        </div>
+
+        <!-- 遊戲介面 -->
+        <div id="game-ui" class="hidden">
+            <h1 id="user-display">ZXC CASINO</h1>
+            <div class="coin-box">
+                <div id="main-coin" class="coin">
+                    <div class="side-heads">🪙</div>
+                    <div class="side-tails">🧧</div>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <label>下注金額</label>
+                <input type="number" id="bet-amount" value="10" min="1">
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-heads" onclick="play('heads')">賭 正面</button>
+                <button class="btn-tails" onclick="play('tails')">賭 反面</button>
+            </div>
+
+            <p id="status-msg"></p>
+            <div id="tx-log"></div>
+        </div>
+    </div>
+
+    <script>
+        // 這裡放剛才給你的 JavaScript 邏輯 (sessionId, polling 等)
+        // ... (保持不變)
+    </script>
+</body>
+
+</html>

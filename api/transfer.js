@@ -1,3 +1,4 @@
+// api/transfer.js
 import { ethers } from "ethers";
 import { verify } from "crypto"; // 引入原生 crypto 模組
 import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";

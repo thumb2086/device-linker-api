@@ -1,10 +1,11 @@
+// api/auth.js
 import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
 
 export default async function handler(req, res) {
-    // 1. 強制處理跨域與快取
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    // 1. 強制處理跨域與快取（最重要！）
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');

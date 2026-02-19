@@ -1,3 +1,4 @@
+// api/history.js
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS } from "./config.js";
 

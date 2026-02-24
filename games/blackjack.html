@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二十一點 | 閃電賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/blackjack.css">
+</head>
+
+<body class="blackjack-body">
+
+    <div class="page-header">
+        <a href="/" class="back-btn">← 大廳</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> ZXC</span>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>🃏 二十一點</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">餘額: <span id="balance-val">0.00</span> ZXC</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> ZXC</div>
+        </div>
+
+        <div class="table-area">
+            <div class="side-area">
+                <div class="side-title">莊家 <span id="dealer-total">0</span></div>
+                <div class="cards-row" id="dealer-cards"></div>
+            </div>
+
+            <div class="versus">VS</div>
+
+            <div class="side-area">
+                <div class="side-title">你 <span id="player-total">0</span></div>
+                <div class="cards-row" id="player-cards"></div>
+            </div>
+        </div>
+
+        <div id="odds-banner">黑傑克 1.5x，普通勝利 1x（利潤）</div>
+
+        <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入押注金額">
+        <button class="btn-deal" id="deal-btn" onclick="playBlackjack()">發牌</button>
+
+        <p id="status-msg">準備開始...</p>
+        <div id="tx-log"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/blackjack.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+            });
+        };
+    </script>
+
+</body>
+
+</html>

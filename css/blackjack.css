@@ -1,0 +1,99 @@
+/* === 二十一點遊戲樣式 === */
+
+body.blackjack-body {
+    justify-content: flex-start;
+    padding: 10px 40px 40px;
+}
+
+@media (max-width: 768px) {
+    body.blackjack-body {
+        padding: 10px 16px 40px;
+    }
+}
+
+.table-area {
+    margin: 20px 0;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    align-items: center;
+}
+
+.side-area {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 14px;
+}
+
+.side-title {
+    color: #ccc;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.cards-row {
+    min-height: 110px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.card {
+    width: 70px;
+    height: 100px;
+    border-radius: 10px;
+    border: 2px solid #dcdcdc;
+    background: linear-gradient(180deg, #fff, #f4f4f4);
+    color: #101010;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.45rem;
+    font-weight: 900;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+}
+
+.card.red {
+    color: #c51919;
+}
+
+.versus {
+    color: var(--gold);
+    font-size: 1.1rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+}
+
+#odds-banner {
+    color: var(--gold);
+    font-size: 1rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+}
+
+.btn-deal {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 16px;
+    font-size: 1.1rem;
+    font-weight: 900;
+    cursor: pointer;
+    background: linear-gradient(180deg, #ffcc00, #b8860b);
+    color: #221a00;
+    box-shadow: 0 10px 24px var(--gold-glow);
+    margin-bottom: 8px;
+}
+
+@media (max-width: 520px) {
+    .table-area {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .versus {
+        display: none;
+    }
+}

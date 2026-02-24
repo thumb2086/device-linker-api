@@ -23,8 +23,8 @@ const TRIPLE_PAYOUT = {
     seven:   50,   // 50x
 };
 
-// 兩連賠率
-const DOUBLE_PAYOUT = 0.5; // 0.5x（拿回本金 + 0.5倍利潤）
+// 兩連返還比例（只返還 0.5 倍押注，淨扣 0.5 倍）
+const DOUBLE_PAYOUT = 0.5;
 
 function spinReel() {
     const totalWeight = SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
@@ -107,13 +107,18 @@ export default async function handler(req, res) {
 
         let tx;
         try {
-            if (result.multiplier > 0) {
-                // 贏了 → mint 利潤
+            if (result.type === "triple") {
+                // 三連：不扣本金，僅 mint 利潤
                 const profitBigInt = BigInt(Math.floor(result.multiplier * 100));
                 const profitWei = (betWei * profitBigInt) / 100n;
                 tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
+            } else if (result.type === "double") {
+                // 兩連：只扣半注（等效返還 0.5x）
+                const burnAddress = "0x000000000000000000000000000000000000dEaD";
+                const halfBetWei = betWei / 2n;
+                tx = await contract.adminTransfer(address, burnAddress, halfBetWei, { gasLimit: 200000 });
             } else {
-                // 輸了 → 扣本金
+                // 全輸：扣整注
                 const burnAddress = "0x000000000000000000000000000000000000dEaD";
                 tx = await contract.adminTransfer(address, burnAddress, betWei, { gasLimit: 200000 });
             }
@@ -131,7 +136,7 @@ export default async function handler(req, res) {
             reels: reels.map(r => ({ name: r.name, emoji: r.emoji })),
             resultType: result.type,       // "triple" | "double" | "lose"
             multiplier: result.multiplier, // 賠率倍數
-            isWin: result.multiplier > 0,
+            isWin: result.type === "triple",
             totalBet,
             vipLevel,
             txHash: tx.hash

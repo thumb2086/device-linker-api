@@ -1,0 +1,320 @@
+/* === 閃電賭場 - 共用主題 === */
+:root {
+    --gold: #ffcc00;
+    --gold-dark: #b8860b;
+    --gold-glow: rgba(255, 204, 0, 0.4);
+    --bg-dark: #080808;
+    --glass: rgba(255, 255, 255, 0.05);
+    --border: rgba(255, 255, 255, 0.1);
+    --diamond-blue: #00bfff;
+    --win-green: #00ff88;
+    --lose-red: #ff4444;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: var(--bg-dark);
+    background-image: radial-gradient(circle at 50% 50%, #1a1500 0%, var(--bg-dark) 80%);
+    color: white;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* --- 卡片容器 --- */
+.casino-card {
+    background: var(--glass);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid var(--border);
+    border-radius: 35px;
+    padding: 40px;
+    width: 100%;
+    max-width: 800px;
+    text-align: center;
+    box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+}
+
+/* --- 鑽石 VIP 特效 --- */
+.vip-diamond {
+    box-shadow: 0 0 50px rgba(0, 191, 255, 0.3);
+    border-color: var(--diamond-blue);
+}
+
+/* --- 標題 --- */
+h1 {
+    font-size: 2.2rem;
+    font-weight: 900;
+    background: linear-gradient(180deg, #fff 0%, var(--gold) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+}
+
+/* --- 頁面標題列 --- */
+.page-header {
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0 10px;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #888;
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 8px 16px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: 0.3s;
+}
+
+.back-btn:hover {
+    color: var(--gold);
+    border-color: var(--gold-glow);
+    background: rgba(255, 204, 0, 0.05);
+}
+
+.header-stats {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.85rem;
+    color: #aaa;
+}
+
+.header-stats .balance {
+    color: var(--gold);
+    font-weight: 700;
+}
+
+.header-stats .vip {
+    font-weight: 700;
+    color: var(--gold);
+    text-shadow: 0 0 8px var(--gold-glow);
+}
+
+/* --- 數據面板 --- */
+.user-stats {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 20px;
+    padding: 18px;
+    margin: 20px 0;
+    border: 1px solid rgba(255, 204, 0, 0.1);
+    text-align: left;
+}
+
+#vip-badge {
+    font-weight: 900;
+    color: var(--gold);
+    text-shadow: 0 0 10px var(--gold-glow);
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    color: #aaa;
+    margin: 5px 0;
+}
+
+.stat-row span {
+    color: #fff;
+    font-weight: 700;
+}
+
+/* --- QR Code 區域 --- */
+#qr-box {
+    background: white;
+    padding: 15px;
+    border-radius: 20px;
+    display: inline-block;
+    margin: 20px 0;
+    box-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
+    min-width: 200px;
+}
+
+/* --- 輸入框 --- */
+input[type="number"] {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #333;
+    color: var(--gold);
+    padding: 15px;
+    width: 100%;
+    border-radius: 15px;
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 800;
+    outline: none;
+    margin-bottom: 20px;
+    transition: 0.3s;
+}
+
+input[type="number"]:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 15px var(--gold-glow);
+}
+
+/* --- 按鈕共用 --- */
+.btn-group {
+    display: flex;
+    gap: 15px;
+}
+
+button {
+    flex: 1;
+    padding: 18px;
+    border-radius: 16px;
+    border: none;
+    font-size: 1.1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover:not(:disabled) {
+    transform: translateY(-3px) scale(1.02);
+    filter: brightness(1.2);
+}
+
+button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: var(--gold);
+    color: #221a00;
+    box-shadow: 0 10px 20px var(--gold-glow);
+}
+
+.btn-secondary {
+    background: #222;
+    color: white;
+    border: 1px solid #444;
+}
+
+/* --- 狀態文字 --- */
+#status-msg {
+    margin-top: 25px;
+    font-weight: 600;
+    min-height: 35px;
+    color: var(--gold);
+    font-size: 1.1rem;
+    line-height: 1.4;
+}
+
+/* --- 載入動畫 --- */
+.loader {
+    width: 22px;
+    height: 22px;
+    border: 3px solid #333;
+    border-top: 3px solid var(--gold);
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin 1s linear infinite;
+    vertical-align: middle;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+
+/* --- 交易紀錄連結 --- */
+#tx-log {
+    margin-top: 15px;
+    min-height: 20px;
+    font-size: 0.85rem;
+}
+
+#tx-log a {
+    color: #666;
+    text-decoration: none;
+    border-bottom: 1px solid #333;
+    font-size: 0.8rem;
+    transition: 0.3s;
+}
+
+#tx-log a:hover {
+    color: white;
+    border-color: var(--gold);
+}
+
+/* --- 脈動動畫 --- */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+    }
+    50% {
+        transform: scale(1.05);
+        text-shadow: 0 0 25px rgba(255, 204, 0, 0.8), 0 0 5px white;
+    }
+    100% {
+        transform: scale(1);
+        text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+    }
+}
+
+/* --- 震動動畫 --- */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+/* --- 淡入動畫 --- */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --- 副標題 --- */
+.subtitle {
+    color: #888;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+/* --- 認證等待訊息 --- */
+#auth-msg {
+    color: #888;
+    font-size: 0.9rem;
+    margin-top: 10px;
+}

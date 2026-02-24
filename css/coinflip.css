@@ -1,0 +1,71 @@
+/* === 猜硬幣遊戲樣式 === */
+
+body.coinflip-body {
+    justify-content: flex-start;
+    padding: 10px 40px 40px;
+}
+
+@media (max-width: 768px) {
+    body.coinflip-body {
+        padding: 10px 16px 40px;
+    }
+}
+
+/* --- 3D 硬幣動畫 --- */
+.coin-box {
+    perspective: 1000px;
+    margin: 30px auto;
+    width: 140px;
+    height: 140px;
+}
+
+.coin {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 3.5s cubic-bezier(0.1, 0.8, 0.2, 1);
+}
+
+.coin div {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 6px solid #d4af37;
+    background: radial-gradient(circle, #ffdf33 0%, #b8860b 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 50px;
+    backface-visibility: hidden;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2), 0 0 30px var(--gold-glow);
+}
+
+.side-tails {
+    transform: rotateY(180deg);
+}
+
+/* --- 猜硬幣按鈕 --- */
+.btn-heads {
+    background: var(--gold);
+    color: #221a00;
+    box-shadow: 0 10px 20px var(--gold-glow);
+}
+
+.btn-tails {
+    background: #222;
+    color: white;
+    border: 1px solid #444;
+}
+
+/* --- 賠率顯示 --- */
+#odds-banner {
+    color: var(--gold);
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin: -10px 0 25px 0;
+    text-shadow: 0 0 15px rgba(255, 204, 0, 0.5);
+    letter-spacing: 2px;
+    animation: pulse 2s infinite;
+}

@@ -102,6 +102,13 @@
                 document.getElementById('lobby-ui').classList.remove('hidden');
                 updateUI(data);
                 startBalanceRefresh();
+
+                document.querySelectorAll('.game-card[href]').forEach(function (card) {
+                    card.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        navigateToGameWithAuth(card.getAttribute('href'));
+                    });
+                });
             });
         };
     </script>

@@ -76,3 +76,28 @@ function txLinkHTML(txHash) {
     return '<a href="https://sepolia.etherscan.io/tx/' + txHash + '" target="_blank" style="color: #888; text-decoration: underline;">' +
         '🔗 查看區塊鏈交易憑證 (Etherscan)</a>';
 }
+
+function ensurePageTransitionEl() {
+    var existing = document.getElementById('page-transition');
+    if (existing) return existing;
+
+    var overlay = document.createElement('div');
+    overlay.id = 'page-transition';
+    overlay.className = 'page-transition';
+    overlay.innerHTML = '<div class="page-transition-text"><span class="loader"></span><span id="page-transition-msg">載入中...</span></div>';
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+function showPageTransition(message) {
+    var overlay = ensurePageTransitionEl();
+    var msg = document.getElementById('page-transition-msg');
+    if (msg && message) msg.innerText = message;
+    overlay.classList.add('show');
+}
+
+function hidePageTransition() {
+    var overlay = document.getElementById('page-transition');
+    if (!overlay) return;
+    overlay.classList.remove('show');
+}

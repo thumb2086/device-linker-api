@@ -16,7 +16,7 @@ function play(choice) {
 
     btn1.disabled = true;
     btn2.disabled = true;
-    status.innerHTML = '<span class="loader"></span> 區塊鏈交易中...';
+    status.innerHTML = '<span class="loader"></span> 交易確認中...';
     status.style.color = '#ffcc00';
     txLog.innerHTML = '';
 
@@ -40,6 +40,7 @@ function play(choice) {
     .then(function(res) { return res.json(); })
     .then(function(result) {
         if (result.error) throw new Error(result.error);
+        status.innerHTML = '<span class="loader"></span> 開獎中...';
 
         var baseRotation = 1800;
         var targetRotation = result.resultSide === 'heads' ? baseRotation : baseRotation + 180;

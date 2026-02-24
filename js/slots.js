@@ -212,15 +212,13 @@ function showResult(result, betAmount, tempBalance) {
 
     updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
 
-    if (result.isWin) {
+    if (result.resultType === 'triple') {
         payline.classList.add('win');
 
         var profitAmount = betAmount * result.multiplier;
-        var displayMultiplier = result.resultType === 'triple'
-            ? result.multiplier + 'x'
-            : '0.5x';
+        var displayMultiplier = result.multiplier + 'x';
 
-        statusMsg.innerHTML = '🏆 ' + (result.resultType === 'triple' ? '三連線！' : '兩連線！') +
+        statusMsg.innerHTML = '🏆 三連線！' +
             ' <span class="result-multiplier" style="display:inline;">' + displayMultiplier + '</span>';
         statusMsg.style.color = '#00ff88';
 
@@ -228,6 +226,15 @@ function showResult(result, betAmount, tempBalance) {
         var newBalance = tempBalance + betAmount + profitAmount;
         document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    } else if (result.resultType === 'double') {
+        payline.classList.add('win');
+        statusMsg.innerHTML = '⭐ 兩連線，返還 <span class="result-multiplier" style="display:inline;">0.5x</span>';
+        statusMsg.style.color = '#ffcc00';
+
+        // 下注已先扣，兩連只返還半注
+        var halfBackBalance = tempBalance + (betAmount * 0.5);
+        document.getElementById('balance-val').innerText = halfBackBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        if (hBal) hBal.innerText = halfBackBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     } else {
         statusMsg.innerText = '💀 沒有連線，下次好運！';
         statusMsg.style.color = '#ff4444';

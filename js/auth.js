@@ -171,3 +171,16 @@ function navigateToGameWithAuth(targetUrl) {
         window.location.href = targetUrl;
     });
 }
+
+function logoutUser() {
+    clearAuth();
+    user.address = '';
+    user.publicKey = '';
+    user.sessionId = '';
+    if (typeof showPageTransition === 'function') {
+        showPageTransition('登出中...');
+    }
+    setTimeout(function () {
+        window.location.href = '/';
+    }, 120);
+}

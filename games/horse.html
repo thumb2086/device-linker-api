@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賽馬 | 閃電賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/horse.css">
+</head>
+
+<body class="horse-body">
+
+    <div class="page-header">
+        <a href="/" class="back-btn">← 大廳</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> ZXC</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>🐴 賽馬</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">餘額: <span id="balance-val">0.00</span> ZXC</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> ZXC</div>
+        </div>
+
+        <div class="horse-choices" id="horse-choices">
+            <button class="horse-choice active" data-horse-id="1" onclick="selectHorse(1)">1號 赤焰 <span>1.6x</span></button>
+            <button class="horse-choice" data-horse-id="2" onclick="selectHorse(2)">2號 雷霆 <span>2.0x</span></button>
+            <button class="horse-choice" data-horse-id="3" onclick="selectHorse(3)">3號 幻影 <span>2.5x</span></button>
+            <button class="horse-choice" data-horse-id="4" onclick="selectHorse(4)">4號 夜刃 <span>3.5x</span></button>
+        </div>
+
+        <div class="race-track">
+            <div class="lane"><span class="tag">1</span><div class="horse" id="horse-1">🐎</div></div>
+            <div class="lane"><span class="tag">2</span><div class="horse" id="horse-2">🐎</div></div>
+            <div class="lane"><span class="tag">3</span><div class="horse" id="horse-3">🐎</div></div>
+            <div class="lane"><span class="tag">4</span><div class="horse" id="horse-4">🐎</div></div>
+        </div>
+
+        <div class="data-panel">
+            <div class="panel-title">賽馬數據面板</div>
+            <div id="track-cond" class="track-cond">場地：-</div>
+            <div id="horse-data-table" class="horse-data-table"></div>
+        </div>
+
+        <div class="data-panel">
+            <div class="panel-title">本場結果</div>
+            <div id="race-rank" class="race-rank">尚未開跑</div>
+        </div>
+
+        <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入押注金額">
+        <button class="btn-race" id="race-btn" onclick="runRace()">下注開跑</button>
+
+        <p id="status-msg">準備開始...</p>
+        <div id="tx-log"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/horse.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+            });
+        };
+    </script>
+
+</body>
+
+</html>

@@ -116,6 +116,28 @@ h1 {
     text-shadow: 0 0 8px var(--gold-glow);
 }
 
+.logout-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 80, 80, 0.35);
+    background: rgba(255, 80, 80, 0.08);
+    color: #ff8f8f;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: 0.2s;
+}
+
+.logout-btn:hover {
+    background: rgba(255, 80, 80, 0.18);
+    border-color: rgba(255, 80, 80, 0.6);
+    color: #ffd1d1;
+}
+
 /* --- 數據面板 --- */
 .user-stats {
     background: rgba(255, 255, 255, 0.03);

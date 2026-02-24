@@ -3,20 +3,90 @@ import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
 
 const HORSES = [
-    { id: 1, name: "赤焰", weight: 30, multiplier: 1.6 },
-    { id: 2, name: "雷霆", weight: 28, multiplier: 2.0 },
-    { id: 3, name: "幻影", weight: 24, multiplier: 2.5 },
-    { id: 4, name: "夜刃", weight: 18, multiplier: 3.5 }
+    { id: 1, name: "赤焰", weight: 30, multiplier: 1.6, speed: 92, stamina: 88, burst: 86 },
+    { id: 2, name: "雷霆", weight: 28, multiplier: 2.0, speed: 89, stamina: 90, burst: 84 },
+    { id: 3, name: "幻影", weight: 24, multiplier: 2.5, speed: 86, stamina: 84, burst: 91 },
+    { id: 4, name: "夜刃", weight: 18, multiplier: 3.5, speed: 82, stamina: 80, burst: 94 }
 ];
 
-function pickWinner() {
-    const totalWeight = HORSES.reduce((sum, h) => sum + h.weight, 0);
-    let rand = Math.random() * totalWeight;
-    for (const horse of HORSES) {
-        rand -= horse.weight;
-        if (rand <= 0) return horse;
-    }
-    return HORSES[0];
+function randomRange(min, max) {
+    return min + Math.random() * (max - min);
+}
+
+function simulateRace() {
+    const tracks = ["乾地", "濕地", "夜賽"];
+    const trackCondition = tracks[Math.floor(Math.random() * tracks.length)];
+
+    const metrics = HORSES.map((horse) => {
+        const baseScore = horse.weight * 2 + horse.speed * 0.6 + horse.stamina * 0.5 + horse.burst * 0.7;
+        const volatility = randomRange(-20, 20);
+        const trackBias =
+            trackCondition === "濕地" ? horse.stamina * 0.06 :
+            trackCondition === "夜賽" ? horse.burst * 0.07 :
+            horse.speed * 0.05;
+        const raceScore = baseScore + trackBias + volatility;
+
+        const finishTime = (66 - raceScore / 18).toFixed(2);
+        const topSpeed = (54 + raceScore / 12).toFixed(1);
+        const reactionMs = Math.round(180 + randomRange(-40, 60) - horse.burst * 0.35);
+
+        return {
+            id: horse.id,
+            name: horse.name,
+            multiplier: horse.multiplier,
+            finishTime: parseFloat(finishTime),
+            topSpeed: parseFloat(topSpeed),
+            reactionMs: reactionMs
+        };
+    });
+
+    metrics.sort((a, b) => a.finishTime - b.finishTime);
+    metrics.forEach((m, idx) => { m.rank = idx + 1; });
+
+    return {
+        trackCondition,
+        metrics,
+        winner: HORSES.find((h) => h.id === metrics[0].id)
+    };
+}
+
+async function readHorseStats() {
+    const statsList = await Promise.all(
+        HORSES.map((horse) => kv.get(`horse_stats:${horse.id}`))
+    );
+    return statsList.map((stats, idx) => {
+        const h = HORSES[idx];
+        const normalized = stats || { races: 0, wins: 0, podium: 0, last5: [] };
+        const winRate = normalized.races > 0 ? ((normalized.wins / normalized.races) * 100).toFixed(1) : "0.0";
+        return {
+            id: h.id,
+            name: h.name,
+            races: normalized.races,
+            wins: normalized.wins,
+            podium: normalized.podium,
+            last5: normalized.last5 || [],
+            winRate: parseFloat(winRate)
+        };
+    });
+}
+
+async function updateHorseStats(raceMetrics) {
+    const current = await readHorseStats();
+    const statMap = {};
+    current.forEach((row) => { statMap[row.id] = row; });
+
+    await Promise.all(
+        raceMetrics.map((row) => {
+            const prev = statMap[row.id] || { races: 0, wins: 0, podium: 0, last5: [] };
+            const next = {
+                races: prev.races + 1,
+                wins: prev.wins + (row.rank === 1 ? 1 : 0),
+                podium: prev.podium + (row.rank <= 3 ? 1 : 0),
+                last5: [row.rank].concat(prev.last5 || []).slice(0, 5)
+            };
+            return kv.set(`horse_stats:${row.id}`, next);
+        })
+    );
 }
 
 export default async function handler(req, res) {
@@ -58,7 +128,8 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: "餘額不足！請先充值再試" });
         }
 
-        const winner = pickWinner();
+        const simulation = simulateRace();
+        const winner = simulation.winner;
         const isWin = winner.id === selectedHorse.id;
 
         const totalBetRaw = await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, parseFloat(amount));
@@ -87,6 +158,9 @@ export default async function handler(req, res) {
             });
         }
 
+        await updateHorseStats(simulation.metrics);
+        const horseStats = await readHorseStats();
+
         return res.status(200).json({
             status: "success",
             winnerId: winner.id,
@@ -95,9 +169,19 @@ export default async function handler(req, res) {
             selectedHorseName: selectedHorse.name,
             multiplier: winner.multiplier,
             isWin,
+            trackCondition: simulation.trackCondition,
+            raceMetrics: simulation.metrics,
             horses: HORSES.map(function (h) {
-                return { id: h.id, name: h.name, multiplier: h.multiplier };
+                return {
+                    id: h.id,
+                    name: h.name,
+                    multiplier: h.multiplier,
+                    speed: h.speed,
+                    stamina: h.stamina,
+                    burst: h.burst
+                };
             }),
+            horseStats,
             totalBet,
             vipLevel,
             txHash: tx.hash

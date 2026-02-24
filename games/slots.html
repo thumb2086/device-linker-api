@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>老虎機 | 閃電賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/slots.css">
+</head>
+
+<body class="slots-body">
+
+    <div class="page-header">
+        <a href="/" class="back-btn">← 大廳</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> ZXC</span>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>🎰 老虎機</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">餘額: <span id="balance-val">0.00</span> ZXC</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> ZXC</div>
+        </div>
+
+        <div class="slots-machine">
+            <div class="reels-container">
+                <div class="reel">
+                    <div class="reel-strip" id="reel-1"></div>
+                </div>
+                <div class="reel">
+                    <div class="reel-strip" id="reel-2"></div>
+                </div>
+                <div class="reel">
+                    <div class="reel-strip" id="reel-3"></div>
+                </div>
+                <div class="payline" id="payline"></div>
+            </div>
+
+            <div class="payout-info">
+                <div class="payout-item">
+                    <span class="payout-symbol">7️⃣7️⃣7️⃣</span>
+                    <span class="payout-mult">50x</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">💎💎💎</span>
+                    <span class="payout-mult">15x</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">⭐⭐⭐</span>
+                    <span class="payout-mult">8x</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">🔔🔔🔔</span>
+                    <span class="payout-mult">5x</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">🍋🍋🍋</span>
+                    <span class="payout-mult">3x</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">🍒🍒🍒</span>
+                    <span class="payout-mult">2x</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="spin-controls">
+            <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入押注金額">
+            <button class="btn-spin" id="spin-btn" onclick="spin()">🎰 旋轉</button>
+        </div>
+
+        <p id="status-msg">準備開始...</p>
+
+        <div id="tx-log"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/slots.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                buildReels();
+            });
+        };
+    </script>
+
+</body>
+
+</html>

@@ -5,248 +5,107 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>子熙幣 ZXC | 閃電賭場</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/lobby.css">
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
-    <style>
-        /* 新增的賠率樣式 */
-        #odds-banner {
-            color: #ffcc00;
-            font-size: 1.2rem;
-            font-weight: 800;
-            margin: -10px 0 25px 0;
-            text-shadow: 0 0 15px rgba(255, 204, 0, 0.5);
-            letter-spacing: 2px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-                text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
-            }
-
-            50% {
-                transform: scale(1.05);
-                text-shadow: 0 0 25px rgba(255, 204, 0, 0.8), 0 0 5px white;
-            }
-
-            100% {
-                transform: scale(1);
-                text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
-            }
-        }
-    </style>
 </head>
 
-<body>
+<body class="lobby-body">
 
-    <div class="casino-card" id="main-card">
-        <!-- 登入區域 -->
-        <div id="auth-ui">
-            <h1>門禁驗證</h1>
-            <p>掃描以連結你的子熙錢包</p>
-            <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
-            <div id="auth-msg"><span class="loader"></span> 等待硬體授權...</div>
-        </div>
-
-        <!-- 遊戲區域 -->
-        <div id="game-ui" class="hidden">
-            <div class="user-stats">
-                <span id="vip-badge">普通會員</span>
-                <div class="stat-row">餘額: <span id="balance-val">0.00</span> ZXC</div>
-                <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> ZXC</div>
-            </div>
-
-            <div class="coin-box">
-                <div id="main-coin" class="coin">
-                    <div class="side-heads">🪙</div>
-                    <div class="side-tails">🧧</div>
-                </div>
-            </div>
-
-            <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入金額">
-
-            <!-- 🔥 新增賠率顯示 🔥 -->
-            <div id="odds-banner">🔥 賠率 1.8 倍 (獲利 80%) 🔥</div>
-
-            <div class="btn-group">
-                <button class="btn-heads" onclick="play('heads')" id="play-btn">賭 正面</button>
-                <button class="btn-tails" onclick="play('tails')" id="play-btn-2">賭 反面</button>
-            </div>
-
-            <p id="status-msg">準備開始...</p>
-
-            <div id="tx-log" style="margin-top: 15px; min-height: 20px; font-size: 0.85rem;"></div>
-        </div>
+    <!-- 認證區域 -->
+    <div id="auth-ui" class="casino-card auth-card">
+        <h1>⚡ 閃電賭場</h1>
+        <p class="subtitle">子熙幣 ZXC</p>
+        <p>掃描以連結你的子熙錢包</p>
+        <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
+        <div id="auth-msg"><span class="loader"></span> 等待硬體授權...</div>
     </div>
 
+    <!-- 大廳 -->
+    <div id="lobby-ui" class="hidden lobby-container">
+
+        <div class="lobby-title">
+            <h1>⚡ 閃電賭場</h1>
+            <p class="subtitle">子熙幣 ZXC Casino</p>
+        </div>
+
+        <div class="lobby-stats" id="main-card">
+            <div class="stat-item">
+                <span class="stat-label">VIP 等級</span>
+                <span class="stat-value gold" id="vip-badge">普通會員</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">餘額</span>
+                <span class="stat-value" id="balance-val">0.00</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">累計押注</span>
+                <span class="stat-value" id="total-bet-val">0.00</span>
+            </div>
+        </div>
+
+        <div class="section-title">選擇遊戲</div>
+
+        <div class="game-grid">
+            <a href="games/coinflip.html" class="game-card">
+                <div class="game-icon">🪙</div>
+                <div class="game-name">猜硬幣</div>
+                <div class="game-desc">正面或反面，1.8 倍賠率</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="games/slots.html" class="game-card">
+                <div class="game-icon">🎰</div>
+                <div class="game-name">老虎機</div>
+                <div class="game-desc">三連線最高 50 倍</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <div class="game-card coming-soon">
+                <div class="game-icon">🎡</div>
+                <div class="game-name">輪盤</div>
+                <div class="game-desc">經典歐式輪盤</div>
+                <div class="game-tag soon">即將推出</div>
+            </div>
+
+            <div class="game-card coming-soon">
+                <div class="game-icon">🃏</div>
+                <div class="game-name">二十一點</div>
+                <div class="game-desc">挑戰莊家拿 21</div>
+                <div class="game-tag soon">即將推出</div>
+            </div>
+
+            <div class="game-card coming-soon">
+                <div class="game-icon">🐴</div>
+                <div class="game-name">賽馬</div>
+                <div class="game-desc">選出你的冠軍馬</div>
+                <div class="game-tag soon">即將推出</div>
+            </div>
+
+            <div class="game-card coming-soon">
+                <div class="game-icon">🎯</div>
+                <div class="game-name">射龍門</div>
+                <div class="game-desc">猜中間數字贏大獎</div>
+                <div class="game-tag soon">即將推出</div>
+            </div>
+        </div>
+
+        <div class="lobby-footer">POWERED BY BLOCKCHAIN</div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/auth.js"></script>
     <script>
-        let user = { address: "", publicKey: "" };
-        const sessionId = "session_" + Math.random().toString(36).substring(7);
-
-        function init() {
-            const canvas = document.getElementById('qr-canvas');
-            if (typeof QRCode !== 'undefined') {
-                QRCode.toCanvas(canvas, `dlinker:login:${sessionId}`, { width: 200, margin: 2 });
-                startAuthPolling();
-            } else {
-                setTimeout(init, 500);
-            }
-        }
-
-        function updateUI(data) {
-            if (!data) return;
-            if (data.balance !== undefined) {
-                document.getElementById('balance-val').innerText = parseFloat(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
-            }
-            if (data.totalBet !== undefined) {
-                document.getElementById('total-bet-val').innerText = parseFloat(data.totalBet).toFixed(2);
-            }
-            if (data.vipLevel) {
-                const badge = document.getElementById('vip-badge');
-                badge.innerText = data.vipLevel;
-                const card = document.getElementById('main-card');
-                if (data.vipLevel.includes("鑽石") || data.vipLevel.includes("VIP")) {
-                    card.classList.add('vip-diamond');
-                } else {
-                    card.classList.remove('vip-diamond');
-                }
-            }
-        }
-
-        async function startAuthPolling() {
-            const pollInterval = setInterval(async () => {
-                try {
-                    const res = await fetch(`/api/auth?sessionId=${sessionId}`);
-                    if (!res.ok) return;
-                    const data = await res.json();
-
-                    if (data.status === "authorized") {
-                        clearInterval(pollInterval);
-                        user.address = data.address;
-                        user.publicKey = data.publicKey;
-
-                        document.getElementById('auth-ui').classList.add('hidden');
-                        document.getElementById('game-ui').classList.remove('hidden');
-
-                        updateUI(data);
-                        setTimeout(refreshBalance, 800);
-                        setInterval(refreshBalance, 30000);
-                    }
-                } catch (err) { console.error(err); }
-            }, 1500);
-        }
-
-        async function play(choice) {
-            const amountInput = document.getElementById('bet-amount');
-            const amount = parseFloat(amountInput.value);
-            const status = document.getElementById('status-msg');
-            const coin = document.getElementById('main-coin');
-            const txLog = document.getElementById('tx-log');
-            const btn1 = document.getElementById('play-btn');
-            const btn2 = document.getElementById('play-btn-2');
-
-            if (isNaN(amount) || amount <= 0) {
-                status.innerText = "❌ 請輸入有效的金額";
-                return;
-            }
-
-            btn1.disabled = true;
-            btn2.disabled = true;
-            status.innerHTML = `<span class="loader"></span> 區塊鏈交易中...`;
-            status.style.color = "#ffcc00";
-            txLog.innerHTML = "";
-
-            // 樂觀更新
-            const currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
-            const tempBalance = currentBalance - amount;
-            document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-
-            try {
-                const res = await fetch('/api/coinflip', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        address: user.address,
-                        amount: amount,
-                        choice: choice,
-                        sessionId: sessionId
-                    })
-                });
-
-                const result = await res.json();
-
-                if (result.error) throw new Error(result.error);
-
-                const baseRotation = 1800;
-                const targetRotation = result.resultSide === 'heads' ? baseRotation : baseRotation + 180;
-
-                coin.style.transition = "transform 3s cubic-bezier(0.1, 0.8, 0.2, 1)";
-                coin.style.transform = `rotateY(${targetRotation}deg)`;
-
-                updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
-
-                setTimeout(() => {
-                    coin.style.transition = "none";
-                    coin.style.transform = result.resultSide === 'heads' ? "rotateY(0deg)" : "rotateY(180deg)";
-
-                    if (result.isWin) {
-                        status.innerText = "🏆 恭喜！你贏了！";
-                        status.style.color = "#00ff88";
-                        // 贏了：本金還在，只加回利潤 (0.8倍) + 剛剛扣掉的本金顯示回來
-                        // 邏輯：顯示餘額 = 扣掉本金後的餘額 + 本金 + 利潤
-                        const winAmount = amount * 1.8;
-                        const newBalance = tempBalance + winAmount;
-                        document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-                    } else {
-                        status.innerText = "💀 可惜，下次好運！";
-                        status.style.color = "#ff4444";
-                    }
-
-                    if (result.txHash) {
-                        txLog.innerHTML = `
-                            <a href="https://sepolia.etherscan.io/tx/${result.txHash}" target="_blank" style="color: #888; text-decoration: underline;">
-                                🔗 查看區塊鏈交易憑證 (Etherscan)
-                            </a>`;
-                    }
-
-                    btn1.disabled = false;
-                    btn2.disabled = false;
-                    setTimeout(refreshBalance, 10000);
-
-                }, 3000);
-
-            } catch (e) {
-                console.error(e);
-                status.innerText = `❌ 錯誤: ${e.message}`;
-                status.style.color = "red";
-                btn1.disabled = false;
-                btn2.disabled = false;
-                document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-            }
-        }
-
-        async function refreshBalance() {
-            if (!user.address) return;
-            try {
-                const res = await fetch(`/api/get-balance`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ address: user.address })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    const el = document.getElementById('balance-val');
-                    el.innerText = parseFloat(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
-                }
-            } catch (e) { console.log("Balance refresh failed"); }
-        }
-
-        window.onload = () => {
-            init();
-            setTimeout(() => { if (!document.getElementById('qr-canvas').hasChildNodes()) init(); }, 1000);
+        window.onload = function () {
+            initLobbyAuth(function (data) {
+                document.getElementById('auth-ui').classList.add('hidden');
+                document.getElementById('lobby-ui').classList.remove('hidden');
+                updateUI(data);
+                startBalanceRefresh();
+            });
         };
     </script>
+
 </body>
 
 </html>

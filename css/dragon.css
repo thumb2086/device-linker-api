@@ -73,6 +73,29 @@ body.dragon-body {
     letter-spacing: 1px;
 }
 
+.mode-switch {
+    display: flex;
+    gap: 10px;
+    margin: 0 0 14px;
+}
+
+.mode-btn {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #333;
+    background: rgba(255, 255, 255, 0.04);
+    color: #bbb;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.mode-btn.active {
+    color: #221a00;
+    background: linear-gradient(180deg, #ffcc00, #b8860b);
+    border-color: #d0a300;
+}
+
 .btn-shoot {
     width: 100%;
     padding: 16px;
@@ -85,4 +108,11 @@ body.dragon-body {
     color: #221a00;
     box-shadow: 0 10px 24px var(--gold-glow);
     margin-bottom: 8px;
+}
+
+.btn-shoot.btn-alt {
+    background: #222;
+    color: #ddd;
+    border: 1px solid #444;
+    box-shadow: none;
 }

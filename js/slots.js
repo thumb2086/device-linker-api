@@ -127,7 +127,7 @@ function spin() {
 
     isSpinning = true;
     spinBtn.disabled = true;
-    statusMsg.innerHTML = '<span class="loader"></span> 區塊鏈交易中...';
+    statusMsg.innerHTML = '<span class="loader"></span> 交易確認中...';
     statusMsg.style.color = '#ffcc00';
     txLog.innerHTML = '';
     payline.classList.remove('win');
@@ -160,6 +160,7 @@ function spin() {
     .then(function(res) { return res.json(); })
     .then(function(result) {
         if (result.error) throw new Error(result.error);
+        statusMsg.innerHTML = '<span class="loader"></span> 開獎中...';
 
         var reelEmojis = result.reels.map(function(r) { return r.emoji; });
 

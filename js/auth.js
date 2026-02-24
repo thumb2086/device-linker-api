@@ -116,6 +116,10 @@ function verifySession(sessionId, callback) {
  * @param {Function} onReady - 認證有效後的回調
  */
 function checkGameAuth(onReady) {
+    if (typeof showPageTransition === 'function') {
+        showPageTransition('驗證登入中...');
+    }
+
     var stored = getStoredAuth();
     if (!stored) {
         window.location.href = '/';
@@ -133,5 +137,29 @@ function checkGameAuth(onReady) {
             return;
         }
         if (onReady) onReady(data);
+        if (typeof hidePageTransition === 'function') {
+            hidePageTransition();
+        }
+    });
+}
+
+function navigateToGameWithAuth(targetUrl) {
+    var stored = getStoredAuth();
+    if (!stored || !targetUrl) {
+        window.location.href = '/';
+        return;
+    }
+
+    if (typeof showPageTransition === 'function') {
+        showPageTransition('進入遊戲中...');
+    }
+
+    verifySession(stored.sessionId, function(valid) {
+        if (!valid) {
+            clearAuth();
+            window.location.href = '/';
+            return;
+        }
+        window.location.href = targetUrl;
     });
 }

@@ -59,6 +59,14 @@ function showQRAuth(onAuthorized) {
     var sessionId = 'session_' + Math.random().toString(36).substring(7);
     user.sessionId = sessionId;
 
+    var authUI = document.getElementById('auth-ui');
+    if (authUI) authUI.classList.remove('hidden');
+    var lobbyUI = document.getElementById('lobby-ui');
+    if (lobbyUI) lobbyUI.classList.add('hidden');
+    if (typeof hidePageTransition === 'function') {
+        hidePageTransition();
+    }
+
     var canvas = document.getElementById('qr-canvas');
     if (!canvas) return;
 

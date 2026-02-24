@@ -13,7 +13,7 @@
 <body class="lobby-body">
 
     <!-- 認證區域 -->
-    <div id="auth-ui" class="casino-card auth-card">
+    <div id="auth-ui" class="casino-card auth-card hidden">
         <h1>⚡ 閃電賭場</h1>
         <p class="subtitle">子熙幣 ZXC</p>
         <p>掃描以連結你的子熙錢包</p>
@@ -97,11 +97,13 @@
     <script src="js/auth.js"></script>
     <script>
         window.onload = function () {
+            showPageTransition('驗證登入中...');
             initLobbyAuth(function (data) {
                 document.getElementById('auth-ui').classList.add('hidden');
                 document.getElementById('lobby-ui').classList.remove('hidden');
                 updateUI(data);
                 startBalanceRefresh();
+                hidePageTransition();
 
                 document.querySelectorAll('.game-card[href]').forEach(function (card) {
                     card.addEventListener('click', function (e) {

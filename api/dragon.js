@@ -49,6 +49,16 @@ function getMultiplier(gap) {
     return 1.2;
 }
 
+function evaluateShot(gate, shot) {
+    const leftVal = gate.left.value;
+    const rightVal = gate.right.value;
+    const shotVal = shot.value;
+
+    if (shotVal > leftVal && shotVal < rightVal) return "win";
+    if (shotVal === leftVal || shotVal === rightVal) return "pillar";
+    return "lose";
+}
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -56,15 +66,34 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-    const { address, amount, sessionId } = req.body;
+    const { address, amount, sessionId, mode, action } = req.body || {};
+    const playMode = mode === "classic" ? "classic" : "quick";
+    const playAction = action || "play";
 
-    if (!address || !amount || !sessionId) {
+    if (!sessionId) {
         return res.status(400).json({ error: "缺少必要參數" });
     }
 
     try {
         const sessionData = await kv.get(`session:${sessionId}`);
         if (!sessionData) return res.status(403).json({ error: "會話過期，請重新登入" });
+
+        if (playMode === "classic" && playAction === "gate") {
+            const gate = drawGateCards();
+            await kv.set(`dragon_gate:${sessionId}`, gate, { ex: 300 });
+            return res.status(200).json({
+                status: "success",
+                mode: "classic",
+                action: "gate",
+                gate,
+                gap: gate.right.value - gate.left.value,
+                multiplier: getMultiplier(gate.right.value - gate.left.value)
+            });
+        }
+
+        if (!address || !amount) {
+            return res.status(400).json({ error: "缺少必要參數" });
+        }
 
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
@@ -79,14 +108,24 @@ export default async function handler(req, res) {
         try { decimals = await contract.decimals(); } catch (e) {}
 
         const betWei = ethers.parseUnits(amount.toString(), decimals);
+        const maxRiskWei = betWei * 2n; // 撞柱會扣雙倍
         const userBalance = await contract.balanceOf(address);
-        if (userBalance < betWei) {
-            return res.status(400).json({ error: "餘額不足！請先充值再試" });
+        if (userBalance < maxRiskWei) {
+            return res.status(400).json({ error: "餘額不足！需至少可承擔雙倍撞柱風險" });
         }
 
-        const gate = drawGateCards();
+        let gate = null;
+        if (playMode === "classic") {
+            gate = await kv.get(`dragon_gate:${sessionId}`);
+            if (!gate || !gate.left || !gate.right) {
+                return res.status(400).json({ error: "請先發門再下注" });
+            }
+        } else {
+            gate = drawGateCards();
+        }
+
         const shot = drawCard();
-        const inRange = shot.value > gate.left.value && shot.value < gate.right.value;
+        const resultType = evaluateShot(gate, shot); // win | pillar | lose
         const gap = gate.right.value - gate.left.value;
         const multiplier = getMultiplier(gap);
 
@@ -100,10 +139,13 @@ export default async function handler(req, res) {
 
         let tx;
         try {
-            if (inRange) {
+            if (resultType === "win") {
                 const profitBigInt = BigInt(Math.floor(multiplier * 100));
                 const profitWei = (betWei * profitBigInt) / 100n;
                 tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
+            } else if (resultType === "pillar") {
+                const burnAddress = "0x000000000000000000000000000000000000dEaD";
+                tx = await contract.adminTransfer(address, burnAddress, maxRiskWei, { gasLimit: 200000 });
             } else {
                 const burnAddress = "0x000000000000000000000000000000000000dEaD";
                 tx = await contract.adminTransfer(address, burnAddress, betWei, { gasLimit: 200000 });
@@ -115,12 +157,18 @@ export default async function handler(req, res) {
                 details: blockchainError.message
             });
         }
+        if (playMode === "classic") {
+            await kv.del(`dragon_gate:${sessionId}`);
+        }
 
         return res.status(200).json({
             status: "success",
+            mode: playMode,
             gate,
             shot,
-            isWin: inRange,
+            resultType,
+            isWin: resultType === "win",
+            lossMultiplier: resultType === "pillar" ? 2 : 1,
             multiplier,
             gap,
             totalBet,

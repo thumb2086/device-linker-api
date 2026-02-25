@@ -1,12 +1,9 @@
 import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
+import { getRoundInfo, hashInt } from "../lib/auto-round.js";
 
 const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
-
-function spinRoulette() {
-    return Math.floor(Math.random() * 37);
-}
 
 function getColor(num) {
     if (num === 0) return "green";
@@ -45,6 +42,13 @@ function evaluateBet(number, betType, betValue) {
     }
 
     return { isWin: false, multiplier: 1 };
+}
+
+function getVipLevel(totalBet) {
+    if (totalBet >= 100000) return "👑 鑽石 VIP";
+    if (totalBet >= 50000) return "🥇 黃金會員";
+    if (totalBet >= 10000) return "🥈 白銀會員";
+    return "普通會員";
 }
 
 export default async function handler(req, res) {
@@ -96,17 +100,15 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: "餘額不足！請先充值再試" });
         }
 
-        const winningNumber = spinRoulette();
+        // 固定分局開獎
+        const round = getRoundInfo('roulette');
+        const winningNumber = hashInt(`roulette:${round.roundId}`) % 37;
         const winningColor = getColor(winningNumber);
         const result = evaluateBet(winningNumber, betType, betValue);
 
         const totalBetRaw = await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, parseFloat(amount));
         const totalBet = parseFloat(totalBetRaw).toFixed(2);
-
-        let vipLevel = "普通會員";
-        if (totalBet >= 100000) vipLevel = "👑 鑽石 VIP";
-        else if (totalBet >= 50000) vipLevel = "🥇 黃金會員";
-        else if (totalBet >= 10000) vipLevel = "🥈 白銀會員";
+        const vipLevel = getVipLevel(parseFloat(totalBet));
 
         let tx;
         try {
@@ -133,6 +135,8 @@ export default async function handler(req, res) {
             multiplier: result.multiplier,
             betType,
             betValue,
+            roundId: round.roundId,
+            closesAt: round.closesAt,
             totalBet,
             vipLevel,
             txHash: tx.hash

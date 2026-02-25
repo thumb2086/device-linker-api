@@ -2,6 +2,7 @@
 
 var selectedHorseId = 1;
 var raceInProgress = false;
+var HORSE_ROUND_MS = 45000;
 
 var horseMultipliers = {
     1: 1.6,
@@ -22,6 +23,17 @@ function selectHorse(horseId) {
     document.querySelectorAll('.horse-choice').forEach(function (el) {
         el.classList.toggle('active', Number(el.dataset.horseId) === horseId);
     });
+}
+
+function updateHorseRoundHint() {
+    var hint = document.getElementById('round-hint');
+    if (!hint) return;
+
+    var now = Date.now();
+    var roundId = Math.floor(now / HORSE_ROUND_MS);
+    var closesAt = (roundId + 1) * HORSE_ROUND_MS;
+    var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
+    hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
 }
 
 function setRaceCall(message) {
@@ -243,11 +255,11 @@ function finalizeRace(result, amount, tempBalance, hBal, raceBtn, statusMsg, txL
         var newBalance = tempBalance + amount + profit;
         document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        statusMsg.innerHTML = '🏆 你的 ' + result.selectedHorseName + ' 最後衝刺奪冠！<span class="result-multiplier" style="display:inline;">' + mult + 'x</span>';
+        statusMsg.innerHTML = '🏆 第 ' + result.roundId + ' 局，你的 ' + result.selectedHorseName + ' 最後衝刺奪冠！<span class="result-multiplier" style="display:inline;">' + mult + 'x</span>';
         statusMsg.style.color = '#00ff88';
         setRaceCall('終點線前逆轉！' + result.selectedHorseName + ' 拿下冠軍！');
     } else {
-        statusMsg.innerText = '💀 冠軍是 ' + result.winnerName + '，就差一點！';
+        statusMsg.innerText = '💀 第 ' + result.roundId + ' 局冠軍是 ' + result.winnerName + '，就差一點！';
         statusMsg.style.color = '#ff4444';
         setRaceCall('冠軍誕生：' + result.winnerName + '！全場歡呼！');
     }
@@ -336,4 +348,6 @@ window.addEventListener('load', function () {
     renderHorseDataTable(initialHorses, []);
     renderRaceRank([]);
     resetRaceTrack();
+    updateHorseRoundHint();
+    setInterval(updateHorseRoundHint, 1000);
 });

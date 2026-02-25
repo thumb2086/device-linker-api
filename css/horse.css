@@ -186,7 +186,7 @@ body.horse-body {
     position: absolute;
     left: 6%;
     top: 50%;
-    transform: translateY(-50%);
+    transform: translateY(-50%) scaleX(-1);
     font-size: 1.4rem;
     transition: left 0.2s linear;
 }
@@ -200,8 +200,8 @@ body.horse-body {
 }
 
 @keyframes horse-bob {
-    from { transform: translateY(-52%); }
-    to { transform: translateY(-48%); }
+    from { transform: translateY(-52%) scaleX(-1); }
+    to { transform: translateY(-48%) scaleX(-1); }
 }
 
 .btn-race {

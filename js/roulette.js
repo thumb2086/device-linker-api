@@ -1,5 +1,7 @@
 /* === 輪盤遊戲邏輯 === */
 
+var ROULETTE_ROUND_MS = 30000;
+
 var BET_OPTIONS = {
     color: [
         { value: 'red', label: '紅色' },
@@ -21,6 +23,17 @@ var BET_OPTIONS = {
 };
 
 var rolling = false;
+
+function updateRouletteRoundHint() {
+    var hint = document.getElementById('round-hint');
+    if (!hint) return;
+
+    var now = Date.now();
+    var roundId = Math.floor(now / ROULETTE_ROUND_MS);
+    var closesAt = (roundId + 1) * ROULETTE_ROUND_MS;
+    var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
+    hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+}
 
 function onBetTypeChange() {
     var betType = document.getElementById('bet-type').value;
@@ -98,7 +111,7 @@ function spinRoulette() {
             wheel.classList.add('win-' + result.winningColor);
 
             document.getElementById('last-result').innerText =
-                '開獎: ' + result.winningNumber + '（' + result.winningColor + '）';
+                '第 ' + result.roundId + ' 局開獎: ' + result.winningNumber + '（' + result.winningColor + '）';
 
             updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
 
@@ -107,10 +120,10 @@ function spinRoulette() {
                 var newBalance = tempBalance + amount + profitAmount;
                 document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
                 if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-                status.innerText = '🏆 恭喜中獎！獲利 ' + profitAmount.toFixed(2) + ' ZXC';
+                status.innerText = '🏆 第 ' + result.roundId + ' 局中獎！獲利 ' + profitAmount.toFixed(2) + ' ZXC';
                 status.style.color = '#00ff88';
             } else {
-                status.innerText = '💀 未中獎，下次好運！';
+                status.innerText = '💀 第 ' + result.roundId + ' 局未中獎';
                 status.style.color = '#ff4444';
             }
 
@@ -130,3 +143,8 @@ function spinRoulette() {
         if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     });
 }
+
+window.addEventListener('load', function () {
+    updateRouletteRoundHint();
+    setInterval(updateRouletteRoundHint, 1000);
+});

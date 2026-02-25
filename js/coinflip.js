@@ -1,5 +1,18 @@
 /* === 猜硬幣遊戲邏輯 === */
 
+var COINFLIP_ROUND_MS = 20000;
+
+function updateCoinflipRoundHint() {
+    var hint = document.getElementById('round-hint');
+    if (!hint) return;
+
+    var now = Date.now();
+    var roundId = Math.floor(now / COINFLIP_ROUND_MS);
+    var closesAt = (roundId + 1) * COINFLIP_ROUND_MS;
+    var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
+    hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+}
+
 function play(choice) {
     var amountInput = document.getElementById('bet-amount');
     var amount = parseFloat(amountInput.value);
@@ -20,7 +33,6 @@ function play(choice) {
     status.style.color = '#ffcc00';
     txLog.innerHTML = '';
 
-    // 樂觀更新
     var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
     var tempBalance = currentBalance - amount;
     document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
@@ -40,7 +52,7 @@ function play(choice) {
     .then(function(res) { return res.json(); })
     .then(function(result) {
         if (result.error) throw new Error(result.error);
-        status.innerHTML = '<span class="loader"></span> 開獎中...';
+        status.innerHTML = '<span class="loader"></span> 第 ' + result.roundId + ' 局開獎中...';
 
         var baseRotation = 1800;
         var targetRotation = result.resultSide === 'heads' ? baseRotation : baseRotation + 180;
@@ -55,26 +67,24 @@ function play(choice) {
             coin.style.transform = result.resultSide === 'heads' ? 'rotateY(0deg)' : 'rotateY(180deg)';
 
             if (result.isWin) {
-                status.innerText = '🏆 恭喜！你贏了！';
+                status.innerText = '🏆 第 ' + result.roundId + ' 局中獎！';
                 status.style.color = '#00ff88';
                 var winAmount = amount * 1.8;
                 var newBalance = tempBalance + winAmount;
                 document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
                 if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
             } else {
-                status.innerText = '💀 可惜，下次好運！';
+                status.innerText = '💀 第 ' + result.roundId + ' 局未中獎';
                 status.style.color = '#ff4444';
             }
 
             txLog.innerHTML = txLinkHTML(result.txHash);
-
             btn1.disabled = false;
             btn2.disabled = false;
             setTimeout(refreshBalance, 10000);
         }, 3000);
     })
     .catch(function(e) {
-        console.error(e);
         status.innerText = '❌ 錯誤: ' + e.message;
         status.style.color = 'red';
         btn1.disabled = false;
@@ -83,3 +93,8 @@ function play(choice) {
         if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     });
 }
+
+window.addEventListener('load', function () {
+    updateCoinflipRoundHint();
+    setInterval(updateCoinflipRoundHint, 1000);
+});

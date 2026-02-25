@@ -41,6 +41,20 @@ function setRaceCall(message) {
     if (callEl) callEl.innerText = message;
 }
 
+function hash32(input) {
+    var str = String(input);
+    var hash = 2166136261 >>> 0;
+    for (var i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function hashFloat(input) {
+    return (hash32(input) % 1000000) / 1000000;
+}
+
 function setPace(percent) {
     var fill = document.getElementById('pace-fill');
     if (!fill) return;
@@ -77,6 +91,7 @@ function setLights(count) {
 function resetRaceTrack() {
     for (var i = 1; i <= 4; i++) {
         var horse = document.getElementById('horse-' + i);
+        horse.innerText = '🏇';
         horse.style.left = '6%';
         horse.classList.remove('winner');
         horse.classList.remove('running');
@@ -129,7 +144,7 @@ function buildTargetPositions(raceMetrics) {
     return map;
 }
 
-function animateRaceLive(raceMetrics, onFinish) {
+function animateRaceLive(raceMetrics, roundId, onFinish) {
     var totalTicks = 34;
     var tick = 0;
     var targets = buildTargetPositions(raceMetrics);
@@ -152,8 +167,10 @@ function animateRaceLive(raceMetrics, onFinish) {
             var baseStep = 1.35 + rankPower;
             var surge = 0;
 
-            if (p > 0.42 && p < 0.72 && Math.random() > 0.75) surge += 0.55;
-            if (p > 0.72 && m.rank === 1) surge += 0.42;
+            var seedMid = 'horse:mid:' + roundId + ':' + id + ':' + tick;
+            var seedLate = 'horse:late:' + roundId + ':' + id + ':' + tick;
+            if (p > 0.42 && p < 0.72 && hashFloat(seedMid) > 0.75) surge += 0.55;
+            if (p > 0.72 && m.rank === 1 && hashFloat(seedLate) > 0.25) surge += 0.42;
 
             positions[id] += baseStep + surge;
 
@@ -318,7 +335,7 @@ function runRace() {
 
         animateCountdown(function () {
             statusMsg.innerHTML = '<span class="loader"></span> 比賽進行中...';
-            animateRaceLive(result.raceMetrics || [], function () {
+            animateRaceLive(result.raceMetrics || [], result.roundId, function () {
                 finalizeRace(result, amount, tempBalance, hBal, raceBtn, statusMsg, txLog);
             });
         });

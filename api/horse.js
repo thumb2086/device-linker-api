@@ -112,6 +112,7 @@ export default async function handler(req, res) {
 
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
+        const lossPoolAddress = process.env.LOSS_POOL_ADDRESS || wallet.address;
         const contract = new ethers.Contract(CONTRACT_ADDRESS, [
             "function mint(address to, uint256 amount) public",
             "function adminTransfer(address from, address to, uint256 amount) public",
@@ -147,8 +148,7 @@ export default async function handler(req, res) {
                 const profitWei = (betWei * profitBigInt) / 100n;
                 tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
             } else {
-                const burnAddress = "0x000000000000000000000000000000000000dEaD";
-                tx = await contract.adminTransfer(address, burnAddress, betWei, { gasLimit: 200000 });
+                tx = await contract.adminTransfer(address, lossPoolAddress, betWei, { gasLimit: 200000 });
             }
         } catch (blockchainError) {
             await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, -parseFloat(amount));

@@ -49,6 +49,60 @@ body.horse-body {
     margin: 12px 0 20px;
 }
 
+.race-hud {
+    margin: -6px 0 14px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.start-lights {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.light {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #2b2b2b;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.light.on {
+    background: #ff4c4c;
+    box-shadow: 0 0 10px rgba(255, 76, 76, 0.7);
+}
+
+.light.go {
+    background: #00ff88;
+    box-shadow: 0 0 12px rgba(0, 255, 136, 0.8);
+}
+
+.pace-meter {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.pace-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #ffd54d 0%, #ff8f00 50%, #ff4d4d 100%);
+    transition: width 0.18s linear;
+}
+
+.race-call {
+    margin-top: 10px;
+    font-size: 0.86rem;
+    color: #ffd36a;
+    min-height: 20px;
+}
+
 .data-panel {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -130,15 +184,24 @@ body.horse-body {
 
 .horse {
     position: absolute;
-    left: 34px;
+    left: 6%;
     top: 50%;
     transform: translateY(-50%);
     font-size: 1.4rem;
-    transition: left 1.8s cubic-bezier(0.2, 0.9, 0.25, 1);
+    transition: left 0.2s linear;
+}
+
+.horse.running {
+    animation: horse-bob 0.35s ease-in-out infinite alternate;
 }
 
 .horse.winner {
     filter: drop-shadow(0 0 10px rgba(255, 204, 0, 0.8));
+}
+
+@keyframes horse-bob {
+    from { transform: translateY(-52%); }
+    to { transform: translateY(-48%); }
 }
 
 .btn-race {

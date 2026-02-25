@@ -35,21 +35,76 @@ function calcTotal(cards) {
     return total;
 }
 
-function evaluateRound(playerCards, dealerCards) {
-    const playerTotal = calcTotal(playerCards);
-    const dealerTotal = calcTotal(dealerCards);
-    const playerBlackjack = playerTotal === 21;
+function getVipLevel(totalBet) {
+    if (totalBet >= 100000) return "👑 鑽石 VIP";
+    if (totalBet >= 50000) return "🥇 黃金會員";
+    if (totalBet >= 10000) return "🥈 白銀會員";
+    return "普通會員";
+}
+
+function roundKey(sessionId) {
+    return `blackjack_round:${sessionId}`;
+}
+
+async function settleRound({ contract, lossPoolAddress, address, round }) {
+    const betWei = BigInt(round.betWei);
+    const playerTotal = calcTotal(round.playerCards);
+    const dealerTotal = calcTotal(round.dealerCards);
+
+    let result = {
+        isWin: false,
+        isPush: false,
+        reason: "",
+        multiplier: 0
+    };
 
     if (playerTotal > 21) {
-        return { isWin: false, playerTotal, dealerTotal, reason: "爆牌，莊家勝" };
+        result.reason = "你爆牌";
+    } else if (dealerTotal > 21) {
+        result.isWin = true;
+        result.reason = "莊家爆牌";
+        result.multiplier = round.playerCards.length === 2 && playerTotal === 21 ? 1.5 : 1;
+    } else if (playerTotal > dealerTotal) {
+        result.isWin = true;
+        result.reason = "點數較大";
+        result.multiplier = round.playerCards.length === 2 && playerTotal === 21 ? 1.5 : 1;
+    } else if (playerTotal < dealerTotal) {
+        result.reason = "莊家點數較大";
+    } else {
+        result.isPush = true;
+        result.reason = "平手";
     }
-    if (dealerTotal > 21) {
-        return { isWin: true, playerTotal, dealerTotal, reason: "莊家爆牌", multiplier: playerBlackjack ? 1.5 : 1 };
+
+    let txHash = "";
+
+    if (!result.isPush) {
+        if (result.isWin) {
+            const profitBigInt = BigInt(Math.floor(result.multiplier * 100));
+            const profitWei = (betWei * profitBigInt) / 100n;
+            const tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
+            txHash = tx.hash;
+        } else {
+            const tx = await contract.adminTransfer(address, lossPoolAddress, betWei, { gasLimit: 200000 });
+            txHash = tx.hash;
+        }
     }
-    if (playerTotal > dealerTotal) {
-        return { isWin: true, playerTotal, dealerTotal, reason: "點數較大", multiplier: playerBlackjack ? 1.5 : 1 };
-    }
-    return { isWin: false, playerTotal, dealerTotal, reason: "莊家點數不小於你" };
+
+    await kv.del(roundKey(round.sessionId));
+
+    return {
+        status: "settled",
+        playerCards: round.playerCards,
+        dealerCards: round.dealerCards,
+        playerTotal,
+        dealerTotal,
+        isWin: result.isWin,
+        isPush: result.isPush,
+        reason: result.reason,
+        multiplier: result.multiplier,
+        totalBet: round.totalBet,
+        vipLevel: round.vipLevel,
+        txHash
+    };
 }
 
 export default async function handler(req, res) {
@@ -59,9 +114,14 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-    const { address, amount, sessionId } = req.body;
-    if (!address || !amount || !sessionId) {
+    const { address, amount, sessionId, action } = req.body || {};
+    if (!address || !sessionId) {
         return res.status(400).json({ error: "缺少必要參數" });
+    }
+
+    const normalizedAction = action || "start";
+    if (!["start", "hit", "stand"].includes(normalizedAction)) {
+        return res.status(400).json({ error: "不支援的操作" });
     }
 
     try {
@@ -78,58 +138,123 @@ export default async function handler(req, res) {
             "function balanceOf(address) view returns (uint256)"
         ], wallet);
 
-        let decimals = 18n;
-        try { decimals = await contract.decimals(); } catch (e) {}
+        if (normalizedAction === "start") {
+            if (!amount || Number(amount) <= 0) {
+                return res.status(400).json({ error: "請輸入有效押注金額" });
+            }
 
-        const betWei = ethers.parseUnits(amount.toString(), decimals);
-        const userBalance = await contract.balanceOf(address);
-        if (userBalance < betWei) {
-            return res.status(400).json({ error: "餘額不足！請先充值再試" });
+            let decimals = 18n;
+            try { decimals = await contract.decimals(); } catch (e) {}
+
+            const betWei = ethers.parseUnits(amount.toString(), decimals);
+            const userBalance = await contract.balanceOf(address);
+            if (userBalance < betWei) {
+                return res.status(400).json({ error: "餘額不足！請先充值再試" });
+            }
+
+            const totalBetRaw = await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, parseFloat(amount));
+            const totalBet = parseFloat(totalBetRaw).toFixed(2);
+            const vipLevel = getVipLevel(parseFloat(totalBet));
+
+            const playerCards = [drawCard(), drawCard()];
+            const dealerCards = [drawCard(), drawCard()];
+            const playerTotal = calcTotal(playerCards);
+            const dealerTotal = calcTotal(dealerCards);
+
+            const round = {
+                sessionId,
+                address: address.toLowerCase(),
+                amount: parseFloat(amount),
+                betWei: betWei.toString(),
+                playerCards,
+                dealerCards,
+                totalBet,
+                vipLevel,
+                startedAt: Date.now()
+            };
+
+            // 開局先存，後續 hit/stand 使用
+            await kv.set(roundKey(sessionId), round, { ex: 600 });
+
+            // 開局若雙方黑傑克或任一黑傑克，直接結算
+            const playerBj = playerCards.length === 2 && playerTotal === 21;
+            const dealerBj = dealerCards.length === 2 && dealerTotal === 21;
+            if (playerBj || dealerBj) {
+                try {
+                    return res.status(200).json(await settleRound({ contract, lossPoolAddress, address, round }));
+                } catch (blockchainError) {
+                    await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, -parseFloat(amount));
+                    await kv.del(roundKey(sessionId));
+                    return res.status(500).json({
+                        error: "區塊鏈交易失敗",
+                        details: blockchainError.message
+                    });
+                }
+            }
+
+            return res.status(200).json({
+                status: "in_progress",
+                playerCards,
+                dealerCards: [dealerCards[0], { rank: "?", suit: "?", hidden: true }],
+                playerTotal,
+                dealerTotal: dealerCards[0].value,
+                totalBet,
+                vipLevel
+            });
         }
 
-        const playerCards = [drawCard(), drawCard()];
-        const dealerCards = [drawCard(), drawCard()];
-        const result = evaluateRound(playerCards, dealerCards);
+        const round = await kv.get(roundKey(sessionId));
+        if (!round) {
+            return res.status(400).json({ error: "本局不存在或已過期，請重新發牌" });
+        }
+        if (round.address !== address.toLowerCase()) {
+            return res.status(403).json({ error: "你不能操作別人的牌局" });
+        }
 
-        const totalBetRaw = await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, parseFloat(amount));
-        const totalBet = parseFloat(totalBetRaw).toFixed(2);
+        if (normalizedAction === "hit") {
+            round.playerCards.push(drawCard());
+            const playerTotal = calcTotal(round.playerCards);
 
-        let vipLevel = "普通會員";
-        if (totalBet >= 100000) vipLevel = "👑 鑽石 VIP";
-        else if (totalBet >= 50000) vipLevel = "🥇 黃金會員";
-        else if (totalBet >= 10000) vipLevel = "🥈 白銀會員";
-
-        let tx;
-        try {
-            if (result.isWin) {
-                const multiplier = result.multiplier || 1;
-                const profitBigInt = BigInt(Math.floor(multiplier * 100));
-                const profitWei = (betWei * profitBigInt) / 100n;
-                tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
-            } else {
-                tx = await contract.adminTransfer(address, lossPoolAddress, betWei, { gasLimit: 200000 });
+            if (playerTotal > 21) {
+                try {
+                    return res.status(200).json(await settleRound({ contract, lossPoolAddress, address, round }));
+                } catch (blockchainError) {
+                    await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, -parseFloat(round.amount));
+                    await kv.del(roundKey(sessionId));
+                    return res.status(500).json({
+                        error: "區塊鏈交易失敗",
+                        details: blockchainError.message
+                    });
+                }
             }
+
+            await kv.set(roundKey(sessionId), round, { ex: 600 });
+            return res.status(200).json({
+                status: "in_progress",
+                playerCards: round.playerCards,
+                dealerCards: [round.dealerCards[0], { rank: "?", suit: "?", hidden: true }],
+                playerTotal,
+                dealerTotal: round.dealerCards[0].value,
+                totalBet: round.totalBet,
+                vipLevel: round.vipLevel
+            });
+        }
+
+        // stand
+        while (calcTotal(round.dealerCards) < 17) {
+            round.dealerCards.push(drawCard());
+        }
+
+        try {
+            return res.status(200).json(await settleRound({ contract, lossPoolAddress, address, round }));
         } catch (blockchainError) {
-            await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, -parseFloat(amount));
+            await kv.incrbyfloat(`total_bet:${address.toLowerCase()}`, -parseFloat(round.amount));
+            await kv.del(roundKey(sessionId));
             return res.status(500).json({
                 error: "區塊鏈交易失敗",
                 details: blockchainError.message
             });
         }
-
-        return res.status(200).json({
-            status: "success",
-            playerCards,
-            dealerCards,
-            playerTotal: result.playerTotal,
-            dealerTotal: result.dealerTotal,
-            isWin: result.isWin,
-            reason: result.reason,
-            multiplier: result.multiplier || 0,
-            totalBet,
-            vipLevel,
-            txHash: tx.hash
-        });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }

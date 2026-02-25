@@ -59,6 +59,12 @@ body.blackjack-body {
     color: #c51919;
 }
 
+.card.back {
+    background: linear-gradient(180deg, #192237, #0e1320);
+    color: #d6e4ff;
+    border-color: #30446f;
+}
+
 .versus {
     color: var(--gold);
     font-size: 1.1rem;
@@ -73,18 +79,34 @@ body.blackjack-body {
     margin-bottom: 20px;
 }
 
-.btn-deal {
+.blackjack-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.btn-deal,
+.btn-action {
     width: 100%;
     padding: 16px;
     border: none;
     border-radius: 16px;
-    font-size: 1.1rem;
+    font-size: 1.03rem;
     font-weight: 900;
     cursor: pointer;
+}
+
+.btn-deal {
     background: linear-gradient(180deg, #ffcc00, #b8860b);
     color: #221a00;
     box-shadow: 0 10px 24px var(--gold-glow);
-    margin-bottom: 8px;
+}
+
+.btn-action {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 @media (max-width: 520px) {
@@ -95,5 +117,9 @@ body.blackjack-body {
 
     .versus {
         display: none;
+    }
+
+    .blackjack-actions {
+        grid-template-columns: 1fr;
     }
 }

@@ -46,7 +46,12 @@
         <div id="odds-banner">黑傑克 1.5x，普通勝利 1x（利潤）</div>
 
         <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入押注金額">
-        <button class="btn-deal" id="deal-btn" onclick="playBlackjack()">發牌</button>
+
+        <div class="blackjack-actions">
+            <button class="btn-deal" id="deal-btn" onclick="startBlackjack()">發牌</button>
+            <button class="btn-action" id="hit-btn" onclick="playerHit()" disabled>要牌</button>
+            <button class="btn-action" id="stand-btn" onclick="playerStand()" disabled>停牌</button>
+        </div>
 
         <p id="status-msg">準備開始...</p>
         <div id="tx-log"></div>

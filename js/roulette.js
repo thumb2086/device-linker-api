@@ -1,6 +1,9 @@
 /* === 輪盤遊戲邏輯 === */
 
 var ROULETTE_ROUND_MS = 30000;
+var roulettePreviewToken = 0;
+var rouletteBetting = false;
+var lastRouletteRoundId = null;
 
 var BET_OPTIONS = {
     color: [
@@ -22,17 +25,83 @@ var BET_OPTIONS = {
     ]
 };
 
-var rolling = false;
+function hash32(input) {
+    var str = String(input);
+    var hash = 2166136261 >>> 0;
+    for (var i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function getColor(num) {
+    if (num === 0) return 'green';
+    var reds = { 1: 1, 3: 1, 5: 1, 7: 1, 9: 1, 12: 1, 14: 1, 16: 1, 18: 1, 19: 1, 21: 1, 23: 1, 25: 1, 27: 1, 30: 1, 32: 1, 34: 1, 36: 1 };
+    return reds[num] ? 'red' : 'black';
+}
+
+function getRouletteRoundResult(roundId) {
+    return hash32('roulette:' + roundId) % 37;
+}
+
+function runRoulettePreviewRound(roundId) {
+    if (rouletteBetting) return;
+
+    var token = ++roulettePreviewToken;
+    var status = document.getElementById('status-msg');
+    var wheel = document.getElementById('wheel-display');
+    var lastResult = document.getElementById('last-result');
+
+    var winningNumber = getRouletteRoundResult(roundId);
+    var winningColor = getColor(winningNumber);
+
+    if (status) {
+        status.innerText = '🎬 第 ' + roundId + ' 局自動開獎中...';
+        status.style.color = '#ffd36a';
+    }
+
+    if (wheel) {
+        wheel.classList.remove('win-red', 'win-black', 'win-green');
+        wheel.style.transform = 'rotate(1080deg)';
+    }
+
+    setTimeout(function () {
+        if (token !== roulettePreviewToken || rouletteBetting) return;
+
+        if (wheel) {
+            wheel.style.transform = 'rotate(0deg)';
+            wheel.innerText = winningNumber;
+            wheel.classList.add('win-' + winningColor);
+        }
+
+        if (lastResult) {
+            lastResult.innerText = '第 ' + roundId + ' 局自動開獎: ' + winningNumber + '（' + winningColor + '）';
+        }
+
+        if (status && !rouletteBetting) {
+            status.innerText = '📣 第 ' + roundId + ' 局自動結果已更新';
+            status.style.color = '#ffd36a';
+        }
+    }, 1200);
+}
 
 function updateRouletteRoundHint() {
     var hint = document.getElementById('round-hint');
-    if (!hint) return;
 
     var now = Date.now();
     var roundId = Math.floor(now / ROULETTE_ROUND_MS);
     var closesAt = (roundId + 1) * ROULETTE_ROUND_MS;
     var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
-    hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+
+    if (hint) {
+        hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+    }
+
+    if (lastRouletteRoundId !== roundId) {
+        lastRouletteRoundId = roundId;
+        runRoulettePreviewRound(roundId);
+    }
 }
 
 function onBetTypeChange() {
@@ -60,7 +129,7 @@ function onBetTypeChange() {
 }
 
 function spinRoulette() {
-    if (rolling) return;
+    if (rouletteBetting) return;
 
     var amount = parseFloat(document.getElementById('bet-amount').value);
     var betType = document.getElementById('bet-type').value;
@@ -76,7 +145,9 @@ function spinRoulette() {
         return;
     }
 
-    rolling = true;
+    rouletteBetting = true;
+    roulettePreviewToken += 1;
+
     spinBtn.disabled = true;
     status.innerHTML = '<span class="loader"></span> 交易確認中...';
     status.style.color = '#ffcc00';
@@ -128,7 +199,7 @@ function spinRoulette() {
             }
 
             txLog.innerHTML = txLinkHTML(result.txHash);
-            rolling = false;
+            rouletteBetting = false;
             spinBtn.disabled = false;
             setTimeout(refreshBalance, 10000);
         }, 1200);
@@ -136,7 +207,7 @@ function spinRoulette() {
     .catch(function (e) {
         status.innerText = '❌ 錯誤: ' + e.message;
         status.style.color = 'red';
-        rolling = false;
+        rouletteBetting = false;
         spinBtn.disabled = false;
 
         document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });

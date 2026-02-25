@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
-import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
+import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 
 const DEFAULT_RECOVERY_TO = "0x8fDCB5E955B225c6ee62b6DDcd21013c5F4786c2";
 

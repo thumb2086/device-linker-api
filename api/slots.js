@@ -1,7 +1,7 @@
 // api/slots.js - 老虎機
 import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
-import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
+import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 
 // 圖案與權重（越稀有權重越低）
 const SYMBOLS = [

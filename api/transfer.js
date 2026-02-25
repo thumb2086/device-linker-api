@@ -1,7 +1,7 @@
 // api/transfer.js
 import { ethers } from "ethers";
 import { verify } from "crypto"; // 引入原生 crypto 模組
-import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
+import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 
 export default async function handler(req, res) {
     // 設置 CORS (如果需要)

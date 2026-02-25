@@ -1,7 +1,7 @@
 // api/auth.js
 import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
-import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
+import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 
 export default async function handler(req, res) {
     // 1. 強制處理跨域與快取（最重要！）

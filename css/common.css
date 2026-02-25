@@ -181,6 +181,26 @@ h1 {
     min-width: 200px;
 }
 
+.mobile-auth-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.auth-action-btn {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+}
+
+.auth-code-line {
+    font-size: 0.85rem;
+    color: #999;
+}
+
 /* --- 輸入框 --- */
 input[type="number"] {
     background: rgba(0, 0, 0, 0.3);

@@ -18,6 +18,11 @@
         <p class="subtitle">子熙幣 ZXC</p>
         <p>掃描以連結你的子熙錢包</p>
         <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
+        <div class="mobile-auth-actions">
+            <button class="btn-primary auth-action-btn" onclick="openAppAuth()">在手機 App 授權</button>
+            <button class="btn-secondary auth-action-btn" onclick="copyAuthCode()">複製授權碼</button>
+            <div class="auth-code-line">授權碼: <span id="auth-code">-</span></div>
+        </div>
         <div id="auth-msg"><span class="loader"></span> 等待硬體授權...</div>
     </div>
 
@@ -47,6 +52,12 @@
 
         <div class="section-title">選擇遊戲</div>
 
+        <div class="recovery-box" id="recovery-box">
+            <button class="btn-primary recovery-btn" id="recover-btn" onclick="recoverLegacyLossToCurrentWallet()">回收舊地址資金到目前登入錢包</button>
+            <div class="recovery-msg" id="recover-msg">暫時金流處理用：把舊回收地址代幣轉回你目前登入錢包。</div>
+            <div id="recover-tx"></div>
+        </div>
+
         <div class="game-grid">
             <a href="games/coinflip.html" class="game-card">
                 <div class="game-icon">🪙</div>
@@ -62,12 +73,12 @@
                 <div class="game-tag ready">開放中</div>
             </a>
 
-            <div class="game-card coming-soon">
+            <a href="games/roulette.html" class="game-card">
                 <div class="game-icon">🎡</div>
                 <div class="game-name">輪盤</div>
                 <div class="game-desc">經典歐式輪盤</div>
-                <div class="game-tag soon">即將推出</div>
-            </div>
+                <div class="game-tag ready">開放中</div>
+            </a>
 
             <a href="games/blackjack.html" class="game-card">
                 <div class="game-icon">🃏</div>

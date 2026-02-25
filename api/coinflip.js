@@ -18,6 +18,7 @@ export default async function handler(req, res) {
         // 1. 先準備合約連線 (為了查餘額)
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
+        const lossPoolAddress = process.env.LOSS_POOL_ADDRESS || wallet.address;
 
         const contract = new ethers.Contract(CONTRACT_ADDRESS, [
             "function mint(address to, uint256 amount) public",
@@ -65,9 +66,8 @@ export default async function handler(req, res) {
                 console.log(`贏了！發放利潤...`);
                 tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
             } else {
-                const burnAddress = "0x000000000000000000000000000000000000dEaD";
                 console.log(`輸了... 扣除本金...`);
-                tx = await contract.adminTransfer(address, burnAddress, betWei, { gasLimit: 200000 });
+                tx = await contract.adminTransfer(address, lossPoolAddress, betWei, { gasLimit: 200000 });
             }
         } catch (blockchainError) {
             // 如果這一步失敗 (例如 Gas 不足)，我們應該要回滾 KV (雖然後端很難真的回滾 KV，但至少報錯)

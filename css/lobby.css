@@ -93,6 +93,26 @@ body.lobby-body {
     text-align: center;
 }
 
+.recovery-box {
+    background: rgba(255, 204, 0, 0.05);
+    border: 1px solid rgba(255, 204, 0, 0.2);
+    border-radius: 14px;
+    padding: 14px;
+    margin: 0 auto 22px;
+    max-width: 720px;
+    text-align: center;
+}
+
+.recovery-btn {
+    width: 100%;
+}
+
+.recovery-msg {
+    margin-top: 10px;
+    color: #b7b7b7;
+    font-size: 0.85rem;
+}
+
 /* --- 遊戲選擇網格 --- */
 .game-grid {
     display: grid;

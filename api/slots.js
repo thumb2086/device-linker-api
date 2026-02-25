@@ -74,6 +74,7 @@ export default async function handler(req, res) {
         // 準備合約
         const provider = new ethers.JsonRpcProvider(RPC_URL);
         const wallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
+        const lossPoolAddress = process.env.LOSS_POOL_ADDRESS || wallet.address;
         const contract = new ethers.Contract(CONTRACT_ADDRESS, [
             "function mint(address to, uint256 amount) public",
             "function adminTransfer(address from, address to, uint256 amount) public",
@@ -114,13 +115,11 @@ export default async function handler(req, res) {
                 tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
             } else if (result.type === "double") {
                 // 兩連：只扣半注（等效返還 0.5x）
-                const burnAddress = "0x000000000000000000000000000000000000dEaD";
                 const halfBetWei = betWei / 2n;
-                tx = await contract.adminTransfer(address, burnAddress, halfBetWei, { gasLimit: 200000 });
+                tx = await contract.adminTransfer(address, lossPoolAddress, halfBetWei, { gasLimit: 200000 });
             } else {
                 // 全輸：扣整注
-                const burnAddress = "0x000000000000000000000000000000000000dEaD";
-                tx = await contract.adminTransfer(address, burnAddress, betWei, { gasLimit: 200000 });
+                tx = await contract.adminTransfer(address, lossPoolAddress, betWei, { gasLimit: 200000 });
             }
         } catch (blockchainError) {
             console.error("交易失敗:", blockchainError);

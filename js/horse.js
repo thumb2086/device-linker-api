@@ -2,21 +2,48 @@
 
 var selectedHorseId = 1;
 var raceInProgress = false;
+var raceAnimationToken = 0;
+var lastObservedRoundId = null;
+
 var HORSE_ROUND_MS = 45000;
+var TRACKS = ['乾地', '濕地', '夜賽'];
 
-var horseMultipliers = {
-    1: 1.6,
-    2: 2.0,
-    3: 2.5,
-    4: 3.5
+var HORSE_CONFIG = {
+    1: { id: 1, name: '赤焰', multiplier: 1.6, weight: 30, speed: 92, stamina: 88, burst: 86 },
+    2: { id: 2, name: '雷霆', multiplier: 2.0, weight: 28, speed: 89, stamina: 90, burst: 84 },
+    3: { id: 3, name: '幻影', multiplier: 2.5, weight: 24, speed: 86, stamina: 84, burst: 91 },
+    4: { id: 4, name: '夜刃', multiplier: 3.5, weight: 18, speed: 82, stamina: 80, burst: 94 }
 };
 
-var horseProfiles = {
-    1: { name: '赤焰', speed: 92, stamina: 88, burst: 86 },
-    2: { name: '雷霆', speed: 89, stamina: 90, burst: 84 },
-    3: { name: '幻影', speed: 86, stamina: 84, burst: 91 },
-    4: { name: '夜刃', speed: 82, stamina: 80, burst: 94 }
-};
+var HORSE_STATS_FIXED = [
+    { id: 1, name: '赤焰', races: 1200, wins: 360, podium: 810, last5: [1, 2, 1, 3, 2], winRate: 30.0 },
+    { id: 2, name: '雷霆', races: 1200, wins: 336, podium: 782, last5: [2, 1, 3, 2, 2], winRate: 28.0 },
+    { id: 3, name: '幻影', races: 1200, wins: 288, podium: 705, last5: [3, 4, 1, 2, 3], winRate: 24.0 },
+    { id: 4, name: '夜刃', races: 1200, wins: 216, podium: 603, last5: [4, 3, 2, 4, 1], winRate: 18.0 }
+];
+
+function getHorseList() {
+    return [HORSE_CONFIG[1], HORSE_CONFIG[2], HORSE_CONFIG[3], HORSE_CONFIG[4]];
+}
+
+function hash32(input) {
+    var str = String(input);
+    var hash = 2166136261 >>> 0;
+    for (var i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function hashFloat(input) {
+    return (hash32(input) % 1000000) / 1000000;
+}
+
+function nextRaceAnimationToken() {
+    raceAnimationToken += 1;
+    return raceAnimationToken;
+}
 
 function selectHorse(horseId) {
     selectedHorseId = horseId;
@@ -34,25 +61,18 @@ function updateHorseRoundHint() {
     var closesAt = (roundId + 1) * HORSE_ROUND_MS;
     var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
     hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+
+    if (lastObservedRoundId !== roundId) {
+        lastObservedRoundId = roundId;
+        if (!raceInProgress) {
+            runAutoPreviewRound(roundId);
+        }
+    }
 }
 
 function setRaceCall(message) {
     var callEl = document.getElementById('race-call');
     if (callEl) callEl.innerText = message;
-}
-
-function hash32(input) {
-    var str = String(input);
-    var hash = 2166136261 >>> 0;
-    for (var i = 0; i < str.length; i++) {
-        hash ^= str.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-}
-
-function hashFloat(input) {
-    return (hash32(input) % 1000000) / 1000000;
 }
 
 function setPace(percent) {
@@ -91,6 +111,7 @@ function setLights(count) {
 function resetRaceTrack() {
     for (var i = 1; i <= 4; i++) {
         var horse = document.getElementById('horse-' + i);
+        if (!horse) continue;
         horse.innerText = '🏇';
         horse.style.left = '6%';
         horse.classList.remove('winner');
@@ -101,23 +122,29 @@ function resetRaceTrack() {
     resetLights();
 }
 
-function animateCountdown(onDone) {
+function animateCountdown(token, onDone) {
+    if (token !== raceAnimationToken) return;
+
     setRaceCall('比賽即將開始...');
     setLights(1);
 
     setTimeout(function () {
+        if (token !== raceAnimationToken) return;
         setRaceCall('3...');
         setLights(1);
 
         setTimeout(function () {
+            if (token !== raceAnimationToken) return;
             setRaceCall('2...');
             setLights(2);
 
             setTimeout(function () {
+                if (token !== raceAnimationToken) return;
                 setRaceCall('1...');
                 setLights(3);
 
                 setTimeout(function () {
+                    if (token !== raceAnimationToken) return;
                     setRaceCall('出閘！衝啊！');
                     setLights(99);
                     if (onDone) onDone();
@@ -136,7 +163,6 @@ function buildTargetPositions(raceMetrics) {
         else if (m.rank === 3) target = 82;
         else target = 77;
 
-        // 依反應與尾速做細微偏移，增加每場差異
         var reactionBias = Math.max(-1.2, Math.min(1.2, (230 - m.reactionMs) / 60));
         var speedBias = Math.max(-1.2, Math.min(1.2, (m.topSpeed - 59) / 2.2));
         map[m.id] = target + reactionBias + speedBias;
@@ -144,7 +170,9 @@ function buildTargetPositions(raceMetrics) {
     return map;
 }
 
-function animateRaceLive(raceMetrics, roundId, onFinish) {
+function animateRaceLive(raceMetrics, roundId, token, onFinish) {
+    if (token !== raceAnimationToken) return;
+
     var totalTicks = 34;
     var tick = 0;
     var targets = buildTargetPositions(raceMetrics);
@@ -157,6 +185,11 @@ function animateRaceLive(raceMetrics, roundId, onFinish) {
     }
 
     var timer = setInterval(function () {
+        if (token !== raceAnimationToken) {
+            clearInterval(timer);
+            return;
+        }
+
         tick += 1;
         var p = tick / totalTicks;
         setPace(p * 100);
@@ -181,7 +214,6 @@ function animateRaceLive(raceMetrics, roundId, onFinish) {
             if (horse) horse.style.left = positions[id] + '%';
         });
 
-        // 即時旁白：領先馬變化
         var sorted = raceMetrics.slice().sort(function (a, b) {
             return positions[b.id] - positions[a.id];
         });
@@ -205,11 +237,50 @@ function animateRaceLive(raceMetrics, roundId, onFinish) {
 
             setPace(100);
             setTimeout(function () {
+                if (token !== raceAnimationToken) return;
                 resetLights();
                 if (onFinish) onFinish();
             }, 450);
         }
     }, 170);
+}
+
+function simulateRaceDeterministic(roundId) {
+    var trackIdx = Math.floor(hashFloat('horse:track:' + roundId) * TRACKS.length) % TRACKS.length;
+    var trackCondition = TRACKS[trackIdx];
+
+    var metrics = getHorseList().map(function (horse) {
+        var baseScore = horse.weight * 2 + horse.speed * 0.6 + horse.stamina * 0.5 + horse.burst * 0.7;
+        var volatility = (hashFloat('horse:vol:' + roundId + ':' + horse.id) * 40) - 20;
+
+        var trackBias = trackCondition === '濕地'
+            ? horse.stamina * 0.06
+            : trackCondition === '夜賽'
+                ? horse.burst * 0.07
+                : horse.speed * 0.05;
+
+        var raceScore = baseScore + trackBias + volatility;
+
+        return {
+            id: horse.id,
+            name: horse.name,
+            multiplier: horse.multiplier,
+            finishTime: parseFloat((66 - raceScore / 18).toFixed(2)),
+            topSpeed: parseFloat((54 + raceScore / 12).toFixed(1)),
+            reactionMs: Math.round(180 + ((hashFloat('horse:react:' + roundId + ':' + horse.id) * 100) - 40) - horse.burst * 0.35)
+        };
+    });
+
+    metrics.sort(function (a, b) { return a.finishTime - b.finishTime; });
+    metrics.forEach(function (m, idx) { m.rank = idx + 1; });
+
+    return {
+        roundId: roundId,
+        trackCondition: trackCondition,
+        metrics: metrics,
+        winnerId: metrics[0].id,
+        winnerName: metrics[0].name
+    };
 }
 
 function renderHorseDataTable(horses, horseStats) {
@@ -262,12 +333,49 @@ function renderRaceRank(raceMetrics) {
     rankWrap.innerHTML = html;
 }
 
-function finalizeRace(result, amount, tempBalance, hBal, raceBtn, statusMsg, txLog) {
+function runAutoPreviewRound(roundId) {
+    if (raceInProgress) return;
+
+    var statusMsg = document.getElementById('status-msg');
+    var simulation = simulateRaceDeterministic(roundId);
+
+    document.getElementById('track-cond').innerText = '場地：' + simulation.trackCondition;
+    renderRaceRank([]);
+    resetRaceTrack();
+
+    var token = nextRaceAnimationToken();
+    if (statusMsg) {
+        statusMsg.innerText = '🎬 第 ' + roundId + ' 局自動開跑中...';
+        statusMsg.style.color = '#ffd36a';
+    }
+
+    animateCountdown(token, function () {
+        if (token !== raceAnimationToken || raceInProgress) return;
+
+        animateRaceLive(simulation.metrics, simulation.roundId, token, function () {
+            if (token !== raceAnimationToken || raceInProgress) return;
+
+            renderRaceRank(simulation.metrics);
+            var winner = document.getElementById('horse-' + simulation.winnerId);
+            if (winner) winner.classList.add('winner');
+            setRaceCall('第 ' + simulation.roundId + ' 局自動開獎：' + simulation.winnerName + ' 奪冠');
+
+            if (statusMsg && !raceInProgress) {
+                statusMsg.innerText = '📣 自動開獎完成：' + simulation.winnerName + ' 奪冠';
+                statusMsg.style.color = '#ffd36a';
+            }
+        });
+    });
+}
+
+function finalizeRace(result, amount, tempBalance, hBal, raceBtn, statusMsg, txLog, token) {
+    if (token !== raceAnimationToken) return;
+
     var winner = document.getElementById('horse-' + result.winnerId);
     if (winner) winner.classList.add('winner');
 
     if (result.isWin) {
-        var mult = horseMultipliers[result.selectedHorseId] || result.multiplier;
+        var mult = HORSE_CONFIG[result.selectedHorseId].multiplier || result.multiplier;
         var profit = amount * mult;
         var newBalance = tempBalance + amount + profit;
         document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
@@ -306,6 +414,8 @@ function runRace() {
     statusMsg.innerHTML = '<span class="loader"></span> 交易確認中...';
     statusMsg.style.color = '#ffcc00';
     txLog.innerHTML = '';
+
+    var token = nextRaceAnimationToken();
     resetRaceTrack();
 
     var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
@@ -327,16 +437,20 @@ function runRace() {
     .then(function (res) { return res.json(); })
     .then(function (result) {
         if (result.error) throw new Error(result.error);
+        if (token !== raceAnimationToken) return;
+
         statusMsg.innerHTML = '<span class="loader"></span> 進入起跑線...';
         updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
         document.getElementById('track-cond').innerText = '場地：' + (result.trackCondition || '-');
-        renderHorseDataTable(result.horses, result.horseStats);
-        renderRaceRank(result.raceMetrics);
+        renderHorseDataTable(result.horses || getHorseList(), result.horseStats || HORSE_STATS_FIXED);
+        renderRaceRank(result.raceMetrics || []);
 
-        animateCountdown(function () {
+        animateCountdown(token, function () {
+            if (token !== raceAnimationToken) return;
+
             statusMsg.innerHTML = '<span class="loader"></span> 比賽進行中...';
-            animateRaceLive(result.raceMetrics || [], result.roundId, function () {
-                finalizeRace(result, amount, tempBalance, hBal, raceBtn, statusMsg, txLog);
+            animateRaceLive(result.raceMetrics || [], result.roundId, token, function () {
+                finalizeRace(result, amount, tempBalance, hBal, raceBtn, statusMsg, txLog, token);
             });
         });
     })
@@ -355,16 +469,10 @@ function runRace() {
 
 window.addEventListener('load', function () {
     selectHorse(1);
-    var initialHorses = [
-        { id: 1, name: horseProfiles[1].name, multiplier: horseMultipliers[1], speed: horseProfiles[1].speed, stamina: horseProfiles[1].stamina, burst: horseProfiles[1].burst },
-        { id: 2, name: horseProfiles[2].name, multiplier: horseMultipliers[2], speed: horseProfiles[2].speed, stamina: horseProfiles[2].stamina, burst: horseProfiles[2].burst },
-        { id: 3, name: horseProfiles[3].name, multiplier: horseMultipliers[3], speed: horseProfiles[3].speed, stamina: horseProfiles[3].stamina, burst: horseProfiles[3].burst },
-        { id: 4, name: horseProfiles[4].name, multiplier: horseMultipliers[4], speed: horseProfiles[4].speed, stamina: horseProfiles[4].stamina, burst: horseProfiles[4].burst }
-    ];
-
-    renderHorseDataTable(initialHorses, []);
+    renderHorseDataTable(getHorseList(), HORSE_STATS_FIXED);
     renderRaceRank([]);
     resetRaceTrack();
+
     updateHorseRoundHint();
     setInterval(updateHorseRoundHint, 1000);
 });

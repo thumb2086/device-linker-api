@@ -1,6 +1,6 @@
 // api/history.js
 import { ethers } from "ethers";
-import { CONTRACT_ADDRESS } from "./config.js";
+import { CONTRACT_ADDRESS } from "../lib/config.js";
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');

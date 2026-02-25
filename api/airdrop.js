@@ -1,6 +1,6 @@
 // api/airdrop.js
 import { ethers } from "ethers";
-import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
+import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 
 
 export default async function handler(req, res) {

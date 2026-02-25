@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
-import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
+import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = [

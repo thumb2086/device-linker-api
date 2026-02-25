@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
-import { CONTRACT_ADDRESS, RPC_URL } from "./config.js";
+import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 
 const HORSES = [
     { id: 1, name: "赤焰", weight: 30, multiplier: 1.6, speed: 92, stamina: 88, burst: 86 },

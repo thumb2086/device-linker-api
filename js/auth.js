@@ -1,5 +1,14 @@
 /* === 閃電賭場 - 認證模組 === */
 var authPollInterval = null;
+var authDeepLink = '';
+
+function buildDeepLink(sessionId) {
+    return 'dlinker://login?sessionId=' + encodeURIComponent(sessionId);
+}
+
+function buildLegacyDeepLink(sessionId) {
+    return 'dlinker:login:' + sessionId;
+}
 
 /**
  * 從 localStorage 讀取認證資料
@@ -53,14 +62,53 @@ function initLobbyAuth(onAuthorized) {
     showQRAuth(onAuthorized);
 }
 
+function detectClientPlatform() {
+    var ua = (navigator.userAgent || '').toLowerCase();
+    if (ua.indexOf('android') >= 0) return 'android';
+    if (ua.indexOf('iphone') >= 0 || ua.indexOf('ipad') >= 0 || ua.indexOf('ipod') >= 0) return 'ios';
+    if (ua.indexOf('windows') >= 0) return 'windows';
+    if (ua.indexOf('mac os') >= 0 || ua.indexOf('macintosh') >= 0) return 'macos';
+    if (ua.indexOf('linux') >= 0) return 'linux';
+    return 'web';
+}
+
+function detectClientType(platform) {
+    if (platform === 'android' || platform === 'ios') return 'mobile';
+    if (platform === 'windows' || platform === 'macos' || platform === 'linux') return 'desktop';
+    return 'web';
+}
+
+function createAuthSession(callback) {
+    var platform = detectClientPlatform();
+    var clientType = detectClientType(platform);
+    fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'create',
+            platform: platform,
+            clientType: clientType
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || !data.success || !data.sessionId) {
+                callback(null);
+                return;
+            }
+            callback({
+                sessionId: data.sessionId,
+                deepLink: data.deepLink || buildDeepLink(data.sessionId),
+                legacyDeepLink: data.legacyDeepLink || buildLegacyDeepLink(data.sessionId)
+            });
+        })
+        .catch(function () { callback(null); });
+}
+
 /**
  * 顯示 QR Code 認證畫面並開始輪詢
  */
 function showQRAuth(onAuthorized) {
-    var sessionId = 'session_' + Math.random().toString(36).substring(7);
-    user.sessionId = sessionId;
-    renderAuthCode(sessionId);
-
     var authUI = document.getElementById('auth-ui');
     if (authUI) authUI.classList.remove('hidden');
     var lobbyUI = document.getElementById('lobby-ui');
@@ -72,15 +120,33 @@ function showQRAuth(onAuthorized) {
     var canvas = document.getElementById('qr-canvas');
     if (!canvas) return;
 
-    function tryRenderQR() {
+    function renderSession(sessionId, deepLink) {
+        user.sessionId = sessionId;
+        authDeepLink = deepLink || buildDeepLink(sessionId);
+        renderAuthCode(sessionId);
+        updateAuthMessage('<span class="loader"></span> 等待硬體授權...');
+
         if (typeof QRCode !== 'undefined') {
-            QRCode.toCanvas(canvas, 'dlinker:login:' + sessionId, { width: 200, margin: 2 });
+            QRCode.toCanvas(canvas, authDeepLink, { width: 200, margin: 2 });
             startAuthPolling(sessionId, onAuthorized);
-        } else {
-            setTimeout(tryRenderQR, 500);
         }
     }
-    tryRenderQR();
+
+    function tryRenderQR(sessionId, deepLink) {
+        if (typeof QRCode !== 'undefined') {
+            renderSession(sessionId, deepLink);
+        } else {
+            setTimeout(function () { tryRenderQR(sessionId, deepLink); }, 500);
+        }
+    }
+
+    createAuthSession(function (session) {
+        if (session && session.sessionId) {
+            tryRenderQR(session.sessionId, session.deepLink);
+            return;
+        }
+        updateAuthMessage('⚠️ 認證服務暫時無法使用，請稍後重試');
+    });
 }
 
 /**
@@ -116,19 +182,54 @@ function renderAuthCode(sessionId) {
     if (authCodeEl) authCodeEl.innerText = sessionId || '-';
 }
 
+function updateAuthMessage(html) {
+    var authMsg = document.getElementById('auth-msg');
+    if (authMsg) authMsg.innerHTML = html;
+}
+
+function launchDeepLink(deepLink, legacyDeepLink) {
+    var primaryLink = legacyDeepLink || deepLink;
+    var fallbackLink = deepLink && deepLink !== primaryLink ? deepLink : '';
+    if (!primaryLink) return;
+    window.location.href = primaryLink;
+    if (fallbackLink) {
+        setTimeout(function () {
+            window.location.assign(fallbackLink);
+        }, 400);
+    }
+}
+
 function openAppAuth() {
     if (!user.sessionId) return;
-    var authMsg = document.getElementById('auth-msg');
-    if (authMsg) authMsg.innerHTML = '<span class="loader"></span> 已開啟 App 授權，等待回傳...';
-    window.location.href = 'dlinker:login:' + user.sessionId;
+    var deepLink = authDeepLink || buildDeepLink(user.sessionId);
+    var legacyDeepLink = buildLegacyDeepLink(user.sessionId);
+    updateAuthMessage('<span class="loader"></span> 嘗試開啟 App，請在手機允許跳轉...');
+
+    var jumpedOut = false;
+    var onVisibilityChange = function () {
+        if (document.hidden) {
+            jumpedOut = true;
+        }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    launchDeepLink(deepLink, legacyDeepLink);
+
+    setTimeout(function () {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        if (!jumpedOut) {
+            updateAuthMessage('⚠️ 無法自動開啟 App，請先手動打開 App 並貼上授權碼登入');
+            return;
+        }
+        updateAuthMessage('<span class="loader"></span> 已切到 App，等待授權完成...');
+    }, 1800);
 }
 
 function copyAuthCode() {
     if (!user.sessionId) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(user.sessionId).then(function() {
-            var authMsg = document.getElementById('auth-msg');
-            if (authMsg) authMsg.innerHTML = '✅ 已複製授權碼，請到 App 貼上登入';
+            updateAuthMessage('✅ 已複製授權碼，請到 App 貼上登入');
         });
         return;
     }
@@ -140,8 +241,7 @@ function copyAuthCode() {
     document.execCommand('copy');
     document.body.removeChild(tmp);
 
-    var authMsgFallback = document.getElementById('auth-msg');
-    if (authMsgFallback) authMsgFallback.innerHTML = '✅ 已複製授權碼，請到 App 貼上登入';
+    updateAuthMessage('✅ 已複製授權碼，請到 App 貼上登入');
 }
 
 /**

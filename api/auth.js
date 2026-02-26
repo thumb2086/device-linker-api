@@ -7,6 +7,7 @@ import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 const DEFAULT_SESSION_TTL_SECONDS = 600;
 const ALLOWED_PLATFORMS = new Set(["android", "ios", "web", "macos", "windows", "linux", "unknown"]);
 const ALLOWED_CLIENT_TYPES = new Set(["mobile", "desktop", "web", "server", "unknown"]);
+const DEEP_LINK_SCHEME = "dlinker://login";
 
 function normalizeText(value, fallback = "unknown", maxLength = 64) {
     if (typeof value !== "string") return fallback;
@@ -47,6 +48,10 @@ function parseSessionTTL(input) {
     const parsed = Number(input);
     if (!Number.isFinite(parsed)) return DEFAULT_SESSION_TTL_SECONDS;
     return Math.min(3600, Math.max(60, Math.floor(parsed)));
+}
+
+function buildDeepLink(sessionId) {
+    return `${DEEP_LINK_SCHEME}?sessionId=${encodeURIComponent(sessionId)}`;
 }
 
 function buildAuthPayload(sessionData, balance, totalBet, vipLevel) {
@@ -153,7 +158,8 @@ export default async function handler(req, res) {
                     success: true,
                     status: "pending",
                     sessionId: generatedSessionId,
-                    deepLink: `dlinker:login:${generatedSessionId}`,
+                    deepLink: buildDeepLink(generatedSessionId),
+                    legacyDeepLink: `dlinker:login:${generatedSessionId}`,
                     ttlSeconds,
                     platform,
                     clientType

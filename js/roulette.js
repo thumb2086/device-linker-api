@@ -1,6 +1,7 @@
 /* === 輪盤遊戲邏輯 === */
 
 var ROULETTE_ROUND_MS = 30000;
+var ROULETTE_LOCK_MS = 3000;
 var roulettePreviewToken = 0;
 var rouletteBetting = false;
 var lastRouletteRoundId = null;
@@ -88,14 +89,25 @@ function runRoulettePreviewRound(roundId) {
 
 function updateRouletteRoundHint() {
     var hint = document.getElementById('round-hint');
+    var spinBtn = document.getElementById('spin-btn');
 
     var now = Date.now();
     var roundId = Math.floor(now / ROULETTE_ROUND_MS);
     var closesAt = (roundId + 1) * ROULETTE_ROUND_MS;
+    var bettingClosesAt = closesAt - ROULETTE_LOCK_MS;
+    var isBettingOpen = now < bettingClosesAt;
     var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
 
     if (hint) {
-        hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+        if (isBettingOpen) {
+            hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+        } else {
+            hint.innerText = '第 ' + roundId + ' 局開獎中，暫停下注（' + secLeft + ' 秒後下一局）';
+        }
+    }
+
+    if (!rouletteBetting && spinBtn) {
+        spinBtn.disabled = !isBettingOpen;
     }
 
     if (lastRouletteRoundId !== roundId) {
@@ -142,6 +154,14 @@ function spinRoulette() {
 
     if (isNaN(amount) || amount <= 0) {
         status.innerText = '❌ 請輸入有效的金額';
+        return;
+    }
+
+    var now = Date.now();
+    var closesAt = (Math.floor(now / ROULETTE_ROUND_MS) + 1) * ROULETTE_ROUND_MS;
+    if (now >= closesAt - ROULETTE_LOCK_MS) {
+        status.innerText = '⏳ 本局開獎中，請等下一局再下注';
+        status.style.color = '#ffd36a';
         return;
     }
 

@@ -102,6 +102,14 @@ export default async function handler(req, res) {
 
         // 固定分局開獎
         const round = getRoundInfo('roulette');
+        if (!round.isBettingOpen) {
+            return res.status(409).json({
+                error: "本局開獎中，暫停下注，請等下一局",
+                roundId: round.roundId,
+                closesAt: round.closesAt,
+                bettingClosesAt: round.bettingClosesAt
+            });
+        }
         const winningNumber = hashInt(`roulette:${round.roundId}`) % 37;
         const winningColor = getColor(winningNumber);
         const result = evaluateBet(winningNumber, betType, betValue);
@@ -137,6 +145,7 @@ export default async function handler(req, res) {
             betValue,
             roundId: round.roundId,
             closesAt: round.closesAt,
+            bettingClosesAt: round.bettingClosesAt,
             totalBet,
             vipLevel,
             txHash: tx.hash

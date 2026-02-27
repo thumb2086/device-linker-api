@@ -48,6 +48,14 @@ export default async function handler(req, res) {
 
         // 固定分局開獎：同一局所有玩家結果相同
         const round = getRoundInfo('coinflip');
+        if (!round.isBettingOpen) {
+            return res.status(409).json({
+                error: "本局開獎中，暫停下注，請等下一局",
+                roundId: round.roundId,
+                closesAt: round.closesAt,
+                bettingClosesAt: round.bettingClosesAt
+            });
+        }
         const resultSide = (hashInt(`coinflip:${round.roundId}`) % 2 === 0) ? 'heads' : 'tails';
         const isWin = (choice === resultSide);
 
@@ -77,6 +85,7 @@ export default async function handler(req, res) {
             resultSide,
             roundId: round.roundId,
             closesAt: round.closesAt,
+            bettingClosesAt: round.bettingClosesAt,
             totalBet,
             vipLevel,
             txHash: tx.hash

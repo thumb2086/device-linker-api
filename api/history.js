@@ -27,9 +27,17 @@ export default async function handler(req, res) {
         const response = await fetch(url);
         const data = await response.json();
 
+        const normalizeText = (v) => String(v || "").replace(/\s+/g, " ").trim().toLowerCase();
+        const msgNorm = normalizeText(data.message);
+        const resultNorm = normalizeText(data.result);
+        const isNoTx =
+            msgNorm.includes("no transactions found") ||
+            resultNorm.includes("no transactions found") ||
+            (Array.isArray(data.result) && data.result.length === 0);
+
         // 處理 V2 的錯誤回傳
         if (data.status === "0") {
-            if (data.result === "No transactions found") {
+            if (isNoTx) {
                 return res.status(200).json({
                     success: true,
                     page: parseInt(page),
@@ -41,7 +49,7 @@ export default async function handler(req, res) {
             }
             return res.status(200).json({
                 success: false,
-                error: `Etherscan V2 錯誤: ${data.message}`,
+                error: `Etherscan V2 錯誤: ${data.message || "未知錯誤"}`,
                 details: data.result
             });
         }

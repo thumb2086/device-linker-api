@@ -106,6 +106,14 @@ export default async function handler(req, res) {
         }
 
         const round = getRoundInfo('horse');
+        if (!round.isBettingOpen) {
+            return res.status(409).json({
+                error: "本局開跑中，暫停下注，請等下一局",
+                roundId: round.roundId,
+                closesAt: round.closesAt,
+                bettingClosesAt: round.bettingClosesAt
+            });
+        }
         const simulation = simulateRaceDeterministic(round.roundId);
         const winner = simulation.winner;
         const isWin = winner.id === selectedHorse.id;
@@ -141,6 +149,7 @@ export default async function handler(req, res) {
             isWin,
             roundId: round.roundId,
             closesAt: round.closesAt,
+            bettingClosesAt: round.bettingClosesAt,
             trackCondition: simulation.trackCondition,
             raceMetrics: simulation.metrics,
             horses: HORSES.map(function (h) {

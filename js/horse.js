@@ -6,6 +6,7 @@ var raceAnimationToken = 0;
 var lastObservedRoundId = null;
 
 var HORSE_ROUND_MS = 45000;
+var HORSE_LOCK_MS = 4000;
 var TRACKS = ['乾地', '濕地', '夜賽'];
 
 var HORSE_CONFIG = {
@@ -55,12 +56,23 @@ function selectHorse(horseId) {
 function updateHorseRoundHint() {
     var hint = document.getElementById('round-hint');
     if (!hint) return;
+    var raceBtn = document.getElementById('race-btn');
 
     var now = Date.now();
     var roundId = Math.floor(now / HORSE_ROUND_MS);
     var closesAt = (roundId + 1) * HORSE_ROUND_MS;
+    var bettingClosesAt = closesAt - HORSE_LOCK_MS;
+    var isBettingOpen = now < bettingClosesAt;
     var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
-    hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+    if (isBettingOpen) {
+        hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+    } else {
+        hint.innerText = '第 ' + roundId + ' 局開跑中，暫停下注（' + secLeft + ' 秒後下一局）';
+    }
+
+    if (!raceInProgress && raceBtn) {
+        raceBtn.disabled = !isBettingOpen;
+    }
 
     if (lastObservedRoundId !== roundId) {
         lastObservedRoundId = roundId;
@@ -406,6 +418,14 @@ function runRace() {
 
     if (isNaN(amount) || amount <= 0) {
         statusMsg.innerText = '❌ 請輸入有效的金額';
+        return;
+    }
+
+    var now = Date.now();
+    var closesAt = (Math.floor(now / HORSE_ROUND_MS) + 1) * HORSE_ROUND_MS;
+    if (now >= closesAt - HORSE_LOCK_MS) {
+        statusMsg.innerText = '⏳ 本局開跑中，請等下一局再下注';
+        statusMsg.style.color = '#ffd36a';
         return;
     }
 

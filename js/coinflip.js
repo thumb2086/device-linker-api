@@ -1,6 +1,7 @@
 /* === 猜硬幣遊戲邏輯 === */
 
 var COINFLIP_ROUND_MS = 20000;
+var COINFLIP_LOCK_MS = 3000;
 var coinflipPreviewToken = 0;
 var coinflipBetting = false;
 var lastCoinflipRoundId = null;
@@ -64,14 +65,27 @@ function runCoinflipPreviewRound(roundId) {
 
 function updateCoinflipRoundHint() {
     var hint = document.getElementById('round-hint');
+    var btn1 = document.getElementById('play-btn');
+    var btn2 = document.getElementById('play-btn-2');
 
     var now = Date.now();
     var roundId = Math.floor(now / COINFLIP_ROUND_MS);
     var closesAt = (roundId + 1) * COINFLIP_ROUND_MS;
+    var bettingClosesAt = closesAt - COINFLIP_LOCK_MS;
+    var isBettingOpen = now < bettingClosesAt;
     var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
 
     if (hint) {
-        hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+        if (isBettingOpen) {
+            hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+        } else {
+            hint.innerText = '第 ' + roundId + ' 局開獎中，暫停下注（' + secLeft + ' 秒後下一局）';
+        }
+    }
+
+    if (!coinflipBetting) {
+        if (btn1) btn1.disabled = !isBettingOpen;
+        if (btn2) btn2.disabled = !isBettingOpen;
     }
 
     if (lastCoinflipRoundId !== roundId) {
@@ -90,6 +104,14 @@ function play(choice) {
 
     if (isNaN(amount) || amount <= 0) {
         status.innerText = '❌ 請輸入有效的金額';
+        return;
+    }
+
+    var now = Date.now();
+    var closesAt = (Math.floor(now / COINFLIP_ROUND_MS) + 1) * COINFLIP_ROUND_MS;
+    if (now >= closesAt - COINFLIP_LOCK_MS) {
+        status.innerText = '⏳ 本局開獎中，請等下一局再下注';
+        status.style.color = '#ffd36a';
         return;
     }
 

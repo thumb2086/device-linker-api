@@ -2,6 +2,7 @@
 import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
+import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 
 // 圖案與權重（越稀有權重越低）
 const SYMBOLS = [
@@ -79,7 +80,8 @@ export default async function handler(req, res) {
             "function mint(address to, uint256 amount) public",
             "function adminTransfer(address from, address to, uint256 amount) public",
             "function decimals() view returns (uint8)",
-            "function balanceOf(address) view returns (uint256)"
+            "function balanceOf(address) view returns (uint256)",
+            "function totalSupply() view returns (uint256)"
         ], wallet);
 
         let decimals = 18n;
@@ -109,10 +111,10 @@ export default async function handler(req, res) {
         let tx;
         try {
             if (result.type === "triple") {
-                // 三連：不扣本金，僅 mint 利潤
+                // 三連：不扣本金，從金庫帳戶轉出利潤
                 const profitBigInt = BigInt(Math.floor(result.multiplier * 100));
                 const profitWei = (betWei * profitBigInt) / 100n;
-                tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
+                tx = await transferFromTreasuryWithAutoTopup(contract, lossPoolAddress, address, profitWei, { gasLimit: 200000 });
             } else if (result.type === "double") {
                 // 兩連：只扣半注（等效返還 0.5x）
                 const halfBetWei = betWei / 2n;

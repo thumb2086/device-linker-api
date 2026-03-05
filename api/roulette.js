@@ -2,6 +2,7 @@ import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { getRoundInfo, hashInt } from "../lib/auto-round.js";
+import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 
 const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 
@@ -88,7 +89,8 @@ export default async function handler(req, res) {
             "function mint(address to, uint256 amount) public",
             "function adminTransfer(address from, address to, uint256 amount) public",
             "function decimals() view returns (uint8)",
-            "function balanceOf(address) view returns (uint256)"
+            "function balanceOf(address) view returns (uint256)",
+            "function totalSupply() view returns (uint256)"
         ], wallet);
 
         let decimals = 18n;
@@ -124,7 +126,7 @@ export default async function handler(req, res) {
             if (result.isWin) {
                 const profitBigInt = BigInt(Math.floor(result.multiplier * 100));
                 const profitWei = (betWei * profitBigInt) / 100n;
-                tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
+                tx = await transferFromTreasuryWithAutoTopup(contract, lossPoolAddress, address, profitWei, { gasLimit: 200000 });
             } else {
                 tx = await contract.adminTransfer(address, lossPoolAddress, betWei, { gasLimit: 200000 });
             }

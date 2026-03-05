@@ -148,7 +148,7 @@ function spin() {
     }, 50);
 
     // 同時打 API
-    fetch('/api/slots', {
+    fetch('/api/game?game=slots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

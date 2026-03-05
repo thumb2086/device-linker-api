@@ -394,7 +394,7 @@ function spinRoulette() {
     document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     if (hBal) hBal.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-    fetch('/api/roulette', {
+    fetch('/api/game?game=roulette', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

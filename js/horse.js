@@ -476,7 +476,7 @@ function runRace() {
     var hBal = document.getElementById('header-balance');
     if (hBal) hBal.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-    fetch('/api/horse', {
+    fetch('/api/game?game=horse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

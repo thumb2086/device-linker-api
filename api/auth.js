@@ -3,6 +3,7 @@ import { kv } from '@vercel/kv';
 import { randomUUID } from "crypto";
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
+import { getRoundInfo } from "../lib/auto-round.js";
 
 const DEFAULT_SESSION_TTL_SECONDS = 600;
 const ALLOWED_PLATFORMS = new Set(["android", "ios", "web", "macos", "windows", "linux", "unknown"]);
@@ -80,10 +81,18 @@ export default async function handler(req, res) {
 
     try {
         const sessionId = normalizeSessionId(req.query.sessionId || (req.body && req.body.sessionId));
+        const clockOnly = req.query && String(req.query.clock || "") === "1";
 
 
         // --- GET 請求：網頁端輪詢狀態 ---
         if (req.method === 'GET') {
+            if (clockOnly) {
+                const game = (req.query && typeof req.query.game === "string") ? req.query.game : "roulette";
+                const nowTs = Date.now();
+                const round = getRoundInfo(game, nowTs);
+                return res.status(200).json({ success: true, serverNowTs: nowTs, ...round });
+            }
+
             if (!sessionId) return res.status(200).json({ status: "pending" });
 
             const sessionData = await kv.get(`session:${sessionId}`);

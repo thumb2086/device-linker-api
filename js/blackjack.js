@@ -74,7 +74,7 @@ function startBlackjack() {
     var hBal = document.getElementById('header-balance');
     if (hBal) hBal.innerText = blackjackTempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-    fetch('/api/blackjack', {
+    fetch('/api/game?game=blackjack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -114,7 +114,7 @@ function playerHit() {
     statusMsg.innerHTML = '<span class="loader"></span> 要牌中...';
     statusMsg.style.color = '#ffcc00';
 
-    fetch('/api/blackjack', {
+    fetch('/api/game?game=blackjack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -151,7 +151,7 @@ function playerStand() {
     statusMsg.innerHTML = '<span class="loader"></span> 莊家補牌中...';
     statusMsg.style.color = '#ffcc00';
 
-    fetch('/api/blackjack', {
+    fetch('/api/game?game=blackjack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

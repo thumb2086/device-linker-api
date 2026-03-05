@@ -67,7 +67,7 @@ function drawClassicGate() {
     txLog.innerHTML = '';
     resetTable();
 
-    fetch('/api/dragon', {
+    fetch('/api/game?game=dragon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -129,7 +129,7 @@ function playDragon() {
     var hBal = document.getElementById('header-balance');
     if (hBal) hBal.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-    fetch('/api/dragon', {
+    fetch('/api/game?game=dragon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

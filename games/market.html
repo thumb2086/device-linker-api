@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金融市場模擬 | ZXC</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/market.css">
+</head>
+
+<body class="market-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">← 大廳</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> ZXC</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>📈 金融市場模擬</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> ZXC</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> ZXC</div>
+        </div>
+
+        <div class="sim-overview">
+            <div class="sim-item">
+                <span>模擬現金</span>
+                <strong id="sim-cash">0.00</strong>
+            </div>
+            <div class="sim-item">
+                <span>銀行存款</span>
+                <strong id="sim-bank">0.00</strong>
+            </div>
+            <div class="sim-item">
+                <span>貸款餘額</span>
+                <strong id="sim-loan">0.00</strong>
+            </div>
+            <div class="sim-item">
+                <span>淨值</span>
+                <strong id="sim-net">0.00</strong>
+            </div>
+            <div class="sim-item">
+                <span>市場波動</span>
+                <strong id="market-vol">0.00%</strong>
+            </div>
+            <div class="sim-item">
+                <span>恐懼貪婪</span>
+                <strong id="fg-index">0</strong>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>市場行情</h2>
+            <div id="market-table" class="market-table"></div>
+        </div>
+
+        <div class="section-block">
+            <h2>股票交易</h2>
+            <div class="form-row">
+                <select id="stock-symbol"></select>
+                <input type="number" id="stock-qty" min="0.0001" step="0.0001" value="1">
+                <button class="btn-primary" onclick="submitStock('buy_stock')">買入</button>
+                <button class="btn-secondary" onclick="submitStock('sell_stock')">賣出</button>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>期貨槓桿</h2>
+            <div class="form-row">
+                <select id="futures-symbol"></select>
+                <select id="futures-side">
+                    <option value="long">做多</option>
+                    <option value="short">做空</option>
+                </select>
+                <input type="number" id="futures-margin" min="10" step="1" value="100">
+                <input type="number" id="futures-leverage" min="1" max="20" step="1" value="5">
+                <button class="btn-primary" onclick="openFuturesPosition()">開倉</button>
+            </div>
+            <div id="futures-list" class="position-list"></div>
+        </div>
+
+        <div class="section-block">
+            <h2>銀行利息 / 貸款</h2>
+            <div class="form-row">
+                <input type="number" id="bank-amount" min="1" step="1" value="100">
+                <button class="btn-primary" onclick="submitBank('bank_deposit')">存款</button>
+                <button class="btn-secondary" onclick="submitBank('bank_withdraw')">提款</button>
+            </div>
+            <div class="form-row">
+                <input type="number" id="loan-amount" min="1" step="1" value="100">
+                <button class="btn-primary" onclick="submitLoan('borrow')">借款</button>
+                <button class="btn-secondary" onclick="submitLoan('repay')">還款</button>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>模擬操作</h2>
+            <div class="form-row">
+                <button class="btn-primary" onclick="refreshMarket(false)">刷新行情</button>
+                <button class="btn-secondary" onclick="resetSimulation()">重置模擬帳戶</button>
+            </div>
+            <p id="status-msg">載入中...</p>
+            <div id="liquidation-log"></div>
+        </div>
+
+        <div class="section-block">
+            <h2>近期紀錄</h2>
+            <div id="history-log" class="history-log"></div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/market.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initMarketPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

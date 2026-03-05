@@ -1,6 +1,6 @@
-/* === 猜硬幣遊戲邏輯 === */
+/* === 硬幣翻轉 === */
 
-var COINFLIP_ROUND_MS = 20000;
+var COINFLIP_ROUND_MS = 10000;
 var COINFLIP_LOCK_MS = 3000;
 var coinflipPreviewToken = 0;
 var isCoinflipDrawing = false;
@@ -159,7 +159,7 @@ function play(choice) {
     var btn2 = document.getElementById('play-btn-2');
 
     if (isNaN(amount) || amount <= 0) {
-        status.innerText = '❌ 請輸入有效的金額';
+        status.innerText = '請輸入有效金額';
         return;
     }
 

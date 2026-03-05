@@ -51,7 +51,7 @@ function refreshBalance() {
     fetch('/api/get-balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: user.address })
+        body: JSON.stringify({ address: user.address, sessionId: user.sessionId })
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {

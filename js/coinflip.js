@@ -3,8 +3,19 @@
 var COINFLIP_ROUND_MS = 20000;
 var COINFLIP_LOCK_MS = 3000;
 var coinflipPreviewToken = 0;
-var coinflipBetting = false;
+var isCoinflipDrawing = false;
+var isCoinflipSubmitting = false;
 var lastCoinflipRoundId = null;
+
+var pendingCoinflipBets = []; // [{amount, choice, roundId}]
+
+function calcDisplayBalance(realBalance) {
+    if (pendingCoinflipBets.length > 0) {
+        var currentUI = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+        return currentUI;
+    }
+    return realBalance;
+}
 
 function hash32(input) {
     var str = String(input);
@@ -38,28 +49,56 @@ function animateCoinToResult(side, durationMs) {
     coin.style.transform = 'rotateY(' + targetRotation + 'deg)';
 }
 
-function runCoinflipPreviewRound(roundId) {
-    if (coinflipBetting) return;
+function startCoinflipDraw(roundId) {
+    if (isCoinflipDrawing) {
+        setTimeout(function() { startCoinflipDraw(roundId); }, 2000);
+        return;
+    }
+    isCoinflipDrawing = true;
 
     var token = ++coinflipPreviewToken;
     var status = document.getElementById('status-msg');
     var side = getCoinflipRoundResult(roundId);
 
     if (status) {
-        status.innerText = '🎬 第 ' + roundId + ' 局自動開獎中...';
+        status.innerText = '🎬 第 ' + roundId + ' 局開獎中...';
         status.style.color = '#ffd36a';
     }
 
     animateCoinToResult(side, 1400);
 
     setTimeout(function () {
-        if (token !== coinflipPreviewToken || coinflipBetting) return;
+        if (token !== coinflipPreviewToken) return;
 
         setCoinFace(side);
-        if (status) {
-            status.innerText = '📣 第 ' + roundId + ' 局自動結果：' + (side === 'heads' ? '正面' : '反面');
-            status.style.color = '#ffd36a';
+
+        var roundBets = pendingCoinflipBets.filter(function(b) { return b.roundId === roundId; });
+        pendingCoinflipBets = pendingCoinflipBets.filter(function(b) { return b.roundId !== roundId; });
+        updatePendingCoinflipBetsUI();
+
+        if (roundBets.length > 0) {
+            var totalWon = 0;
+            roundBets.forEach(function(b) {
+                if (b.choice === side) {
+                    totalWon += b.amount * 1.8;
+                }
+            });
+
+            if (totalWon > 0) {
+                status.innerText = '🏆 第 ' + roundId + ' 局結算：贏得 ' + totalWon.toFixed(2) + ' ZXC！';
+                status.style.color = '#00ff88';
+            } else {
+                status.innerText = '💀 第 ' + roundId + ' 局結算：未中獎';
+                status.style.color = '#ff4444';
+            }
+            refreshBalance();
+        } else {
+            if (status) {
+                status.innerText = '📣 第 ' + roundId + ' 局結果：' + (side === 'heads' ? '正面' : '反面');
+                status.style.color = '#ffd36a';
+            }
         }
+        isCoinflipDrawing = false;
     }, 1450);
 }
 
@@ -77,28 +116,45 @@ function updateCoinflipRoundHint() {
 
     if (hint) {
         if (isBettingOpen) {
-            hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+            hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後截止下注';
         } else {
-            hint.innerText = '第 ' + roundId + ' 局開獎中，暫停下注（' + secLeft + ' 秒後下一局）';
+            hint.innerText = '第 ' + roundId + ' 局截止下注，即將開跑（' + secLeft + ' 秒後下一局）';
         }
     }
 
-    if (!coinflipBetting) {
-        if (btn1) btn1.disabled = !isBettingOpen;
-        if (btn2) btn2.disabled = !isBettingOpen;
-    }
+    if (btn1) btn1.disabled = !isBettingOpen || isCoinflipSubmitting;
+    if (btn2) btn2.disabled = !isBettingOpen || isCoinflipSubmitting;
 
-    if (lastCoinflipRoundId !== roundId) {
+    if (lastCoinflipRoundId !== null && lastCoinflipRoundId !== roundId) {
+        var drawRoundId = lastCoinflipRoundId;
         lastCoinflipRoundId = roundId;
-        runCoinflipPreviewRound(roundId);
+        startCoinflipDraw(drawRoundId);
+    } else if (lastCoinflipRoundId === null) {
+        lastCoinflipRoundId = roundId;
     }
 }
 
+function updatePendingCoinflipBetsUI() {
+    var txLog = document.getElementById('tx-log');
+    if (!txLog) return;
+    if (pendingCoinflipBets.length === 0) {
+        txLog.innerHTML = '';
+        return;
+    }
+    var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">目前待開獎下注：<br/>';
+    pendingCoinflipBets.forEach(function(b) {
+        html += '第 ' + b.roundId + ' 局: ' + (b.choice === 'heads' ? '正面' : '反面') + ' (' + b.amount + ' ZXC)<br/>';
+    });
+    html += '</div>';
+    txLog.innerHTML = html;
+}
+
 function play(choice) {
+    if (isCoinflipSubmitting) return;
+
     var amountInput = document.getElementById('bet-amount');
     var amount = parseFloat(amountInput.value);
     var status = document.getElementById('status-msg');
-    var txLog = document.getElementById('tx-log');
     var btn1 = document.getElementById('play-btn');
     var btn2 = document.getElementById('play-btn-2');
 
@@ -108,21 +164,19 @@ function play(choice) {
     }
 
     var now = Date.now();
-    var closesAt = (Math.floor(now / COINFLIP_ROUND_MS) + 1) * COINFLIP_ROUND_MS;
+    var roundId = Math.floor(now / COINFLIP_ROUND_MS);
+    var closesAt = (roundId + 1) * COINFLIP_ROUND_MS;
     if (now >= closesAt - COINFLIP_LOCK_MS) {
-        status.innerText = '⏳ 本局開獎中，請等下一局再下注';
+        status.innerText = '⏳ 本局已停止下注，請等下一局';
         status.style.color = '#ffd36a';
         return;
     }
 
-    coinflipBetting = true;
-    coinflipPreviewToken += 1;
-
+    isCoinflipSubmitting = true;
     btn1.disabled = true;
     btn2.disabled = true;
-    status.innerHTML = '<span class="loader"></span> 交易確認中...';
+    status.innerHTML = '<span class="loader"></span> 下注交易中...';
     status.style.color = '#ffcc00';
-    txLog.innerHTML = '';
 
     var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
     var tempBalance = currentBalance - amount;
@@ -144,42 +198,28 @@ function play(choice) {
     .then(function(result) {
         if (result.error) throw new Error(result.error);
 
-        status.innerHTML = '<span class="loader"></span> 第 ' + result.roundId + ' 局開獎中...';
-        status.style.color = '#ffcc00';
+        status.innerText = '✅ 下注成功！等待第 ' + result.roundId + ' 局開獎';
+        status.style.color = '#00ff88';
 
-        animateCoinToResult(result.resultSide, 3000);
+        pendingCoinflipBets.push({
+            amount: amount,
+            choice: choice,
+            roundId: result.roundId
+        });
+        updatePendingCoinflipBetsUI();
+
         updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
-
-        setTimeout(function() {
-            setCoinFace(result.resultSide);
-
-            if (result.isWin) {
-                status.innerText = '🏆 第 ' + result.roundId + ' 局中獎！';
-                status.style.color = '#00ff88';
-                var winAmount = amount * 1.8;
-                var newBalance = tempBalance + winAmount;
-                document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-                if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-            } else {
-                status.innerText = '💀 第 ' + result.roundId + ' 局未中獎';
-                status.style.color = '#ff4444';
-            }
-
-            txLog.innerHTML = txLinkHTML(result.txHash);
-            btn1.disabled = false;
-            btn2.disabled = false;
-            coinflipBetting = false;
-            setTimeout(refreshBalance, 10000);
-        }, 3000);
     })
     .catch(function(e) {
         status.innerText = '❌ 錯誤: ' + e.message;
         status.style.color = 'red';
-        btn1.disabled = false;
-        btn2.disabled = false;
-        coinflipBetting = false;
         document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    })
+    .finally(function() {
+        isCoinflipSubmitting = false;
+        btn1.disabled = false;
+        btn2.disabled = false;
     });
 }
 

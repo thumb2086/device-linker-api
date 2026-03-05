@@ -46,6 +46,8 @@ function updateUI(data) {
 function refreshBalance() {
     if (!user.address) return;
 
+    // 如果有待開獎的下注，我們可能不想直接刷新 UI 餘額以免跳動
+    // 但為了準確性，我們還是獲取最新餘額，但在 UI 更新時做點處理
     fetch('/api/get-balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,7 +56,12 @@ function refreshBalance() {
     .then(function(res) { return res.json(); })
     .then(function(data) {
         if (data.success) {
-            updateUI({ balance: data.balance });
+            // 如果遊戲腳本有定義 calcDisplayBalance，則使用它
+            if (typeof calcDisplayBalance === 'function') {
+                updateUI({ balance: calcDisplayBalance(data.balance) });
+            } else {
+                updateUI({ balance: data.balance });
+            }
         }
     })
     .catch(function(e) { console.log('Balance refresh failed'); });

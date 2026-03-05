@@ -3,8 +3,20 @@
 var ROULETTE_ROUND_MS = 30000;
 var ROULETTE_LOCK_MS = 3000;
 var roulettePreviewToken = 0;
-var rouletteBetting = false;
+var currentRotation = 0;
+var isRouletteDrawing = false; // 是否正在開獎動畫中
+var isRouletteSubmitting = false; // 是否正在通訊中
 var lastRouletteRoundId = null;
+
+var pendingRouletteBets = []; // [{amount, betType, betValue, roundId}]
+
+function calcDisplayBalance(realBalance) {
+    if (pendingRouletteBets.length > 0) {
+        var currentUI = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+        return currentUI;
+    }
+    return realBalance;
+}
 
 var BET_OPTIONS = {
     color: [
@@ -46,45 +58,89 @@ function getRouletteRoundResult(roundId) {
     return hash32('roulette:' + roundId) % 37;
 }
 
-function runRoulettePreviewRound(roundId) {
-    if (rouletteBetting) return;
+function startRouletteDraw(roundId) {
+    if (isRouletteDrawing) {
+        setTimeout(function() { startRouletteDraw(roundId); }, 2000);
+        return;
+    }
+    isRouletteDrawing = true;
 
     var token = ++roulettePreviewToken;
     var status = document.getElementById('status-msg');
-    var wheel = document.getElementById('wheel-display');
+    var wheelDisplay = document.getElementById('wheel-display');
+    var wheelOuter = document.getElementById('wheel-outer');
     var lastResult = document.getElementById('last-result');
 
     var winningNumber = getRouletteRoundResult(roundId);
     var winningColor = getColor(winningNumber);
 
+    // 輪盤數字排列 (歐式)
+    var layout = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+    var index = layout.indexOf(winningNumber);
+    var anglePerSlot = 360 / 37;
+    var targetAngle = 360 - (index * anglePerSlot);
+
+    // 旋轉至少 5 圈
+    currentRotation += 1800 + targetAngle - (currentRotation % 360);
+
     if (status) {
-        status.innerText = '🎬 第 ' + roundId + ' 局自動開獎中...';
+        status.innerText = '🎬 第 ' + roundId + ' 局開獎中...';
         status.style.color = '#ffd36a';
     }
 
-    if (wheel) {
-        wheel.classList.remove('win-red', 'win-black', 'win-green');
-        wheel.style.transform = 'rotate(1080deg)';
+    if (wheelOuter) {
+        wheelOuter.style.transform = 'rotate(' + currentRotation + 'deg)';
+    }
+    if (wheelDisplay) {
+        wheelDisplay.classList.remove('win-red', 'win-black', 'win-green');
+        wheelDisplay.innerText = '?';
     }
 
     setTimeout(function () {
-        if (token !== roulettePreviewToken || rouletteBetting) return;
+        if (token !== roulettePreviewToken) return;
 
-        if (wheel) {
-            wheel.style.transform = 'rotate(0deg)';
-            wheel.innerText = winningNumber;
-            wheel.classList.add('win-' + winningColor);
+        if (wheelDisplay) {
+            wheelDisplay.innerText = winningNumber;
+            wheelDisplay.classList.add('win-' + winningColor);
         }
 
         if (lastResult) {
-            lastResult.innerText = '第 ' + roundId + ' 局自動開獎: ' + winningNumber + '（' + winningColor + '）';
+            lastResult.innerText = '第 ' + roundId + ' 局開獎: ' + winningNumber + '（' + winningColor + '）';
         }
 
-        if (status && !rouletteBetting) {
-            status.innerText = '📣 第 ' + roundId + ' 局自動結果已更新';
-            status.style.color = '#ffd36a';
+        // 結算下注
+        var roundBets = pendingRouletteBets.filter(function(b) { return b.roundId === roundId; });
+        pendingRouletteBets = pendingRouletteBets.filter(function(b) { return b.roundId !== roundId; });
+        updatePendingRouletteBetsUI();
+
+        if (roundBets.length > 0) {
+            var totalPayout = 0;
+            roundBets.forEach(function(b) {
+                var mult = evaluateRouletteBet(winningNumber, b.betType, b.betValue);
+                if (mult > 0 || (winningNumber === Number(b.betValue) && b.betType === 'number')) {
+                   totalPayout += b.amount + (b.amount * mult);
+                }
+            });
+
+            if (status) {
+                if (totalPayout > 0) {
+                    status.innerText = '🏆 第 ' + roundId + ' 局結算：贏得 ' + totalPayout.toFixed(2) + ' ZXC！';
+                    status.style.color = '#00ff88';
+                } else {
+                    status.innerText = '💀 第 ' + roundId + ' 局結算：未中獎';
+                    status.style.color = '#ff4444';
+                }
+            }
+            refreshBalance();
+        } else {
+            if (status) {
+                status.innerText = '📣 第 ' + roundId + ' 局開獎完成';
+                status.style.color = '#ffd36a';
+            }
         }
-    }, 1200);
+
+        isRouletteDrawing = false;
+    }, 4000);
 }
 
 function updateRouletteRoundHint() {
@@ -100,19 +156,22 @@ function updateRouletteRoundHint() {
 
     if (hint) {
         if (isBettingOpen) {
-            hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+            hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後截止下注';
         } else {
-            hint.innerText = '第 ' + roundId + ' 局開獎中，暫停下注（' + secLeft + ' 秒後下一局）';
+            hint.innerText = '第 ' + roundId + ' 局截止下注，即將開跑（' + secLeft + ' 秒後下一局）';
         }
     }
 
-    if (!rouletteBetting && spinBtn) {
-        spinBtn.disabled = !isBettingOpen;
+    if (spinBtn) {
+        spinBtn.disabled = !isBettingOpen || isRouletteSubmitting;
     }
 
-    if (lastRouletteRoundId !== roundId) {
+    if (lastRouletteRoundId !== null && lastRouletteRoundId !== roundId) {
+        var drawRoundId = lastRouletteRoundId;
         lastRouletteRoundId = roundId;
-        runRoulettePreviewRound(roundId);
+        startRouletteDraw(drawRoundId);
+    } else if (lastRouletteRoundId === null) {
+        lastRouletteRoundId = roundId;
     }
 }
 
@@ -140,15 +199,62 @@ function onBetTypeChange() {
     });
 }
 
+function evaluateRouletteBet(number, betType, betValue) {
+    var color = getColor(number);
+    if (betType === "color") return (betValue === color) ? 1 : 0;
+    if (betType === "parity") {
+        if (number === 0) return 0;
+        var parity = (number % 2 === 0) ? "even" : "odd";
+        return (parity === betValue) ? 1 : 0;
+    }
+    if (betType === "range") {
+        if (number === 0) return 0;
+        var range = (number <= 18) ? "low" : "high";
+        return (range === betValue) ? 1 : 0;
+    }
+    if (betType === "dozen") {
+        var n = Number(betValue);
+        if (number === 0) return 0;
+        var dozen = Math.ceil(number / 12);
+        return (dozen === n) ? 2 : 0;
+    }
+    if (betType === "number") {
+        return (number === Number(betValue)) ? 35 : 0;
+    }
+    return 0;
+}
+
+function updatePendingRouletteBetsUI() {
+    var txLog = document.getElementById('tx-log');
+    if (!txLog) return;
+    if (pendingRouletteBets.length === 0) {
+        txLog.innerHTML = '';
+        return;
+    }
+    var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">目前待開獎下注：<br/>';
+    pendingRouletteBets.forEach(function(b) {
+        var label = b.betValue;
+        // 找對應的 label
+        if (BET_OPTIONS[b.betType]) {
+            BET_OPTIONS[b.betType].forEach(function(opt) {
+                if (opt.value === b.betValue) label = opt.label;
+            });
+        } else if (b.betType === 'number') {
+            label = '號碼 ' + b.betValue;
+        }
+        html += '第 ' + b.roundId + ' 局: ' + label + ' (' + b.amount + ' ZXC)<br/>';
+    });
+    html += '</div>';
+    txLog.innerHTML = html;
+}
+
 function spinRoulette() {
-    if (rouletteBetting) return;
+    if (isRouletteSubmitting) return;
 
     var amount = parseFloat(document.getElementById('bet-amount').value);
     var betType = document.getElementById('bet-type').value;
     var betValue = document.getElementById('bet-value').value;
     var status = document.getElementById('status-msg');
-    var txLog = document.getElementById('tx-log');
-    var wheel = document.getElementById('wheel-display');
     var spinBtn = document.getElementById('spin-btn');
     var hBal = document.getElementById('header-balance');
 
@@ -158,28 +264,23 @@ function spinRoulette() {
     }
 
     var now = Date.now();
-    var closesAt = (Math.floor(now / ROULETTE_ROUND_MS) + 1) * ROULETTE_ROUND_MS;
+    var roundId = Math.floor(now / ROULETTE_ROUND_MS);
+    var closesAt = (roundId + 1) * ROULETTE_ROUND_MS;
     if (now >= closesAt - ROULETTE_LOCK_MS) {
-        status.innerText = '⏳ 本局開獎中，請等下一局再下注';
+        status.innerText = '⏳ 本局已停止下注，請等下一局';
         status.style.color = '#ffd36a';
         return;
     }
 
-    rouletteBetting = true;
-    roulettePreviewToken += 1;
-
+    isRouletteSubmitting = true;
     spinBtn.disabled = true;
-    status.innerHTML = '<span class="loader"></span> 交易確認中...';
+    status.innerHTML = '<span class="loader"></span> 下注交易中...';
     status.style.color = '#ffcc00';
-    txLog.innerHTML = '';
 
     var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
     var tempBalance = currentBalance - amount;
     document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     if (hBal) hBal.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-
-    wheel.classList.remove('win-red', 'win-black', 'win-green');
-    wheel.style.transform = 'rotate(1080deg)';
 
     fetch('/api/roulette', {
         method: 'POST',
@@ -196,42 +297,28 @@ function spinRoulette() {
     .then(function (result) {
         if (result.error) throw new Error(result.error);
 
-        setTimeout(function () {
-            wheel.style.transform = 'rotate(0deg)';
-            wheel.innerText = result.winningNumber;
-            wheel.classList.add('win-' + result.winningColor);
+        status.innerText = '✅ 下注成功！等待第 ' + result.roundId + ' 局開獎';
+        status.style.color = '#00ff88';
 
-            document.getElementById('last-result').innerText =
-                '第 ' + result.roundId + ' 局開獎: ' + result.winningNumber + '（' + result.winningColor + '）';
+        pendingRouletteBets.push({
+            amount: amount,
+            betType: betType,
+            betValue: betValue,
+            roundId: result.roundId
+        });
+        updatePendingRouletteBetsUI();
 
-            updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
-
-            if (result.isWin) {
-                var profitAmount = amount * result.multiplier;
-                var newBalance = tempBalance + amount + profitAmount;
-                document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-                if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-                status.innerText = '🏆 第 ' + result.roundId + ' 局中獎！獲利 ' + profitAmount.toFixed(2) + ' ZXC';
-                status.style.color = '#00ff88';
-            } else {
-                status.innerText = '💀 第 ' + result.roundId + ' 局未中獎';
-                status.style.color = '#ff4444';
-            }
-
-            txLog.innerHTML = txLinkHTML(result.txHash);
-            rouletteBetting = false;
-            spinBtn.disabled = false;
-            setTimeout(refreshBalance, 10000);
-        }, 1200);
+        updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
     })
     .catch(function (e) {
         status.innerText = '❌ 錯誤: ' + e.message;
         status.style.color = 'red';
-        rouletteBetting = false;
-        spinBtn.disabled = false;
-
         document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    })
+    .finally(function() {
+        isRouletteSubmitting = false;
+        spinBtn.disabled = false;
     });
 }
 

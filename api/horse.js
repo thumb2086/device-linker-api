@@ -64,15 +64,11 @@ function simulateRaceDeterministic(roundId) {
     const hSeed = hashInt(`${seedStr}:metric:${h.id}`);
     const score = horseScores.find((hs) => hs.id === h.id).score;
     const finishTime = (100 - score / 2).toFixed(2);
-    const topSpeed = (statsToVal(HORSE_STATS_FIXED[h.id].speed) + (hSeed % 10)).toFixed(1);
+    const topSpeed = (50 + HORSE_STATS_FIXED[h.id].speed / 4 + (hSeed % 10)).toFixed(1);
     return { horseId: h.id, finishTime, topSpeed };
   });
 
   return { winner, trackCondition, metrics };
-}
-
-function statsToVal(s) {
-  return 50 + s / 4;
 }
 
 export default async function handler(req, res) {

@@ -105,6 +105,7 @@ export default async function handler(req, res) {
         if (!round.isBettingOpen) {
             return res.status(409).json({
                 error: "本局開獎中，暫停下注，請等下一局",
+                serverNowTs: Date.now(),
                 roundId: round.roundId,
                 closesAt: round.closesAt,
                 bettingClosesAt: round.bettingClosesAt
@@ -137,6 +138,7 @@ export default async function handler(req, res) {
 
         return res.status(200).json({
             status: "success",
+            serverNowTs: Date.now(),
             winningNumber,
             winningColor,
             isWin: result.isWin,

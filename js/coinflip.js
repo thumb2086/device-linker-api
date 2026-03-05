@@ -5,13 +5,19 @@ var COINFLIP_LOCK_MS = 3000;
 var coinflipPreviewToken = 0;
 var isCoinflipDrawing = false;
 var isCoinflipSubmitting = false;
-var lastCoinflipRoundId = null;
 
-var pendingCoinflipBets = []; // [{amount, choice, roundId}]
+var serverTimeOffsetMs = 0;
+var serverTimeSynced = false;
+var isClockSyncing = false;
+var lastClockSyncAt = 0;
+
+var pendingCoinflipBets = []; // [{amount, choice, roundId, closesAt}]
 
 function calcDisplayBalance(realBalance) {
     if (pendingCoinflipBets.length > 0) {
-        var currentUI = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+        var bal = document.getElementById('balance-val');
+        if (!bal) return realBalance;
+        var currentUI = parseFloat(bal.innerText.replace(/,/g, ''));
         return currentUI;
     }
     return realBalance;
@@ -29,6 +35,61 @@ function hash32(input) {
 
 function getCoinflipRoundResult(roundId) {
     return (hash32('coinflip:' + roundId) % 2 === 0) ? 'heads' : 'tails';
+}
+
+function getServerNowMs() {
+    return Date.now() + (serverTimeSynced ? serverTimeOffsetMs : 0);
+}
+
+function updateServerTime(serverNowTs) {
+    var serverNow = Number(serverNowTs);
+    if (!Number.isFinite(serverNow)) return;
+
+    var sample = serverNow - Date.now();
+    if (!serverTimeSynced) {
+        serverTimeOffsetMs = sample;
+        serverTimeSynced = true;
+        return;
+    }
+
+    serverTimeOffsetMs = (serverTimeOffsetMs * 0.8) + (sample * 0.2);
+}
+
+function syncCoinflipClock(force) {
+    var now = Date.now();
+    if (isClockSyncing) return;
+    if (!force && (now - lastClockSyncAt) < 10000) return;
+
+    isClockSyncing = true;
+    fetch('/api/round-info?game=coinflip&t=' + now)
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || !data.success) return;
+            updateServerTime(data.serverNowTs);
+        })
+        .catch(function () {})
+        .finally(function () {
+            isClockSyncing = false;
+            lastClockSyncAt = Date.now();
+        });
+}
+
+function getCurrentCoinflipState() {
+    var now = getServerNowMs();
+    var roundId = Math.floor(now / COINFLIP_ROUND_MS);
+    var closesAt = (roundId + 1) * COINFLIP_ROUND_MS;
+    var bettingClosesAt = closesAt - COINFLIP_LOCK_MS;
+    var isBettingOpen = now < bettingClosesAt;
+    var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
+
+    return {
+        now: now,
+        roundId: roundId,
+        closesAt: closesAt,
+        bettingClosesAt: bettingClosesAt,
+        isBettingOpen: isBettingOpen,
+        secLeft: secLeft
+    };
 }
 
 function setCoinFace(side) {
@@ -49,11 +110,47 @@ function animateCoinToResult(side, durationMs) {
     coin.style.transform = 'rotateY(' + targetRotation + 'deg)';
 }
 
-function startCoinflipDraw(roundId) {
-    if (isCoinflipDrawing) {
-        setTimeout(function() { startCoinflipDraw(roundId); }, 2000);
+function updatePendingCoinflipBetsUI() {
+    var txLog = document.getElementById('tx-log');
+    if (!txLog) return;
+
+    if (pendingCoinflipBets.length === 0) {
+        txLog.innerHTML = '';
         return;
     }
+
+    var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">待開獎下注：<br/>';
+    pendingCoinflipBets.forEach(function (b) {
+        html += (b.choice === 'heads' ? '正面' : '反面') + ' (' + b.amount + ' ZXC)<br/>';
+    });
+    html += '</div>';
+
+    txLog.innerHTML = html;
+}
+
+function findDueCoinflipRoundId() {
+    var now = getServerNowMs();
+    var minRoundId = null;
+
+    pendingCoinflipBets.forEach(function (b) {
+        if (!Number.isFinite(b.closesAt) || b.closesAt > now) return;
+        if (minRoundId === null || b.roundId < minRoundId) {
+            minRoundId = b.roundId;
+        }
+    });
+
+    return minRoundId;
+}
+
+function maybeDrawCoinflip() {
+    if (isCoinflipDrawing) return;
+    var dueRoundId = findDueCoinflipRoundId();
+    if (dueRoundId === null) return;
+    startCoinflipDraw(dueRoundId);
+}
+
+function startCoinflipDraw(roundId) {
+    if (isCoinflipDrawing) return;
     isCoinflipDrawing = true;
 
     var token = ++coinflipPreviewToken;
@@ -61,7 +158,7 @@ function startCoinflipDraw(roundId) {
     var side = getCoinflipRoundResult(roundId);
 
     if (status) {
-        status.innerText = '🎬 第 ' + roundId + ' 局開獎中...';
+        status.innerText = '開獎中...';
         status.style.color = '#ffd36a';
     }
 
@@ -72,33 +169,33 @@ function startCoinflipDraw(roundId) {
 
         setCoinFace(side);
 
-        var roundBets = pendingCoinflipBets.filter(function(b) { return b.roundId === roundId; });
-        pendingCoinflipBets = pendingCoinflipBets.filter(function(b) { return b.roundId !== roundId; });
+        var roundBets = pendingCoinflipBets.filter(function (b) { return b.roundId === roundId; });
+        pendingCoinflipBets = pendingCoinflipBets.filter(function (b) { return b.roundId !== roundId; });
         updatePendingCoinflipBetsUI();
 
         if (roundBets.length > 0) {
             var totalWon = 0;
-            roundBets.forEach(function(b) {
+            roundBets.forEach(function (b) {
                 if (b.choice === side) {
                     totalWon += b.amount * 1.8;
                 }
             });
 
             if (totalWon > 0) {
-                status.innerText = '🏆 第 ' + roundId + ' 局結算：贏得 ' + totalWon.toFixed(2) + ' ZXC！';
+                status.innerText = '中獎，派彩 ' + totalWon.toFixed(2) + ' ZXC';
                 status.style.color = '#00ff88';
             } else {
-                status.innerText = '💀 第 ' + roundId + ' 局結算：未中獎';
+                status.innerText = '未中獎';
                 status.style.color = '#ff4444';
             }
             refreshBalance();
-        } else {
-            if (status) {
-                status.innerText = '📣 第 ' + roundId + ' 局結果：' + (side === 'heads' ? '正面' : '反面');
-                status.style.color = '#ffd36a';
-            }
+        } else if (status) {
+            status.innerText = '結果：' + (side === 'heads' ? '正面' : '反面');
+            status.style.color = '#ffd36a';
         }
+
         isCoinflipDrawing = false;
+        maybeDrawCoinflip();
     }, 1450);
 }
 
@@ -107,46 +204,24 @@ function updateCoinflipRoundHint() {
     var btn1 = document.getElementById('play-btn');
     var btn2 = document.getElementById('play-btn-2');
 
-    var now = Date.now();
-    var roundId = Math.floor(now / COINFLIP_ROUND_MS);
-    var closesAt = (roundId + 1) * COINFLIP_ROUND_MS;
-    var bettingClosesAt = closesAt - COINFLIP_LOCK_MS;
-    var isBettingOpen = now < bettingClosesAt;
-    var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
+    var state = getCurrentCoinflipState();
 
     if (hint) {
-        if (isBettingOpen) {
-            hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後截止下注';
+        if (state.isBettingOpen) {
+            hint.innerText = '固定開獎：' + state.secLeft + ' 秒後截止下注';
         } else {
-            hint.innerText = '第 ' + roundId + ' 局截止下注，即將開跑（' + secLeft + ' 秒後下一局）';
+            hint.innerText = '封盤中：' + state.secLeft + ' 秒後開獎';
         }
     }
 
-    if (btn1) btn1.disabled = !isBettingOpen || isCoinflipSubmitting;
-    if (btn2) btn2.disabled = !isBettingOpen || isCoinflipSubmitting;
+    if (btn1) btn1.disabled = !state.isBettingOpen || isCoinflipSubmitting;
+    if (btn2) btn2.disabled = !state.isBettingOpen || isCoinflipSubmitting;
 
-    if (lastCoinflipRoundId !== null && lastCoinflipRoundId !== roundId) {
-        var drawRoundId = lastCoinflipRoundId;
-        lastCoinflipRoundId = roundId;
-        startCoinflipDraw(drawRoundId);
-    } else if (lastCoinflipRoundId === null) {
-        lastCoinflipRoundId = roundId;
-    }
-}
+    maybeDrawCoinflip();
 
-function updatePendingCoinflipBetsUI() {
-    var txLog = document.getElementById('tx-log');
-    if (!txLog) return;
-    if (pendingCoinflipBets.length === 0) {
-        txLog.innerHTML = '';
-        return;
+    if (!serverTimeSynced || (Date.now() - lastClockSyncAt > 15000)) {
+        syncCoinflipClock(false);
     }
-    var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">目前待開獎下注：<br/>';
-    pendingCoinflipBets.forEach(function(b) {
-        html += '第 ' + b.roundId + ' 局: ' + (b.choice === 'heads' ? '正面' : '反面') + ' (' + b.amount + ' ZXC)<br/>';
-    });
-    html += '</div>';
-    txLog.innerHTML = html;
 }
 
 function play(choice) {
@@ -159,15 +234,13 @@ function play(choice) {
     var btn2 = document.getElementById('play-btn-2');
 
     if (isNaN(amount) || amount <= 0) {
-        status.innerText = '❌ 請輸入有效的金額';
+        status.innerText = '請輸入有效的金額';
         return;
     }
 
-    var now = Date.now();
-    var roundId = Math.floor(now / COINFLIP_ROUND_MS);
-    var closesAt = (roundId + 1) * COINFLIP_ROUND_MS;
-    if (now >= closesAt - COINFLIP_LOCK_MS) {
-        status.innerText = '⏳ 本局已停止下注，請等下一局';
+    var state = getCurrentCoinflipState();
+    if (state.now >= state.bettingClosesAt) {
+        status.innerText = '已封盤，請等下一輪';
         status.style.color = '#ffd36a';
         return;
     }
@@ -194,36 +267,42 @@ function play(choice) {
             sessionId: user.sessionId
         })
     })
-    .then(function(res) { return res.json(); })
-    .then(function(result) {
-        if (result.error) throw new Error(result.error);
+        .then(function (res) { return res.json(); })
+        .then(function (result) {
+            if (result.serverNowTs) updateServerTime(result.serverNowTs);
+            if (result.error) throw new Error(result.error);
 
-        status.innerText = '✅ 下注成功！等待第 ' + result.roundId + ' 局開獎';
-        status.style.color = '#00ff88';
+            status.innerText = '下注成功，等待開獎';
+            status.style.color = '#00ff88';
 
-        pendingCoinflipBets.push({
-            amount: amount,
-            choice: choice,
-            roundId: result.roundId
+            pendingCoinflipBets.push({
+                amount: amount,
+                choice: choice,
+                roundId: Number(result.roundId),
+                closesAt: Number(result.closesAt)
+            });
+            updatePendingCoinflipBetsUI();
+
+            updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
+            maybeDrawCoinflip();
+        })
+        .catch(function (e) {
+            status.innerText = '錯誤: ' + e.message;
+            status.style.color = 'red';
+            document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+            if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+            syncCoinflipClock(true);
+        })
+        .finally(function () {
+            isCoinflipSubmitting = false;
+            btn1.disabled = false;
+            btn2.disabled = false;
         });
-        updatePendingCoinflipBetsUI();
-
-        updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
-    })
-    .catch(function(e) {
-        status.innerText = '❌ 錯誤: ' + e.message;
-        status.style.color = 'red';
-        document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-    })
-    .finally(function() {
-        isCoinflipSubmitting = false;
-        btn1.disabled = false;
-        btn2.disabled = false;
-    });
 }
 
 window.addEventListener('load', function () {
+    syncCoinflipClock(true);
     updateCoinflipRoundHint();
     setInterval(updateCoinflipRoundHint, 1000);
+    setInterval(function () { syncCoinflipClock(false); }, 15000);
 });

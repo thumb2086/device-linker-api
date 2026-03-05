@@ -1,9 +1,23 @@
 /* === 賽馬遊戲邏輯 === */
 
 var selectedHorseId = 1;
-var raceInProgress = false;
+var raceInProgress = false; // 動畫是否進行中
+var isSubmitting = false; // 是否正在通訊中
 var raceAnimationToken = 0;
 var lastObservedRoundId = null;
+
+var pendingBets = []; // [{amount, horseId, roundId}]
+var lastRoundResults = null; // { roundId, metrics, winnerId, ... }
+
+function calcDisplayBalance(realBalance) {
+    // 賽馬不需要特殊處理，因為 API 會扣掉餘額，我們手動更新 UI
+    // 但為了防止 refreshBalance 把我們「樂觀更新」的餘額蓋掉，我們在有 pendingBets 時不更新 UI
+    if (pendingBets.length > 0) {
+        var currentUI = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+        return currentUI;
+    }
+    return realBalance;
+}
 
 var HORSE_ROUND_MS = 45000;
 var HORSE_LOCK_MS = 4000;
@@ -64,22 +78,91 @@ function updateHorseRoundHint() {
     var bettingClosesAt = closesAt - HORSE_LOCK_MS;
     var isBettingOpen = now < bettingClosesAt;
     var secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
+
     if (isBettingOpen) {
-        hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後切下一局';
+        hint.innerText = '固定開獎：第 ' + roundId + ' 局，' + secLeft + ' 秒後截止下注';
     } else {
-        hint.innerText = '第 ' + roundId + ' 局開跑中，暫停下注（' + secLeft + ' 秒後下一局）';
+        hint.innerText = '第 ' + roundId + ' 局截止下注，即將開跑（' + secLeft + ' 秒後下一局）';
     }
 
-    if (!raceInProgress && raceBtn) {
-        raceBtn.disabled = !isBettingOpen;
+    if (raceBtn) {
+        raceBtn.disabled = !isBettingOpen || isSubmitting;
     }
 
-    if (lastObservedRoundId !== roundId) {
+    if (lastObservedRoundId !== null && lastObservedRoundId !== roundId) {
+        // 局數切換，觸發上一局的開獎動畫
+        var drawRoundId = lastObservedRoundId;
         lastObservedRoundId = roundId;
-        if (!raceInProgress) {
-            runAutoPreviewRound(roundId);
-        }
+        startRaceDraw(drawRoundId);
+    } else if (lastObservedRoundId === null) {
+        lastObservedRoundId = roundId;
     }
+}
+
+function startRaceDraw(roundId) {
+    if (raceInProgress) {
+        // 如果正在開獎中，延遲一點點再試
+        setTimeout(function() { startRaceDraw(roundId); }, 2000);
+        return;
+    }
+    raceInProgress = true;
+
+    var statusMsg = document.getElementById('status-msg');
+    var simulation = simulateRaceDeterministic(roundId);
+
+    document.getElementById('track-cond').innerText = '場地：' + simulation.trackCondition;
+    renderRaceRank([]);
+    resetRaceTrack();
+
+    var token = nextRaceAnimationToken();
+    if (statusMsg) {
+        statusMsg.innerText = '🎬 第 ' + roundId + ' 局比賽開始！';
+        statusMsg.style.color = '#ffd36a';
+    }
+
+    animateCountdown(token, function () {
+        if (token !== raceAnimationToken) return;
+
+        animateRaceLive(simulation.metrics, roundId, token, function () {
+            if (token !== raceAnimationToken) return;
+
+            renderRaceRank(simulation.metrics);
+            var winner = document.getElementById('horse-' + simulation.winnerId);
+            if (winner) winner.classList.add('winner');
+            setRaceCall('第 ' + roundId + ' 局結果：' + simulation.winnerName + ' 奪冠');
+
+            // 結算本用戶在該局的所有下注
+            var roundBets = pendingBets.filter(function(b) { return b.roundId === roundId; });
+            pendingBets = pendingBets.filter(function(b) { return b.roundId !== roundId; });
+            updatePendingBetsUI();
+
+            if (roundBets.length > 0) {
+                var totalWon = 0;
+                var totalBetAmount = 0;
+                roundBets.forEach(function(b) {
+                    totalBetAmount += b.amount;
+                    if (b.horseId === simulation.winnerId) {
+                        totalWon += b.amount * HORSE_CONFIG[b.horseId].multiplier;
+                    }
+                });
+
+                if (totalWon > 0) {
+                    statusMsg.innerHTML = '🏆 第 ' + roundId + ' 局結算：贏得 ' + totalWon.toFixed(2) + ' ZXC！';
+                    statusMsg.style.color = '#00ff88';
+                } else {
+                    statusMsg.innerText = '💀 第 ' + roundId + ' 局結算：未中獎，再接再厲';
+                    statusMsg.style.color = '#ff4444';
+                }
+                refreshBalance();
+            } else {
+                if (statusMsg) {
+                    statusMsg.innerText = '📣 第 ' + roundId + ' 局自動開獎完成：' + simulation.winnerName + ' 奪冠';
+                    statusMsg.style.color = '#ffd36a';
+                }
+            }
+            raceInProgress = false;
+        });
+    });
 }
 
 function setRaceCall(message) {
@@ -345,75 +428,27 @@ function renderRaceRank(raceMetrics) {
     rankWrap.innerHTML = html;
 }
 
-function runAutoPreviewRound(roundId) {
-    if (raceInProgress) return;
-
-    var statusMsg = document.getElementById('status-msg');
-    var simulation = simulateRaceDeterministic(roundId);
-
-    document.getElementById('track-cond').innerText = '場地：' + simulation.trackCondition;
-    renderRaceRank([]);
-    resetRaceTrack();
-
-    var token = nextRaceAnimationToken();
-    if (statusMsg) {
-        statusMsg.innerText = '🎬 第 ' + roundId + ' 局自動開跑中...';
-        statusMsg.style.color = '#ffd36a';
+function updatePendingBetsUI() {
+    var txLog = document.getElementById('tx-log');
+    if (!txLog) return;
+    if (pendingBets.length === 0) {
+        txLog.innerHTML = '';
+        return;
     }
-
-    animateCountdown(token, function () {
-        if (token !== raceAnimationToken || raceInProgress) return;
-
-        animateRaceLive(simulation.metrics, simulation.roundId, token, function () {
-            if (token !== raceAnimationToken || raceInProgress) return;
-
-            renderRaceRank(simulation.metrics);
-            var winner = document.getElementById('horse-' + simulation.winnerId);
-            if (winner) winner.classList.add('winner');
-            setRaceCall('第 ' + simulation.roundId + ' 局自動開獎：' + simulation.winnerName + ' 奪冠');
-
-            if (statusMsg && !raceInProgress) {
-                statusMsg.innerText = '📣 自動開獎完成：' + simulation.winnerName + ' 奪冠';
-                statusMsg.style.color = '#ffd36a';
-            }
-        });
+    var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">目前待開獎下注：<br/>';
+    pendingBets.forEach(function(b) {
+        html += '第 ' + b.roundId + ' 局: ' + HORSE_CONFIG[b.horseId].name + ' (' + b.amount + ' ZXC)<br/>';
     });
-}
-
-function finalizeRace(result, amount, tempBalance, hBal, raceBtn, statusMsg, txLog, token) {
-    if (token !== raceAnimationToken) return;
-
-    var winner = document.getElementById('horse-' + result.winnerId);
-    if (winner) winner.classList.add('winner');
-
-    if (result.isWin) {
-        var mult = HORSE_CONFIG[result.selectedHorseId].multiplier || result.multiplier;
-        var profit = amount * mult;
-        var newBalance = tempBalance + amount + profit;
-        document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        statusMsg.innerHTML = '🏆 第 ' + result.roundId + ' 局，你的 ' + result.selectedHorseName + ' 最後衝刺奪冠！<span class="result-multiplier" style="display:inline;">' + mult + 'x</span>';
-        statusMsg.style.color = '#00ff88';
-        setRaceCall('終點線前逆轉！' + result.selectedHorseName + ' 拿下冠軍！');
-    } else {
-        statusMsg.innerText = '💀 第 ' + result.roundId + ' 局冠軍是 ' + result.winnerName + '，就差一點！';
-        statusMsg.style.color = '#ff4444';
-        setRaceCall('冠軍誕生：' + result.winnerName + '！全場歡呼！');
-    }
-
-    txLog.innerHTML = txLinkHTML(result.txHash);
-    raceBtn.disabled = false;
-    raceInProgress = false;
-    setTimeout(refreshBalance, 10000);
+    html += '</div>';
+    txLog.innerHTML = html;
 }
 
 function runRace() {
-    if (raceInProgress) return;
+    if (isSubmitting) return;
 
     var amountInput = document.getElementById('bet-amount');
     var amount = parseFloat(amountInput.value);
     var statusMsg = document.getElementById('status-msg');
-    var txLog = document.getElementById('tx-log');
     var raceBtn = document.getElementById('race-btn');
 
     if (isNaN(amount) || amount <= 0) {
@@ -422,21 +457,18 @@ function runRace() {
     }
 
     var now = Date.now();
-    var closesAt = (Math.floor(now / HORSE_ROUND_MS) + 1) * HORSE_ROUND_MS;
+    var roundId = Math.floor(now / HORSE_ROUND_MS);
+    var closesAt = (roundId + 1) * HORSE_ROUND_MS;
     if (now >= closesAt - HORSE_LOCK_MS) {
-        statusMsg.innerText = '⏳ 本局開跑中，請等下一局再下注';
+        statusMsg.innerText = '⏳ 本局已停止下注，請等下一局';
         statusMsg.style.color = '#ffd36a';
         return;
     }
 
-    raceInProgress = true;
+    isSubmitting = true;
     raceBtn.disabled = true;
-    statusMsg.innerHTML = '<span class="loader"></span> 交易確認中...';
+    statusMsg.innerHTML = '<span class="loader"></span> 下注交易中...';
     statusMsg.style.color = '#ffcc00';
-    txLog.innerHTML = '';
-
-    var token = nextRaceAnimationToken();
-    resetRaceTrack();
 
     var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
     var tempBalance = currentBalance - amount;
@@ -457,33 +489,29 @@ function runRace() {
     .then(function (res) { return res.json(); })
     .then(function (result) {
         if (result.error) throw new Error(result.error);
-        if (token !== raceAnimationToken) return;
 
-        statusMsg.innerHTML = '<span class="loader"></span> 進入起跑線...';
-        updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
-        document.getElementById('track-cond').innerText = '場地：' + (result.trackCondition || '-');
-        renderHorseDataTable(result.horses || getHorseList(), result.horseStats || HORSE_STATS_FIXED);
-        renderRaceRank(result.raceMetrics || []);
+        statusMsg.innerText = '✅ 下注成功！等待第 ' + result.roundId + ' 局開獎';
+        statusMsg.style.color = '#00ff88';
 
-        animateCountdown(token, function () {
-            if (token !== raceAnimationToken) return;
-
-            statusMsg.innerHTML = '<span class="loader"></span> 比賽進行中...';
-            animateRaceLive(result.raceMetrics || [], result.roundId, token, function () {
-                finalizeRace(result, amount, tempBalance, hBal, raceBtn, statusMsg, txLog, token);
-            });
+        pendingBets.push({
+            amount: amount,
+            horseId: selectedHorseId,
+            roundId: result.roundId
         });
+        updatePendingBetsUI();
+
+        updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
+        renderHorseDataTable(result.horses || getHorseList(), result.horseStats || HORSE_STATS_FIXED);
     })
     .catch(function (e) {
         statusMsg.innerText = '❌ 錯誤: ' + e.message;
         statusMsg.style.color = 'red';
-        raceBtn.disabled = false;
-        raceInProgress = false;
         document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        setRaceCall('發令失敗，請重試');
-        resetLights();
-        setPace(0);
+    })
+    .finally(function() {
+        isSubmitting = false;
+        raceBtn.disabled = false;
     });
 }
 

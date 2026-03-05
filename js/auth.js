@@ -1,6 +1,7 @@
 /* === 閃電賭場 - 認證模組 === */
 var authPollInterval = null;
 var authDeepLink = '';
+var lobbyAuthReadyCallback = null;
 
 function buildDeepLink(sessionId) {
     return 'dlinker://login?sessionId=' + encodeURIComponent(sessionId);
@@ -42,6 +43,8 @@ function clearAuth() {
  * @param {Function} onAuthorized - 認證成功後的回調
  */
 function initLobbyAuth(onAuthorized) {
+    lobbyAuthReadyCallback = onAuthorized;
+
     // 先檢查是否已有有效 session
     const stored = getStoredAuth();
     if (stored) {
@@ -242,6 +245,80 @@ function copyAuthCode() {
     document.body.removeChild(tmp);
 
     updateAuthMessage('✅ 已複製授權碼，請到 App 貼上登入');
+}
+
+function startCustodyAuth() {
+    var usernameInput = window.prompt('請輸入託管帳號（3-32 字，英文數字底線）');
+    if (usernameInput === null) return;
+    var username = String(usernameInput || '').trim();
+    if (!username) {
+        updateAuthMessage('請先輸入帳號');
+        return;
+    }
+
+    var passwordInput = window.prompt('請輸入密碼（至少 6 碼）');
+    if (passwordInput === null) return;
+    var password = String(passwordInput || '');
+    if (password.length < 6) {
+        updateAuthMessage('密碼至少 6 碼');
+        return;
+    }
+
+    var platform = detectClientPlatform();
+    var clientType = detectClientType(platform);
+    updateAuthMessage('<span class="loader"></span> 託管帳戶登入中...');
+
+    fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'custody_login',
+            username: username,
+            password: password,
+            platform: platform,
+            clientType: clientType
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || !data.success || !data.sessionId || !data.address || !data.publicKey) {
+                throw new Error((data && data.error) ? data.error : '託管登入失敗');
+            }
+
+            user.address = data.address;
+            user.publicKey = data.publicKey;
+            user.sessionId = data.sessionId;
+            storeAuth(data.sessionId, data.address, data.publicKey);
+
+            verifySession(data.sessionId, function (valid, authData) {
+                if (valid && lobbyAuthReadyCallback) {
+                    lobbyAuthReadyCallback(authData);
+                    return;
+                }
+
+                if (lobbyAuthReadyCallback) {
+                    lobbyAuthReadyCallback({
+                        status: 'authorized',
+                        address: data.address,
+                        publicKey: data.publicKey,
+                        balance: '0.00',
+                        totalBet: '0.00',
+                        vipLevel: '普通會員'
+                    });
+                }
+            });
+
+            if (data.isNewAccount && data.bonusGranted) {
+                updateAuthMessage('✅ 註冊成功，已送 ' + data.registerBonus + ' ZXC');
+            } else if (data.isNewAccount && data.bonusError) {
+                updateAuthMessage('⚠️ 已註冊，但送幣失敗：' + data.bonusError);
+            } else {
+                updateAuthMessage('✅ 託管登入成功');
+            }
+        })
+        .catch(function (err) {
+            updateAuthMessage('❌ 託管登入失敗：' + err.message);
+        });
 }
 
 /**

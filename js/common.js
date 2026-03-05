@@ -3,6 +3,12 @@
 // 全域用戶狀態
 var user = { address: '', publicKey: '', sessionId: '' };
 
+function toSafeNumber(value, fallback) {
+    var parsed = Number(String(value === undefined || value === null ? '' : value).replace(/,/g, '').trim());
+    if (!Number.isFinite(parsed)) return (fallback !== undefined ? fallback : 0);
+    return parsed;
+}
+
 /**
  * 更新 UI 上的用戶數據 (餘額、VIP、累計押注)
  */
@@ -10,16 +16,18 @@ function updateUI(data) {
     if (!data) return;
 
     if (data.balance !== undefined) {
+        var balanceNum = toSafeNumber(data.balance, 0);
         var balEl = document.getElementById('balance-val');
-        if (balEl) balEl.innerText = parseFloat(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
+        if (balEl) balEl.innerText = balanceNum.toLocaleString(undefined, { minimumFractionDigits: 2 });
         // 也更新 header 上的餘額
         var hBal = document.getElementById('header-balance');
-        if (hBal) hBal.innerText = parseFloat(data.balance).toLocaleString(undefined, { minimumFractionDigits: 2 });
+        if (hBal) hBal.innerText = balanceNum.toLocaleString(undefined, { minimumFractionDigits: 2 });
     }
 
     if (data.totalBet !== undefined) {
+        var totalBetNum = toSafeNumber(data.totalBet, 0);
         var tbEl = document.getElementById('total-bet-val');
-        if (tbEl) tbEl.innerText = parseFloat(data.totalBet).toFixed(2);
+        if (tbEl) tbEl.innerText = totalBetNum.toFixed(2);
     }
 
     if (data.vipLevel) {

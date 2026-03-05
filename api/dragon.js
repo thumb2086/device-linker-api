@@ -1,6 +1,7 @@
 import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
+import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = [
@@ -102,7 +103,8 @@ export default async function handler(req, res) {
             "function mint(address to, uint256 amount) public",
             "function adminTransfer(address from, address to, uint256 amount) public",
             "function decimals() view returns (uint8)",
-            "function balanceOf(address) view returns (uint256)"
+            "function balanceOf(address) view returns (uint256)",
+            "function totalSupply() view returns (uint256)"
         ], wallet);
 
         let decimals = 18n;
@@ -143,7 +145,7 @@ export default async function handler(req, res) {
             if (resultType === "win") {
                 const profitBigInt = BigInt(Math.floor(multiplier * 100));
                 const profitWei = (betWei * profitBigInt) / 100n;
-                tx = await contract.mint(address, profitWei, { gasLimit: 200000 });
+                tx = await transferFromTreasuryWithAutoTopup(contract, lossPoolAddress, address, profitWei, { gasLimit: 200000 });
             } else if (resultType === "pillar") {
                 tx = await contract.adminTransfer(address, lossPoolAddress, maxRiskWei, { gasLimit: 200000 });
             } else {

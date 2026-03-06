@@ -13,7 +13,7 @@ const DEEP_LINK_SCHEME = "dlinker://login";
 const CUSTODY_USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
 const CUSTODY_PASSWORD_MIN = 6;
 const CUSTODY_PASSWORD_MAX = 128;
-const CUSTODY_REGISTER_BONUS = "10000";
+const CUSTODY_REGISTER_BONUS = "100000";
 
 function normalizeText(value, fallback = "unknown", maxLength = 64) {
     if (typeof value !== "string") return fallback;

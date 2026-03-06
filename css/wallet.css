@@ -1,0 +1,136 @@
+body.wallet-body {
+    justify-content: flex-start;
+    padding: 20px;
+}
+
+#main-card {
+    max-width: 980px;
+    margin-bottom: 24px;
+}
+
+.wallet-overview {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 16px 0 24px;
+}
+
+.wallet-item {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    padding: 12px;
+    text-align: left;
+}
+
+.wallet-item span {
+    color: #888;
+    font-size: 0.78rem;
+    display: block;
+}
+
+.wallet-item strong {
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+.section-block {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
+    text-align: left;
+}
+
+.section-block h2 {
+    margin: 0 0 10px;
+    color: var(--gold);
+    font-size: 1.05rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.form-row-wide {
+    grid-template-columns: 1.8fr 1fr auto;
+}
+
+.form-row input,
+.form-row button {
+    width: 100%;
+}
+
+.form-row input[type="number"],
+.form-row input[type="text"] {
+    margin: 0;
+    height: 44px;
+    font-size: 1rem;
+    border-radius: 10px;
+    border: 1px solid #333;
+    padding: 0 12px;
+}
+
+.form-row input[type="text"] {
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    outline: none;
+}
+
+.form-row input[type="text"]:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 15px var(--gold-glow);
+}
+
+.form-row button {
+    min-width: 120px;
+}
+
+#status-msg {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: #ffd36a;
+}
+
+#airdrop-meta {
+    font-size: 0.85rem;
+    color: #aaa;
+}
+
+#wallet-address {
+    max-width: 350px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: bottom;
+}
+
+@media (max-width: 900px) {
+    .wallet-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .form-row,
+    .form-row-wide {
+        grid-template-columns: 1fr;
+    }
+
+    .form-row button {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 520px) {
+    body.wallet-body {
+        padding: 12px;
+    }
+
+    #main-card {
+        padding: 24px 14px;
+    }
+}

@@ -42,6 +42,23 @@ function setActionButtonsState(inProgress) {
     standBtn.disabled = !inProgress;
 }
 
+function applyActionAvailability(data) {
+    var hitBtn = document.getElementById('hit-btn');
+    var standBtn = document.getElementById('stand-btn');
+    if (!hitBtn || !standBtn) return;
+    if (!blackjackInProgress) {
+        hitBtn.disabled = true;
+        standBtn.disabled = true;
+        return;
+    }
+    if (data && data.canHit === false) {
+        hitBtn.disabled = true;
+    }
+    if (data && data.mustStand === true) {
+        standBtn.disabled = false;
+    }
+}
+
 function updateBoard(data) {
     renderCardList('dealer-cards', data.dealerCards || []);
     renderCardList('player-cards', data.playerCards || []);
@@ -93,7 +110,8 @@ function startBlackjack() {
         if (result.status === 'in_progress') {
             blackjackInProgress = true;
             setActionButtonsState(true);
-            statusMsg.innerText = '你的回合：選擇要牌或停牌';
+            applyActionAvailability(result);
+            statusMsg.innerText = result.mustStand ? '你已拿到 21 點，請按停牌結算' : '你的回合：選擇要牌或停牌';
             statusMsg.style.color = '#ffcc00';
             return;
         }
@@ -129,7 +147,8 @@ function playerHit() {
         updateBoard(result);
 
         if (result.status === 'in_progress') {
-            statusMsg.innerText = '你的回合：選擇要牌或停牌';
+            applyActionAvailability(result);
+            statusMsg.innerText = result.mustStand ? '你已拿到 21 點，請按停牌結算' : '你的回合：選擇要牌或停牌';
             statusMsg.style.color = '#ffcc00';
             return;
         }

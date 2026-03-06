@@ -1,6 +1,6 @@
 /* === 射龍門遊戲邏輯 === */
 
-var dragonMode = 'quick'; // quick | classic
+var dragonMode = 'classic';
 var classicGateReady = false;
 
 function renderCard(el, card) {
@@ -27,28 +27,19 @@ function resetTable() {
     shot.classList.remove('opened');
 }
 
-function setDragonMode(mode) {
-    dragonMode = mode === 'classic' ? 'classic' : 'quick';
+function setDragonMode() {
+    dragonMode = 'classic';
     classicGateReady = false;
     resetTable();
 
-    var quickBtn = document.getElementById('mode-quick');
     var classicBtn = document.getElementById('mode-classic');
     var shootBtn = document.getElementById('shoot-btn');
     var statusMsg = document.getElementById('status-msg');
 
-    quickBtn.classList.toggle('active', dragonMode === 'quick');
-    classicBtn.classList.toggle('active', dragonMode === 'classic');
-
-    if (dragonMode === 'classic') {
-        shootBtn.innerText = '發門';
-        statusMsg.innerText = '傳統模式：先發門，再下注開槍（未結算前不可重發）';
-        statusMsg.style.color = '#ffcc00';
-    } else {
-        shootBtn.innerText = '開槍';
-        statusMsg.innerText = '快節奏模式：下注後直接開獎';
-        statusMsg.style.color = '#ffcc00';
-    }
+    if (classicBtn) classicBtn.classList.add('active');
+    shootBtn.innerText = '發門';
+    statusMsg.innerText = '傳統模式：先發門，再下注開槍（未結算前不可重發）';
+    statusMsg.style.color = '#ffcc00';
 }
 
 function drawClassicGate() {
@@ -115,7 +106,7 @@ function playDragon() {
     statusMsg.innerHTML = '<span class="loader"></span> 交易確認中...';
     statusMsg.style.color = '#ffcc00';
     txLog.innerHTML = '';
-    if (dragonMode === 'quick') resetTable();
+    resetTable();
 
     var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
     var tempBalance = currentBalance - amount;
@@ -131,7 +122,7 @@ function playDragon() {
             amount: amount,
             sessionId: user.sessionId,
             mode: dragonMode,
-            action: dragonMode === 'classic' ? 'shoot' : 'play'
+            action: 'shoot'
         })
     })
     .then(function(res) { return res.json(); })
@@ -167,10 +158,8 @@ function playDragon() {
             }
 
             txLog.innerHTML = txLinkHTML(result.txHash);
-            if (dragonMode === 'classic') {
-                classicGateReady = false;
-                shootBtn.innerText = '發門';
-            }
+            classicGateReady = false;
+            shootBtn.innerText = '發門';
             shootBtn.disabled = false;
             setTimeout(refreshBalance, 10000);
         }, 900);
@@ -178,10 +167,8 @@ function playDragon() {
     .catch(function(e) {
         statusMsg.innerText = '❌ 錯誤: ' + e.message;
         statusMsg.style.color = 'red';
-        if (dragonMode === 'classic') {
-            classicGateReady = false;
-            shootBtn.innerText = '發門';
-        }
+        classicGateReady = false;
+        shootBtn.innerText = '發門';
         shootBtn.disabled = false;
         document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
@@ -189,5 +176,5 @@ function playDragon() {
 }
 
 window.addEventListener('load', function () {
-    setDragonMode('quick');
+    setDragonMode();
 });

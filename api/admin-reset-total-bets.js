@@ -1,5 +1,8 @@
 import { kv } from "@vercel/kv";
+import { ethers } from "ethers";
 import { resetHighTotalBets, DEFAULT_RESET_THRESHOLD } from "../lib/ops/reset-high-total-bets.js";
+
+const FALLBACK_ADMIN_ADDRESS = "0xDBBD3c856859268E27Df4874A464468f41Cb542a";
 
 function normalizeSessionId(rawValue) {
     return String(rawValue || "").trim();
@@ -7,6 +10,14 @@ function normalizeSessionId(rawValue) {
 
 function normalizeToken(rawValue) {
     return String(rawValue || "").trim();
+}
+
+function normalizeAddress(rawValue) {
+    try {
+        return ethers.getAddress(String(rawValue || "").trim()).toLowerCase();
+    } catch {
+        return "";
+    }
 }
 
 export default async function handler(req, res) {
@@ -25,23 +36,26 @@ export default async function handler(req, res) {
         const adminToken = normalizeToken(body.adminToken);
         const dryRun = String(body.dryRun || "") === "true" || body.dryRun === true;
         const configuredToken = normalizeToken(process.env.OPS_RESET_TOKEN);
+        const configuredAdminAddress = normalizeAddress(process.env.OPS_ADMIN_ADDRESS || FALLBACK_ADMIN_ADDRESS);
 
         if (!sessionId) {
             return res.status(400).json({ success: false, error: "缺少 sessionId" });
-        }
-        if (!configuredToken) {
-            return res.status(500).json({ success: false, error: "未設定 OPS_RESET_TOKEN" });
-        }
-        if (!adminToken) {
-            return res.status(400).json({ success: false, error: "缺少管理密鑰" });
-        }
-        if (adminToken !== configuredToken) {
-            return res.status(403).json({ success: false, error: "管理密鑰錯誤" });
         }
 
         const session = await kv.get(`session:${sessionId}`);
         if (!session || !session.address) {
             return res.status(403).json({ success: false, error: "會話過期，請重新登入" });
+        }
+
+        const sessionAddress = normalizeAddress(session.address);
+        const tokenAuthorized = Boolean(configuredToken) && adminToken === configuredToken;
+        const addressAuthorized = Boolean(configuredAdminAddress) && sessionAddress === configuredAdminAddress;
+
+        if (!tokenAuthorized && !addressAuthorized) {
+            return res.status(403).json({
+                success: false,
+                error: configuredToken ? "你不是管理錢包，或管理密鑰錯誤" : "目前登入地址不是管理錢包"
+            });
         }
 
         const result = await resetHighTotalBets({

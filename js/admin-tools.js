@@ -47,13 +47,11 @@ function renderResetResult(data) {
 }
 
 function callAdminReset(dryRun) {
-    var adminToken = String(document.getElementById('admin-token').value || '').trim();
     return fetch('/api/admin-reset-total-bets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             sessionId: user.sessionId,
-            adminToken: adminToken,
             dryRun: dryRun
         })
     }).then(function (res) { return res.json(); });
@@ -86,5 +84,5 @@ function executeReset() {
 }
 
 function initAdminToolsPage() {
-    setAdminStatus('若你是管理錢包可直接操作；若有設定 OPS_RESET_TOKEN 也可一併輸入', false);
+    setAdminStatus('目前只接受管理錢包登入操作，無需再輸入權杖', false);
 }

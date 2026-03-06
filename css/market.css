@@ -95,7 +95,7 @@ body.market-body {
 
 .market-row {
     display: grid;
-    grid-template-columns: 1.2fr 1fr 1fr 1fr;
+    grid-template-columns: 1.2fr 1fr 1fr 1fr 140px;
     gap: 8px;
     padding: 10px;
     border-radius: 10px;
@@ -115,6 +115,28 @@ body.market-body {
 
 .change-down {
     color: #ff6666;
+}
+
+.sparkline {
+    width: 120px;
+    height: 36px;
+    display: block;
+}
+
+.sparkline polyline {
+    fill: none;
+    stroke: #d9b75f;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.sparkline.change-up polyline {
+    stroke: #00ff88;
+}
+
+.sparkline.change-down polyline {
+    stroke: #ff6666;
 }
 
 .position-list {

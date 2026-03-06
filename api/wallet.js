@@ -1,4 +1,5 @@
 import { kv } from '@vercel/kv';
+import { getSession } from "../lib/session-store.js";
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL, AIRDROP_TOTAL_CAP } from "../lib/config.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
@@ -68,7 +69,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ success: false, error: "缺少 sessionId" });
         }
 
-        const session = await kv.get(`session:${sessionId}`);
+        const session = await getSession(sessionId);
         if (!session || !session.address) {
             return res.status(403).json({ success: false, error: "會話過期，請重新登入" });
         }

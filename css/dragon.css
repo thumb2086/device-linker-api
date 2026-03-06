@@ -73,6 +73,49 @@ body.dragon-body {
     letter-spacing: 1px;
 }
 
+.dragon-side-guess {
+    margin: 0 0 18px;
+    padding: 14px;
+    border: 1px solid rgba(255, 204, 0, 0.25);
+    border-radius: 14px;
+    background: rgba(255, 204, 0, 0.06);
+}
+
+.guess-title {
+    margin-bottom: 10px;
+    color: #ffdd6e;
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.guess-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.guess-btn {
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #eee;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.guess-btn.active {
+    color: #221a00;
+    background: linear-gradient(180deg, #ffcc00, #b8860b);
+    border-color: #d0a300;
+}
+
+.guess-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
 .mode-switch {
     display: flex;
     gap: 10px;

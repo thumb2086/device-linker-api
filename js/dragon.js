@@ -2,6 +2,7 @@
 
 var dragonMode = 'classic';
 var classicGateReady = false;
+var dragonSideGuess = '';
 
 function renderCard(el, card) {
     if (!el || !card) return;
@@ -27,10 +28,64 @@ function resetTable() {
     shot.classList.remove('opened');
 }
 
+function resetDragonSideGuess() {
+    dragonSideGuess = '';
+    var container = document.getElementById('dragon-side-guess');
+    var lowerBtn = document.getElementById('guess-lower-btn');
+    var higherBtn = document.getElementById('guess-higher-btn');
+    if (container) container.classList.add('hidden');
+    if (lowerBtn) {
+        lowerBtn.classList.remove('active');
+        lowerBtn.disabled = false;
+        lowerBtn.innerText = '猜下';
+    }
+    if (higherBtn) {
+        higherBtn.classList.remove('active');
+        higherBtn.disabled = false;
+        higherBtn.innerText = '猜上';
+    }
+}
+
+function setDragonSideGuess(direction) {
+    dragonSideGuess = direction === 'higher' ? 'higher' : 'lower';
+    var lowerBtn = document.getElementById('guess-lower-btn');
+    var higherBtn = document.getElementById('guess-higher-btn');
+    if (lowerBtn) lowerBtn.classList.toggle('active', dragonSideGuess === 'lower');
+    if (higherBtn) higherBtn.classList.toggle('active', dragonSideGuess === 'higher');
+}
+
+function applyDragonSideGuessOptions(result) {
+    resetDragonSideGuess();
+    if (!result || !result.requiresSideGuess) return;
+
+    var container = document.getElementById('dragon-side-guess');
+    var lowerBtn = document.getElementById('guess-lower-btn');
+    var higherBtn = document.getElementById('guess-higher-btn');
+    var lower = result.sideOptions && result.sideOptions.lower ? result.sideOptions.lower : null;
+    var higher = result.sideOptions && result.sideOptions.higher ? result.sideOptions.higher : null;
+
+    if (container) container.classList.remove('hidden');
+    if (lowerBtn && lower) {
+        lowerBtn.disabled = !lower.enabled;
+        lowerBtn.innerText = lower.enabled ? ('猜下 ' + lower.multiplier + 'x') : '猜下不可選';
+    }
+    if (higherBtn && higher) {
+        higherBtn.disabled = !higher.enabled;
+        higherBtn.innerText = higher.enabled ? ('猜上 ' + higher.multiplier + 'x') : '猜上不可選';
+    }
+
+    if (lower && lower.enabled && !(higher && higher.enabled)) {
+        setDragonSideGuess('lower');
+    } else if (higher && higher.enabled && !(lower && lower.enabled)) {
+        setDragonSideGuess('higher');
+    }
+}
+
 function setDragonMode() {
     dragonMode = 'classic';
     classicGateReady = false;
     resetTable();
+    resetDragonSideGuess();
 
     var classicBtn = document.getElementById('mode-classic');
     var shootBtn = document.getElementById('shoot-btn');
@@ -70,9 +125,12 @@ function drawClassicGate() {
         if (result.error) throw new Error(result.error);
         renderCard(document.getElementById('card-left'), result.gate.left);
         renderCard(document.getElementById('card-right'), result.gate.right);
+        applyDragonSideGuessOptions(result);
         classicGateReady = true;
         shootBtn.innerText = '開槍';
-        statusMsg.innerText = '門已開：倍數 ' + result.multiplier + 'x，請輸入下注後開槍';
+        statusMsg.innerText = result.requiresSideGuess
+            ? '無門寬：請先選擇猜上或猜下，再下注開槍'
+            : ('門已開：倍數 ' + result.multiplier + 'x，請輸入下注後開槍');
         statusMsg.style.color = '#ffcc00';
     })
     .catch(function(e) {
@@ -101,6 +159,15 @@ function playDragon() {
         statusMsg.innerText = '❌ 請輸入有效的金額';
         return;
     }
+    if (!classicGateReady) {
+        statusMsg.innerText = '❌ 請先發門';
+        return;
+    }
+    var guessContainer = document.getElementById('dragon-side-guess');
+    if (guessContainer && !guessContainer.classList.contains('hidden') && !dragonSideGuess) {
+        statusMsg.innerText = '❌ 此局沒有門寬，請先選擇猜上或猜下';
+        return;
+    }
 
     shootBtn.disabled = true;
     statusMsg.innerHTML = '<span class="loader"></span> 交易確認中...';
@@ -122,7 +189,8 @@ function playDragon() {
             amount: amount,
             sessionId: user.sessionId,
             mode: dragonMode,
-            action: 'shoot'
+            action: 'shoot',
+            sideGuess: dragonSideGuess || undefined
         })
     })
     .then(function(res) { return res.json(); })
@@ -159,6 +227,7 @@ function playDragon() {
 
             txLog.innerHTML = txLinkHTML(result.txHash);
             classicGateReady = false;
+            resetDragonSideGuess();
             shootBtn.innerText = '發門';
             shootBtn.disabled = false;
             setTimeout(refreshBalance, 10000);
@@ -168,6 +237,7 @@ function playDragon() {
         statusMsg.innerText = '❌ 錯誤: ' + e.message;
         statusMsg.style.color = 'red';
         classicGateReady = false;
+        resetDragonSideGuess();
         shootBtn.innerText = '發門';
         shootBtn.disabled = false;
         document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });

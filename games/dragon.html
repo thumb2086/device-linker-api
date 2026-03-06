@@ -50,6 +50,14 @@
 
         <div id="odds-banner">門越窄，倍數越高：3x / 2x / 1.2x（撞柱雙倍扣注）</div>
 
+        <div id="dragon-side-guess" class="dragon-side-guess hidden">
+            <div class="guess-title">無門寬，請改猜方向</div>
+            <div class="guess-actions">
+                <button type="button" class="guess-btn" id="guess-lower-btn" onclick="setDragonSideGuess('lower')">猜下</button>
+                <button type="button" class="guess-btn" id="guess-higher-btn" onclick="setDragonSideGuess('higher')">猜上</button>
+            </div>
+        </div>
+
         <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入押注金額">
         <button class="btn-shoot" id="shoot-btn" onclick="playDragon()">開槍</button>
 

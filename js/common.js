@@ -37,6 +37,11 @@ function formatCompactZh(value, digits) {
 function updateUI(data) {
     if (!data) return;
 
+    if (data.displayName !== undefined) {
+        var nameEl = document.getElementById('display-name-val');
+        if (nameEl) nameEl.innerText = data.displayName || '未設定';
+    }
+
     if (data.balance !== undefined) {
         var balanceNum = toSafeNumber(data.balance, 0);
         var balEl = document.getElementById('balance-val');
@@ -73,6 +78,36 @@ function updateUI(data) {
             }
         }
     }
+}
+
+function promptDisplayName() {
+    if (!user.sessionId) return;
+    var current = '';
+    var currentEl = document.getElementById('display-name-val');
+    if (currentEl) current = String(currentEl.innerText || '').trim();
+    if (current === '未設定') current = '';
+
+    var input = window.prompt('請輸入使用者名稱（2-24 字，可用中英數、空格、底線、連字號）', current);
+    if (input === null) return;
+
+    fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'set',
+            sessionId: user.sessionId,
+            displayName: input
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '設定名稱失敗');
+            updateUI({ displayName: data.displayName });
+            alert('使用者名稱已更新');
+        })
+        .catch(function (error) {
+            alert('設定失敗：' + error.message);
+        });
 }
 
 /**

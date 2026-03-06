@@ -25,17 +25,20 @@ function fmtRank(rank) {
 function renderMyRank(data) {
     var myRankEl = document.getElementById('my-rank');
     var myBetEl = document.getElementById('my-total-bet');
+    var myNameEl = document.getElementById('my-name');
     var totalEl = document.getElementById('leaderboard-total');
     if (totalEl) totalEl.innerText = Number(data.totalPlayers || 0).toLocaleString();
 
     if (!data.myRank) {
         if (myRankEl) myRankEl.innerText = '未上榜';
         if (myBetEl) myBetEl.innerText = '0';
+        if (myNameEl) myNameEl.innerText = '-';
         return;
     }
 
     if (myRankEl) myRankEl.innerText = fmtRank(data.myRank.rank);
     if (myBetEl) myBetEl.innerText = formatCompactZh(data.myRank.totalBet, 2) + ' 子熙幣';
+    if (myNameEl) myNameEl.innerText = data.myRank.displayName || data.myRank.maskedAddress;
 }
 
 function renderLeaderboardRows(items) {
@@ -54,9 +57,10 @@ function renderLeaderboardRows(items) {
 
     items.forEach(function (item) {
         var isMine = item.address === currentAddress;
+        var displayName = item.displayName || item.maskedAddress;
         html += '<div class="leaderboard-row' + (isMine ? ' is-me' : '') + '">' +
             '<span class="rank-col">' + fmtRank(item.rank) + '</span>' +
-            '<span class="addr-col" title="' + escapeHtml(item.address) + '">' + escapeHtml(item.maskedAddress) + (isMine ? ' (你)' : '') + '</span>' +
+            '<span class="addr-col" title="' + escapeHtml(item.address) + '">' + escapeHtml(displayName) + (isMine ? ' (你)' : '') + '</span>' +
             '<span class="bet-col">' + formatCompactZh(item.totalBet, 2) + ' 子熙幣</span>' +
             '<span class="vip-col">' + escapeHtml(item.vipLevel) + '</span>' +
             '</div>';

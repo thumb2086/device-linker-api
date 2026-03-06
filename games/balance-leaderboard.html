@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>餘額排行榜 | ZXC 模擬器</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/leaderboard.css">
+</head>
+
+<body class="leaderboard-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">← 大廳</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> ZXC</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>💰 餘額排行榜</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> ZXC</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> ZXC</div>
+        </div>
+
+        <div class="leaderboard-overview">
+            <div class="overview-card">
+                <span>我的排名</span>
+                <strong id="my-rank">-</strong>
+            </div>
+            <div class="overview-card">
+                <span>我的鏈上餘額</span>
+                <strong id="my-balance">-</strong>
+            </div>
+            <div class="overview-card">
+                <span>排行榜人數</span>
+                <strong id="leaderboard-total">0</strong>
+            </div>
+        </div>
+
+        <div class="leaderboard-toolbar">
+            <button class="btn-primary" onclick="loadBalanceLeaderboard(false)">刷新排行榜</button>
+            <span id="leaderboard-status">載入中...</span>
+        </div>
+
+        <div id="leaderboard-list" class="leaderboard-list"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/balance-leaderboard.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initBalanceLeaderboardPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

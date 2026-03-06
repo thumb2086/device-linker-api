@@ -15,6 +15,7 @@ const CUSTODY_USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
 const CUSTODY_PASSWORD_MIN = 6;
 const CUSTODY_PASSWORD_MAX = 128;
 const CUSTODY_REGISTER_BONUS = "100000";
+const AUTH_API_BUILD = "2026-03-06-hash-session-v2";
 
 function normalizeText(value, fallback = "unknown", maxLength = 64) {
     if (typeof value !== "string") return fallback;
@@ -153,6 +154,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('X-Auth-Build', AUTH_API_BUILD);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {

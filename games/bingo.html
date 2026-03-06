@@ -38,7 +38,12 @@
             <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入押注金額">
             <button class="btn-secondary" onclick="randomPick()">隨機選 8</button>
         </div>
-        <input type="text" id="number-input" placeholder="輸入 8 個號碼，用逗號分隔 (1-75)">
+        <div class="pick-summary">
+            <span>已選號碼</span>
+            <strong id="pick-summary">尚未選號</strong>
+            <button class="btn-secondary" onclick="clearPick()">清空</button>
+        </div>
+        <div class="number-pad" id="number-pad"></div>
 
         <button class="btn-primary" onclick="placeBingoBet()">下注開獎</button>
 

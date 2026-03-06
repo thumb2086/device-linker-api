@@ -35,7 +35,55 @@ body.bingo-body {
     margin-bottom: 10px;
 }
 
-#number-input {
-    width: 100%;
-    margin-bottom: 10px;
+.pick-summary {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+    color: #d8d8d8;
+}
+
+.pick-summary strong {
+    color: #ffd36a;
+    font-size: 0.95rem;
+}
+
+.number-pad {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.number-btn {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f3f3f3;
+    height: 38px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.number-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 211, 106, 0.55);
+}
+
+.number-btn.is-selected {
+    background: rgba(255, 211, 106, 0.2);
+    border-color: #ffd36a;
+    color: #ffd36a;
+}
+
+@media (max-width: 720px) {
+    .number-pad {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .pick-summary {
+        grid-template-columns: 1fr;
+    }
 }

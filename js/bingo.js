@@ -6,6 +6,7 @@ var isClockSyncing = false;
 var lastClockSyncAt = 0;
 var pendingBingoBets = [];
 var isBingoDrawing = false;
+var selectedNumbers = [];
 
 function hash32(input) {
     var str = String(input);
@@ -78,6 +79,46 @@ function parseNumbers(input) {
         .filter(function (n) { return Number.isInteger(n); });
 }
 
+function renderPickSummary() {
+    var summary = document.getElementById('pick-summary');
+    if (!summary) return;
+    if (selectedNumbers.length === 0) {
+        summary.innerText = '尚未選號';
+        return;
+    }
+    summary.innerText = selectedNumbers.join(', ');
+}
+
+function renderNumberPad() {
+    var pad = document.getElementById('number-pad');
+    if (!pad) return;
+    var html = '';
+    for (var i = 1; i <= 75; i += 1) {
+        var selected = selectedNumbers.indexOf(i) >= 0;
+        html += '<button class="number-btn' + (selected ? ' is-selected' : '') + '" onclick="toggleNumber(' + i + ')">' + i + '</button>';
+    }
+    pad.innerHTML = html;
+    renderPickSummary();
+}
+
+function setSelectedNumbers(numbers) {
+    selectedNumbers = numbers.slice().sort(function (a, b) { return a - b; });
+    renderNumberPad();
+}
+
+function toggleNumber(number) {
+    var index = selectedNumbers.indexOf(number);
+    if (index >= 0) {
+        selectedNumbers.splice(index, 1);
+        renderNumberPad();
+        return;
+    }
+    if (selectedNumbers.length >= 8) return;
+    selectedNumbers.push(number);
+    selectedNumbers.sort(function (a, b) { return a - b; });
+    renderNumberPad();
+}
+
 function randomPick() {
     var pool = [];
     for (var i = 1; i <= 75; i += 1) pool.push(i);
@@ -88,7 +129,12 @@ function randomPick() {
         pool[k] = tmp;
     }
     var pick = pool.slice(0, 8).sort(function (a, b) { return a - b; });
-    document.getElementById('number-input').value = pick.join(',');
+    setSelectedNumbers(pick);
+}
+
+function clearPick() {
+    selectedNumbers = [];
+    renderNumberPad();
 }
 
 function drawNumbers(roundId) {
@@ -199,7 +245,7 @@ function startBingoDraw(roundId) {
 
 function placeBingoBet() {
     var amount = Number(document.getElementById('bet-amount').value || 0);
-    var numbers = parseNumbers(document.getElementById('number-input').value);
+    var numbers = selectedNumbers.slice();
     var status = document.getElementById('status-msg');
     if (!amount || amount <= 0) {
         if (status) status.innerText = '請輸入有效押注金額';
@@ -258,6 +304,7 @@ function placeBingoBet() {
 }
 
 function initBingoPage() {
+    renderNumberPad();
     randomPick();
     setInterval(function () {
         syncBingoClock(false);

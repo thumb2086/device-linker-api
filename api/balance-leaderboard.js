@@ -2,6 +2,12 @@ import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { buildVipStatus } from "../lib/vip.js";
+import {
+    LEADERBOARD_CACHE_TTL_SECONDS,
+    getCachedLeaderboard,
+    setCachedLeaderboard,
+    applyLeaderboardCacheHeaders
+} from "../lib/leaderboard-cache.js";
 
 const TOTAL_BET_PREFIX = "total_bet:";
 const MAX_LIMIT = 100;
@@ -103,6 +109,7 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    applyLeaderboardCacheHeaders(res, LEADERBOARD_CACHE_TTL_SECONDS);
 
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") {
@@ -124,8 +131,41 @@ export default async function handler(req, res) {
         }
 
         const currentAddress = String(session.address || "").trim().toLowerCase();
-        const { addresses, totalBetMap } = await loadKnownUsers(currentAddress);
-        const entries = await loadBalanceEntries(addresses, totalBetMap);
+        let cached = await getCachedLeaderboard("balance_v1");
+        if (!cached || !Array.isArray(cached.entries)) {
+            const { addresses, totalBetMap } = await loadKnownUsers(currentAddress);
+            const entries = await loadBalanceEntries(addresses, totalBetMap);
+            cached = {
+                generatedAt: new Date().toISOString(),
+                entries: entries.map((entry) => ({
+                    address: entry.address,
+                    balance: entry.balance,
+                    totalBet: entry.totalBet
+                }))
+            };
+            await setCachedLeaderboard("balance_v1", cached, LEADERBOARD_CACHE_TTL_SECONDS);
+        }
+
+        const entries = cached.entries.map((entry) => ({
+            address: entry.address,
+            balance: Number(entry.balance || 0),
+            totalBet: Number(entry.totalBet || 0)
+        }));
+
+        if (currentAddress && !entries.some((entry) => entry.address === currentAddress)) {
+            const { addresses, totalBetMap } = await loadKnownUsers(currentAddress);
+            const currentOnlyEntries = await loadBalanceEntries(
+                addresses.filter((address) => address === currentAddress),
+                totalBetMap
+            );
+            if (currentOnlyEntries[0]) {
+                entries.push(currentOnlyEntries[0]);
+                entries.sort((left, right) => {
+                    if (right.balance !== left.balance) return right.balance - left.balance;
+                    return left.address.localeCompare(right.address);
+                });
+            }
+        }
 
         const leaderboard = entries.slice(0, limit).map((entry, index) => {
             const vipStatus = buildVipStatus(entry.totalBet);
@@ -144,7 +184,7 @@ export default async function handler(req, res) {
 
         return res.status(200).json({
             success: true,
-            generatedAt: new Date().toISOString(),
+            generatedAt: cached.generatedAt || new Date().toISOString(),
             totalPlayers: entries.length,
             leaderboard,
             myRank: myRank ? {

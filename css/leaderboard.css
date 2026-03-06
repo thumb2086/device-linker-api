@@ -109,6 +109,10 @@ body.leaderboard-body {
     color: #999;
 }
 
+.leaderboard-balance-row {
+    grid-template-columns: 120px 1.2fr 1fr 1fr;
+}
+
 @media (max-width: 900px) {
     .leaderboard-overview {
         grid-template-columns: 1fr;

@@ -86,5 +86,5 @@ function executeReset() {
 }
 
 function initAdminToolsPage() {
-    setAdminStatus('請先輸入管理密鑰，再執行預覽或重製', false);
+    setAdminStatus('若你是管理錢包可直接操作；若有設定 OPS_RESET_TOKEN 也可一併輸入', false);
 }

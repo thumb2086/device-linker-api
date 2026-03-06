@@ -30,9 +30,9 @@
 
         <div class="section-block">
             <h2>重製異常累積押注</h2>
-            <p class="tool-note">只會處理 `total_bet > 20 億` 的帳號，其他紀錄完全不動。建議先按「預覽」確認名單，再執行正式重製。</p>
+            <p class="tool-note">只會處理 `total_bet > 20 億` 的帳號，其他紀錄完全不動。可直接用管理錢包登入操作；若另外設定 `OPS_RESET_TOKEN`，也可當第二道驗證。</p>
             <div class="form-row">
-                <input type="password" id="admin-token" placeholder="輸入 OPS_RESET_TOKEN">
+                <input type="password" id="admin-token" placeholder="可選：輸入 OPS_RESET_TOKEN">
                 <button class="btn-primary" onclick="previewReset()">預覽名單</button>
                 <button class="btn-secondary" onclick="executeReset()">正式重製</button>
             </div>

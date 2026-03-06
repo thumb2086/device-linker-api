@@ -4,6 +4,12 @@ import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { buildVipStatus } from "../lib/vip.js";
 import {
+    buildAccountSummary,
+    buildMarketSnapshot,
+    normalizeMarketAccount,
+    settleLiquidations
+} from "../lib/market-sim.js";
+import {
     LEADERBOARD_CACHE_TTL_SECONDS,
     getCachedLeaderboard,
     setCachedLeaderboard,
@@ -11,6 +17,7 @@ import {
 } from "../lib/leaderboard-cache.js";
 
 const TOTAL_BET_PREFIX = "total_bet:";
+const MARKET_SIM_PREFIX = "market_sim:";
 const MAX_LIMIT = 100;
 const CONTRACT_ABI = [
     "function balanceOf(address owner) view returns (uint256)",
@@ -50,6 +57,15 @@ async function loadKnownUsers(currentAddress) {
         totalBetMap.set(address, totalBet);
     }
 
+    for await (const key of kv.scanIterator({ match: `${MARKET_SIM_PREFIX}*`, count: 1000 })) {
+        const address = key.slice(MARKET_SIM_PREFIX.length).toLowerCase();
+        if (!address) continue;
+        addressSet.add(address);
+        if (!totalBetMap.has(address)) {
+            totalBetMap.set(address, 0);
+        }
+    }
+
     if (currentAddress) {
         addressSet.add(currentAddress);
         if (!totalBetMap.has(currentAddress)) {
@@ -66,6 +82,8 @@ async function loadKnownUsers(currentAddress) {
 async function loadBalanceEntries(addresses, totalBetMap) {
     if (addresses.length === 0) return [];
 
+    const nowTs = Date.now();
+    const market = buildMarketSnapshot(nowTs);
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
     let decimals = 18;
@@ -81,25 +99,52 @@ async function loadBalanceEntries(addresses, totalBetMap) {
         const balances = await Promise.all(chunk.map(async (address) => {
             try {
                 const balanceWei = await contract.balanceOf(address);
-                return { address, balance: Number(ethers.formatUnits(balanceWei, decimals)) };
+                const walletBalance = Number(ethers.formatUnits(balanceWei, decimals));
+                const marketAccount = normalizeMarketAccount(await kv.get(`${MARKET_SIM_PREFIX}${address}`), nowTs);
+                marketAccount.cash = walletBalance;
+                settleLiquidations(marketAccount, market, nowTs);
+                const summary = buildAccountSummary(marketAccount, market);
+
+                return {
+                    address,
+                    walletBalance,
+                    netWorth: Number(summary.netWorth || 0),
+                    bankBalance: Number(summary.bankBalance || 0),
+                    stockValue: Number(summary.stockValue || 0),
+                    futuresUnrealizedPnl: Number(summary.futuresUnrealizedPnl || 0),
+                    loanPrincipal: Number(summary.loanPrincipal || 0)
+                };
             } catch (error) {
-                return { address, balance: 0 };
+                return {
+                    address,
+                    walletBalance: 0,
+                    netWorth: 0,
+                    bankBalance: 0,
+                    stockValue: 0,
+                    futuresUnrealizedPnl: 0,
+                    loanPrincipal: 0
+                };
             }
         }));
 
         balances.forEach((item) => {
-            if (!Number.isFinite(item.balance) || item.balance <= 0) return;
+            if (!Number.isFinite(item.netWorth) || item.netWorth <= 0) return;
             const totalBet = totalBetMap.get(item.address) || 0;
             entries.push({
                 address: item.address,
-                balance: item.balance,
+                netWorth: item.netWorth,
+                walletBalance: item.walletBalance,
+                bankBalance: item.bankBalance,
+                stockValue: item.stockValue,
+                futuresUnrealizedPnl: item.futuresUnrealizedPnl,
+                loanPrincipal: item.loanPrincipal,
                 totalBet
             });
         });
     }
 
     entries.sort((left, right) => {
-        if (right.balance !== left.balance) return right.balance - left.balance;
+        if (right.netWorth !== left.netWorth) return right.netWorth - left.netWorth;
         return left.address.localeCompare(right.address);
     });
 
@@ -132,7 +177,7 @@ export default async function handler(req, res) {
         }
 
         const currentAddress = String(session.address || "").trim().toLowerCase();
-        let cached = await getCachedLeaderboard("balance_v1");
+        let cached = await getCachedLeaderboard("balance_v2");
         if (!cached || !Array.isArray(cached.entries)) {
             const { addresses, totalBetMap } = await loadKnownUsers(currentAddress);
             const entries = await loadBalanceEntries(addresses, totalBetMap);
@@ -140,16 +185,26 @@ export default async function handler(req, res) {
                 generatedAt: new Date().toISOString(),
                 entries: entries.map((entry) => ({
                     address: entry.address,
-                    balance: entry.balance,
+                    netWorth: entry.netWorth,
+                    walletBalance: entry.walletBalance,
+                    bankBalance: entry.bankBalance,
+                    stockValue: entry.stockValue,
+                    futuresUnrealizedPnl: entry.futuresUnrealizedPnl,
+                    loanPrincipal: entry.loanPrincipal,
                     totalBet: entry.totalBet
                 }))
             };
-            await setCachedLeaderboard("balance_v1", cached, LEADERBOARD_CACHE_TTL_SECONDS);
+            await setCachedLeaderboard("balance_v2", cached, LEADERBOARD_CACHE_TTL_SECONDS);
         }
 
         const entries = cached.entries.map((entry) => ({
             address: entry.address,
-            balance: Number(entry.balance || 0),
+            netWorth: Number(entry.netWorth || 0),
+            walletBalance: Number(entry.walletBalance || 0),
+            bankBalance: Number(entry.bankBalance || 0),
+            stockValue: Number(entry.stockValue || 0),
+            futuresUnrealizedPnl: Number(entry.futuresUnrealizedPnl || 0),
+            loanPrincipal: Number(entry.loanPrincipal || 0),
             totalBet: Number(entry.totalBet || 0)
         }));
 
@@ -162,7 +217,7 @@ export default async function handler(req, res) {
             if (currentOnlyEntries[0]) {
                 entries.push(currentOnlyEntries[0]);
                 entries.sort((left, right) => {
-                    if (right.balance !== left.balance) return right.balance - left.balance;
+                    if (right.netWorth !== left.netWorth) return right.netWorth - left.netWorth;
                     return left.address.localeCompare(right.address);
                 });
             }
@@ -174,7 +229,12 @@ export default async function handler(req, res) {
                 rank: index + 1,
                 address: entry.address,
                 maskedAddress: maskAddress(entry.address),
-                balance: entry.balance.toFixed(2),
+                netWorth: entry.netWorth.toFixed(2),
+                walletBalance: entry.walletBalance.toFixed(2),
+                bankBalance: entry.bankBalance.toFixed(2),
+                stockValue: entry.stockValue.toFixed(2),
+                futuresUnrealizedPnl: entry.futuresUnrealizedPnl.toFixed(2),
+                loanPrincipal: entry.loanPrincipal.toFixed(2),
                 totalBet: entry.totalBet.toFixed(2),
                 vipLevel: vipStatus.vipLevel
             };
@@ -192,7 +252,12 @@ export default async function handler(req, res) {
                 rank: myIndex + 1,
                 address: myRank.address,
                 maskedAddress: maskAddress(myRank.address),
-                balance: myRank.balance.toFixed(2),
+                netWorth: myRank.netWorth.toFixed(2),
+                walletBalance: myRank.walletBalance.toFixed(2),
+                bankBalance: myRank.bankBalance.toFixed(2),
+                stockValue: myRank.stockValue.toFixed(2),
+                futuresUnrealizedPnl: myRank.futuresUnrealizedPnl.toFixed(2),
+                loanPrincipal: myRank.loanPrincipal.toFixed(2),
                 totalBet: myRank.totalBet.toFixed(2),
                 vipLevel: buildVipStatus(myRank.totalBet).vipLevel
             } : null
@@ -201,7 +266,7 @@ export default async function handler(req, res) {
         console.error("Balance Leaderboard Error:", error);
         return res.status(500).json({
             success: false,
-            error: "無法讀取餘額排行榜",
+            error: "無法讀取淨資產排行榜",
             details: error.message
         });
     }

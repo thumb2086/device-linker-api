@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>餘額排行榜 | 子熙模擬器</title>
+    <title>淨資產排行榜 | 子熙模擬器</title>
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/leaderboard.css">
 </head>
@@ -20,7 +20,7 @@
     </div>
 
     <div class="casino-card" id="main-card">
-        <h1>💰 餘額排行榜</h1>
+        <h1>💰 淨資產排行榜</h1>
 
         <div class="user-stats">
             <span id="vip-badge">普通會員</span>
@@ -34,7 +34,7 @@
                 <strong id="my-rank">-</strong>
             </div>
             <div class="overview-card">
-                <span>我的鏈上餘額</span>
+                <span>我的淨資產</span>
                 <strong id="my-balance">-</strong>
             </div>
             <div class="overview-card">
@@ -42,6 +42,8 @@
                 <strong id="leaderboard-total">0</strong>
             </div>
         </div>
+
+        <div class="stat-row" id="my-assets">-</div>
 
         <div class="leaderboard-toolbar">
             <button class="btn-primary" onclick="loadBalanceLeaderboard(false)">刷新排行榜</button>

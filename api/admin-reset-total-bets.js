@@ -8,10 +8,6 @@ function normalizeSessionId(rawValue) {
     return String(rawValue || "").trim();
 }
 
-function normalizeToken(rawValue) {
-    return String(rawValue || "").trim();
-}
-
 function normalizeAddress(rawValue) {
     try {
         return ethers.getAddress(String(rawValue || "").trim()).toLowerCase();
@@ -33,9 +29,7 @@ export default async function handler(req, res) {
     try {
         const body = req.body || {};
         const sessionId = normalizeSessionId(body.sessionId);
-        const adminToken = normalizeToken(body.adminToken);
         const dryRun = String(body.dryRun || "") === "true" || body.dryRun === true;
-        const configuredToken = normalizeToken(process.env.OPS_RESET_TOKEN);
         const configuredAdminAddress = normalizeAddress(process.env.OPS_ADMIN_ADDRESS || FALLBACK_ADMIN_ADDRESS);
 
         if (!sessionId) {
@@ -48,13 +42,12 @@ export default async function handler(req, res) {
         }
 
         const sessionAddress = normalizeAddress(session.address);
-        const tokenAuthorized = Boolean(configuredToken) && adminToken === configuredToken;
         const addressAuthorized = Boolean(configuredAdminAddress) && sessionAddress === configuredAdminAddress;
 
-        if (!tokenAuthorized && !addressAuthorized) {
+        if (!addressAuthorized) {
             return res.status(403).json({
                 success: false,
-                error: configuredToken ? "你不是管理錢包，或管理密鑰錯誤" : "目前登入地址不是管理錢包"
+                error: "目前登入地址不是管理錢包"
             });
         }
 

@@ -6,6 +6,8 @@ var isClockSyncing = false;
 var lastClockSyncAt = 0;
 var pendingSicboBets = [];
 var isSicboDrawing = false;
+var selectedBetType = 'big';
+var selectedBetValue = '';
 
 var TOTAL_PAYOUTS = {
     4: 50,
@@ -23,6 +25,18 @@ var TOTAL_PAYOUTS = {
     16: 18,
     17: 50
 };
+
+var BET_TYPE_OPTIONS = [
+    { value: 'big', label: '大', needsValue: false },
+    { value: 'small', label: '小', needsValue: false },
+    { value: 'odd', label: '單', needsValue: false },
+    { value: 'even', label: '雙', needsValue: false },
+    { value: 'total', label: '點數', needsValue: true },
+    { value: 'single', label: '單骰', needsValue: true },
+    { value: 'double_specific', label: '對子', needsValue: true },
+    { value: 'triple_any', label: '圍骰', needsValue: false },
+    { value: 'triple_specific', label: '指定圍骰', needsValue: true }
+];
 
 function hash32(input) {
     var str = String(input);
@@ -88,25 +102,50 @@ function updateRoundHint() {
     maybeDrawSicbo();
 }
 
-function onBetTypeChange() {
-    var type = document.getElementById('bet-type').value;
-    var select = document.getElementById('bet-value');
-    if (!select) return;
-    var options = [];
+function getValueOptions(type) {
     if (type === 'total') {
-        options = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(function (v) { return { value: v, label: '點數 ' + v }; });
-    } else if (type === 'single' || type === 'double_specific' || type === 'triple_specific') {
-        options = [1, 2, 3, 4, 5, 6].map(function (v) { return { value: v, label: '點數 ' + v }; });
+        return [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(function (v) { return { value: String(v), label: '點數 ' + v }; });
     }
+    if (type === 'single' || type === 'double_specific' || type === 'triple_specific') {
+        return [1, 2, 3, 4, 5, 6].map(function (v) { return { value: String(v), label: '點數 ' + v }; });
+    }
+    return [];
+}
+
+function renderBetTypeGrid() {
+    var grid = document.getElementById('bet-type-grid');
+    if (!grid) return;
+    grid.innerHTML = BET_TYPE_OPTIONS.map(function (opt) {
+        return '<button class="bet-chip' + (selectedBetType === opt.value ? ' is-selected' : '') + '" onclick="selectBetType(\'' + opt.value + '\')">' + opt.label + '</button>';
+    }).join('');
+}
+
+function renderBetValueGrid() {
+    var grid = document.getElementById('bet-value-grid');
+    if (!grid) return;
+    var options = getValueOptions(selectedBetType);
     if (options.length === 0) {
-        select.innerHTML = '<option value="">無</option>';
-        select.disabled = true;
+        grid.innerHTML = '';
+        selectedBetValue = '';
         return;
     }
-    select.disabled = false;
-    select.innerHTML = options.map(function (opt) {
-        return '<option value="' + opt.value + '">' + opt.label + '</option>';
+    if (!selectedBetValue || !options.some(function (opt) { return opt.value === selectedBetValue; })) {
+        selectedBetValue = options[0].value;
+    }
+    grid.innerHTML = options.map(function (opt) {
+        return '<button class="bet-chip' + (selectedBetValue === opt.value ? ' is-selected' : '') + '" onclick="selectBetValue(\'' + opt.value + '\')">' + opt.label + '</button>';
     }).join('');
+}
+
+function selectBetType(type) {
+    selectedBetType = type;
+    renderBetTypeGrid();
+    renderBetValueGrid();
+}
+
+function selectBetValue(value) {
+    selectedBetValue = value;
+    renderBetValueGrid();
 }
 
 function setDice(dice) {
@@ -223,8 +262,8 @@ function startSicboDraw(roundId) {
 
 function placeSicboBet() {
     var amount = Number(document.getElementById('bet-amount').value || 0);
-    var betType = document.getElementById('bet-type').value;
-    var betValue = document.getElementById('bet-value').value;
+    var betType = selectedBetType;
+    var betValue = selectedBetValue;
     var status = document.getElementById('status-msg');
     if (!amount || amount <= 0) {
         if (status) status.innerText = '請輸入有效押注金額';
@@ -288,3 +327,5 @@ setInterval(function () {
 
 syncSicboClock(true);
 updateRoundHint();
+renderBetTypeGrid();
+renderBetValueGrid();

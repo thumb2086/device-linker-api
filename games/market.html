@@ -90,12 +90,12 @@
         <div class="section-block">
             <h2>銀行利息 / 貸款</h2>
             <div class="form-row">
-                <input type="number" id="bank-amount" min="1" step="1" value="100">
+                <input type="number" id="bank-amount" min="0.000001" step="0.000001" value="100">
                 <button class="btn-primary" onclick="submitBank('bank_deposit')">存款</button>
                 <button class="btn-secondary" onclick="submitBank('bank_withdraw')">提款</button>
             </div>
             <div class="form-row">
-                <input type="number" id="loan-amount" min="1" step="1" value="100">
+                <input type="number" id="loan-amount" min="0.000001" step="0.000001" value="100">
                 <button class="btn-primary" onclick="submitLoan('borrow')">借款</button>
                 <button class="btn-secondary" onclick="submitLoan('repay')">還款</button>
             </div>

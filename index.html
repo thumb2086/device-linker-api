@@ -7,7 +7,7 @@
     <title>子熙模擬器 | 子熙幣</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/lobby.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+    <script async src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
 </head>
 
 <body class="lobby-body">
@@ -206,7 +206,7 @@
     <script src="js/common.js"></script>
     <script src="js/auth.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        function initLobbyPage() {
             showPageTransition('驗證登入中...');
             initLobbyAuth(function (data) {
                 document.getElementById('auth-ui').classList.add('hidden');
@@ -222,7 +222,13 @@
                     });
                 });
             });
-        });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLobbyPage);
+        } else {
+            initLobbyPage();
+        }
     </script>
 
 </body>

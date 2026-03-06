@@ -49,6 +49,16 @@ body.market-body {
     font-size: 1.05rem;
 }
 
+.market-note {
+    margin: 0 0 10px;
+    color: #a8a8a8;
+    font-size: 0.86rem;
+}
+
+.market-note strong {
+    color: #fff;
+}
+
 .form-row {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));

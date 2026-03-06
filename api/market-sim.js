@@ -19,6 +19,7 @@ import {
 } from "../lib/market-sim.js";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
+import { buildVipStatus } from "../lib/vip.js";
 
 const CORS_METHODS = 'POST, OPTIONS';
 const CONTRACT_ABI = [
@@ -79,6 +80,8 @@ export default async function handler(req, res) {
         const decimals = await contract.decimals();
         const walletBalanceWei = await contract.balanceOf(userAddress);
         const walletBalance = Number(ethers.formatUnits(walletBalanceWei, decimals));
+        const totalBet = Number(await kv.get(`total_bet:${userAddress}`) || 0);
+        const vipStatus = buildVipStatus(totalBet);
 
         let account = normalizeMarketAccount(await kv.get(key), nowTs);
         if (!account || typeof account !== "object" || !account.createdAt) {
@@ -108,7 +111,8 @@ export default async function handler(req, res) {
                     symbol: body.symbol,
                     side: body.side,
                     margin: body.margin,
-                    leverage: body.leverage
+                    leverage: body.leverage,
+                    maxMargin: vipStatus.maxBet
                 });
                 const totalCharge = Number(actionResult.margin) + Number(actionResult.fee || 0);
                 const totalChargeWei = ethers.parseUnits(String(totalCharge), decimals);
@@ -166,6 +170,9 @@ export default async function handler(req, res) {
             action,
             account: buildAccountSummary(account, market),
             market,
+            totalBet: totalBet.toFixed(2),
+            vipLevel: vipStatus.vipLevel,
+            maxBet: String(vipStatus.maxBet),
             params: {
                 bankAnnualRate: BANK_ANNUAL_RATE,
                 loanAnnualRate: LOAN_ANNUAL_RATE

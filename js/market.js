@@ -81,6 +81,7 @@ function renderFutures(account) {
         html += '<div class="position-item">' +
             '<div>' +
             '<strong>' + pos.symbol + ' ' + (pos.side === 'short' ? '做空' : '做多') + ' x' + pos.leverage + '</strong>' +
+            '<div class="meta">倉位金額: ' + fmt(pos.notional, 2) + ' 子熙幣 | 保證金: ' + fmt(pos.margin, 2) + ' 子熙幣</div>' +
             '<div class="meta">開倉: ' + fmt(pos.entryPrice, 4) + ' | 現價: ' + fmt(pos.markPrice, 4) + ' | 強平: ' + fmt(pos.liquidationPrice, 4) + '</div>' +
             '</div>' +
             '<div class="' + pnlClass + '">PnL ' + fmt(pos.unrealizedPnl, 2) + ' (' + fmt(pos.roiPct, 2) + '%)</div>' +

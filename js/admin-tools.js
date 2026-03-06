@@ -40,7 +40,7 @@ function renderResetResult(data) {
         var address = String(item.key || '').replace(/^total_bet:/, '');
         html += '<div class="result-row">' +
             '<span title="' + address + '">' + maskAdminAddress(address) + '</span>' +
-            '<span>' + formatCompactZh(item.value, 2) + ' ZXC</span>' +
+            '<span>' + formatCompactZh(item.value, 2) + ' 子熙幣</span>' +
             '</div>';
     });
     listEl.innerHTML = html;

@@ -107,7 +107,7 @@ function renderStocks(account) {
             '<strong>' + pos.symbol + '</strong>' +
             '<div class="meta">持有 ' + fmt(pos.quantity, 4) + ' 股 | 現價 ' + fmt(pos.price, 4) + '</div>' +
             '</div>' +
-            '<div>市值 ' + fmt(pos.marketValue, 2) + ' ZXC</div>' +
+            '<div>市值 ' + fmt(pos.marketValue, 2) + ' 子熙幣</div>' +
             '<div></div>' +
             '</div>';
     });
@@ -146,7 +146,7 @@ function renderOverview(payload) {
     document.getElementById('fg-index').innerText = String(market.fearGreedIndex);
     var futuresMaxBetEl = document.getElementById('futures-max-bet');
     if (futuresMaxBetEl && payload.maxBet !== undefined) {
-        futuresMaxBetEl.innerText = formatCompactZh(payload.maxBet, 2) + ' ZXC';
+        futuresMaxBetEl.innerText = formatCompactZh(payload.maxBet, 2) + ' 子熙幣';
     }
 
     updateUI({

@@ -20,7 +20,7 @@ function renderMyBalanceRank(data) {
     }
 
     if (myRankEl) myRankEl.innerText = '#' + Number(data.myRank.rank).toLocaleString();
-    if (myBalanceEl) myBalanceEl.innerText = formatCompactZh(data.myRank.balance, 2) + ' ZXC';
+    if (myBalanceEl) myBalanceEl.innerText = formatCompactZh(data.myRank.balance, 2) + ' 子熙幣';
 }
 
 function renderBalanceLeaderboardRows(items) {
@@ -42,7 +42,7 @@ function renderBalanceLeaderboardRows(items) {
         html += '<div class="leaderboard-row leaderboard-balance-row' + (isMine ? ' is-me' : '') + '">' +
             '<span class="rank-col">#' + Number(item.rank).toLocaleString() + '</span>' +
             '<span class="addr-col" title="' + item.address + '">' + item.maskedAddress + (isMine ? ' (你)' : '') + '</span>' +
-            '<span class="bet-col">' + formatCompactZh(item.balance, 2) + ' ZXC</span>' +
+            '<span class="bet-col">' + formatCompactZh(item.balance, 2) + ' 子熙幣</span>' +
             '<span class="vip-col">' + item.vipLevel + '</span>' +
             '</div>';
     });

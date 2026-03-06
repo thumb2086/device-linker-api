@@ -1,4 +1,4 @@
-/* === 閃電賭場 - 共用工具 === */
+/* === 子熙賭場 - 共用工具 === */
 
 // 全域用戶狀態
 var user = { address: '', publicKey: '', sessionId: '' };
@@ -55,7 +55,7 @@ function updateUI(data) {
     if (data.vipLevel) {
         var vipText = data.vipLevel;
         if (data.maxBet !== undefined) {
-            vipText += ' | 單注上限 ' + formatCompactZh(data.maxBet, 2) + ' ZXC';
+            vipText += ' | 單注上限 ' + formatCompactZh(data.maxBet, 2) + ' 子熙幣';
         }
 
         var badge = document.getElementById('vip-badge');

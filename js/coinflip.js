@@ -121,7 +121,7 @@ function updatePendingCoinflipBetsUI() {
 
     var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">待開獎下注：<br/>';
     pendingCoinflipBets.forEach(function (b) {
-        html += (b.choice === 'heads' ? '正面' : '反面') + ' (' + b.amount + ' ZXC)<br/>';
+        html += (b.choice === 'heads' ? '正面' : '反面') + ' (' + b.amount + ' 子熙幣)<br/>';
     });
     html += '</div>';
 
@@ -182,7 +182,7 @@ function startCoinflipDraw(roundId) {
             });
 
             if (totalWon > 0) {
-                status.innerText = '中獎，派彩 ' + totalWon.toFixed(2) + ' ZXC';
+                status.innerText = '中獎，派彩 ' + totalWon.toFixed(2) + ' 子熙幣';
                 status.style.color = '#00ff88';
             } else {
                 status.innerText = '未中獎';

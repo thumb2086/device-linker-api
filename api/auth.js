@@ -135,6 +135,26 @@ function buildCustodyPublicKey(seed) {
     return `custody_pk_${hashHex}`;
 }
 
+function getSafeQuery(req) {
+    if (!req || typeof req !== "object") return {};
+    return req.query && typeof req.query === "object" ? req.query : {};
+}
+
+function getSafeBody(req) {
+    if (!req || typeof req !== "object") return {};
+    const rawBody = req.body;
+    if (!rawBody) return {};
+    if (typeof rawBody === "string") {
+        try {
+            const parsed = JSON.parse(rawBody);
+            return parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+    return typeof rawBody === "object" ? rawBody : {};
+}
+
 export default async function handler(req, res) {
     // 1. 強制處理跨域與快取（最重要！）
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
@@ -144,14 +164,16 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        const sessionId = normalizeSessionId(req.query.sessionId || (req.body && req.body.sessionId));
-        const clockOnly = req.query && String(req.query.clock || "") === "1";
+        const query = getSafeQuery(req);
+        const body = getSafeBody(req);
+        const sessionId = normalizeSessionId(query.sessionId || body.sessionId);
+        const clockOnly = String(query.clock || "") === "1";
 
 
         // --- GET 請求：網頁端輪詢狀態 ---
         if (req.method === 'GET') {
             if (clockOnly) {
-                const game = (req.query && typeof req.query.game === "string") ? req.query.game : "roulette";
+                const game = typeof query.game === "string" ? query.game : "roulette";
                 const nowTs = Date.now();
                 const round = getRoundInfo(game, nowTs);
                 return res.status(200).json({ success: true, serverNowTs: nowTs, ...round });
@@ -204,7 +226,6 @@ export default async function handler(req, res) {
 
         // --- POST 請求：建立 session 或 App 端提交授權 ---
         if (req.method === 'POST') {
-            const body = req.body || {};
             const action = normalizeText(body.action, "authorize");
 
             if (action === "create") {

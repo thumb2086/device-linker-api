@@ -1,11 +1,8 @@
 // api/airdrop.js
-import { kv } from '@vercel/kv';
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { calculateAirdropRewardWei } from "../lib/airdrop-policy.js";
-
-const AIRDROP_DISTRIBUTED_WEI_KEY = "airdrop:distributed_wei";
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -34,17 +31,27 @@ export default async function handler(req, res) {
       "function totalSupply() view returns (uint256)"
     ];
     const contract = new ethers.Contract(cleanContract, abi, wallet);
-    const treasuryAddress = process.env.LOSS_POOL_ADDRESS || wallet.address;
-    const decimals = await contract.decimals();
-    const distributedWeiRaw = await kv.get(AIRDROP_DISTRIBUTED_WEI_KEY);
-    const distributedWei = BigInt(distributedWeiRaw || "0");
-    const policy = calculateAirdropRewardWei(decimals, distributedWei);
+    const adminWalletAddress = ethers.getAddress(
+      (process.env.ADMIN_WALLET_ADDRESS || wallet.address).toLowerCase()
+    );
+    const treasuryAddress = adminWalletAddress;
+    const [decimals, totalSupplyWei, adminBalanceWei] = await Promise.all([
+      contract.decimals(),
+      contract.totalSupply(),
+      contract.balanceOf(adminWalletAddress)
+    ]);
+
+    // 對外發行量 = 總發行量 - 管理員錢包餘額
+    const publicDistributedWei = totalSupplyWei > adminBalanceWei
+      ? totalSupplyWei - adminBalanceWei
+      : 0n;
+    const policy = calculateAirdropRewardWei(decimals, publicDistributedWei);
 
     if (policy.rewardWei <= 0n) {
       return res.status(400).json({
         success: false,
         error: "空投總量已達上限",
-        distributed: ethers.formatUnits(policy.distributedWei, decimals),
+        distributedExcludingAdmin: ethers.formatUnits(policy.distributedWei, decimals),
         cap: ethers.formatUnits(policy.capWei, decimals),
         remaining: "0"
       });
@@ -59,16 +66,16 @@ export default async function handler(req, res) {
     );
 
     const newDistributedWei = policy.distributedWei + policy.rewardWei;
-    await kv.set(AIRDROP_DISTRIBUTED_WEI_KEY, newDistributedWei.toString());
 
     return res.status(200).json({
       success: true,
       txHash: tx.hash,
       reward: ethers.formatUnits(policy.rewardWei, decimals),
       halvingCount: policy.halvingCount,
-      distributed: ethers.formatUnits(newDistributedWei, decimals),
+      distributedExcludingAdmin: ethers.formatUnits(newDistributedWei, decimals),
       cap: ethers.formatUnits(policy.capWei, decimals),
-      remaining: ethers.formatUnits(policy.capWei - newDistributedWei, decimals)
+      remaining: ethers.formatUnits(policy.capWei - newDistributedWei, decimals),
+      adminWalletAddress
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });

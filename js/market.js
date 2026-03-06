@@ -280,7 +280,7 @@ function closeFuturesPosition(positionId) {
 }
 
 function submitBank(action) {
-    var amount = Number(document.getElementById('bank-amount').value || 0);
+    var amount = String(document.getElementById('bank-amount').value || '').trim();
     setStatus(action === 'bank_deposit' ? '存款中...' : '提款中...', false);
 
     withBusy(function () {
@@ -295,7 +295,7 @@ function submitBank(action) {
 }
 
 function submitLoan(action) {
-    var amount = Number(document.getElementById('loan-amount').value || 0);
+    var amount = String(document.getElementById('loan-amount').value || '').trim();
     setStatus(action === 'borrow' ? '借款中...' : '還款中...', false);
 
     withBusy(function () {

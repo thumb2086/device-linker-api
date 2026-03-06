@@ -35,7 +35,6 @@ function setDragonMode(mode) {
     var quickBtn = document.getElementById('mode-quick');
     var classicBtn = document.getElementById('mode-classic');
     var shootBtn = document.getElementById('shoot-btn');
-    var redrawBtn = document.getElementById('redraw-btn');
     var statusMsg = document.getElementById('status-msg');
 
     quickBtn.classList.toggle('active', dragonMode === 'quick');
@@ -43,25 +42,23 @@ function setDragonMode(mode) {
 
     if (dragonMode === 'classic') {
         shootBtn.innerText = '發門';
-        redrawBtn.classList.add('hidden');
-        statusMsg.innerText = '傳統模式：先發門，再決定下注開槍';
+        statusMsg.innerText = '傳統模式：先發門，再下注開槍（未結算前不可重發）';
         statusMsg.style.color = '#ffcc00';
     } else {
         shootBtn.innerText = '開槍';
-        redrawBtn.classList.add('hidden');
         statusMsg.innerText = '快節奏模式：下注後直接開獎';
         statusMsg.style.color = '#ffcc00';
     }
 }
 
 function drawClassicGate() {
+    if (classicGateReady) return;
+
     var statusMsg = document.getElementById('status-msg');
     var shootBtn = document.getElementById('shoot-btn');
-    var redrawBtn = document.getElementById('redraw-btn');
     var txLog = document.getElementById('tx-log');
 
     shootBtn.disabled = true;
-    redrawBtn.disabled = true;
     statusMsg.innerHTML = '<span class="loader"></span> 發門中...';
     statusMsg.style.color = '#ffcc00';
     txLog.innerHTML = '';
@@ -71,6 +68,7 @@ function drawClassicGate() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+            address: user.address,
             sessionId: user.sessionId,
             mode: 'classic',
             action: 'gate'
@@ -83,8 +81,7 @@ function drawClassicGate() {
         renderCard(document.getElementById('card-right'), result.gate.right);
         classicGateReady = true;
         shootBtn.innerText = '開槍';
-        redrawBtn.classList.remove('hidden');
-        statusMsg.innerText = '門已開：倍數 ' + result.multiplier + 'x，請下注後開槍';
+        statusMsg.innerText = '門已開：倍數 ' + result.multiplier + 'x，請輸入下注後開槍';
         statusMsg.style.color = '#ffcc00';
     })
     .catch(function(e) {
@@ -93,7 +90,6 @@ function drawClassicGate() {
     })
     .finally(function() {
         shootBtn.disabled = false;
-        redrawBtn.disabled = false;
     });
 }
 
@@ -108,7 +104,6 @@ function playDragon() {
     var statusMsg = document.getElementById('status-msg');
     var txLog = document.getElementById('tx-log');
     var shootBtn = document.getElementById('shoot-btn');
-    var redrawBtn = document.getElementById('redraw-btn');
     var shotCard = document.getElementById('card-shot');
 
     if (isNaN(amount) || amount <= 0) {
@@ -117,7 +112,6 @@ function playDragon() {
     }
 
     shootBtn.disabled = true;
-    redrawBtn.disabled = true;
     statusMsg.innerHTML = '<span class="loader"></span> 交易確認中...';
     statusMsg.style.color = '#ffcc00';
     txLog.innerHTML = '';
@@ -176,10 +170,8 @@ function playDragon() {
             if (dragonMode === 'classic') {
                 classicGateReady = false;
                 shootBtn.innerText = '發門';
-                redrawBtn.classList.add('hidden');
             }
             shootBtn.disabled = false;
-            redrawBtn.disabled = false;
             setTimeout(refreshBalance, 10000);
         }, 900);
     })
@@ -189,10 +181,8 @@ function playDragon() {
         if (dragonMode === 'classic') {
             classicGateReady = false;
             shootBtn.innerText = '發門';
-            redrawBtn.classList.add('hidden');
         }
         shootBtn.disabled = false;
-        redrawBtn.disabled = false;
         document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     });

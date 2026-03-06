@@ -1,0 +1,41 @@
+body.bingo-body {
+    justify-content: flex-start;
+    padding: 16px 36px 40px;
+}
+
+.bingo-stage {
+    margin: 16px 0;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.25);
+    text-align: center;
+}
+
+.bingo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.bingo-ball {
+    background: #101010;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #ffd36a;
+    padding: 6px 0;
+    font-size: 0.85rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+#number-input {
+    width: 100%;
+    margin-bottom: 10px;
+}

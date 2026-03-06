@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>骰寶 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/sicbo.css">
+</head>
+
+<body class="sicbo-body">
+
+    <div class="page-header">
+        <a href="/" class="back-btn">← 大廳</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>🎲 骰寶</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <div class="sicbo-stage">
+            <div class="dice-row" id="dice-row">
+                <span class="die" id="die-1">?</span>
+                <span class="die" id="die-2">?</span>
+                <span class="die" id="die-3">?</span>
+            </div>
+            <div class="round-hint" id="round-hint">固定開獎模式：計算中...</div>
+        </div>
+
+        <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入押注金額">
+
+        <div class="bet-grid">
+            <select id="bet-type" onchange="onBetTypeChange()">
+                <option value="big">大 (11-17)</option>
+                <option value="small">小 (4-10)</option>
+                <option value="odd">單</option>
+                <option value="even">雙</option>
+                <option value="total">點數</option>
+                <option value="single">單骰</option>
+                <option value="double_specific">對子</option>
+                <option value="triple_any">圍骰 (任意)</option>
+                <option value="triple_specific">圍骰 (指定)</option>
+            </select>
+            <select id="bet-value"></select>
+        </div>
+
+        <button class="btn-primary" onclick="placeSicboBet()">下注開獎</button>
+
+        <p id="status-msg">準備開始...</p>
+        <div id="tx-log"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/sicbo.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                onBetTypeChange();
+            });
+        };
+    </script>
+
+</body>
+
+</html>

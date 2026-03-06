@@ -106,7 +106,7 @@ function renderStocks(account) {
         html += '<div class="position-item">' +
             '<div>' +
             '<strong>' + pos.symbol + '</strong>' +
-            '<div class="meta">持有 ' + fmt(pos.quantity, 4) + ' 股 | 現價 ' + fmt(pos.price, 4) + '</div>' +
+            '<div class="meta">持有 ' + fmt(pos.quantity, 4) + ' 股 | 入手均價 ' + fmt(pos.avgPrice, 4) + ' | 現價 ' + fmt(pos.price, 4) + '</div>' +
             '</div>' +
             '<div>市值 ' + fmt(pos.marketValue, 2) + ' 子熙幣</div>' +
             '<div></div>' +

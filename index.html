@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>子熙幣 ZXC | 閃電賭場</title>
+    <title>子熙幣 ZXC | 模擬器</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/lobby.css">
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
@@ -14,9 +14,9 @@
 
     <!-- 認證區域 -->
     <div id="auth-ui" class="casino-card auth-card hidden">
-        <h1>⚡ 閃電賭場</h1>
+        <h1>⚡ ZXC 模擬器</h1>
         <p class="subtitle">子熙幣 ZXC</p>
-        <p>掃描以連結你的子熙錢包</p>
+        <p>掃描以連結你的子熙錢包與模擬器</p>
         <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
         <div class="mobile-auth-actions">
             <button class="btn-primary auth-action-btn" onclick="openAppAuth()">在手機 App 授權</button>
@@ -31,8 +31,8 @@
     <div id="lobby-ui" class="hidden lobby-container">
 
         <div class="lobby-title">
-            <h1>⚡ 閃電賭場</h1>
-            <p class="subtitle">子熙幣 ZXC Casino</p>
+            <h1>⚡ ZXC 模擬器</h1>
+            <p class="subtitle">子熙幣 ZXC Simulator Hub</p>
             <button class="logout-btn" onclick="logoutUser()">登出</button>
         </div>
 
@@ -51,48 +51,27 @@
             </div>
         </div>
 
-        <div class="section-title">選擇遊戲</div>
+        <div class="section-title">選擇模組</div>
 
         <div class="game-grid">
-            <a href="games/coinflip.html" class="game-card">
-                <div class="game-icon">🪙</div>
-                <div class="game-name">猜硬幣</div>
-                <div class="game-desc">正面或反面，1.8 倍賠率</div>
+            <a href="games/market.html" class="game-card">
+                <div class="game-icon">📈</div>
+                <div class="game-name">金融市場模擬</div>
+                <div class="game-desc">股票、期貨、銀行利息與貸款</div>
                 <div class="game-tag ready">開放中</div>
             </a>
 
-            <a href="games/slots.html" class="game-card">
-                <div class="game-icon">🎰</div>
-                <div class="game-name">老虎機</div>
-                <div class="game-desc">三連線最高 50 倍</div>
+            <a href="games/wallet.html" class="game-card">
+                <div class="game-icon">💸</div>
+                <div class="game-name">資金中心</div>
+                <div class="game-desc">匯入、匯出、空投</div>
                 <div class="game-tag ready">開放中</div>
             </a>
 
-            <a href="games/roulette.html" class="game-card">
-                <div class="game-icon">🎡</div>
-                <div class="game-name">輪盤</div>
-                <div class="game-desc">經典歐式輪盤</div>
-                <div class="game-tag ready">開放中</div>
-            </a>
-
-            <a href="games/blackjack.html" class="game-card">
-                <div class="game-icon">🃏</div>
-                <div class="game-name">二十一點</div>
-                <div class="game-desc">挑戰莊家拿 21</div>
-                <div class="game-tag ready">開放中</div>
-            </a>
-
-            <a href="games/horse.html" class="game-card">
-                <div class="game-icon">🐴</div>
-                <div class="game-name">賽馬</div>
-                <div class="game-desc">選出你的冠軍馬</div>
-                <div class="game-tag ready">開放中</div>
-            </a>
-
-            <a href="games/dragon.html" class="game-card">
-                <div class="game-icon">🎯</div>
-                <div class="game-name">射龍門</div>
-                <div class="game-desc">猜中間數字贏大獎</div>
+            <a href="games/casino.html" class="game-card">
+                <div class="game-icon">🎲</div>
+                <div class="game-name">賭場模擬</div>
+                <div class="game-desc">猜硬幣、老虎機、輪盤、二十一點、賽馬、射龍門</div>
                 <div class="game-tag ready">開放中</div>
             </a>
         </div>

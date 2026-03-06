@@ -257,7 +257,7 @@ function play(choice) {
     var hBal = document.getElementById('header-balance');
     if (hBal) hBal.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-    fetch('/api/coinflip', {
+    fetch('/api/game?game=coinflip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

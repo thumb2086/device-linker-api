@@ -1,6 +1,7 @@
 import { kv } from "@vercel/kv";
 import { getSession } from "../lib/session-store.js";
 import { buildVipStatus } from "../lib/vip.js";
+import { buildDisplayNameMap } from "../lib/user-profile.js";
 import {
     LEADERBOARD_CACHE_TTL_SECONDS,
     getCachedLeaderboard,
@@ -104,11 +105,13 @@ export default async function handler(req, res) {
             address: entry.address,
             totalBet: Number(entry.totalBet || 0)
         }));
+        const displayNameMap = await buildDisplayNameMap(entries.map((entry) => entry.address));
         const leaderboard = entries.slice(0, limit).map((entry, index) => {
             const vipStatus = buildVipStatus(entry.totalBet);
             return {
                 rank: index + 1,
                 address: entry.address,
+                displayName: displayNameMap.get(entry.address) || "",
                 maskedAddress: maskAddress(entry.address),
                 totalBet: entry.totalBet.toFixed(2),
                 vipLevel: vipStatus.vipLevel,
@@ -127,6 +130,7 @@ export default async function handler(req, res) {
             myRank: myRank ? {
                 rank: myIndex + 1,
                 address: myRank.address,
+                displayName: displayNameMap.get(myRank.address) || "",
                 maskedAddress: maskAddress(myRank.address),
                 totalBet: myRank.totalBet.toFixed(2),
                 vipLevel: buildVipStatus(myRank.totalBet).vipLevel,

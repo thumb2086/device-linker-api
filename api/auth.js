@@ -7,6 +7,7 @@ import { getRoundInfo } from "../lib/auto-round.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { buildVipStatus } from "../lib/vip.js";
 import { getSession, saveSession } from "../lib/session-store.js";
+import { ensureDisplayName, getDisplayName } from "../lib/user-profile.js";
 
 const ALLOWED_PLATFORMS = new Set(["android", "ios", "web", "macos", "windows", "linux", "unknown"]);
 const ALLOWED_CLIENT_TYPES = new Set(["mobile", "desktop", "web", "server", "unknown"]);
@@ -81,10 +82,11 @@ function toDecimalString(value, fallback = "0.00", fractionDigits = 2) {
     return numberValue.toFixed(fractionDigits);
 }
 
-function buildAuthPayload(sessionData, balance, totalBet, vipStatus) {
+function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "") {
     return {
         status: "authorized",
         address: sessionData.address,
+        displayName,
         publicKey: sessionData.publicKey,
         mode: sessionData.mode || "live",
         platform: sessionData.platform || "unknown",
@@ -190,6 +192,7 @@ export default async function handler(req, res) {
                 let balance = "0.00";
                 let totalBet = 0;
                 let vipStatus = buildVipStatus(0);
+                let displayName = "";
 
                 try {
                     const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -208,12 +211,13 @@ export default async function handler(req, res) {
 
                     totalBet = await kv.get(`total_bet:${sessionData.address.toLowerCase()}`) || 0;
                     vipStatus = buildVipStatus(totalBet);
+                    displayName = await getDisplayName(sessionData.address);
 
                 } catch (blockchainError) {
                     console.error("無法從鏈上獲取數據，但仍允許登入:", blockchainError.message);
                 }
 
-                return res.status(200).json(buildAuthPayload(sessionData, balance, totalBet, vipStatus));
+                return res.status(200).json(buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName));
             }
             return res.status(200).json({ status: "pending" });
         }
@@ -320,6 +324,8 @@ export default async function handler(req, res) {
                 } else if (!verifyPassword(password, custodyUser.saltHex, custodyUser.passwordHash)) {
                     return res.status(401).json({ success: false, error: "帳號或密碼錯誤" });
                 }
+
+                await ensureDisplayName(custodyUser.address, username);
 
                 const custodySessionId = `session_${randomUUID()}`;
                 await saveSession(custodySessionId, {

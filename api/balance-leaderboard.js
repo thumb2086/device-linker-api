@@ -3,6 +3,7 @@ import { getSession } from "../lib/session-store.js";
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { buildVipStatus } from "../lib/vip.js";
+import { buildDisplayNameMap } from "../lib/user-profile.js";
 import {
     buildAccountSummary,
     buildMarketSnapshot,
@@ -207,6 +208,7 @@ export default async function handler(req, res) {
             loanPrincipal: Number(entry.loanPrincipal || 0),
             totalBet: Number(entry.totalBet || 0)
         }));
+        const displayNameMap = await buildDisplayNameMap(entries.map((entry) => entry.address));
 
         if (currentAddress && !entries.some((entry) => entry.address === currentAddress)) {
             const { addresses, totalBetMap } = await loadKnownUsers(currentAddress);
@@ -228,6 +230,7 @@ export default async function handler(req, res) {
             return {
                 rank: index + 1,
                 address: entry.address,
+                displayName: displayNameMap.get(entry.address) || "",
                 maskedAddress: maskAddress(entry.address),
                 netWorth: entry.netWorth.toFixed(2),
                 walletBalance: entry.walletBalance.toFixed(2),
@@ -251,6 +254,7 @@ export default async function handler(req, res) {
             myRank: myRank ? {
                 rank: myIndex + 1,
                 address: myRank.address,
+                displayName: displayNameMap.get(myRank.address) || "",
                 maskedAddress: maskAddress(myRank.address),
                 netWorth: myRank.netWorth.toFixed(2),
                 walletBalance: myRank.walletBalance.toFixed(2),

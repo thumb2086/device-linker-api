@@ -49,9 +49,10 @@ function renderBalanceLeaderboardRows(items) {
 
     items.forEach(function (item) {
         var isMine = item.address === currentAddress;
+        var displayName = item.displayName || item.maskedAddress;
         html += '<div class="leaderboard-row leaderboard-balance-row' + (isMine ? ' is-me' : '') + '">' +
             '<span class="rank-col">#' + Number(item.rank).toLocaleString() + '</span>' +
-            '<span class="addr-col" title="' + item.address + '">' + item.maskedAddress + (isMine ? ' (你)' : '') + '</span>' +
+            '<span class="addr-col" title="' + item.address + '">' + displayName + (isMine ? ' (你)' : '') + '</span>' +
             '<span class="bet-col" title="鏈上 ' + item.walletBalance + ' / 銀行 ' + item.bankBalance + ' / 股票 ' + item.stockValue + ' / 期貨損益 ' + item.futuresUnrealizedPnl + ' / 負債 -' + item.loanPrincipal + '">' + formatCompactZh(item.netWorth, 2) + ' 子熙幣</span>' +
             '<span class="vip-col">' + item.vipLevel + '</span>' +
             '</div>';

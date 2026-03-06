@@ -137,7 +137,7 @@ function exportFunds() {
     withWalletBusy(function () {
         return callWallet('export', { to: to, amount: amount }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '匯出失敗');
-            setWalletStatus('匯出成功：-' + amount + ' ZXC', false);
+            setWalletStatus('匯出成功：-' + amount + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
             return refreshWalletSummary(true);
         });
@@ -154,7 +154,7 @@ function withdrawToTreasury() {
     withWalletBusy(function () {
         return callWallet('withdraw', { amount: amount }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '匯回失敗');
-            setWalletStatus('匯回成功：-' + amount + ' ZXC', false);
+            setWalletStatus('匯回成功：-' + amount + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
             return refreshWalletSummary(true);
         });
@@ -178,7 +178,7 @@ function claimAirdrop() {
             .then(function (res) { return res.json(); })
             .then(function (data) {
                 if (!data || !data.success) throw new Error((data && data.error) || '空投領取失敗');
-                setWalletStatus('空投成功：+' + fmtToken(data.reward) + ' ZXC', false);
+                setWalletStatus('空投成功：+' + fmtToken(data.reward) + ' 子熙幣', false);
                 setWalletTx(data.txHash || '');
                 return refreshWalletSummary(true);
             });

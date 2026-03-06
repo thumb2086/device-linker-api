@@ -151,7 +151,7 @@ function startRaceDraw(roundId) {
                 });
 
                 if (totalWon > 0) {
-                    statusMsg.innerHTML = '🏆 第 ' + roundId + ' 局結算：贏得 ' + totalWon.toFixed(2) + ' ZXC！';
+                    statusMsg.innerHTML = '🏆 第 ' + roundId + ' 局結算：贏得 ' + totalWon.toFixed(2) + ' 子熙幣！';
                     statusMsg.style.color = '#00ff88';
                 } else {
                     statusMsg.innerText = '💀 第 ' + roundId + ' 局結算：未中獎，再接再厲';
@@ -444,7 +444,7 @@ function updatePendingBetsUI() {
     }
     var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">目前待開獎下注：<br/>';
     pendingBets.forEach(function(b) {
-        html += '第 ' + b.roundId + ' 局: ' + HORSE_CONFIG[b.horseId].name + ' (' + b.amount + ' ZXC)<br/>';
+        html += '第 ' + b.roundId + ' 局: ' + HORSE_CONFIG[b.horseId].name + ' (' + b.amount + ' 子熙幣)<br/>';
     });
     html += '</div>';
     txLog.innerHTML = html;

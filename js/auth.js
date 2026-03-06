@@ -1,4 +1,4 @@
-/* === 閃電賭場 - 認證模組 === */
+/* === 子熙賭場 - 認證模組 === */
 var authPollInterval = null;
 var authDeepLink = '';
 var lobbyAuthReadyCallback = null;
@@ -350,7 +350,7 @@ function startCustodyAuth() {
             });
 
             if (data.isNewAccount && data.bonusGranted) {
-                updateAuthMessage('✅ 註冊成功，已送 ' + data.registerBonus + ' ZXC');
+                updateAuthMessage('✅ 註冊成功，已送 ' + data.registerBonus + ' 子熙幣');
             } else if (data.isNewAccount && data.bonusError) {
                 updateAuthMessage('⚠️ 已註冊，但送幣失敗：' + data.bonusError);
             } else {

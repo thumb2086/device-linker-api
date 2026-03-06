@@ -9,6 +9,28 @@ function toSafeNumber(value, fallback) {
     return parsed;
 }
 
+function formatCompactZh(value, digits) {
+    var num = toSafeNumber(value, 0);
+    var sign = num < 0 ? '-' : '';
+    var abs = Math.abs(num);
+    var fractionDigits = digits === undefined ? 2 : digits;
+
+    if (abs >= 1000000000000) {
+        return sign + (abs / 1000000000000).toFixed(fractionDigits).replace(/\.?0+$/, '') + ' 兆';
+    }
+    if (abs >= 100000000) {
+        return sign + (abs / 100000000).toFixed(fractionDigits).replace(/\.?0+$/, '') + ' 億';
+    }
+    if (abs >= 10000) {
+        return sign + (abs / 10000).toFixed(fractionDigits).replace(/\.?0+$/, '') + ' 萬';
+    }
+
+    return sign + abs.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: fractionDigits
+    });
+}
+
 /**
  * 更新 UI 上的用戶數據 (餘額、VIP、累計押注)
  */
@@ -27,15 +49,20 @@ function updateUI(data) {
     if (data.totalBet !== undefined) {
         var totalBetNum = toSafeNumber(data.totalBet, 0);
         var tbEl = document.getElementById('total-bet-val');
-        if (tbEl) tbEl.innerText = totalBetNum.toFixed(2);
+        if (tbEl) tbEl.innerText = formatCompactZh(totalBetNum, 2);
     }
 
     if (data.vipLevel) {
+        var vipText = data.vipLevel;
+        if (data.maxBet !== undefined) {
+            vipText += ' | 單注上限 ' + formatCompactZh(data.maxBet, 2) + ' ZXC';
+        }
+
         var badge = document.getElementById('vip-badge');
-        if (badge) badge.innerText = data.vipLevel;
+        if (badge) badge.innerText = vipText;
 
         var hVip = document.getElementById('header-vip');
-        if (hVip) hVip.innerText = data.vipLevel;
+        if (hVip) hVip.innerText = vipText;
 
         var card = document.getElementById('main-card');
         if (card) {

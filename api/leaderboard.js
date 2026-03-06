@@ -1,5 +1,11 @@
 import { kv } from "@vercel/kv";
 import { buildVipStatus } from "../lib/vip.js";
+import {
+    LEADERBOARD_CACHE_TTL_SECONDS,
+    getCachedLeaderboard,
+    setCachedLeaderboard,
+    applyLeaderboardCacheHeaders
+} from "../lib/leaderboard-cache.js";
 
 const KEY_PREFIX = "total_bet:";
 const MAX_LIMIT = 100;
@@ -58,6 +64,7 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    applyLeaderboardCacheHeaders(res, LEADERBOARD_CACHE_TTL_SECONDS);
 
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") {
@@ -79,7 +86,23 @@ export default async function handler(req, res) {
         }
 
         const currentAddress = String(session.address || "").trim().toLowerCase();
-        const entries = await loadTotalBetEntries();
+        let cached = await getCachedLeaderboard("total_bet_v1");
+        if (!cached || !Array.isArray(cached.entries)) {
+            const entries = await loadTotalBetEntries();
+            cached = {
+                generatedAt: new Date().toISOString(),
+                entries: entries.map((entry) => ({
+                    address: entry.address,
+                    totalBet: entry.totalBet
+                }))
+            };
+            await setCachedLeaderboard("total_bet_v1", cached, LEADERBOARD_CACHE_TTL_SECONDS);
+        }
+
+        const entries = cached.entries.map((entry) => ({
+            address: entry.address,
+            totalBet: Number(entry.totalBet || 0)
+        }));
         const leaderboard = entries.slice(0, limit).map((entry, index) => {
             const vipStatus = buildVipStatus(entry.totalBet);
             return {
@@ -97,7 +120,7 @@ export default async function handler(req, res) {
 
         return res.status(200).json({
             success: true,
-            generatedAt: new Date().toISOString(),
+            generatedAt: cached.generatedAt || new Date().toISOString(),
             totalPlayers: entries.length,
             leaderboard,
             myRank: myRank ? {

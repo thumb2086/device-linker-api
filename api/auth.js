@@ -63,14 +63,18 @@ function parseSessionTTL(input) {
     return Math.min(3600, Math.max(60, Math.floor(parsed)));
 }
 
-function buildSessionSetOptions(ttlSeconds) {
-    if (ttlSeconds === null) return undefined;
-    return { ex: ttlSeconds };
-}
-
 function buildExpiresAt(ttlSeconds) {
     if (ttlSeconds === null) return null;
     return new Date(Date.now() + ttlSeconds * 1000).toISOString();
+}
+
+async function saveSession(sessionId, payload, ttlSeconds) {
+    const key = `session:${sessionId}`;
+    if (ttlSeconds === null) {
+        await kv.set(key, payload);
+        return;
+    }
+    await kv.set(key, payload, { ex: ttlSeconds });
 }
 
 function buildDeepLink(sessionId) {
@@ -211,7 +215,7 @@ export default async function handler(req, res) {
                 const deviceId = normalizeDeviceId(body.deviceId);
                 const appVersion = normalizeText(body.appVersion, "", 32);
 
-                await kv.set(`session:${generatedSessionId}`, {
+                await saveSession(generatedSessionId, {
                     status: "pending",
                     platform,
                     clientType,
@@ -219,7 +223,7 @@ export default async function handler(req, res) {
                     appVersion,
                     createdAt: new Date().toISOString(),
                     expiresAt: buildExpiresAt(ttlSeconds)
-                }, buildSessionSetOptions(ttlSeconds));
+                }, ttlSeconds);
 
                 return res.status(200).json({
                     success: true,
@@ -303,7 +307,7 @@ export default async function handler(req, res) {
                 }
 
                 const custodySessionId = `session_${randomUUID()}`;
-                await kv.set(`session:${custodySessionId}`, {
+                await saveSession(custodySessionId, {
                     status: "authorized",
                     address: custodyUser.address,
                     publicKey: custodyUser.publicKey,
@@ -315,7 +319,7 @@ export default async function handler(req, res) {
                     appVersion,
                     authorizedAt: new Date().toISOString(),
                     expiresAt: buildExpiresAt(ttlSeconds)
-                }, buildSessionSetOptions(ttlSeconds));
+                }, ttlSeconds);
 
                 return res.status(200).json({
                     success: true,
@@ -350,7 +354,7 @@ export default async function handler(req, res) {
             const deviceId = normalizeDeviceId(body.deviceId || (existingSession && existingSession.deviceId));
             const appVersion = normalizeText(body.appVersion || (existingSession && existingSession.appVersion), "", 32);
 
-            await kv.set(`session:${sessionId}`, {
+            await saveSession(sessionId, {
                 status: "authorized",
                 address: normalizedAddress,
                 publicKey,
@@ -361,7 +365,7 @@ export default async function handler(req, res) {
                 appVersion,
                 authorizedAt: new Date().toISOString(),
                 expiresAt: buildExpiresAt(ttlSeconds)
-            }, buildSessionSetOptions(ttlSeconds));
+            }, ttlSeconds);
 
             return res.status(200).json({
                 success: true,

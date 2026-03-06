@@ -144,8 +144,17 @@ function renderOverview(payload) {
     document.getElementById('sim-net').innerText = fmt(account.netWorth, 2);
     document.getElementById('market-vol').innerText = fmt(market.marketVolatilityPct, 2) + '%';
     document.getElementById('fg-index').innerText = String(market.fearGreedIndex);
+    var futuresMaxBetEl = document.getElementById('futures-max-bet');
+    if (futuresMaxBetEl && payload.maxBet !== undefined) {
+        futuresMaxBetEl.innerText = formatCompactZh(payload.maxBet, 2) + ' ZXC';
+    }
 
-    updateUI({ balance: account.cash });
+    updateUI({
+        balance: account.cash,
+        totalBet: payload.totalBet,
+        vipLevel: payload.vipLevel,
+        maxBet: payload.maxBet
+    });
     renderMarketTable(market);
     renderStocks(account);
     renderFutures(account);

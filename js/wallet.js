@@ -1,4 +1,5 @@
 var walletBusy = false;
+var currentWalletAddress = '';
 
 function fmtToken(value, digits) {
     var num = toSafeNumber(value, 0);
@@ -51,9 +52,14 @@ function callWallet(action, payload) {
 
 function renderWalletSummary(data) {
     if (!data || !data.success) return;
+    currentWalletAddress = data.address || '';
 
     var walletAddressEl = document.getElementById('wallet-address');
     if (walletAddressEl && data.address) walletAddressEl.innerText = data.address;
+
+    var receiveAddressEl = document.getElementById('receive-address');
+    if (receiveAddressEl) receiveAddressEl.innerText = data.address || '-';
+    renderWalletQr(data.address || '');
 
     var balEl = document.getElementById('wallet-balance');
     if (balEl) balEl.innerText = fmtToken(data.userBalance);
@@ -75,6 +81,40 @@ function renderWalletSummary(data) {
     updateUI({ balance: data.userBalance });
 }
 
+function renderWalletQr(address) {
+    var canvas = document.getElementById('wallet-qr-canvas');
+    if (!canvas || !address) return;
+    if (typeof QRCode === 'undefined' || !QRCode.toCanvas) return;
+
+    QRCode.toCanvas(canvas, address, { width: 180, margin: 2 }, function () {});
+}
+
+function copyWalletAddress() {
+    if (!currentWalletAddress) {
+        setWalletStatus('地址尚未載入完成', true);
+        return;
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(currentWalletAddress)
+            .then(function () {
+                setWalletStatus('已複製錢包地址', false);
+            })
+            .catch(function () {
+                setWalletStatus('複製失敗，請手動複製地址', true);
+            });
+        return;
+    }
+
+    var tmp = document.createElement('input');
+    tmp.value = currentWalletAddress;
+    document.body.appendChild(tmp);
+    tmp.select();
+    document.execCommand('copy');
+    document.body.removeChild(tmp);
+    setWalletStatus('已複製錢包地址', false);
+}
+
 function refreshWalletSummary(silent) {
     if (!silent) setWalletStatus('同步錢包資料中...', false);
     return callWallet('summary')
@@ -86,23 +126,6 @@ function refreshWalletSummary(silent) {
         .catch(function (e) {
             setWalletStatus('錯誤: ' + e.message, true);
         });
-}
-
-function importFunds() {
-    var amount = String(document.getElementById('import-amount').value || '').trim();
-    setWalletStatus('匯入資金中...', false);
-    setWalletTx('');
-
-    withWalletBusy(function () {
-        return callWallet('import', { amount: amount }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '匯入失敗');
-            setWalletStatus('匯入成功：+' + amount + ' ZXC', false);
-            setWalletTx(data.txHash || '');
-            return refreshWalletSummary(true);
-        });
-    }).catch(function (e) {
-        setWalletStatus('錯誤: ' + e.message, true);
-    });
 }
 
 function exportFunds() {

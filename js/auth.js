@@ -167,24 +167,32 @@ function showQRAuth(onAuthorized) {
         authDeepLink = deepLink || buildDeepLink(sessionId);
         renderAuthCode(sessionId);
         updateAuthMessage('<span class="loader"></span> 等待硬體授權...');
+        startAuthPolling(sessionId, onAuthorized);
 
         if (typeof QRCode !== 'undefined') {
             QRCode.toCanvas(canvas, authDeepLink, { width: 200, margin: 2 });
-            startAuthPolling(sessionId, onAuthorized);
+            return;
         }
+
+        renderQRUnavailable(canvas);
+        updateAuthMessage('⚠️ QR Code 載入失敗，請改用授權碼或點「在手機 App 授權」');
     }
 
-    function tryRenderQR(sessionId, deepLink) {
+    function tryRenderQR(sessionId, deepLink, retriesLeft) {
         if (typeof QRCode !== 'undefined') {
             renderSession(sessionId, deepLink);
         } else {
-            setTimeout(function () { tryRenderQR(sessionId, deepLink); }, 500);
+            if (retriesLeft <= 0) {
+                renderSession(sessionId, deepLink);
+                return;
+            }
+            setTimeout(function () { tryRenderQR(sessionId, deepLink, retriesLeft - 1); }, 500);
         }
     }
 
     createAuthSession(function (session) {
         if (session && session.sessionId) {
-            tryRenderQR(session.sessionId, session.deepLink);
+            tryRenderQR(session.sessionId, session.deepLink, 6);
             return;
         }
         updateAuthMessage('⚠️ 認證服務暫時無法使用，請稍後重試');
@@ -227,6 +235,24 @@ function renderAuthCode(sessionId) {
 function updateAuthMessage(html) {
     var authMsg = document.getElementById('auth-msg');
     if (authMsg) authMsg.innerHTML = html;
+}
+
+function renderQRUnavailable(canvas) {
+    if (!canvas || typeof canvas.getContext !== 'function') return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    canvas.width = 200;
+    canvas.height = 200;
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('QR Code 暫時不可用', canvas.width / 2, 90);
+    ctx.fillText('請改用授權碼登入', canvas.width / 2, 114);
 }
 
 function launchDeepLink(deepLink, legacyDeepLink) {

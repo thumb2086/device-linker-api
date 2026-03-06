@@ -1,4 +1,5 @@
 import { kv } from '@vercel/kv';
+import { ethers } from "ethers";
 import {
     BANK_ANNUAL_RATE,
     LOAN_ANNUAL_RATE,
@@ -16,11 +17,28 @@ import {
     repayLoan,
     createDefaultMarketAccount
 } from "../lib/market-sim.js";
+import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
+import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 
 const CORS_METHODS = 'POST, OPTIONS';
+const CONTRACT_ABI = [
+    "function mint(address to, uint256 amount) public",
+    "function adminTransfer(address from, address to, uint256 amount) public",
+    "function decimals() view returns (uint8)",
+    "function balanceOf(address) view returns (uint256)",
+    "function totalSupply() view returns (uint256)"
+];
 
 function accountKey(address) {
     return `market_sim:${String(address || "").toLowerCase()}`;
+}
+
+function normalizeAddress(rawAddress, fieldName = "address") {
+    try {
+        return ethers.getAddress(String(rawAddress || "").trim()).toLowerCase();
+    } catch {
+        throw new Error(`${fieldName} 格式錯誤`);
+    }
 }
 
 export default async function handler(req, res) {
@@ -45,22 +63,46 @@ export default async function handler(req, res) {
             return res.status(403).json({ success: false, error: "會話過期，請重新登入" });
         }
 
-        const key = accountKey(session.address);
+        const userAddress = normalizeAddress(session.address, "session address");
+        const key = accountKey(userAddress);
         const nowTs = Date.now();
         const market = buildMarketSnapshot(nowTs);
+        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        let privateKey = process.env.ADMIN_PRIVATE_KEY;
+        if (!privateKey) {
+            return res.status(500).json({ success: false, error: "缺少 ADMIN_PRIVATE_KEY" });
+        }
+        if (!privateKey.startsWith("0x")) privateKey = `0x${privateKey}`;
+        const adminWallet = new ethers.Wallet(privateKey, provider);
+        const treasuryAddress = normalizeAddress(process.env.LOSS_POOL_ADDRESS || adminWallet.address, "LOSS_POOL_ADDRESS");
+        const contract = new ethers.Contract(normalizeAddress(CONTRACT_ADDRESS, "CONTRACT_ADDRESS"), CONTRACT_ABI, adminWallet);
+        const decimals = await contract.decimals();
+        const walletBalanceWei = await contract.balanceOf(userAddress);
+        const walletBalance = Number(ethers.formatUnits(walletBalanceWei, decimals));
 
         let account = normalizeMarketAccount(await kv.get(key), nowTs);
+        if (!account || typeof account !== "object" || !account.createdAt) {
+            account = createDefaultMarketAccount(nowTs, walletBalance);
+        }
+        account.cash = walletBalance;
+        account.updatedAt = new Date(nowTs).toISOString();
         let actionResult = null;
+        let previousAccount = null;
 
         const liquidationEvents = settleLiquidations(account, market, nowTs);
 
         try {
+            previousAccount = JSON.parse(JSON.stringify(account));
             if (action === "reset") {
-                account = createDefaultMarketAccount(nowTs);
+                account = createDefaultMarketAccount(nowTs, walletBalance);
             } else if (action === "buy_stock") {
                 actionResult = buyStock(account, market, body.symbol, body.quantity);
+                const tradeCostWei = ethers.parseUnits(String(actionResult.total), decimals);
+                await contract.adminTransfer(userAddress, treasuryAddress, tradeCostWei, { gasLimit: 220000 });
             } else if (action === "sell_stock") {
                 actionResult = sellStock(account, market, body.symbol, body.quantity);
+                const payoutWei = ethers.parseUnits(String(actionResult.net), decimals);
+                await transferFromTreasuryWithAutoTopup(contract, treasuryAddress, userAddress, payoutWei, { gasLimit: 220000 });
             } else if (action === "open_futures") {
                 actionResult = openFutures(account, market, {
                     symbol: body.symbol,
@@ -68,20 +110,43 @@ export default async function handler(req, res) {
                     margin: body.margin,
                     leverage: body.leverage
                 });
+                const totalCharge = Number(actionResult.margin) + Number(actionResult.fee || 0);
+                const totalChargeWei = ethers.parseUnits(String(totalCharge), decimals);
+                await contract.adminTransfer(userAddress, treasuryAddress, totalChargeWei, { gasLimit: 220000 });
             } else if (action === "close_futures") {
                 actionResult = closeFutures(account, market, body.positionId);
+                const payoutAmount = Math.max(0, Number(actionResult.refund || 0) - Number(actionResult.fee || 0));
+                if (payoutAmount > 0) {
+                    const payoutWei = ethers.parseUnits(String(payoutAmount), decimals);
+                    await transferFromTreasuryWithAutoTopup(contract, treasuryAddress, userAddress, payoutWei, { gasLimit: 220000 });
+                }
             } else if (action === "bank_deposit") {
                 actionResult = bankDeposit(account, body.amount);
+                const amountWei = ethers.parseUnits(String(actionResult.amount), decimals);
+                await contract.adminTransfer(userAddress, treasuryAddress, amountWei, { gasLimit: 220000 });
             } else if (action === "bank_withdraw") {
                 actionResult = bankWithdraw(account, body.amount);
+                const amountWei = ethers.parseUnits(String(actionResult.amount), decimals);
+                await transferFromTreasuryWithAutoTopup(contract, treasuryAddress, userAddress, amountWei, { gasLimit: 220000 });
             } else if (action === "borrow") {
                 actionResult = borrowLoan(account, market, body.amount);
+                const amountWei = ethers.parseUnits(String(actionResult.amount), decimals);
+                await transferFromTreasuryWithAutoTopup(contract, treasuryAddress, userAddress, amountWei, { gasLimit: 220000 });
             } else if (action === "repay") {
                 actionResult = repayLoan(account, body.amount);
+                const amountWei = ethers.parseUnits(String(actionResult.amount), decimals);
+                await contract.adminTransfer(userAddress, treasuryAddress, amountWei, { gasLimit: 220000 });
             } else if (action !== "snapshot") {
                 return res.status(400).json({ success: false, error: `不支援 action: ${action}` });
             }
+
+            const syncedWalletBalanceWei = await contract.balanceOf(userAddress);
+            account.cash = Number(ethers.formatUnits(syncedWalletBalanceWei, decimals));
+            account.updatedAt = new Date(Date.now()).toISOString();
         } catch (actionError) {
+            if (previousAccount) {
+                account = previousAccount;
+            }
             await kv.set(key, account);
             return res.status(400).json({
                 success: false,
@@ -89,6 +154,7 @@ export default async function handler(req, res) {
                 error: actionError.message,
                 account: buildAccountSummary(account, market),
                 market,
+                walletBalance: walletBalance,
                 liquidationEvents
             });
         }
@@ -104,6 +170,7 @@ export default async function handler(req, res) {
                 bankAnnualRate: BANK_ANNUAL_RATE,
                 loanAnnualRate: LOAN_ANNUAL_RATE
             },
+            walletBalance: account.cash,
             liquidationEvents,
             actionResult
         });

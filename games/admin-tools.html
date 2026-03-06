@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>維運工具 | ZXC 模擬器</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/admin-tools.css">
+</head>
+
+<body class="admin-tools-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">← 大廳</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> ZXC</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>🛠 維運工具</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> ZXC</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> ZXC</div>
+        </div>
+
+        <div class="section-block">
+            <h2>重製異常累積押注</h2>
+            <p class="tool-note">只會處理 `total_bet > 20 億` 的帳號，其他紀錄完全不動。建議先按「預覽」確認名單，再執行正式重製。</p>
+            <div class="form-row">
+                <input type="password" id="admin-token" placeholder="輸入 OPS_RESET_TOKEN">
+                <button class="btn-primary" onclick="previewReset()">預覽名單</button>
+                <button class="btn-secondary" onclick="executeReset()">正式重製</button>
+            </div>
+            <p id="status-msg">待命中</p>
+        </div>
+
+        <div class="summary-grid">
+            <div class="summary-card">
+                <span>重製門檻</span>
+                <strong>20 億</strong>
+            </div>
+            <div class="summary-card">
+                <span>受影響帳號數</span>
+                <strong id="affected-count">0</strong>
+            </div>
+            <div class="summary-card">
+                <span>模式</span>
+                <strong id="result-mode">未執行</strong>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>受影響清單</h2>
+            <div id="result-list" class="result-list">
+                <div class="result-empty">尚未執行預覽</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/admin-tools.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initAdminToolsPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,143 @@
+body.admin-tools-body {
+    justify-content: flex-start;
+    padding: 20px;
+}
+
+#main-card {
+    max-width: 980px;
+    margin-bottom: 24px;
+}
+
+.section-block {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
+    text-align: left;
+}
+
+.section-block h2 {
+    margin: 0 0 10px;
+    color: var(--gold);
+    font-size: 1.05rem;
+}
+
+.tool-note {
+    color: #a7a7a7;
+    line-height: 1.6;
+    margin-bottom: 14px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1.4fr auto auto;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.form-row input,
+.form-row button {
+    width: 100%;
+}
+
+.form-row input[type="password"] {
+    margin: 0;
+    height: 44px;
+    font-size: 1rem;
+    border-radius: 10px;
+    border: 1px solid #333;
+    padding: 0 12px;
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    outline: none;
+}
+
+.form-row input[type="password"]:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 15px var(--gold-glow);
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 16px 0 24px;
+}
+
+.summary-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    padding: 12px;
+    text-align: left;
+}
+
+.summary-card span {
+    color: #888;
+    font-size: 0.78rem;
+    display: block;
+}
+
+.summary-card strong {
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+#status-msg {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: #ffd36a;
+}
+
+.result-list {
+    display: grid;
+    gap: 8px;
+}
+
+.result-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    color: #fff;
+}
+
+.result-head {
+    background: rgba(255, 204, 0, 0.08);
+    color: var(--gold);
+    font-weight: 700;
+}
+
+.result-empty {
+    padding: 20px 14px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    color: #999;
+}
+
+@media (max-width: 900px) {
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    body.admin-tools-body {
+        padding: 12px;
+    }
+
+    #main-card {
+        padding: 24px 14px;
+    }
+
+    .result-row {
+        grid-template-columns: 1fr;
+    }
+}

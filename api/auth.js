@@ -68,13 +68,24 @@ function buildExpiresAt(ttlSeconds) {
     return new Date(Date.now() + ttlSeconds * 1000).toISOString();
 }
 
+function compactSessionPayload(payload) {
+    const normalized = {};
+    for (const [key, value] of Object.entries(payload || {})) {
+        if (value === undefined || value === null) continue;
+        if (typeof value === "string" && value === "") continue;
+        normalized[key] = value;
+    }
+    return normalized;
+}
+
 async function saveSession(sessionId, payload, ttlSeconds) {
     const key = `session:${sessionId}`;
+    const normalizedPayload = compactSessionPayload(payload);
     if (ttlSeconds === null) {
-        await kv.set(key, payload);
+        await kv.set(key, normalizedPayload);
         return;
     }
-    await kv.set(key, payload, { ex: ttlSeconds });
+    await kv.set(key, normalizedPayload, { ex: ttlSeconds });
 }
 
 function buildDeepLink(sessionId) {

@@ -2,6 +2,7 @@
 var authPollInterval = null;
 var authDeepLink = '';
 var lobbyAuthReadyCallback = null;
+var CUSTODY_CRED_KEY = 'casino_custody_credentials';
 
 function buildDeepLink(sessionId) {
     return 'dlinker://login?sessionId=' + encodeURIComponent(sessionId);
@@ -38,12 +39,50 @@ function clearAuth() {
     localStorage.removeItem('casino_auth');
 }
 
+function getStoredCustodyCredentials() {
+    try {
+        var raw = localStorage.getItem(CUSTODY_CRED_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function storeCustodyCredentials(username, password) {
+    localStorage.setItem(CUSTODY_CRED_KEY, JSON.stringify({
+        username: String(username || '').trim(),
+        password: String(password || '')
+    }));
+}
+
+function clearCustodyCredentials() {
+    localStorage.removeItem(CUSTODY_CRED_KEY);
+}
+
+function updateCustodyQuickLoginUI() {
+    var btn = document.getElementById('custody-quick-btn');
+    var meta = document.getElementById('custody-quick-meta');
+    var creds = getStoredCustodyCredentials();
+    if (!btn || !meta) return;
+
+    if (creds && creds.username && creds.password) {
+        btn.classList.remove('hidden');
+        meta.classList.remove('hidden');
+        meta.innerText = '已記住帳號：' + creds.username;
+        return;
+    }
+
+    btn.classList.add('hidden');
+    meta.classList.add('hidden');
+}
+
 /**
  * 大廳頁面用: 初始化認證流程 (QR Code + 輪詢)
  * @param {Function} onAuthorized - 認證成功後的回調
  */
 function initLobbyAuth(onAuthorized) {
     lobbyAuthReadyCallback = onAuthorized;
+    updateCustodyQuickLoginUI();
 
     // 先檢查是否已有有效 session
     const stored = getStoredAuth();
@@ -278,7 +317,7 @@ function startCustodyAuth() {
             platform: platform,
             clientType: clientType
         })
-    })
+        })
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (!data || !data.success || !data.sessionId || !data.address || !data.publicKey) {
@@ -289,6 +328,8 @@ function startCustodyAuth() {
             user.publicKey = data.publicKey;
             user.sessionId = data.sessionId;
             storeAuth(data.sessionId, data.address, data.publicKey);
+            storeCustodyCredentials(username, password);
+            updateCustodyQuickLoginUI();
 
             verifySession(data.sessionId, function (valid, authData) {
                 if (valid && lobbyAuthReadyCallback) {
@@ -318,6 +359,67 @@ function startCustodyAuth() {
         })
         .catch(function (err) {
             updateAuthMessage('❌ 託管登入失敗：' + err.message);
+        });
+}
+
+function quickCustodyAuth() {
+    var creds = getStoredCustodyCredentials();
+    if (!creds || !creds.username || !creds.password) {
+        updateAuthMessage('目前沒有已記住的帳號密碼');
+        updateCustodyQuickLoginUI();
+        return;
+    }
+
+    var platform = detectClientPlatform();
+    var clientType = detectClientType(platform);
+    updateAuthMessage('<span class="loader"></span> 託管帳戶快速登入中...');
+
+    fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'custody_login',
+            username: creds.username,
+            password: creds.password,
+            platform: platform,
+            clientType: clientType
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || !data.success || !data.sessionId || !data.address || !data.publicKey) {
+                throw new Error((data && data.error) ? data.error : '快速登入失敗');
+            }
+
+            user.address = data.address;
+            user.publicKey = data.publicKey;
+            user.sessionId = data.sessionId;
+            storeAuth(data.sessionId, data.address, data.publicKey);
+
+            verifySession(data.sessionId, function (valid, authData) {
+                if (valid && lobbyAuthReadyCallback) {
+                    lobbyAuthReadyCallback(authData);
+                    return;
+                }
+
+                if (lobbyAuthReadyCallback) {
+                    lobbyAuthReadyCallback({
+                        status: 'authorized',
+                        address: data.address,
+                        publicKey: data.publicKey,
+                        balance: '0.00',
+                        totalBet: '0.00',
+                        vipLevel: '普通會員'
+                    });
+                }
+            });
+
+            updateAuthMessage('✅ 託管快速登入成功');
+        })
+        .catch(function (err) {
+            clearCustodyCredentials();
+            updateCustodyQuickLoginUI();
+            updateAuthMessage('❌ 快速登入失敗，已清除已記住帳密：' + err.message);
         });
 }
 
@@ -398,3 +500,5 @@ function logoutUser() {
         window.location.href = '/';
     }, 120);
 }
+
+updateCustodyQuickLoginUI();

@@ -21,6 +21,8 @@
         <div class="mobile-auth-actions">
             <button class="btn-primary auth-action-btn" onclick="openAppAuth()">在手機 App 授權</button>
             <button class="btn-secondary auth-action-btn" onclick="startCustodyAuth()">託管帳戶登入（註冊送 10000）</button>
+            <button class="btn-secondary auth-action-btn hidden" id="custody-quick-btn" onclick="quickCustodyAuth()">使用已記住帳密快速登入</button>
+            <div class="auth-code-line hidden" id="custody-quick-meta">已記住帳號</div>
             <button class="btn-secondary auth-action-btn" onclick="copyAuthCode()">複製授權碼</button>
             <div class="auth-code-line">授權碼: <span id="auth-code">-</span></div>
         </div>

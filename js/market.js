@@ -49,21 +49,47 @@ function renderMarketTable(market) {
     var table = document.getElementById('market-table');
     if (!table || !market || !market.symbols) return;
 
-    var html = '<div class="market-row header"><span>標的</span><span>價格</span><span>漲跌%</span><span>類型</span></div>';
+    var html = '<div class="market-row header"><span>標的</span><span>價格</span><span>漲跌%</span><span>類型</span><span>走勢</span></div>';
 
     Object.keys(market.symbols).forEach(function (symbol) {
         var item = market.symbols[symbol];
         var cls = item.changePct >= 0 ? 'change-up' : 'change-down';
         var sign = item.changePct >= 0 ? '+' : '';
+        var history = market.history && market.history[symbol] ? market.history[symbol] : [];
         html += '<div class="market-row">' +
             '<span>' + symbol + ' <small>(' + item.name + ')</small></span>' +
             '<span>' + fmt(item.price, 4) + '</span>' +
             '<span class="' + cls + '">' + sign + fmt(item.changePct, 3) + '%</span>' +
             '<span>' + item.type + '</span>' +
+            '<span>' + sparklineSvg(history, 120, 36, cls) + '</span>' +
             '</div>';
     });
 
     table.innerHTML = html;
+}
+
+function sparklineSvg(prices, width, height, cls) {
+    if (!prices || prices.length === 0) return '';
+    var w = width || 120;
+    var h = height || 36;
+    var min = Math.min.apply(null, prices);
+    var max = Math.max.apply(null, prices);
+    if (!isFinite(min) || !isFinite(max)) return '';
+    if (min === max) {
+        max = min + 1;
+    }
+    var len = prices.length;
+    var step = len > 1 ? w / (len - 1) : w;
+    var points = '';
+    for (var i = 0; i < len; i += 1) {
+        var x = i * step;
+        var value = prices[i];
+        var y = h - ((value - min) / (max - min)) * h;
+        points += x.toFixed(2) + ',' + y.toFixed(2) + ' ';
+    }
+    return '<svg class="sparkline ' + (cls || '') + '" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+        '<polyline points="' + points.trim() + '"></polyline>' +
+        '</svg>';
 }
 
 function renderFutures(account) {

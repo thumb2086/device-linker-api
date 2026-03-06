@@ -4,6 +4,8 @@ import horseHandler from "../lib/game-handlers/horse.js";
 import slotsHandler from "../lib/game-handlers/slots.js";
 import blackjackHandler from "../lib/game-handlers/blackjack.js";
 import dragonHandler from "../lib/game-handlers/dragon.js";
+import sicboHandler from "../lib/game-handlers/sicbo.js";
+import bingoHandler from "../lib/game-handlers/bingo.js";
 
 const GAME_HANDLERS = {
     coinflip: coinflipHandler,
@@ -11,7 +13,9 @@ const GAME_HANDLERS = {
     horse: horseHandler,
     slots: slotsHandler,
     blackjack: blackjackHandler,
-    dragon: dragonHandler
+    dragon: dragonHandler,
+    sicbo: sicboHandler,
+    bingo: bingoHandler
 };
 
 function resolveGame(req) {

@@ -91,6 +91,30 @@ function renderFutures(account) {
     list.innerHTML = html;
 }
 
+function renderStocks(account) {
+    var list = document.getElementById('stock-holdings');
+    if (!list) return;
+
+    if (!account || !account.stockPositions || account.stockPositions.length === 0) {
+        list.innerHTML = '<div class="history-item">目前沒有股票持倉</div>';
+        return;
+    }
+
+    var html = '';
+    account.stockPositions.forEach(function (pos) {
+        html += '<div class="position-item">' +
+            '<div>' +
+            '<strong>' + pos.symbol + '</strong>' +
+            '<div class="meta">持有 ' + fmt(pos.quantity, 4) + ' 股 | 現價 ' + fmt(pos.price, 4) + '</div>' +
+            '</div>' +
+            '<div>市值 ' + fmt(pos.marketValue, 2) + ' ZXC</div>' +
+            '<div></div>' +
+            '</div>';
+    });
+
+    list.innerHTML = html;
+}
+
 function renderHistory(account) {
     var el = document.getElementById('history-log');
     if (!el) return;
@@ -121,7 +145,9 @@ function renderOverview(payload) {
     document.getElementById('market-vol').innerText = fmt(market.marketVolatilityPct, 2) + '%';
     document.getElementById('fg-index').innerText = String(market.fearGreedIndex);
 
+    updateUI({ balance: account.cash });
     renderMarketTable(market);
+    renderStocks(account);
     renderFutures(account);
     renderHistory(account);
     renderLiquidations(payload.liquidationEvents || []);

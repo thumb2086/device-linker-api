@@ -24,21 +24,25 @@ var HORSE_LOCK_MS = 4000;
 var TRACKS = ['乾地', '濕地', '夜賽'];
 
 var HORSE_CONFIG = {
-    1: { id: 1, name: '赤焰', multiplier: 1.6, weight: 30, speed: 92, stamina: 88, burst: 86 },
-    2: { id: 2, name: '雷霆', multiplier: 2.0, weight: 28, speed: 89, stamina: 90, burst: 84 },
-    3: { id: 3, name: '幻影', multiplier: 2.5, weight: 24, speed: 86, stamina: 84, burst: 91 },
-    4: { id: 4, name: '夜刃', multiplier: 3.5, weight: 18, speed: 82, stamina: 80, burst: 94 }
+    1: { id: 1, name: '赤焰', multiplier: 1.8, weight: 25, speed: 92, stamina: 88, burst: 86 },
+    2: { id: 2, name: '雷霆', multiplier: 2.2, weight: 23, speed: 89, stamina: 90, burst: 84 },
+    3: { id: 3, name: '幻影', multiplier: 2.9, weight: 19, speed: 86, stamina: 84, burst: 91 },
+    4: { id: 4, name: '夜刃', multiplier: 4.0, weight: 15, speed: 82, stamina: 80, burst: 94 },
+    5: { id: 5, name: '霜牙', multiplier: 5.8, weight: 11, speed: 80, stamina: 93, burst: 78 },
+    6: { id: 6, name: '流星', multiplier: 8.5, weight: 7, speed: 95, stamina: 72, burst: 97 }
 };
 
 var HORSE_STATS_FIXED = [
-    { id: 1, name: '赤焰', races: 1200, wins: 360, podium: 810, last5: [1, 2, 1, 3, 2], winRate: 30.0 },
-    { id: 2, name: '雷霆', races: 1200, wins: 336, podium: 782, last5: [2, 1, 3, 2, 2], winRate: 28.0 },
-    { id: 3, name: '幻影', races: 1200, wins: 288, podium: 705, last5: [3, 4, 1, 2, 3], winRate: 24.0 },
-    { id: 4, name: '夜刃', races: 1200, wins: 216, podium: 603, last5: [4, 3, 2, 4, 1], winRate: 18.0 }
+    { id: 1, name: '赤焰', races: 1800, wins: 450, podium: 1130, last5: [1, 2, 1, 3, 2], winRate: 25.0 },
+    { id: 2, name: '雷霆', races: 1800, wins: 414, podium: 1068, last5: [2, 1, 3, 2, 2], winRate: 23.0 },
+    { id: 3, name: '幻影', races: 1800, wins: 342, podium: 930, last5: [3, 4, 1, 2, 3], winRate: 19.0 },
+    { id: 4, name: '夜刃', races: 1800, wins: 270, podium: 792, last5: [4, 3, 2, 4, 1], winRate: 15.0 },
+    { id: 5, name: '霜牙', races: 1800, wins: 198, podium: 625, last5: [5, 2, 6, 3, 4], winRate: 11.0 },
+    { id: 6, name: '流星', races: 1800, wins: 126, podium: 435, last5: [6, 5, 4, 2, 1], winRate: 7.0 }
 ];
 
 function getHorseList() {
-    return [HORSE_CONFIG[1], HORSE_CONFIG[2], HORSE_CONFIG[3], HORSE_CONFIG[4]];
+    return [HORSE_CONFIG[1], HORSE_CONFIG[2], HORSE_CONFIG[3], HORSE_CONFIG[4], HORSE_CONFIG[5], HORSE_CONFIG[6]];
 }
 
 function hash32(input) {
@@ -204,7 +208,7 @@ function setLights(count) {
 }
 
 function resetRaceTrack() {
-    for (var i = 1; i <= 4; i++) {
+    for (var i = 1; i <= getHorseList().length; i++) {
         var horse = document.getElementById('horse-' + i);
         if (!horse) continue;
         horse.innerText = '🏇';
@@ -271,10 +275,13 @@ function animateRaceLive(raceMetrics, roundId, token, onFinish) {
     var totalTicks = 34;
     var tick = 0;
     var targets = buildTargetPositions(raceMetrics);
-    var positions = { 1: 6, 2: 6, 3: 6, 4: 6 };
+    var positions = {};
+    getHorseList().forEach(function (horse) {
+        positions[horse.id] = 6;
+    });
     var leaderId = null;
 
-    for (var i = 1; i <= 4; i++) {
+    for (var i = 1; i <= getHorseList().length; i++) {
         var h = document.getElementById('horse-' + i);
         if (h) h.classList.add('running');
     }

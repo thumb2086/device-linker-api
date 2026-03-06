@@ -5,6 +5,7 @@ import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { getRoundInfo } from "../lib/auto-round.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
+import { buildVipStatus } from "../lib/vip.js";
 
 const ALLOWED_PLATFORMS = new Set(["android", "ios", "web", "macos", "windows", "linux", "unknown"]);
 const ALLOWED_CLIENT_TYPES = new Set(["mobile", "desktop", "web", "server", "unknown"]);
@@ -83,7 +84,7 @@ function toDecimalString(value, fallback = "0.00", fractionDigits = 2) {
     return numberValue.toFixed(fractionDigits);
 }
 
-function buildAuthPayload(sessionData, balance, totalBet, vipLevel) {
+function buildAuthPayload(sessionData, balance, totalBet, vipStatus) {
     return {
         status: "authorized",
         address: sessionData.address,
@@ -96,7 +97,8 @@ function buildAuthPayload(sessionData, balance, totalBet, vipLevel) {
         authorizedAt: sessionData.authorizedAt || null,
         balance: toDecimalString(balance),
         totalBet: toDecimalString(totalBet),
-        vipLevel
+        vipLevel: vipStatus.vipLevel,
+        maxBet: toDecimalString(vipStatus.maxBet)
     };
 }
 
@@ -167,7 +169,7 @@ export default async function handler(req, res) {
 
                 let balance = "0.00";
                 let totalBet = 0;
-                let vipLevel = "普通會員";
+                let vipStatus = buildVipStatus(0);
 
                 try {
                     const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -185,15 +187,13 @@ export default async function handler(req, res) {
                     balance = ethers.formatUnits(balanceRaw, decimals);   // ← 正確格式化
 
                     totalBet = await kv.get(`total_bet:${sessionData.address.toLowerCase()}`) || 0;
-                    if (totalBet >= 1000) vipLevel = "👑 鑽石 VIP";
-                    else if (totalBet >= 500) vipLevel = "🥇 黃金會員";
-                    else if (totalBet >= 100) vipLevel = "🥈 白銀會員";
+                    vipStatus = buildVipStatus(totalBet);
 
                 } catch (blockchainError) {
                     console.error("無法從鏈上獲取數據，但仍允許登入:", blockchainError.message);
                 }
 
-                return res.status(200).json(buildAuthPayload(sessionData, balance, totalBet, vipLevel));
+                return res.status(200).json(buildAuthPayload(sessionData, balance, totalBet, vipStatus));
             }
             return res.status(200).json({ status: "pending" });
         }

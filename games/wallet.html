@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>資金中心 | ZXC</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/wallet.css">
+</head>
+
+<body class="wallet-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">← 大廳</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> ZXC</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>💸 資金中心</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> ZXC</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> ZXC</div>
+            <div class="stat-row">目前地址: <span id="wallet-address">-</span></div>
+        </div>
+
+        <div class="wallet-overview">
+            <div class="wallet-item">
+                <span>你的鏈上餘額</span>
+                <strong id="wallet-balance">0.00</strong>
+            </div>
+            <div class="wallet-item">
+                <span>金庫可用餘額</span>
+                <strong id="treasury-balance">0.00</strong>
+            </div>
+            <div class="wallet-item">
+                <span>空投剩餘</span>
+                <strong id="airdrop-remaining">0.00</strong>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>匯入資金（測試金庫 → 你的錢包）</h2>
+            <div class="form-row">
+                <input type="number" id="import-amount" min="0.000001" step="0.000001" value="1000">
+                <button class="btn-primary" onclick="importFunds()">匯入</button>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>匯出資金（你的錢包 → 指定地址）</h2>
+            <div class="form-row form-row-wide">
+                <input type="text" id="export-to" placeholder="0x... 目標地址">
+                <input type="number" id="export-amount" min="0.000001" step="0.000001" value="100">
+                <button class="btn-secondary" onclick="exportFunds()">匯出</button>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>匯回金庫（你的錢包 → 平台金庫）</h2>
+            <div class="form-row">
+                <input type="number" id="withdraw-amount" min="0.000001" step="0.000001" value="100">
+                <button class="btn-secondary" onclick="withdrawToTreasury()">匯回</button>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>空投</h2>
+            <div class="form-row">
+                <button class="btn-primary" onclick="claimAirdrop()">領取空投</button>
+            </div>
+            <p id="airdrop-meta">-</p>
+        </div>
+
+        <p id="status-msg">載入中...</p>
+        <div id="tx-log"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/wallet.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initWalletPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

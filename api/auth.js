@@ -51,9 +51,25 @@ function safePublicKey(publicKey) {
 }
 
 function parseSessionTTL(input) {
+    if (input === null || input === undefined || input === "") return DEFAULT_SESSION_TTL_SECONDS;
+    if (typeof input === "string") {
+        const normalized = input.trim().toLowerCase();
+        if (["0", "none", "never", "off"].includes(normalized)) return null;
+    }
     const parsed = Number(input);
     if (!Number.isFinite(parsed)) return DEFAULT_SESSION_TTL_SECONDS;
+    if (parsed <= 0) return null;
     return Math.min(3600, Math.max(60, Math.floor(parsed)));
+}
+
+function buildSessionSetOptions(ttlSeconds) {
+    if (ttlSeconds === null) return undefined;
+    return { ex: ttlSeconds };
+}
+
+function buildExpiresAt(ttlSeconds) {
+    if (ttlSeconds === null) return null;
+    return new Date(Date.now() + ttlSeconds * 1000).toISOString();
 }
 
 function buildDeepLink(sessionId) {
@@ -202,8 +218,8 @@ export default async function handler(req, res) {
                     deviceId,
                     appVersion,
                     createdAt: new Date().toISOString(),
-                    expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString()
-                }, { ex: ttlSeconds });
+                    expiresAt: buildExpiresAt(ttlSeconds)
+                }, buildSessionSetOptions(ttlSeconds));
 
                 return res.status(200).json({
                     success: true,
@@ -298,8 +314,8 @@ export default async function handler(req, res) {
                     deviceId,
                     appVersion,
                     authorizedAt: new Date().toISOString(),
-                    expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString()
-                }, { ex: ttlSeconds });
+                    expiresAt: buildExpiresAt(ttlSeconds)
+                }, buildSessionSetOptions(ttlSeconds));
 
                 return res.status(200).json({
                     success: true,
@@ -343,8 +359,9 @@ export default async function handler(req, res) {
                 clientType,
                 deviceId,
                 appVersion,
-                authorizedAt: new Date().toISOString()
-            }, { ex: ttlSeconds });
+                authorizedAt: new Date().toISOString(),
+                expiresAt: buildExpiresAt(ttlSeconds)
+            }, buildSessionSetOptions(ttlSeconds));
 
             return res.status(200).json({
                 success: true,

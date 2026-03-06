@@ -6,6 +6,7 @@ import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { getRoundInfo } from "../lib/auto-round.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { buildVipStatus } from "../lib/vip.js";
+import { getSession, saveSession } from "../lib/session-store.js";
 
 const ALLOWED_PLATFORMS = new Set(["android", "ios", "web", "macos", "windows", "linux", "unknown"]);
 const ALLOWED_CLIENT_TYPES = new Set(["mobile", "desktop", "web", "server", "unknown"]);
@@ -66,26 +67,6 @@ function parseSessionTTL(input) {
 function buildExpiresAt(ttlSeconds) {
     if (ttlSeconds === null) return null;
     return new Date(Date.now() + ttlSeconds * 1000).toISOString();
-}
-
-function compactSessionPayload(payload) {
-    const normalized = {};
-    for (const [key, value] of Object.entries(payload || {})) {
-        if (value === undefined || value === null) continue;
-        if (typeof value === "string" && value === "") continue;
-        normalized[key] = value;
-    }
-    return normalized;
-}
-
-async function saveSession(sessionId, payload, ttlSeconds) {
-    const key = `session:${sessionId}`;
-    const normalizedPayload = compactSessionPayload(payload);
-    if (ttlSeconds === null) {
-        await kv.set(key, normalizedPayload);
-        return;
-    }
-    await kv.set(key, normalizedPayload, { ex: ttlSeconds });
 }
 
 function buildDeepLink(sessionId) {
@@ -192,7 +173,7 @@ export default async function handler(req, res) {
 
             if (!sessionId) return res.status(200).json({ status: "pending" });
 
-            const sessionData = await kv.get(`session:${sessionId}`);
+            const sessionData = await getSession(sessionId);
 
             if (sessionData) {
                 if (sessionData.status === "pending") {
@@ -379,7 +360,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ success: false, error: "地址格式錯誤" });
             }
 
-            const existingSession = await kv.get(`session:${sessionId}`);
+            const existingSession = await getSession(sessionId);
             const ttlSeconds = parseSessionTTL(body.ttlSeconds);
             const platform = normalizePlatform(body.platform || (existingSession && existingSession.platform));
             const clientType = normalizeClientType(body.clientType || (existingSession && existingSession.clientType));

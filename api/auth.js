@@ -6,7 +6,6 @@ import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { getRoundInfo } from "../lib/auto-round.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 
-const DEFAULT_SESSION_TTL_SECONDS = 600;
 const ALLOWED_PLATFORMS = new Set(["android", "ios", "web", "macos", "windows", "linux", "unknown"]);
 const ALLOWED_CLIENT_TYPES = new Set(["mobile", "desktop", "web", "server", "unknown"]);
 const DEEP_LINK_SCHEME = "dlinker://login";
@@ -51,13 +50,14 @@ function safePublicKey(publicKey) {
 }
 
 function parseSessionTTL(input) {
-    if (input === null || input === undefined || input === "") return DEFAULT_SESSION_TTL_SECONDS;
+    // Missing ttlSeconds means non-expiring session by default.
+    if (input === null || input === undefined || input === "") return null;
     if (typeof input === "string") {
         const normalized = input.trim().toLowerCase();
         if (["0", "none", "never", "off"].includes(normalized)) return null;
     }
     const parsed = Number(input);
-    if (!Number.isFinite(parsed)) return DEFAULT_SESSION_TTL_SECONDS;
+    if (!Number.isFinite(parsed)) return null;
     if (parsed <= 0) return null;
     return Math.min(3600, Math.max(60, Math.floor(parsed)));
 }

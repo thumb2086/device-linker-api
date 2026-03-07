@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 
 <head>
@@ -10,9 +10,8 @@
 </head>
 
 <body class="sicbo-body">
-
     <div class="page-header">
-        <a href="/games/casino.html" class="back-btn">← 返回賭場</a>
+        <a href="/games/casino.html" class="back-btn">返回賭場</a>
         <div class="header-stats">
             <span class="vip" id="header-vip">-</span>
             <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
@@ -21,12 +20,12 @@
     </div>
 
     <div class="casino-card" id="main-card">
-        <h1>🎲 骰寶</h1>
+        <h1>骰寶</h1>
 
         <div class="user-stats">
             <span id="vip-badge">普通會員</span>
             <div class="stat-row">餘額: <span id="balance-val">0.00</span> 子熙幣</div>
-            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計下注: <span id="total-bet-val">0.00</span> 子熙幣</div>
         </div>
 
         <div class="sicbo-stage">
@@ -35,10 +34,14 @@
                 <span class="die" id="die-2">?</span>
                 <span class="die" id="die-3">?</span>
             </div>
-            <div class="round-hint" id="round-hint">固定開獎模式：計算中...</div>
+            <div class="round-hint" id="round-hint">正在同步局勢...</div>
         </div>
 
-        <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入押注金額">
+        <div class="input-group compact-input-group">
+            <label for="bet-amount">下注金額</label>
+            <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入下注金額">
+        </div>
+        <div class="bet-limit-note" id="max-bet-note">單注上限讀取中...</div>
 
         <div class="bet-panel">
             <div class="bet-type-grid" id="bet-type-grid"></div>
@@ -47,7 +50,7 @@
 
         <button class="btn-primary" onclick="placeSicboBet()">下注開獎</button>
 
-        <p id="status-msg">準備開始...</p>
+        <p id="status-msg">等待下注...</p>
         <div id="tx-log"></div>
     </div>
 
@@ -59,11 +62,10 @@
             checkGameAuth(function (data) {
                 updateUI(data);
                 startBalanceRefresh();
-                onBetTypeChange();
+                initSicboGame();
             });
         };
     </script>
-
 </body>
 
 </html>

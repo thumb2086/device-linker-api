@@ -1,6 +1,5 @@
-/* === 子熙賭場 - 共用工具 === */
+﻿/* === 子熙賭場 - 共用 UI 工具 === */
 
-// 全域用戶狀態
 var user = { address: '', publicKey: '', sessionId: '' };
 
 function toSafeNumber(value, fallback) {
@@ -31,9 +30,18 @@ function formatCompactZh(value, digits) {
     });
 }
 
-/**
- * 更新 UI 上的用戶數據 (餘額、VIP、累計押注)
- */
+function renderMaxBetNote(maxBet) {
+    var noteEl = document.getElementById('max-bet-note');
+    if (!noteEl) return;
+
+    if (maxBet === undefined || maxBet === null || maxBet === '') {
+        noteEl.innerText = '單注上限將依目前 VIP 等級計算';
+        return;
+    }
+
+    noteEl.innerText = '單注上限 ' + formatCompactZh(maxBet, 2) + ' 子熙幣，依目前 VIP 等級自動調整';
+}
+
 function updateUI(data) {
     if (!data) return;
 
@@ -44,17 +52,22 @@ function updateUI(data) {
 
     if (data.balance !== undefined) {
         var balanceNum = toSafeNumber(data.balance, 0);
+        var balanceText = balanceNum.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
         var balEl = document.getElementById('balance-val');
-        if (balEl) balEl.innerText = balanceNum.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        // 也更新 header 上的餘額
-        var hBal = document.getElementById('header-balance');
-        if (hBal) hBal.innerText = balanceNum.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        if (balEl) balEl.innerText = balanceText;
+
+        var headerBalance = document.getElementById('header-balance');
+        if (headerBalance) headerBalance.innerText = balanceText;
     }
 
     if (data.totalBet !== undefined) {
         var totalBetNum = toSafeNumber(data.totalBet, 0);
-        var tbEl = document.getElementById('total-bet-val');
-        if (tbEl) tbEl.innerText = formatCompactZh(totalBetNum, 2);
+        var totalBetEl = document.getElementById('total-bet-val');
+        if (totalBetEl) totalBetEl.innerText = formatCompactZh(totalBetNum, 2);
     }
 
     if (data.vipLevel) {
@@ -66,8 +79,8 @@ function updateUI(data) {
         var badge = document.getElementById('vip-badge');
         if (badge) badge.innerText = vipText;
 
-        var hVip = document.getElementById('header-vip');
-        if (hVip) hVip.innerText = vipText;
+        var headerVip = document.getElementById('header-vip');
+        if (headerVip) headerVip.innerText = vipText;
 
         var card = document.getElementById('main-card');
         if (card) {
@@ -78,16 +91,21 @@ function updateUI(data) {
             }
         }
     }
+
+    if (data.maxBet !== undefined) {
+        renderMaxBetNote(data.maxBet);
+    }
 }
 
 function promptDisplayName() {
     if (!user.sessionId) return;
+
     var current = '';
     var currentEl = document.getElementById('display-name-val');
     if (currentEl) current = String(currentEl.innerText || '').trim();
     if (current === '未設定') current = '';
 
-    var input = window.prompt('請輸入使用者名稱（2-24 字，可用中英數、空格、底線、連字號）', current);
+    var input = window.prompt('請輸入顯示名稱（2-24 字，可使用中文、英文、數字與底線）', current);
     if (input === null) return;
 
     fetch('/api/user', {
@@ -101,60 +119,48 @@ function promptDisplayName() {
     })
         .then(function (res) { return res.json(); })
         .then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '設定名稱失敗');
+            if (!data || !data.success) throw new Error((data && data.error) || '更新顯示名稱失敗');
             updateUI({ displayName: data.displayName });
-            alert('使用者名稱已更新');
+            alert('顯示名稱已更新');
         })
         .catch(function (error) {
-            alert('設定失敗：' + error.message);
+            alert('更新失敗: ' + error.message);
         });
 }
 
-/**
- * 從 API 刷新餘額
- */
 function refreshBalance() {
     if (!user.address) return;
 
-    // 如果有待開獎的下注，我們可能不想直接刷新 UI 餘額以免跳動
-    // 但為了準確性，我們還是獲取最新餘額，但在 UI 更新時做點處理
     fetch('/api/wallet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
             action: 'get_balance',
-            address: user.address 
+            address: user.address
         })
     })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-        if (data.success) {
-            // 如果遊戲腳本有定義 calcDisplayBalance，則使用它
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || !data.success) return;
             if (typeof calcDisplayBalance === 'function') {
                 updateUI({ balance: calcDisplayBalance(data.balance) });
             } else {
                 updateUI({ balance: data.balance });
             }
-        }
-    })
-    .catch(function(e) { console.log('Balance refresh failed'); });
+        })
+        .catch(function () {
+            console.log('Balance refresh failed');
+        });
 }
 
-/**
- * 開始定期刷新餘額
- */
 function startBalanceRefresh() {
     setTimeout(refreshBalance, 800);
     setInterval(refreshBalance, 30000);
 }
 
-/**
- * 格式化交易連結 HTML
- */
 function txLinkHTML(txHash) {
     if (!txHash) return '';
-    return '<a href="https://sepolia.etherscan.io/tx/' + txHash + '" target="_blank" style="color: #888; text-decoration: underline;">' +
-        '🔗 查看區塊鏈交易憑證 (Etherscan)</a>';
+    return '<a href="https://sepolia.etherscan.io/tx/' + txHash + '" target="_blank" style="color: #888; text-decoration: underline;">查看交易紀錄 (Etherscan)</a>';
 }
 
 function ensurePageTransitionEl() {

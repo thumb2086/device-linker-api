@@ -57,7 +57,24 @@ export default async function handler(req, res) {
                 vipLevel: buildVipStatus(e.totalBet).vipLevel
             }));
 
-            return res.status(200).json({ success: true, leaderboard, generatedAt: cached.generatedAt });
+            const myIndex = cached.entries.findIndex((entry) => entry.address.toLowerCase() === currentAddress);
+            const myEntry = myIndex >= 0 ? cached.entries[myIndex] : null;
+            const myRank = myEntry ? {
+                rank: myIndex + 1,
+                address: myEntry.address,
+                displayName: displayNameMap.get(myEntry.address) || "",
+                maskedAddress: maskAddress(myEntry.address),
+                totalBet: myEntry.totalBet.toFixed(2),
+                vipLevel: buildVipStatus(myEntry.totalBet).vipLevel
+            } : null;
+
+            return res.status(200).json({
+                success: true,
+                leaderboard,
+                myRank,
+                totalPlayers: cached.entries.length,
+                generatedAt: cached.generatedAt
+            });
         }
 
         // 2. 淨資產排行榜 (原 balance-leaderboard.js)

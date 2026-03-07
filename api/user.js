@@ -84,6 +84,10 @@ function normalizeUsername(value) {
     return normalizeText(value, "", 32);
 }
 
+function hasOuterWhitespace(value) {
+    return typeof value === "string" && value.trim() !== value;
+}
+
 function custodyUserKey(username) {
     return `custody_user:${username}`;
 }
@@ -298,6 +302,7 @@ export default async function handler(req, res) {
         if (action === "custody_login") {
             const username = normalizeUsername(body.username);
             const password = typeof body.password === "string" ? body.password : "";
+            const passwordHasOuterWhitespace = hasOuterWhitespace(password);
             const ttlSeconds = parseSessionTTL(body.ttlSeconds);
             const platform = normalizePlatform(body.platform);
             const clientType = normalizeClientType(body.clientType);
@@ -319,6 +324,12 @@ export default async function handler(req, res) {
             let bonusError = "";
 
             if (!custodyUser) {
+                if (passwordHasOuterWhitespace) {
+                    return res.status(400).json({
+                        success: false,
+                        error: "Password cannot start or end with spaces"
+                    });
+                }
                 isNewAccount = true;
                 const saltHex = randomBytes(16).toString("hex");
                 const accountSeed = `${username}:${saltHex}:${Date.now()}:${randomUUID()}`;

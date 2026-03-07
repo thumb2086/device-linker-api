@@ -8,6 +8,7 @@ import { DEFAULT_RESET_THRESHOLD, resetHighTotalBets } from "../lib/ops/reset-hi
 const CUSTODY_USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
 const CUSTODY_PASSWORD_MIN = 6;
 const CUSTODY_PASSWORD_MAX = 128;
+const MAX_CUSTODY_LIST_LIMIT = 500;
 
 function normalizeSessionId(rawValue) {
     return String(rawValue || "").trim();
@@ -49,12 +50,69 @@ function normalizeUsername(rawValue) {
     return normalizeText(rawValue, 32);
 }
 
+function hasOuterWhitespace(value) {
+    return typeof value === "string" && value.trim() !== value;
+}
+
+function normalizeListLimit(rawValue) {
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 200;
+    return Math.min(MAX_CUSTODY_LIST_LIMIT, Math.floor(parsed));
+}
+
 function custodyUserKey(username) {
     return `custody_user:${username}`;
 }
 
 function hashPassword(password, saltHex) {
     return scryptSync(password, Buffer.from(saltHex, "hex"), 64).toString("hex");
+}
+
+function toTimestamp(value) {
+    const timestamp = Date.parse(String(value || ""));
+    return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+async function listCustodyUsers(limit) {
+    const keys = [];
+    for await (const key of kv.scanIterator({ match: "custody_user:*", count: 1000 })) {
+        keys.push(key);
+    }
+
+    const users = [];
+    const chunkSize = 100;
+
+    for (let index = 0; index < keys.length; index += chunkSize) {
+        const chunkKeys = keys.slice(index, index + chunkSize);
+        const chunkValues = await Promise.all(chunkKeys.map((key) => kv.get(key)));
+
+        chunkKeys.forEach((key, chunkIndex) => {
+            const record = chunkValues[chunkIndex];
+            if (!record || typeof record !== "object") return;
+            const username = key.slice("custody_user:".length);
+            users.push({
+                username,
+                address: record.address || null,
+                createdAt: record.createdAt || null,
+                updatedAt: record.updatedAt || null,
+                hasSaltHex: !!record.saltHex,
+                hasPasswordHash: !!record.passwordHash,
+                hasPublicKey: !!record.publicKey
+            });
+        });
+    }
+
+    users.sort((left, right) => {
+        const rightTs = toTimestamp(right.updatedAt || right.createdAt);
+        const leftTs = toTimestamp(left.updatedAt || left.createdAt);
+        if (rightTs !== leftTs) return rightTs - leftTs;
+        return String(left.username).localeCompare(String(right.username));
+    });
+
+    return {
+        total: users.length,
+        users: users.slice(0, limit)
+    };
 }
 
 export default async function handler(req, res) {
@@ -88,6 +146,18 @@ export default async function handler(req, res) {
             return res.status(403).json({ success: false, error: "Current session is not an admin wallet" });
         }
 
+        if (action === "list_custody_users") {
+            const limit = normalizeListLimit(body.limit);
+            const result = await listCustodyUsers(limit);
+            return res.status(200).json({
+                success: true,
+                users: result.users,
+                total: result.total,
+                returned: result.users.length,
+                limit
+            });
+        }
+
         if (action === "inspect_custody_user") {
             const username = normalizeUsername(body.username);
             if (!CUSTODY_USERNAME_REGEX.test(username)) {
@@ -101,6 +171,7 @@ export default async function handler(req, res) {
                 exists: !!record,
                 address: record?.address || null,
                 createdAt: record?.createdAt || null,
+                updatedAt: record?.updatedAt || null,
                 hasSaltHex: !!record?.saltHex,
                 hasPasswordHash: !!record?.passwordHash,
                 hasPublicKey: !!record?.publicKey
@@ -116,6 +187,9 @@ export default async function handler(req, res) {
             }
             if (newPassword.length < CUSTODY_PASSWORD_MIN || newPassword.length > CUSTODY_PASSWORD_MAX) {
                 return res.status(400).json({ success: false, error: "Password length must be 6-128" });
+            }
+            if (hasOuterWhitespace(newPassword)) {
+                return res.status(400).json({ success: false, error: "Password cannot start or end with spaces" });
             }
 
             const key = custodyUserKey(username);
@@ -145,7 +219,12 @@ export default async function handler(req, res) {
             return res.status(400).json({
                 success: false,
                 error: `Unsupported action: ${action}`,
-                supportedActions: ["reset_total_bets", "inspect_custody_user", "reset_custody_password"]
+                supportedActions: [
+                    "reset_total_bets",
+                    "list_custody_users",
+                    "inspect_custody_user",
+                    "reset_custody_password"
+                ]
             });
         }
 

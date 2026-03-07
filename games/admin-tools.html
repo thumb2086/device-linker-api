@@ -1,36 +1,36 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>維運工具 | 子熙模擬器</title>
+    <title>管理工具 | Device Linker Casino</title>
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/admin-tools.css">
 </head>
 
 <body class="admin-tools-body">
     <div class="page-header">
-        <a href="/" class="back-btn">← 大廳</a>
+        <a href="/" class="back-btn">返回首頁</a>
         <div class="header-stats">
             <span class="vip" id="header-vip">-</span>
-            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <span><span class="balance" id="header-balance">-</span> DLINK</span>
             <button class="logout-btn" onclick="logoutUser()">登出</button>
         </div>
     </div>
 
     <div class="casino-card" id="main-card">
-        <h1>🛠 維運工具</h1>
+        <h1>管理工具</h1>
 
         <div class="user-stats">
-            <span id="vip-badge">普通會員</span>
-            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> 子熙幣</div>
-            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+            <span id="vip-badge">管理員</span>
+            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> DLINK</div>
+            <div class="stat-row">累計下注: <span id="total-bet-val">0.00</span> DLINK</div>
         </div>
 
         <div class="section-block">
-            <h2>重製異常累積押注</h2>
-            <p class="tool-note">只會處理 `total_bet > 20 億` 的帳號，其他紀錄完全不動。只要用管理錢包登入，就可以直接預覽與正式重製。</p>
+            <h2>高額下注帳號重製</h2>
+            <p class="tool-note">只會處理 total_bet 超過門檻的帳號。先預覽，再執行正式重製。</p>
             <div class="form-row">
                 <button class="btn-primary" onclick="previewReset()">預覽名單</button>
                 <button class="btn-secondary" onclick="executeReset()">正式重製</button>
@@ -44,19 +44,53 @@
                 <strong>20 億</strong>
             </div>
             <div class="summary-card">
-                <span>受影響帳號數</span>
+                <span>受影響帳號</span>
                 <strong id="affected-count">0</strong>
             </div>
             <div class="summary-card">
-                <span>模式</span>
-                <strong id="result-mode">未執行</strong>
+                <span>執行模式</span>
+                <strong id="result-mode">尚未執行</strong>
             </div>
         </div>
 
         <div class="section-block">
-            <h2>受影響清單</h2>
+            <h2>重製結果</h2>
             <div id="result-list" class="result-list">
                 <div class="result-empty">尚未執行預覽</div>
+            </div>
+        </div>
+
+        <div class="section-block custody-section">
+            <div class="section-heading-row">
+                <div>
+                    <h2>託管帳號管理</h2>
+                    <p class="tool-note">可查看託管帳號清單並強制重設密碼。系統只存 password hash，無法顯示原始密碼。</p>
+                </div>
+                <button class="btn-secondary compact-btn" onclick="refreshCustodyUsers()">重新整理</button>
+            </div>
+
+            <div class="custody-toolbar">
+                <input id="custody-filter-input" class="text-input" type="text" placeholder="搜尋帳號" oninput="renderCustodyUsers()">
+            </div>
+            <p id="custody-status-msg">讀取中...</p>
+
+            <div class="summary-grid custody-summary-grid">
+                <div class="summary-card">
+                    <span>託管帳號總數</span>
+                    <strong id="custody-total-count">0</strong>
+                </div>
+                <div class="summary-card">
+                    <span>目前顯示</span>
+                    <strong id="custody-visible-count">0</strong>
+                </div>
+                <div class="summary-card">
+                    <span>密碼可見性</span>
+                    <strong>不可讀取</strong>
+                </div>
+            </div>
+
+            <div id="custody-user-list" class="custody-user-list">
+                <div class="result-empty">尚未載入託管帳號</div>
             </div>
         </div>
     </div>

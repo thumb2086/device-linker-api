@@ -90,11 +90,11 @@ function promptDisplayName() {
     var input = window.prompt('請輸入使用者名稱（2-24 字，可用中英數、空格、底線、連字號）', current);
     if (input === null) return;
 
-    fetch('/api/profile', {
+    fetch('/api/user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            action: 'set',
+            action: 'set_profile',
             sessionId: user.sessionId,
             displayName: input
         })
@@ -118,10 +118,13 @@ function refreshBalance() {
 
     // 如果有待開獎的下注，我們可能不想直接刷新 UI 餘額以免跳動
     // 但為了準確性，我們還是獲取最新餘額，但在 UI 更新時做點處理
-    fetch('/api/get-balance', {
+    fetch('/api/wallet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: user.address })
+        body: JSON.stringify({ 
+            action: 'get_balance',
+            address: user.address 
+        })
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {

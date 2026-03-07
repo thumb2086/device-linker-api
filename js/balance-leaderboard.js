@@ -66,10 +66,11 @@ function loadBalanceLeaderboard(silent) {
     balanceLeaderboardBusy = true;
     if (!silent) setBalanceLeaderboardStatus('同步淨資產排行榜中...', false);
 
-    return fetch('/api/balance-leaderboard', {
+    return fetch('/api/stats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+            action: 'net_worth',
             sessionId: user.sessionId,
             limit: 50
         })

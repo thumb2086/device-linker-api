@@ -74,10 +74,11 @@ function loadLeaderboard(silent) {
     leaderboardBusy = true;
     if (!silent) setLeaderboardStatus('同步排行榜中...', false);
 
-    return fetch('/api/leaderboard', {
+    return fetch('/api/stats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+            action: 'total_bet',
             sessionId: user.sessionId,
             limit: 50
         })

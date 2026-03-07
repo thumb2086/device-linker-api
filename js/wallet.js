@@ -164,16 +164,19 @@ function withdrawToTreasury() {
 }
 
 function claimAirdrop() {
-    if (!user.address) return;
+    if (!user.sessionId) return;
 
     setWalletStatus('領取空投中...', false);
     setWalletTx('');
 
     withWalletBusy(function () {
-        return fetch('/api/airdrop', {
+        return fetch('/api/wallet', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ address: user.address })
+            body: JSON.stringify({ 
+                action: 'airdrop',
+                sessionId: user.sessionId 
+            })
         })
             .then(function (res) { return res.json(); })
             .then(function (data) {

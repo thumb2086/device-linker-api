@@ -1,7 +1,8 @@
 // api/wallet.js - 聚合錢包功能
 import { kv } from '@vercel/kv';
 import { getSession } from "../lib/session-store.js";
-import { ethers, verify } from "ethers";
+import { verify } from "crypto";
+import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL, AIRDROP_TOTAL_CAP } from "../lib/config.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { calculateAirdropRewardWei } from "../lib/airdrop-policy.js";

@@ -123,11 +123,11 @@ function detectClientType(platform) {
 function createAuthSession(callback) {
     var platform = detectClientPlatform();
     var clientType = detectClientType(platform);
-    fetch('/api/auth', {
+    fetch('/api/user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            action: 'create',
+            action: 'create_session',
             platform: platform,
             clientType: clientType
         })
@@ -205,7 +205,7 @@ function showQRAuth(onAuthorized) {
 function startAuthPolling(sessionId, onAuthorized) {
     if (authPollInterval) clearInterval(authPollInterval);
     authPollInterval = setInterval(function() {
-        fetch('/api/auth?sessionId=' + sessionId)
+        fetch('/api/user?action=get_status&sessionId=' + sessionId)
             .then(function(res) {
                 if (!res.ok) return null;
                 return res.json();
@@ -333,7 +333,7 @@ function startCustodyAuth() {
     var clientType = detectClientType(platform);
     updateAuthMessage('<span class="loader"></span> 託管帳戶登入中...');
 
-    fetch('/api/auth', {
+    fetch('/api/user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -400,7 +400,7 @@ function quickCustodyAuth() {
     var clientType = detectClientType(platform);
     updateAuthMessage('<span class="loader"></span> 託管帳戶快速登入中...');
 
-    fetch('/api/auth', {
+    fetch('/api/user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -453,7 +453,7 @@ function quickCustodyAuth() {
  * 驗證 session 是否仍有效
  */
 function verifySession(sessionId, callback) {
-    fetch('/api/auth?sessionId=' + sessionId)
+    fetch('/api/user?action=get_status&sessionId=' + sessionId)
         .then(function(res) { return res.json(); })
         .then(function(data) {
             callback(data.status === 'authorized', data);

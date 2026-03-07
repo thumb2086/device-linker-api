@@ -47,10 +47,11 @@ function renderResetResult(data) {
 }
 
 function callAdminReset(dryRun) {
-    return fetch('/api/admin-reset-total-bets', {
+    return fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+            action: 'reset_total_bets',
             sessionId: user.sessionId,
             dryRun: dryRun
         })

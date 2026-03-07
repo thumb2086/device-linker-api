@@ -69,7 +69,7 @@ function syncSicboClock(force) {
     if (isClockSyncing) return;
     if (!force && (now - lastClockSyncAt) < 10000) return;
     isClockSyncing = true;
-    fetch('/api/auth?clock=1&game=sicbo&t=' + now)
+    fetch('/api/user?clock=1&game=sicbo&t=' + now)
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (!data || !data.success) return;

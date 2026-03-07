@@ -61,7 +61,7 @@ function syncCoinflipClock(force) {
     if (!force && (now - lastClockSyncAt) < 10000) return;
 
     isClockSyncing = true;
-    fetch('/api/auth?clock=1&game=coinflip&t=' + now)
+    fetch('/api/user?clock=1&game=coinflip&t=' + now)
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (!data || !data.success) return;

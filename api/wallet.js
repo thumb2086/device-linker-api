@@ -1,13 +1,13 @@
-// api/wallet.js - 聚合錢包功能
-import { kv } from '@vercel/kv';
-import { getSession } from "../lib/session-store.js";
+import { kv } from "@vercel/kv";
 import { verify } from "crypto";
 import { ethers } from "ethers";
-import { CONTRACT_ADDRESS, RPC_URL, AIRDROP_TOTAL_CAP } from "../lib/config.js";
+import { getSession } from "../lib/session-store.js";
+import { AIRDROP_TOTAL_CAP, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { calculateAirdropRewardWei } from "../lib/airdrop-policy.js";
 
 const AIRDROP_DISTRIBUTED_WEI_KEY = "airdrop:distributed_wei";
+const MAX_TRANSFER_AMOUNT = 100000000;
 const CONTRACT_ABI = [
     "function mint(address to, uint256 amount) public",
     "function adminTransfer(address from, address to, uint256 amount) public",
@@ -16,30 +16,135 @@ const CONTRACT_ABI = [
     "function totalSupply() view returns (uint256)"
 ];
 
-// 簽名驗證輔助函數 (來自原 transfer.js)
+function getSafeBody(req) {
+    if (!req || typeof req !== "object") return {};
+    const rawBody = req.body;
+    if (!rawBody) return {};
+
+    if (typeof rawBody === "string") {
+        try {
+            const parsed = JSON.parse(rawBody);
+            return parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+
+    return typeof rawBody === "object" ? rawBody : {};
+}
+
+function normalizeAction(rawAction) {
+    return String(rawAction || "summary").trim().toLowerCase();
+}
+
+function normalizeAddress(rawAddress, fieldName = "address") {
+    try {
+        return ethers.getAddress(String(rawAddress || "").trim()).toLowerCase();
+    } catch {
+        throw new Error(`${fieldName} format is invalid`);
+    }
+}
+
+function normalizeAmount(rawAmount) {
+    const normalized = String(rawAmount ?? "").replace(/,/g, "").trim();
+    if (!/^\d+(\.\d+)?$/.test(normalized)) {
+        throw new Error("amount format is invalid");
+    }
+
+    const numericValue = Number(normalized);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+        throw new Error("amount must be greater than 0");
+    }
+    if (numericValue > MAX_TRANSFER_AMOUNT) {
+        throw new Error(`amount is too large; max ${MAX_TRANSFER_AMOUNT}`);
+    }
+
+    return normalized;
+}
+
+function normalizeBase64PublicKey(rawPublicKey) {
+    const raw = String(rawPublicKey || "").trim();
+    if (!raw) return "";
+    if (raw.includes("BEGIN PUBLIC KEY")) {
+        return raw
+            .replace(/-----BEGIN PUBLIC KEY-----/g, "")
+            .replace(/-----END PUBLIC KEY-----/g, "")
+            .replace(/\s+/g, "");
+    }
+    return raw.replace(/\s+/g, "");
+}
+
 function toPemFromBase64(base64PublicKey) {
     const wrapped = String(base64PublicKey || "").match(/.{1,64}/g) || [];
     return `-----BEGIN PUBLIC KEY-----\n${wrapped.join("\n")}\n-----END PUBLIC KEY-----`;
 }
 
+function deriveAddressFromPublicKey(base64PublicKey) {
+    const spkiBytes = Buffer.from(base64PublicKey, "base64");
+    if (!spkiBytes.length) return null;
+
+    let uncompressed = null;
+    if (spkiBytes.length === 65 && spkiBytes[0] === 0x04) {
+        uncompressed = spkiBytes;
+    } else if (spkiBytes.length > 26 && spkiBytes[26] === 0x04) {
+        const sliced = spkiBytes.slice(26);
+        if (sliced.length >= 65 && sliced[0] === 0x04) {
+            uncompressed = sliced.slice(0, 65);
+        }
+    } else if (spkiBytes.length > 65) {
+        const tail = spkiBytes.slice(-65);
+        if (tail[0] === 0x04) {
+            uncompressed = tail;
+        }
+    }
+
+    if (!uncompressed) return null;
+    return ethers.computeAddress(`0x${uncompressed.toString("hex")}`).toLowerCase();
+}
+
+function toBooleanFlag(value) {
+    return value === true || String(value || "").trim().toLowerCase() === "true";
+}
+
+function jsonError(res, statusCode, error) {
+    return res.status(statusCode).json({
+        success: false,
+        error: error && error.message ? error.message : String(error || "Unknown error")
+    });
+}
+
+async function resolveSessionAddress(sessionId) {
+    if (!sessionId) return { session: null, address: "" };
+    const session = await getSession(String(sessionId || "").trim());
+    if (!session || !session.address) {
+        throw new Error("Session expired");
+    }
+    return {
+        session,
+        address: normalizeAddress(session.address, "session address")
+    };
+}
+
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
-
-    const { action, address, sessionId, amount, to, signature, publicKey, isPayout } = req.body;
+    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method !== "POST") return res.status(405).json({ success: false, error: "Method Not Allowed" });
 
     try {
+        const body = getSafeBody(req);
+        const action = normalizeAction(body.action);
+        const sessionId = String(body.sessionId || "").trim();
+
         const provider = new ethers.JsonRpcProvider(RPC_URL);
-        const readContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+        const contractAddress = normalizeAddress(CONTRACT_ADDRESS, "CONTRACT_ADDRESS");
+        const readContract = new ethers.Contract(contractAddress, CONTRACT_ABI, provider);
         const decimals = await readContract.decimals();
 
-        // 1. 不需要 Session 的行動 (例如外部查詢餘額)
-        if (action === 'get_balance') {
-            if (!address) return res.status(400).json({ error: "缺少地址" });
+        if (action === "get_balance") {
+            const address = normalizeAddress(body.address, "address");
             const balanceRaw = await readContract.balanceOf(address);
             return res.status(200).json({
                 success: true,
@@ -48,21 +153,60 @@ export default async function handler(req, res) {
             });
         }
 
-        const privateKey = process.env.ADMIN_PRIVATE_KEY;
-        if (!privateKey) return res.status(500).json({ error: "ADMIN_PRIVATE_KEY is not configured" });
+        let privateKey = process.env.ADMIN_PRIVATE_KEY;
+        if (!privateKey) {
+            return res.status(500).json({ success: false, error: "ADMIN_PRIVATE_KEY is not configured" });
+        }
+        if (!privateKey.startsWith("0x")) privateKey = `0x${privateKey}`;
 
-        const wallet = new ethers.Wallet(privateKey, provider);
-        const contract = readContract.connect(wallet);
+        const adminWallet = new ethers.Wallet(privateKey, provider);
+        const treasuryAddress = normalizeAddress(process.env.LOSS_POOL_ADDRESS || adminWallet.address, "LOSS_POOL_ADDRESS");
+        const contract = new ethers.Contract(contractAddress, CONTRACT_ABI, adminWallet);
 
-        // 2. 驗證 Session
-        if (!sessionId) return res.status(400).json({ error: "缺少 sessionId" });
-        const session = await getSession(sessionId);
-        if (!session) return res.status(403).json({ error: "會話過期" });
-        const userAddress = session.address;
+        if (action === "airdrop") {
+            const sessionInfo = sessionId ? await resolveSessionAddress(sessionId) : { session: null, address: "" };
+            const targetAddress = sessionInfo.address || normalizeAddress(body.address, "address");
+            const adminBalanceWei = await contract.balanceOf(adminWallet.address);
+            const totalSupplyWei = await contract.totalSupply();
+            const publicDistributedWei = totalSupplyWei > adminBalanceWei ? totalSupplyWei - adminBalanceWei : 0n;
+            const policy = calculateAirdropRewardWei(decimals, publicDistributedWei);
 
-        // 3. 錢包摘要 (原 wallet.js summary)
-        if (action === 'summary') {
-            const treasuryAddress = process.env.LOSS_POOL_ADDRESS || wallet.address;
+            if (policy.rewardWei <= 0n) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Airdrop cap reached",
+                    distributedExcludingAdmin: ethers.formatUnits(policy.distributedWei, decimals),
+                    cap: ethers.formatUnits(policy.capWei, decimals),
+                    remaining: "0"
+                });
+            }
+
+            const tx = await transferFromTreasuryWithAutoTopup(
+                contract,
+                treasuryAddress,
+                targetAddress,
+                policy.rewardWei,
+                { gasLimit: 220000 }
+            );
+            const newDistributedWei = policy.distributedWei + policy.rewardWei;
+
+            return res.status(200).json({
+                success: true,
+                txHash: tx.hash,
+                reward: ethers.formatUnits(policy.rewardWei, decimals),
+                halvingCount: policy.halvingCount,
+                distributedExcludingAdmin: ethers.formatUnits(newDistributedWei, decimals),
+                cap: ethers.formatUnits(policy.capWei, decimals),
+                remaining: ethers.formatUnits(policy.capWei - newDistributedWei, decimals),
+                adminWalletAddress: normalizeAddress(adminWallet.address, "adminWalletAddress")
+            });
+        }
+
+        const sessionInfo = sessionId ? await resolveSessionAddress(sessionId) : { session: null, address: "" };
+        const sessionAddress = sessionInfo.address;
+
+        if (action === "summary" || action === "status" || action === "balance") {
+            const userAddress = sessionAddress || normalizeAddress(body.address, "address");
             const [userBalanceWei, treasuryBalanceWei, distributedWeiRaw] = await Promise.all([
                 contract.balanceOf(userAddress),
                 contract.balanceOf(treasuryAddress),
@@ -70,69 +214,178 @@ export default async function handler(req, res) {
             ]);
             const distributedWei = BigInt(String(distributedWeiRaw || "0"));
             const capWei = ethers.parseUnits(AIRDROP_TOTAL_CAP, decimals);
-            
+            const remainingWei = capWei > distributedWei ? capWei - distributedWei : 0n;
+
             return res.status(200).json({
                 success: true,
+                action: "summary",
+                address: userAddress,
+                treasuryAddress,
+                decimals: String(decimals),
                 userBalance: ethers.formatUnits(userBalanceWei, decimals),
                 treasuryBalance: ethers.formatUnits(treasuryBalanceWei, decimals),
                 airdrop: {
                     distributed: ethers.formatUnits(distributedWei, decimals),
                     cap: ethers.formatUnits(capWei, decimals),
-                    remaining: ethers.formatUnits(capWei > distributedWei ? capWei - distributedWei : 0n, decimals)
+                    remaining: ethers.formatUnits(remainingWei, decimals)
                 }
             });
         }
 
-        // 4. 空投功能 (原 airdrop.js)
-        if (action === 'airdrop') {
-            const adminBalanceWei = await contract.balanceOf(wallet.address);
-            const totalSupplyWei = await contract.totalSupply();
-            const publicDistributedWei = totalSupplyWei > adminBalanceWei ? totalSupplyWei - adminBalanceWei : 0n;
-            const policy = calculateAirdropRewardWei(decimals, publicDistributedWei);
+        const amountText = normalizeAmount(body.amount);
+        let amountWei;
+        try {
+            amountWei = ethers.parseUnits(amountText, decimals);
+        } catch {
+            return res.status(400).json({ success: false, error: "amount exceeds token precision" });
+        }
+        if (amountWei <= 0n) {
+            return res.status(400).json({ success: false, error: "amount must be greater than 0" });
+        }
 
-            if (policy.rewardWei <= 0n) return res.status(400).json({ error: "空投已達上限" });
+        if (action === "import" || action === "deposit") {
+            const userAddress = sessionAddress || normalizeAddress(body.address, "address");
+            const tx = await transferFromTreasuryWithAutoTopup(
+                contract,
+                treasuryAddress,
+                userAddress,
+                amountWei,
+                { gasLimit: 220000 }
+            );
 
-            const tx = await transferFromTreasuryWithAutoTopup(contract, wallet.address, userAddress, policy.rewardWei);
             return res.status(200).json({
                 success: true,
-                txHash: tx.hash,
-                reward: ethers.formatUnits(policy.rewardWei, decimals)
+                action: "import",
+                from: treasuryAddress,
+                to: userAddress,
+                amount: amountText,
+                txHash: tx.hash
             });
         }
 
-        // 5. 轉帳功能 (原 transfer.js - 帶簽名驗證)
-        if (action === 'secure_transfer') {
-            const cleanTo = ethers.getAddress(to).toLowerCase().replace(/^0x/, "");
-            const cleanAmount = amount.toString().trim().replace(/\.0+$/, "");
-            const message = `transfer:${cleanTo}:${cleanAmount}`;
-            const publicKeyPEM = toPemFromBase64(publicKey);
-
-            const isVerified = verify("sha256", Buffer.from(message, 'utf-8'), { key: publicKeyPEM }, Buffer.from(signature, 'base64'));
-            if (!isVerified) return res.status(400).json({ error: "簽名驗證失敗" });
-
-            const amountWei = ethers.parseUnits(cleanAmount, decimals);
-            const tx = await contract.adminTransfer(userAddress, ethers.getAddress("0x" + cleanTo), amountWei);
-            return res.status(200).json({ success: true, txHash: tx.hash });
-        }
-
-        // 6. 提現/充值 (原 wallet.js actions)
-        if (action === 'withdraw' || action === 'deposit') {
-            const amountWei = ethers.parseUnits(amount.toString(), decimals);
-            const treasuryAddress = process.env.LOSS_POOL_ADDRESS || wallet.address;
-            
-            let tx;
-            if (action === 'withdraw') {
-                tx = await contract.adminTransfer(userAddress, treasuryAddress, amountWei);
-            } else {
-                tx = await transferFromTreasuryWithAutoTopup(contract, treasuryAddress, userAddress, amountWei);
+        if (action === "withdraw" || action === "cashout") {
+            const userAddress = sessionAddress || normalizeAddress(body.address, "address");
+            const userBalanceWei = await contract.balanceOf(userAddress);
+            if (userBalanceWei < amountWei) {
+                return res.status(400).json({ success: false, error: "Insufficient balance" });
             }
-            return res.status(200).json({ success: true, txHash: tx.hash });
+
+            const tx = await contract.adminTransfer(userAddress, treasuryAddress, amountWei, { gasLimit: 220000 });
+            return res.status(200).json({
+                success: true,
+                action: "withdraw",
+                from: userAddress,
+                to: treasuryAddress,
+                amount: amountText,
+                txHash: tx.hash
+            });
         }
 
-        return res.status(400).json({ error: "無效的 action" });
+        if (action === "secure_transfer") {
+            const fromAddress = sessionAddress || normalizeAddress(body.from, "from");
+            const toAddress = normalizeAddress(body.to || body.toAddress, "to");
+            const cleanAmount = amountText.replace(/\.0+$/, "");
+            const normalizedPublicKey = normalizeBase64PublicKey(body.publicKey);
+            const signature = String(body.signature || "").trim();
+            const payoutMode = toBooleanFlag(body.isPayout);
 
+            if (!signature || !normalizedPublicKey) {
+                return res.status(400).json({ success: false, error: "Missing signature or publicKey" });
+            }
+
+            const cleanTo = toAddress.replace(/^0x/, "");
+            const message = `transfer:${cleanTo}:${cleanAmount}`;
+            const publicKeyPem = toPemFromBase64(normalizedPublicKey);
+            const derivedAddress = deriveAddressFromPublicKey(normalizedPublicKey);
+
+            if (derivedAddress && derivedAddress !== fromAddress) {
+                return res.status(403).json({
+                    success: false,
+                    error: "Address mismatch",
+                    expectedAddress: derivedAddress,
+                    receivedFrom: fromAddress
+                });
+            }
+
+            const isVerified = verify(
+                "sha256",
+                Buffer.from(message, "utf-8"),
+                { key: publicKeyPem, padding: undefined },
+                Buffer.from(signature, "base64")
+            );
+            if (!isVerified) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Signature verification failed",
+                    debug: {
+                        generatedMessage: message
+                    }
+                });
+            }
+
+            let transferWei = amountWei;
+            let feeWei = 0n;
+            if (payoutMode) {
+                feeWei = (amountWei * 5n) / 100n;
+                transferWei = amountWei - feeWei;
+                if (transferWei <= 0n) {
+                    return res.status(400).json({ success: false, error: "Amount is too small after fee" });
+                }
+            }
+
+            const tx = await contract.adminTransfer(fromAddress, toAddress, transferWei, { gasLimit: 220000 });
+            return res.status(200).json({
+                success: true,
+                txHash: tx.hash,
+                from: fromAddress,
+                to: toAddress,
+                amount: amountText,
+                isPayout: payoutMode,
+                requestedAmount: cleanAmount,
+                transferredAmount: ethers.formatUnits(transferWei, decimals),
+                feeAmount: ethers.formatUnits(feeWei, decimals),
+                feeRate: payoutMode ? "0.05" : "0.00"
+            });
+        }
+
+        if (action === "export" || action === "transfer") {
+            const userAddress = sessionAddress || normalizeAddress(body.from, "from");
+            const toAddress = normalizeAddress(body.to || body.toAddress, "to");
+            const userBalanceWei = await contract.balanceOf(userAddress);
+            if (userBalanceWei < amountWei) {
+                return res.status(400).json({ success: false, error: "Insufficient balance" });
+            }
+
+            const tx = await contract.adminTransfer(userAddress, toAddress, amountWei, { gasLimit: 220000 });
+            return res.status(200).json({
+                success: true,
+                action: "export",
+                from: userAddress,
+                to: toAddress,
+                amount: amountText,
+                txHash: tx.hash
+            });
+        }
+
+        return res.status(400).json({
+            success: false,
+            error: `Unsupported action: ${action}`,
+            supportedActions: [
+                "summary",
+                "status",
+                "balance",
+                "get_balance",
+                "airdrop",
+                "import",
+                "deposit",
+                "export",
+                "transfer",
+                "secure_transfer",
+                "withdraw",
+                "cashout"
+            ]
+        });
     } catch (error) {
-        console.error("Wallet API Error:", error);
-        return res.status(500).json({ error: error.message });
+        return jsonError(res, 500, error);
     }
 }

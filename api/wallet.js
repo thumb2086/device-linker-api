@@ -33,21 +33,25 @@ export default async function handler(req, res) {
 
     try {
         const provider = new ethers.JsonRpcProvider(RPC_URL);
-        const privateKey = process.env.ADMIN_PRIVATE_KEY;
-        const wallet = new ethers.Wallet(privateKey, provider);
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, wallet);
-        const decimals = await contract.decimals();
+        const readContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+        const decimals = await readContract.decimals();
 
         // 1. 不需要 Session 的行動 (例如外部查詢餘額)
         if (action === 'get_balance') {
             if (!address) return res.status(400).json({ error: "缺少地址" });
-            const balanceRaw = await contract.balanceOf(address);
+            const balanceRaw = await readContract.balanceOf(address);
             return res.status(200).json({
                 success: true,
                 balance: ethers.formatUnits(balanceRaw, decimals),
                 decimals: decimals.toString()
             });
         }
+
+        const privateKey = process.env.ADMIN_PRIVATE_KEY;
+        if (!privateKey) return res.status(500).json({ error: "ADMIN_PRIVATE_KEY is not configured" });
+
+        const wallet = new ethers.Wallet(privateKey, provider);
+        const contract = readContract.connect(wallet);
 
         // 2. 驗證 Session
         if (!sessionId) return res.status(400).json({ error: "缺少 sessionId" });

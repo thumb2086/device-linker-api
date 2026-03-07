@@ -8,6 +8,7 @@ import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { buildVipStatus } from "../lib/vip.js";
 import { getSession, saveSession } from "../lib/session-store.js";
 import { ensureDisplayName, getDisplayName, setDisplayName } from "../lib/user-profile.js";
+import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 
 // --- 常量與輔助函數 (來自原 auth.js) ---
 const ALLOWED_PLATFORMS = new Set(["android", "ios", "web", "macos", "windows", "linux", "unknown"]);
@@ -75,6 +76,7 @@ export default async function handler(req, res) {
 
             const totalBet = parseFloat(totalBetRaw || 0);
             const vipStatus = buildVipStatus(totalBet);
+            const isAdmin = sessionData.address.toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
 
             return res.status(200).json({
                 status: "authorized",
@@ -84,7 +86,8 @@ export default async function handler(req, res) {
                 totalBet: totalBet.toFixed(2),
                 vipLevel: vipStatus.vipLevel,
                 maxBet: vipStatus.maxBet.toFixed(2),
-                mode: sessionData.mode
+                mode: sessionData.mode,
+                isAdmin: isAdmin
             });
         }
 

@@ -1,6 +1,7 @@
 // api/admin.js - 聚合管理員功能
 import { kv } from '@vercel/kv';
 import { getSession } from "../lib/session-store.js";
+import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 
 const TOTAL_BET_PREFIX = "total_bet:";
 const THRESHOLD = 2000000000; // 20 億
@@ -18,11 +19,13 @@ export default async function handler(req, res) {
     try {
         if (!sessionId) return res.status(400).json({ error: "缺少 sessionId" });
         const session = await getSession(sessionId);
-        if (!session) return res.status(403).json({ error: "會話過期" });
+        if (!session || !session.address) return res.status(403).json({ error: "會話過期" });
 
-        // 簡單的管理員驗證 (可根據需求加強)
-        const isAdmin = session.mode === 'custody' && session.address; // 這裡可以檢查特定的管理員地址
-        if (!isAdmin) return res.status(403).json({ error: "權限不足" });
+        // 嚴格管理員驗證
+        const userAddress = session.address.toLowerCase();
+        if (userAddress !== ADMIN_WALLET_ADDRESS.toLowerCase()) {
+            return res.status(403).json({ error: "權限不足，僅限管理員錢包操作" });
+        }
 
         // 1. 重製累積押注 (原 admin-reset-total-bets.js)
         if (action === 'reset_total_bets') {

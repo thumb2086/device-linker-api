@@ -98,7 +98,7 @@
                 <div class="game-tag ready">開放中</div>
             </a>
 
-            <a href="games/admin-tools.html" class="game-card">
+            <a href="games/admin-tools.html" class="game-card" id="admin-card" style="display: none;">
                 <div class="game-icon">🛠</div>
                 <div class="game-name">維運工具</div>
                 <div class="game-desc">重製異常押注紀錄與一次性維護操作</div>
@@ -233,6 +233,12 @@
                 updateUI(data);
                 startBalanceRefresh();
                 hidePageTransition();
+
+                // 只有管理員才顯示維運工具
+                if (data.isAdmin) {
+                    var adminCard = document.getElementById('admin-card');
+                    if (adminCard) adminCard.style.display = 'flex';
+                }
 
                 document.querySelectorAll('.game-card[href]').forEach(function (card) {
                     card.addEventListener('click', function (e) {

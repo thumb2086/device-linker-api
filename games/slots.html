@@ -83,6 +83,21 @@
             <button class="btn-spin" id="spin-btn" onclick="spin()">🎰 旋轉</button>
         </div>
 
+        <!-- 自動旋轉控制 -->
+        <div class="auto-controls">
+            <button class="btn-auto" id="auto-btn" onclick="toggleAutoSpin()">🔄 自動旋轉 (關閉)</button>
+            <select id="auto-count">
+                <option value="10">10 次</option>
+                <option value="50">50 次</option>
+                <option value="100">100 次</option>
+                <option value="9999">無限次</option>
+            </select>
+            <div class="auto-stop-config">
+                <label><input type="checkbox" id="stop-on-win" checked> 贏錢時停止</label>
+                <label><input type="checkbox" id="stop-on-big-win" checked> 大獎時停止</label>
+            </div>
+        </div>
+
         <p id="status-msg">準備開始...</p>
 
         <div id="tx-log"></div>
@@ -90,6 +105,8 @@
 
     <script src="../js/common.js"></script>
     <script src="../js/auth.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <script src="../js/audio-manager.js"></script>
     <script src="../js/slots.js"></script>
     <script>
         window.onload = function () {

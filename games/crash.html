@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爆點飛行 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/crash.css">
+</head>
+
+<body class="crash-body">
+
+    <div class="page-header">
+        <a href="/games/casino.html" class="back-btn">← 返回賭場</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>🚀 爆點飛行 (Crash)</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <div class="crash-container">
+            <div class="crash-graph">
+                <div class="multiplier-display" id="multiplier-val">1.00x</div>
+                <canvas id="crash-canvas"></canvas>
+                <div class="crash-overlay" id="crash-overlay">
+                    <div class="crash-message" id="crash-msg">CRASHED @ 0.00x</div>
+                </div>
+            </div>
+
+            <div class="crash-controls">
+                <div class="input-group">
+                    <label>下注金額</label>
+                    <input type="number" id="bet-amount" value="10" min="1">
+                </div>
+                <div class="input-group">
+                    <label>自動兌現 (可選)</label>
+                    <input type="number" id="auto-cashout" placeholder="例如 2.0" step="0.1" min="1.1">
+                </div>
+                
+                <button class="btn-primary" id="start-btn" onclick="startGame()">🚀 發射飛機</button>
+                <button class="btn-cashout" id="cashout-btn" onclick="cashOut()" disabled>💰 立即兌現</button>
+            </div>
+        </div>
+
+        <div id="status-msg">準備就緒...</div>
+        <div id="tx-log"></div>
+
+        <div class="crash-history">
+            <h3>最近爆點</h3>
+            <div class="history-list" id="history-list">
+                <!-- 歷史紀錄 -->
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <script src="../js/audio-manager.js"></script>
+    <script src="../js/crash.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initCrashGraph();
+            });
+        };
+    </script>
+
+</body>
+
+</html>

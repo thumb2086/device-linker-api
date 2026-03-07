@@ -208,6 +208,75 @@ body.slots-body {
     transform: none;
 }
 
+/* --- 自動旋轉控制 --- */
+.auto-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    flex-wrap: wrap;
+}
+
+.btn-auto {
+    background: #333;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.95rem;
+}
+
+.btn-auto:hover {
+    background: #444;
+    border-color: #555;
+}
+
+.btn-auto.active {
+    background: linear-gradient(180deg, #ffcc00, #d4af37);
+    color: #000;
+    border: none;
+    box-shadow: 0 0 15px rgba(255, 204, 0, 0.3);
+}
+
+#auto-count {
+    background: #1a1a1a;
+    color: #fff;
+    border: 1px solid #333;
+    padding: 10px 12px;
+    border-radius: 10px;
+    outline: none;
+    font-weight: 700;
+}
+
+.auto-stop-config {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.auto-stop-config label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #aaa;
+    cursor: pointer;
+}
+
+.auto-stop-config input[type="checkbox"] {
+    accent-color: var(--gold);
+}
+
 /* --- 結果訊息 --- */
 .result-display {
     margin-top: 15px;

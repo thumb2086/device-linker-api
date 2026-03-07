@@ -4,6 +4,11 @@ var SLOT_SYMBOLS = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣'];
 var SYMBOLS_PER_REEL = 30; // 符號帶長度
 var isSpinning = false;
 
+// 自動旋轉相關變數
+var isAutoSpinning = false;
+var autoSpinsLeft = 0;
+var reelSoundId = null;
+
 /**
  * 動態取得符號高度 (配合 RWD)
  */
@@ -26,9 +31,38 @@ function buildReels() {
             div.textContent = SLOT_SYMBOLS[i % SLOT_SYMBOLS.length];
             strip.appendChild(div);
         }
-        // 初始位置：顯示第一個符號在中間行
         strip.style.transform = 'translateY(0px)';
     }
+}
+
+/**
+ * 切換自動旋轉
+ */
+function toggleAutoSpin() {
+    var btn = document.getElementById('auto-btn');
+    var countSelect = document.getElementById('auto-count');
+    
+    if (isAutoSpinning) {
+        stopAutoSpin();
+    } else {
+        isAutoSpinning = true;
+        autoSpinsLeft = parseInt(countSelect.value);
+        btn.innerText = '🛑 停止自動 (' + (autoSpinsLeft > 1000 ? '∞' : autoSpinsLeft) + ')';
+        btn.classList.add('active');
+        
+        // 如果目前沒在轉，立即開始第一轉
+        if (!isSpinning) spin();
+    }
+    
+    if (window.audioManager) window.audioManager.play('click');
+}
+
+function stopAutoSpin() {
+    isAutoSpinning = false;
+    autoSpinsLeft = 0;
+    var btn = document.getElementById('auto-btn');
+    btn.innerText = '🔄 自動旋轉 (關閉)';
+    btn.classList.remove('active');
 }
 
 /**
@@ -51,7 +85,6 @@ function animateReel(strip) {
 
     var pos = parseFloat(strip.dataset.spinPos || 0);
     pos -= 30; // 每幀移動 px
-    // 循環：超過整個符號帶長度就重置
     var totalHeight = SYMBOLS_PER_REEL * getSymbolHeight();
     if (Math.abs(pos) >= totalHeight) {
         pos = 0;
@@ -69,20 +102,14 @@ function stopReel(reelNum, targetEmoji, callback) {
     var strip = document.getElementById('reel-' + reelNum);
     strip.classList.remove('spinning');
 
-    // 找到目標符號的索引
+    if (window.audioManager) window.audioManager.play('slot_stop');
+
     var targetIndex = SLOT_SYMBOLS.indexOf(targetEmoji);
     if (targetIndex === -1) targetIndex = 0;
 
-    // 計算目標位置：讓目標符號出現在中間（第2行）
-    // 中間行 = 第1個位置 (0-indexed), 所以 offset = targetIndex * SYMBOL_HEIGHT
-    // 但我們要在 reel 的 270px 高度中，讓目標出現在中間的 90px
-    // 頂部顯示 targetIndex-1, 中間顯示 targetIndex, 底部顯示 targetIndex+1
-    // 所以 translateY = -(targetIndex - 1) * SYMBOL_HEIGHT (如果 targetIndex > 0)
-    // 為了要有多一些視覺位移，加上偏移
-    var extraLoops = (3 + reelNum) * SLOT_SYMBOLS.length; // 多轉幾圈
+    var extraLoops = (3 + reelNum) * SLOT_SYMBOLS.length; 
     var finalIndex = extraLoops + targetIndex;
 
-    // 確保 strip 有足夠的符號
     while (strip.children.length < finalIndex + 3) {
         var div = document.createElement('div');
         div.className = 'reel-symbol';
@@ -90,12 +117,9 @@ function stopReel(reelNum, targetEmoji, callback) {
         strip.appendChild(div);
     }
 
-    // 目標：讓 finalIndex 的符號出現在中間（offset = 1 symbol from top）
     var targetY = -(finalIndex - 1) * getSymbolHeight();
-
     strip.style.transform = 'translateY(' + targetY + 'px)';
 
-    // 等待過渡完成 (防止 callback 重複觸發)
     var called = false;
     function onEnd() {
         if (called) return;
@@ -122,6 +146,15 @@ function spin() {
 
     if (isNaN(amount) || amount <= 0) {
         statusMsg.innerText = '❌ 請輸入有效的金額';
+        stopAutoSpin();
+        return;
+    }
+
+    // 檢查餘額
+    var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+    if (currentBalance < amount) {
+        statusMsg.innerText = '❌ 餘額不足';
+        stopAutoSpin();
         return;
     }
 
@@ -132,22 +165,23 @@ function spin() {
     txLog.innerHTML = '';
     payline.classList.remove('win');
 
-    // 重建轉輪 (重置位置)
+    if (window.audioManager) {
+        window.audioManager.play('bet');
+        reelSoundId = window.audioManager.play('slot_reel', { loop: true });
+    }
+
     buildReels();
 
     // 樂觀更新餘額
-    var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
     var tempBalance = currentBalance - amount;
     document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     var hBal = document.getElementById('header-balance');
     if (hBal) hBal.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-    // 開始旋轉動畫
     setTimeout(function() {
         startSpinAnimation();
     }, 50);
 
-    // 同時打 API
     fetch('/api/game?game=slots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,19 +197,18 @@ function spin() {
         statusMsg.innerHTML = '<span class="loader"></span> 開獎中...';
 
         var reelEmojis = result.reels.map(function(r) { return r.emoji; });
-
-        // 確保最少轉 1.5 秒後才停
-        var minSpinTime = 1500;
-        var stopDelay = 500; // 每個轉輪間隔
+        var minSpinTime = 1200;
+        var stopDelay = 400;
 
         setTimeout(function() {
-            // 依序停止轉輪
             stopReel(1, reelEmojis[0], function() {
                 setTimeout(function() {
                     stopReel(2, reelEmojis[1], function() {
                         setTimeout(function() {
                             stopReel(3, reelEmojis[2], function() {
-                                // 所有轉輪停止，顯示結果
+                                if (window.audioManager && reelSoundId) {
+                                    window.audioManager.stop('slot_reel', reelSoundId);
+                                }
                                 showResult(result, amount, tempBalance);
                             });
                         }, stopDelay);
@@ -186,7 +219,9 @@ function spin() {
     })
     .catch(function(e) {
         console.error(e);
-        // 停止旋轉
+        if (window.audioManager && reelSoundId) {
+            window.audioManager.stop('slot_reel', reelSoundId);
+        }
         for (var r = 1; r <= 3; r++) {
             var strip = document.getElementById('reel-' + r);
             strip.classList.remove('spinning');
@@ -195,6 +230,7 @@ function spin() {
         statusMsg.style.color = 'red';
         isSpinning = false;
         spinBtn.disabled = false;
+        stopAutoSpin();
         document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     });
@@ -209,29 +245,40 @@ function showResult(result, betAmount, tempBalance) {
     var spinBtn = document.getElementById('spin-btn');
     var payline = document.getElementById('payline');
     var hBal = document.getElementById('header-balance');
+    var stopOnWin = document.getElementById('stop-on-win').checked;
+    var stopOnBigWin = document.getElementById('stop-on-big-win').checked;
 
     updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
 
+    var isWin = false;
+    var isBigWin = false;
+
     if (result.resultType === 'triple') {
+        isWin = true;
+        if (result.multiplier >= 15) isBigWin = true;
+        
         payline.classList.add('win');
+        if (window.audioManager) {
+            window.audioManager.play(isBigWin ? 'win_big' : 'win_small');
+        }
 
         var profitAmount = betAmount * result.multiplier;
         var displayMultiplier = result.multiplier + 'x';
-
         statusMsg.innerHTML = '🏆 三連線！' +
             ' <span class="result-multiplier" style="display:inline;">' + displayMultiplier + '</span>';
         statusMsg.style.color = '#00ff88';
 
-        // 贏了：本金還在 + 利潤
         var newBalance = tempBalance + betAmount + profitAmount;
         document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     } else if (result.resultType === 'double') {
+        isWin = true;
         payline.classList.add('win');
+        if (window.audioManager) window.audioManager.play('win_small');
+
         statusMsg.innerHTML = '⭐ 兩連線，返還 <span class="result-multiplier" style="display:inline;">0.5x</span>';
         statusMsg.style.color = '#ffcc00';
 
-        // 下注已先扣，兩連只返還半注
         var halfBackBalance = tempBalance + (betAmount * 0.5);
         document.getElementById('balance-val').innerText = halfBackBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = halfBackBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
@@ -244,5 +291,26 @@ function showResult(result, betAmount, tempBalance) {
 
     isSpinning = false;
     spinBtn.disabled = false;
+
+    // 自動旋轉邏輯
+    if (isAutoSpinning) {
+        var shouldStop = false;
+        if (isBigWin && stopOnBigWin) shouldStop = true;
+        else if (isWin && stopOnWin) shouldStop = true;
+        
+        if (autoSpinsLeft !== 9999) {
+            autoSpinsLeft--;
+            if (autoSpinsLeft <= 0) shouldStop = true;
+        }
+
+        if (shouldStop) {
+            stopAutoSpin();
+        } else {
+            var btn = document.getElementById('auto-btn');
+            btn.innerText = '🛑 停止自動 (' + (autoSpinsLeft > 1000 ? '∞' : autoSpinsLeft) + ')';
+            setTimeout(spin, 1500); // 延遲一下再開始下一轉
+        }
+    }
+
     setTimeout(refreshBalance, 10000);
 }

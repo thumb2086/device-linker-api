@@ -1,7 +1,8 @@
-import { kv } from '@vercel/kv';
+import { kv } from "@vercel/kv";
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { ethers } from "ethers";
 import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
+import { getRoundInfo } from "../lib/auto-round.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { buildVipStatus } from "../lib/vip.js";
 import { getSession, saveSession } from "../lib/session-store.js";
@@ -14,7 +15,7 @@ const CUSTODY_USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
 const CUSTODY_PASSWORD_MIN = 6;
 const CUSTODY_PASSWORD_MAX = 128;
 const CUSTODY_REGISTER_BONUS = "100000";
-const AUTH_API_BUILD = "2026-03-07-user-compat-v1";
+const AUTH_API_BUILD = "2026-03-08-user-compat-v2";
 
 function normalizeText(value, fallback = "unknown", maxLength = 64) {
     if (typeof value !== "string") return fallback;
@@ -57,9 +58,9 @@ function parseSessionTTL(input) {
         const normalized = input.trim().toLowerCase();
         if (["0", "none", "never", "off"].includes(normalized)) return null;
     }
+
     const parsed = Number(input);
-    if (!Number.isFinite(parsed)) return null;
-    if (parsed <= 0) return null;
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
     return Math.min(3600, Math.max(60, Math.floor(parsed)));
 }
 
@@ -77,28 +78,6 @@ function toDecimalString(value, fallback = "0.00", fractionDigits = 2) {
     const numberValue = Number(normalized);
     if (!Number.isFinite(numberValue)) return fallback;
     return numberValue.toFixed(fractionDigits);
-}
-
-function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "") {
-    const isAdmin = String(sessionData.address || "").toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
-    return {
-        success: true,
-        status: "authorized",
-        address: sessionData.address,
-        displayName,
-        publicKey: sessionData.publicKey || null,
-        mode: sessionData.mode || "live",
-        platform: sessionData.platform || "unknown",
-        clientType: sessionData.clientType || "unknown",
-        deviceId: sessionData.deviceId || "",
-        appVersion: sessionData.appVersion || "",
-        authorizedAt: sessionData.authorizedAt || null,
-        balance: toDecimalString(balance),
-        totalBet: toDecimalString(totalBet),
-        vipLevel: vipStatus.vipLevel,
-        maxBet: toDecimalString(vipStatus.maxBet),
-        isAdmin
-    };
 }
 
 function normalizeUsername(value) {
@@ -139,6 +118,7 @@ function getSafeBody(req) {
     if (!req || typeof req !== "object") return {};
     const rawBody = req.body;
     if (!rawBody) return {};
+
     if (typeof rawBody === "string") {
         try {
             const parsed = JSON.parse(rawBody);
@@ -147,7 +127,40 @@ function getSafeBody(req) {
             return {};
         }
     }
+
     return typeof rawBody === "object" ? rawBody : {};
+}
+
+function buildPendingPayload(sessionData = {}) {
+    return {
+        status: "pending",
+        platform: sessionData.platform || "unknown",
+        clientType: sessionData.clientType || "unknown",
+        expiresAt: sessionData.expiresAt || null
+    };
+}
+
+function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "") {
+    const isAdmin = String(sessionData.address || "").toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
+    return {
+        success: true,
+        status: "authorized",
+        address: sessionData.address,
+        displayName,
+        publicKey: sessionData.publicKey || null,
+        mode: sessionData.mode || "live",
+        platform: sessionData.platform || "unknown",
+        clientType: sessionData.clientType || "unknown",
+        deviceId: sessionData.deviceId || "",
+        appVersion: sessionData.appVersion || "",
+        authorizedAt: sessionData.authorizedAt || null,
+        expiresAt: sessionData.expiresAt || null,
+        balance: toDecimalString(balance),
+        totalBet: toDecimalString(totalBet),
+        vipLevel: vipStatus.vipLevel,
+        maxBet: toDecimalString(vipStatus.maxBet),
+        isAdmin
+    };
 }
 
 async function loadUserMetrics(address) {
@@ -168,7 +181,7 @@ async function loadUserMetrics(address) {
         getDisplayName(address)
     ]);
 
-    const totalBet = parseFloat(totalBetRaw || 0);
+    const totalBet = Number(totalBetRaw || 0);
     return {
         balance: ethers.formatUnits(balanceRaw, decimals),
         totalBet,
@@ -177,62 +190,73 @@ async function loadUserMetrics(address) {
     };
 }
 
-export default async function handler(req, res) {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('X-Auth-Build', AUTH_API_BUILD);
+function resolveProfileAction(action) {
+    if (action === "get_profile" || action === "get") return "get";
+    if (action === "set_profile" || action === "set") return "set";
+    return "";
+}
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
+export default async function handler(req, res) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("X-Auth-Build", AUTH_API_BUILD);
+
+    if (req.method === "OPTIONS") return res.status(200).end();
 
     try {
         const query = getSafeQuery(req);
         const body = getSafeBody(req);
         const sessionId = normalizeSessionId(query.sessionId || body.sessionId);
+        const action = normalizeText(body.action || query.action, req.method === "GET" ? "get_status" : "authorize");
+        const clockOnly = String(query.clock || "") === "1";
 
-        if (req.method === 'GET') {
+        if (req.method === "GET") {
+            if (clockOnly) {
+                const game = typeof query.game === "string" ? query.game : "roulette";
+                const nowTs = Date.now();
+                const round = getRoundInfo(game, nowTs);
+                return res.status(200).json({ success: true, serverNowTs: nowTs, ...round });
+            }
+
             if (!sessionId) return res.status(200).json({ status: "pending" });
 
             const sessionData = await getSession(sessionId);
-            if (!sessionData || sessionData.status === "pending") {
-                return res.status(200).json({ status: "pending" });
-            }
+            if (!sessionData) return res.status(200).json({ status: "pending" });
+            if (sessionData.status === "pending") return res.status(200).json(buildPendingPayload(sessionData));
 
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
                     buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName)
                 );
-            } catch (blockchainError) {
-                console.error("Unable to load user metrics:", blockchainError.message);
+            } catch (error) {
+                console.error("User metrics read failed:", error.message);
                 return res.status(200).json(
                     buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "")
                 );
             }
         }
 
-        if (req.method !== 'POST') {
+        if (req.method !== "POST") {
             return res.status(405).json({ success: false, error: "Method Not Allowed" });
         }
-
-        const action = normalizeText(body.action, "authorize");
 
         if (action === "get_status") {
             if (!sessionId) return res.status(200).json({ status: "pending" });
 
             const sessionData = await getSession(sessionId);
-            if (!sessionData || sessionData.status === "pending") {
-                return res.status(200).json({ status: "pending" });
-            }
+            if (!sessionData) return res.status(200).json({ status: "pending" });
+            if (sessionData.status === "pending") return res.status(200).json(buildPendingPayload(sessionData));
 
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
                     buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName)
                 );
-            } catch (blockchainError) {
-                console.error("Unable to load user metrics:", blockchainError.message);
+            } catch (error) {
+                console.error("User metrics read failed:", error.message);
                 return res.status(200).json(
                     buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "")
                 );
@@ -240,8 +264,10 @@ export default async function handler(req, res) {
         }
 
         if (action === "create" || action === "create_session") {
-            const generatedSessionId = normalizeSessionId(body.sessionId) || `session_${randomUUID()}`;
+            const requestedSessionId = normalizeSessionId(body.sessionId);
+            const generatedSessionId = requestedSessionId || `session_${randomUUID()}`;
             const ttlSeconds = parseSessionTTL(body.ttlSeconds);
+            const effectiveTtlSeconds = ttlSeconds === null && action === "create_session" ? 3600 : ttlSeconds;
             const platform = normalizePlatform(body.platform);
             const clientType = normalizeClientType(body.clientType);
             const deviceId = normalizeDeviceId(body.deviceId);
@@ -254,8 +280,8 @@ export default async function handler(req, res) {
                 deviceId,
                 appVersion,
                 createdAt: new Date().toISOString(),
-                expiresAt: buildExpiresAt(ttlSeconds)
-            }, ttlSeconds === null ? 3600 : ttlSeconds);
+                expiresAt: buildExpiresAt(effectiveTtlSeconds)
+            }, effectiveTtlSeconds);
 
             return res.status(200).json({
                 success: true,
@@ -263,7 +289,7 @@ export default async function handler(req, res) {
                 sessionId: generatedSessionId,
                 deepLink: buildDeepLink(generatedSessionId),
                 legacyDeepLink: `dlinker:login:${generatedSessionId}`,
-                ttlSeconds,
+                ttlSeconds: effectiveTtlSeconds,
                 platform,
                 clientType
             });
@@ -279,10 +305,10 @@ export default async function handler(req, res) {
             const appVersion = normalizeText(body.appVersion, "", 32);
 
             if (!CUSTODY_USERNAME_REGEX.test(username)) {
-                return res.status(400).json({ success: false, error: "帳號格式錯誤（3-32，英文數字底線）" });
+                return res.status(400).json({ success: false, error: "Invalid username format" });
             }
             if (password.length < CUSTODY_PASSWORD_MIN || password.length > CUSTODY_PASSWORD_MAX) {
-                return res.status(400).json({ success: false, error: "密碼長度需 6-128" });
+                return res.status(400).json({ success: false, error: "Password length must be 6-128" });
             }
 
             const key = custodyUserKey(username);
@@ -307,9 +333,11 @@ export default async function handler(req, res) {
                 await kv.set(key, custodyUser);
 
                 try {
-                    const provider = new ethers.JsonRpcProvider(RPC_URL);
                     let privateKey = process.env.ADMIN_PRIVATE_KEY;
-                    if (privateKey) {
+                    if (!privateKey) {
+                        bonusError = "ADMIN_PRIVATE_KEY is not configured";
+                    } else {
+                        const provider = new ethers.JsonRpcProvider(RPC_URL);
                         if (!privateKey.startsWith("0x")) privateKey = `0x${privateKey}`;
                         const wallet = new ethers.Wallet(privateKey, provider);
                         const treasuryAddress = process.env.LOSS_POOL_ADDRESS || wallet.address;
@@ -332,14 +360,22 @@ export default async function handler(req, res) {
                         );
                         bonusGranted = true;
                         bonusTxHash = bonusTx.hash;
-                    } else {
-                        bonusError = "ADMIN_PRIVATE_KEY is not configured";
                     }
-                } catch (e) {
-                    bonusError = e.message || "註冊獎勵發放失敗";
+                } catch (error) {
+                    bonusError = error.message || "Register bonus failed";
                 }
-            } else if (!verifyPassword(password, custodyUser.saltHex, custodyUser.passwordHash)) {
-                return res.status(401).json({ success: false, error: "帳號或密碼錯誤" });
+            } else {
+                if (!custodyUser.saltHex || !custodyUser.passwordHash) {
+                    return res.status(500).json({ success: false, error: "Custody user record is invalid" });
+                }
+                if (!verifyPassword(password, custodyUser.saltHex, custodyUser.passwordHash)) {
+                    return res.status(401).json({ success: false, error: "Invalid username or password" });
+                }
+                if (!custodyUser.publicKey) {
+                    const fallbackSeed = `${username}:${custodyUser.address}:${custodyUser.createdAt || ""}`;
+                    custodyUser.publicKey = buildCustodyPublicKey(fallbackSeed);
+                    await kv.set(key, custodyUser);
+                }
             }
 
             await ensureDisplayName(custodyUser.address, username);
@@ -374,11 +410,14 @@ export default async function handler(req, res) {
             });
         }
 
-        if (action === "get_profile" || action === "set_profile") {
+        const profileAction = resolveProfileAction(action);
+        if (profileAction) {
             const profileSession = await getSession(body.sessionId);
-            if (!profileSession) return res.status(403).json({ success: false, error: "會話過期" });
+            if (!profileSession || !profileSession.address) {
+                return res.status(403).json({ success: false, error: "Session expired" });
+            }
 
-            if (action === "get_profile") {
+            if (profileAction === "get") {
                 const displayName = await getDisplayName(profileSession.address);
                 return res.status(200).json({ success: true, displayName });
             }
@@ -388,42 +427,69 @@ export default async function handler(req, res) {
         }
 
         if (action === "get_history") {
-            const { address, page = 1, limit = 20 } = body;
-            if (!address) return res.status(400).json({ success: false, error: "缺少地址" });
+            const address = String(body.address || "").trim();
+            const page = Number(body.page || 1);
+            const limit = Number(body.limit || 20);
+            if (!address) {
+                return res.status(400).json({ success: false, error: "Missing address" });
+            }
 
-            const apiKey = process.env.ETHERSCAN_API_KEY;
+            const apiKey = process.env.ETHERSCAN_API_KEY || "";
             const url = `https://api.etherscan.io/v2/api?chainid=11155111&module=account&action=tokentx&contractaddress=${CONTRACT_ADDRESS}&address=${address}&page=${page}&offset=${limit}&sort=desc&apikey=${apiKey}`;
-
             const response = await fetch(url);
             const data = await response.json();
 
-            if (data.status === "0" && !String(data.message || "").includes("No transactions found")) {
-                return res.status(400).json({ success: false, error: data.message });
+            const normalizeResponseText = (value) => String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+            const messageText = normalizeResponseText(data.message);
+            const resultText = normalizeResponseText(data.result);
+            const noTransactions =
+                messageText.includes("no transactions found") ||
+                resultText.includes("no transactions found") ||
+                (Array.isArray(data.result) && data.result.length === 0);
+
+            if (data.status === "0" && !noTransactions) {
+                return res.status(200).json({
+                    success: false,
+                    error: data.message || "Etherscan request failed",
+                    details: data.result
+                });
             }
 
-            const history = (data.result || []).map((tx) => ({
-                type: tx.from.toLowerCase() === String(address).toLowerCase() ? "send" : "receive",
-                amount: ethers.formatUnits(tx.value, 18),
-                counterParty: tx.from.toLowerCase() === String(address).toLowerCase() ? tx.to : tx.from,
-                timestamp: parseInt(tx.timeStamp, 10),
-                txHash: tx.hash
-            }));
+            const history = (Array.isArray(data.result) ? data.result : []).map((tx) => {
+                const isSend = tx.from.toLowerCase() === address.toLowerCase();
+                const timestamp = parseInt(tx.timeStamp, 10);
+                return {
+                    type: isSend ? "send" : "receive",
+                    amount: ethers.formatUnits(tx.value, 18),
+                    counterParty: isSend ? tx.to : tx.from,
+                    timestamp,
+                    date: new Date(timestamp * 1000).toLocaleString("zh-TW", { hour12: false }),
+                    txHash: tx.hash
+                };
+            });
 
-            return res.status(200).json({ success: true, history });
+            return res.status(200).json({
+                success: true,
+                page,
+                limit,
+                count: history.length,
+                hasMore: history.length === limit,
+                history
+            });
         }
 
         if (action === "authorize") {
             const publicKey = safePublicKey(body.publicKey);
             const address = body.address;
             if (!sessionId || !address || !publicKey) {
-                return res.status(400).json({ success: false, error: "缺少欄位" });
+                return res.status(400).json({ success: false, error: "Missing required fields" });
             }
 
             let normalizedAddress;
             try {
                 normalizedAddress = ethers.getAddress(address).toLowerCase();
             } catch {
-                return res.status(400).json({ success: false, error: "地址格式錯誤" });
+                return res.status(400).json({ success: false, error: "Invalid address" });
             }
 
             const existingSession = await getSession(sessionId);
@@ -458,9 +524,12 @@ export default async function handler(req, res) {
             });
         }
 
-        return res.status(400).json({ success: false, error: "無效的 action" });
+        return res.status(400).json({ success: false, error: "Unsupported action" });
     } catch (error) {
         console.error("User API Error:", error);
-        return res.status(500).json({ success: false, error: error.message });
+        return res.status(500).json({
+            success: false,
+            error: error.message || "User API failed"
+        });
     }
 }

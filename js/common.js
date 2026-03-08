@@ -42,6 +42,50 @@ function renderMaxBetNote(maxBet) {
     noteEl.innerText = '單注上限 ' + formatCompactZh(maxBet, 2) + ' 子熙幣，依目前 VIP 等級自動調整';
 }
 
+function ensureSupportShortcutStyle() {
+    if (document.getElementById('support-shortcut-style')) return;
+    var style = document.createElement('style');
+    style.id = 'support-shortcut-style';
+    style.textContent = [
+        '.support-shortcut-link {',
+        'position: fixed;',
+        'right: 18px;',
+        'bottom: 18px;',
+        'z-index: 60;',
+        'display: inline-flex;',
+        'align-items: center;',
+        'gap: 8px;',
+        'padding: 12px 16px;',
+        'border-radius: 999px;',
+        'background: linear-gradient(135deg, rgba(255, 214, 102, 0.96), rgba(255, 157, 77, 0.96));',
+        'color: #2b1100;',
+        'font-weight: 700;',
+        'text-decoration: none;',
+        'box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);',
+        '}',
+        '.support-shortcut-link:hover { transform: translateY(-1px); }',
+        '@media (max-width: 640px) { .support-shortcut-link { left: 12px; right: 12px; justify-content: center; bottom: 12px; } }'
+    ].join('');
+    document.head.appendChild(style);
+}
+
+function ensureSupportShortcut() {
+    if (!user.sessionId) return;
+    if (window.location.pathname.indexOf('/games/support.html') >= 0) return;
+
+    ensureSupportShortcutStyle();
+
+    var existing = document.getElementById('support-shortcut-link');
+    if (existing) return;
+
+    var link = document.createElement('a');
+    link.id = 'support-shortcut-link';
+    link.className = 'support-shortcut-link';
+    link.href = '/games/support.html';
+    link.innerText = '問題回報 / 公告';
+    document.body.appendChild(link);
+}
+
 function updateUI(data) {
     if (!data) return;
 
@@ -95,6 +139,8 @@ function updateUI(data) {
     if (data.maxBet !== undefined) {
         renderMaxBetNote(data.maxBet);
     }
+
+    ensureSupportShortcut();
 }
 
 function promptDisplayName() {

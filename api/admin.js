@@ -1,9 +1,22 @@
-import { randomBytes, scryptSync } from "crypto";
+﻿import { randomBytes, scryptSync } from "crypto";
 import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 import { DEFAULT_RESET_THRESHOLD, resetHighTotalBets } from "../lib/ops/reset-high-total-bets.js";
+import {
+    createAnnouncement,
+    getAnnouncement,
+    getIssueReport,
+    listAnnouncements,
+    listIssueReports,
+    normalizeIssueStatus,
+    saveAnnouncement,
+    saveIssueReport,
+    sanitizeAnnouncementInput,
+    toBoolean,
+    validateAnnouncementInput
+} from "../lib/support-center.js";
 
 const CUSTODY_USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
 const CUSTODY_PASSWORD_MIN = 6;
@@ -71,6 +84,11 @@ function hashPassword(password, saltHex) {
 function toTimestamp(value) {
     const timestamp = Date.parse(String(value || ""));
     return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function sanitizeAdminUpdate(value) {
+    if (typeof value !== "string") return "";
+    return value.replace(/\r\n/g, "\n").replace(/\u0000/g, "").trim().slice(0, 4000);
 }
 
 async function listCustodyUsers(limit) {
@@ -215,6 +233,99 @@ export default async function handler(req, res) {
             });
         }
 
+        if (action === "list_issue_reports") {
+            const result = await listIssueReports({
+                limit: body.limit,
+                status: body.status,
+                keyword: body.keyword
+            });
+            return res.status(200).json({
+                success: true,
+                reports: result.reports,
+                total: result.total,
+                returned: result.reports.length
+            });
+        }
+
+        if (action === "update_issue_report") {
+            const reportId = String(body.reportId || "").trim();
+            const report = await getIssueReport(reportId);
+            if (!report) {
+                return res.status(404).json({ success: false, error: "Issue report not found" });
+            }
+
+            const nextStatus = normalizeIssueStatus(body.status, report.status);
+            const adminUpdate = sanitizeAdminUpdate(body.adminUpdate);
+            const updated = await saveIssueReport({
+                ...report,
+                status: nextStatus,
+                adminUpdate,
+                updatedAt: new Date().toISOString()
+            });
+
+            return res.status(200).json({
+                success: true,
+                report: updated
+            });
+        }
+
+        if (action === "list_announcements") {
+            const result = await listAnnouncements({
+                limit: body.limit,
+                activeOnly: body.activeOnly === true || String(body.activeOnly || "").trim().toLowerCase() === "true"
+            });
+            return res.status(200).json({
+                success: true,
+                announcements: result.announcements,
+                total: result.total,
+                returned: result.announcements.length
+            });
+        }
+
+        if (action === "publish_announcement") {
+            const input = sanitizeAnnouncementInput(body);
+            const validationError = validateAnnouncementInput(input);
+            if (validationError) {
+                return res.status(400).json({ success: false, error: validationError });
+            }
+
+            const created = await createAnnouncement({
+                ...input,
+                publishedBy: sessionAddress,
+                updatedBy: sessionAddress
+            });
+
+            return res.status(200).json({ success: true, announcement: created });
+        }
+
+        if (action === "update_announcement") {
+            const announcementId = String(body.announcementId || "").trim();
+            const announcement = await getAnnouncement(announcementId);
+            if (!announcement) {
+                return res.status(404).json({ success: false, error: "Announcement not found" });
+            }
+
+            const input = sanitizeAnnouncementInput({
+                title: body.title !== undefined ? body.title : announcement.title,
+                content: body.content !== undefined ? body.content : announcement.content,
+                pinned: body.pinned !== undefined ? body.pinned : announcement.pinned,
+                isActive: body.isActive !== undefined ? body.isActive : announcement.isActive
+            });
+            const validationError = validateAnnouncementInput(input);
+            if (validationError) {
+                return res.status(400).json({ success: false, error: validationError });
+            }
+
+            const updated = await saveAnnouncement({
+                ...announcement,
+                ...input,
+                updatedAt: new Date().toISOString(),
+                updatedBy: sessionAddress
+            });
+
+            return res.status(200).json({ success: true, announcement: updated });
+        }
+
         if (action !== "reset_total_bets") {
             return res.status(400).json({
                 success: false,
@@ -223,7 +334,12 @@ export default async function handler(req, res) {
                     "reset_total_bets",
                     "list_custody_users",
                     "inspect_custody_user",
-                    "reset_custody_password"
+                    "reset_custody_password",
+                    "list_issue_reports",
+                    "update_issue_report",
+                    "list_announcements",
+                    "publish_announcement",
+                    "update_announcement"
                 ]
             });
         }

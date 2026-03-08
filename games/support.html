@@ -1,0 +1,112 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>問題回報與公告 | Device Linker Casino</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/support.css">
+</head>
+
+<body class="support-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">返回首頁</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> DLINK</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>問題回報與更新公告</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">載入中</span>
+            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> DLINK</div>
+            <div class="stat-row">累計下注: <span id="total-bet-val">0.00</span> DLINK</div>
+            <div class="stat-row">顯示名稱: <span id="display-name-val">未設定</span></div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-heading-row">
+                <div>
+                    <h2>更新公告欄</h2>
+                    <p class="tool-note">這裡會顯示目前有效中的最新公告與更新說明。</p>
+                </div>
+                <button class="btn-secondary compact-btn" onclick="refreshSupportPage()">重新整理</button>
+            </div>
+            <p id="announcement-status-msg">載入中...</p>
+            <div id="announcement-list" class="announcement-list">
+                <div class="result-empty">尚未載入公告</div>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>提交問題回報</h2>
+            <p class="tool-note">請盡量寫清楚發生頁面、重現方式、時間點。管理員處理後，會在下方的回報紀錄更新狀態與備註。</p>
+            <div class="support-form-grid">
+                <label>
+                    類別
+                    <select id="report-category" class="text-input">
+                        <option value="general">一般問題</option>
+                        <option value="auth">登入 / 授權</option>
+                        <option value="wallet">錢包 / 餘額</option>
+                        <option value="game">遊戲異常</option>
+                        <option value="payment">轉帳 / 提領</option>
+                        <option value="suggestion">功能建議</option>
+                    </select>
+                </label>
+                <label>
+                    標題
+                    <input id="report-title" class="text-input" type="text" maxlength="120" placeholder="例如：硬體授權後卡在等待中">
+                </label>
+                <label class="full-span">
+                    問題描述
+                    <textarea id="report-message" class="text-input report-textarea" placeholder="請描述發生頁面、重現步驟、期望結果與實際結果"></textarea>
+                </label>
+                <label>
+                    聯絡方式（選填）
+                    <input id="report-contact" class="text-input" type="text" maxlength="120" placeholder="Telegram / LINE / Email">
+                </label>
+                <label>
+                    目前頁面
+                    <input id="report-page-url" class="text-input" type="text" readonly>
+                </label>
+            </div>
+            <div class="form-row single-row">
+                <button class="btn-primary" onclick="submitIssueReport()">送出回報</button>
+            </div>
+            <p id="support-status-msg">待命中</p>
+        </div>
+
+        <div class="section-block">
+            <h2>我的回報紀錄</h2>
+            <p class="tool-note">管理員更新後，會顯示在每筆回報的「最新處理更新」。</p>
+            <div id="my-report-list" class="report-list">
+                <div class="result-empty">尚未載入回報紀錄</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/support.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initSupportPage();
+            });
+        };
+    </script>
+
+    <script>
+        window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
+</body>
+
+</html>

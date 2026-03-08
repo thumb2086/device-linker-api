@@ -1,5 +1,7 @@
 ﻿var adminToolsBusy = false;
 var custodyUsers = [];
+var issueReports = [];
+var announcements = [];
 
 function setAdminStatus(text, isError) {
     var el = document.getElementById('status-msg');
@@ -10,6 +12,20 @@ function setAdminStatus(text, isError) {
 
 function setCustodyStatus(text, isError) {
     var el = document.getElementById('custody-status-msg');
+    if (!el) return;
+    el.innerText = text || '';
+    el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
+}
+
+function setIssueStatus(text, isError) {
+    var el = document.getElementById('issue-status-msg');
+    if (!el) return;
+    el.innerText = text || '';
+    el.style.color = isError ? '#ff7d7d' : '#9bf1b9';
+}
+
+function setAnnouncementAdminStatus(text, isError) {
+    var el = document.getElementById('announcement-admin-status-msg');
     if (!el) return;
     el.innerText = text || '';
     el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
@@ -52,6 +68,52 @@ function formatTime(value) {
 
 function getPasswordInputId(username) {
     return 'custody-password-' + String(username || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function getIssueUpdateId(reportId) {
+    return 'issue-update-' + String(reportId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function getIssueStatusId(reportId) {
+    return 'issue-status-' + String(reportId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function getAnnouncementTitleId(announcementId) {
+    return 'announcement-title-' + String(announcementId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function getAnnouncementContentId(announcementId) {
+    return 'announcement-content-' + String(announcementId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function getAnnouncementActiveId(announcementId) {
+    return 'announcement-active-' + String(announcementId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function getAnnouncementPinnedId(announcementId) {
+    return 'announcement-pinned-' + String(announcementId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function reportStatusLabel(status) {
+    switch (String(status || 'open')) {
+        case 'resolved':
+            return '已處理';
+        case 'in_progress':
+            return '處理中';
+        default:
+            return '待處理';
+    }
+}
+
+function reportStatusClass(status) {
+    switch (String(status || 'open')) {
+        case 'resolved':
+            return 'ok';
+        case 'in_progress':
+            return 'info';
+        default:
+            return 'warn';
+    }
 }
 
 function callAdminApi(action, extraPayload) {
@@ -215,7 +277,253 @@ function resetCustodyPassword(username) {
     });
 }
 
+function renderIssueReports() {
+    var listEl = document.getElementById('issue-report-list');
+    var totalEl = document.getElementById('issue-total-count');
+    var visibleEl = document.getElementById('issue-visible-count');
+    var openEl = document.getElementById('issue-open-count');
+    var filterEl = document.getElementById('issue-filter-input');
+    var statusEl = document.getElementById('issue-status-filter');
+    var keyword = String(filterEl && filterEl.value || '').trim().toLowerCase();
+    var statusFilter = String(statusEl && statusEl.value || '').trim().toLowerCase();
+
+    if (totalEl) totalEl.innerText = String(issueReports.length);
+    if (openEl) {
+        openEl.innerText = String(issueReports.filter(function (item) { return item.status === 'open'; }).length);
+    }
+    if (!listEl) return;
+
+    var filtered = issueReports.filter(function (item) {
+        if (statusFilter && item.status !== statusFilter) return false;
+        if (!keyword) return true;
+        return [item.title, item.message, item.address, item.displayName, item.category, item.contact, item.adminUpdate]
+            .join('\n')
+            .toLowerCase()
+            .indexOf(keyword) >= 0;
+    });
+
+    if (visibleEl) visibleEl.innerText = String(filtered.length);
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = '<div class="result-empty">沒有符合條件的問題回報</div>';
+        return;
+    }
+
+    var html = '';
+    filtered.forEach(function (item) {
+        var reportId = String(item.id || '');
+        var updateId = getIssueUpdateId(reportId);
+        var statusId = getIssueStatusId(reportId);
+        html += '<div class="issue-report-card">' +
+            '<div class="issue-report-head">' +
+                '<div>' +
+                    '<strong>' + escapeHtml(item.title || '未命名問題') + '</strong>' +
+                    '<div class="issue-report-meta">' +
+                        '<span>' + escapeHtml(item.category || 'general') + '</span>' +
+                        '<span>' + escapeHtml(formatTime(item.createdAt)) + '</span>' +
+                        '<span class="mono">' + escapeHtml(maskAdminAddress(item.address || '-')) + '</span>' +
+                        '<span>' + escapeHtml(item.displayName || '未設定名稱') + '</span>' +
+                    '</div>' +
+                '</div>' +
+                '<span class="state-chip ' + reportStatusClass(item.status) + '">' + reportStatusLabel(item.status) + '</span>' +
+            '</div>' +
+            '<div class="issue-report-message">' + escapeHtml(item.message || '').replace(/\n/g, '<br>') + '</div>' +
+            '<div class="issue-report-extra">' +
+                '<span>聯絡方式：' + escapeHtml(item.contact || '未提供') + '</span>' +
+                '<span>模式：' + escapeHtml(item.mode || 'live') + '</span>' +
+                '<span>版本：' + escapeHtml(item.appVersion || '-') + '</span>' +
+            '</div>' +
+            '<div class="issue-editor-grid">' +
+                '<label>' +
+                    '<span>處理狀態</span>' +
+                    '<select id="' + escapeHtml(statusId) + '" class="text-input">' +
+                        '<option value="open"' + (item.status === 'open' ? ' selected' : '') + '>待處理</option>' +
+                        '<option value="in_progress"' + (item.status === 'in_progress' ? ' selected' : '') + '>處理中</option>' +
+                        '<option value="resolved"' + (item.status === 'resolved' ? ' selected' : '') + '>已處理</option>' +
+                    '</select>' +
+                '</label>' +
+                '<label class="full-span">' +
+                    '<span>最新處理更新</span>' +
+                    '<textarea id="' + escapeHtml(updateId) + '" class="text-input issue-update-textarea" placeholder="例如：已確認問題，預計今晚修正">' + escapeHtml(item.adminUpdate || '') + '</textarea>' +
+                '</label>' +
+            '</div>' +
+            '<div class="issue-card-actions">' +
+                '<button class="btn-primary compact-btn" data-report-id="' + escapeHtml(reportId) + '" onclick="updateIssueReport(this.dataset.reportId)">儲存更新</button>' +
+            '</div>' +
+            '</div>';
+    });
+
+    listEl.innerHTML = html;
+}
+
+function loadIssueReports() {
+    return callAdminApi('list_issue_reports', { limit: 200 }).then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || '載入問題回報失敗');
+        issueReports = Array.isArray(data.reports) ? data.reports : [];
+        renderIssueReports();
+        setIssueStatus('已載入 ' + issueReports.length + ' 筆問題回報', false);
+    });
+}
+
+function refreshIssueReports() {
+    setIssueStatus('正在讀取問題回報...', false);
+    withAdminBusy(function () {
+        return loadIssueReports();
+    }).catch(function (error) {
+        setIssueStatus('錯誤: ' + error.message, true);
+    });
+}
+
+function updateIssueReport(reportId) {
+    var statusEl = document.getElementById(getIssueStatusId(reportId));
+    var updateEl = document.getElementById(getIssueUpdateId(reportId));
+    var status = String(statusEl && statusEl.value || 'open');
+    var adminUpdate = String(updateEl && updateEl.value || '');
+
+    setIssueStatus('正在更新回報狀態...', false);
+    withAdminBusy(function () {
+        return callAdminApi('update_issue_report', {
+            reportId: reportId,
+            status: status,
+            adminUpdate: adminUpdate
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '更新回報失敗');
+            setIssueStatus('已更新回報狀態', false);
+            return loadIssueReports();
+        });
+    }).catch(function (error) {
+        setIssueStatus('錯誤: ' + error.message, true);
+    });
+}
+
+function renderAnnouncements() {
+    var listEl = document.getElementById('announcement-admin-list');
+    if (!listEl) return;
+
+    if (!announcements.length) {
+        listEl.innerHTML = '<div class="result-empty">目前尚未發布任何公告</div>';
+        return;
+    }
+
+    var html = '';
+    announcements.forEach(function (item) {
+        var announcementId = String(item.id || '');
+        var titleId = getAnnouncementTitleId(announcementId);
+        var contentId = getAnnouncementContentId(announcementId);
+        var activeId = getAnnouncementActiveId(announcementId);
+        var pinnedId = getAnnouncementPinnedId(announcementId);
+
+        html += '<div class="announcement-admin-card">' +
+            '<div class="announcement-admin-head">' +
+                '<div>' +
+                    '<strong>' + escapeHtml(item.title || '未命名公告') + '</strong>' +
+                    '<div class="issue-report-meta">' +
+                        '<span>' + escapeHtml(formatTime(item.updatedAt || item.createdAt)) + '</span>' +
+                        '<span>' + (item.pinned ? '已置頂' : '一般排序') + '</span>' +
+                        '<span>' + (item.isActive ? '啟用中' : '已停用') + '</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="announcement-form-grid">' +
+                '<label>' +
+                    '<span>標題</span>' +
+                    '<input id="' + escapeHtml(titleId) + '" class="text-input" type="text" value="' + escapeHtml(item.title || '') + '">' +
+                '</label>' +
+                '<label class="toggle-field">' +
+                    '<input id="' + escapeHtml(activeId) + '" type="checkbox"' + (item.isActive ? ' checked' : '') + '>' +
+                    '<span>啟用公告</span>' +
+                '</label>' +
+                '<label class="toggle-field">' +
+                    '<input id="' + escapeHtml(pinnedId) + '" type="checkbox"' + (item.pinned ? ' checked' : '') + '>' +
+                    '<span>置頂公告</span>' +
+                '</label>' +
+                '<label class="full-span">' +
+                    '<span>內容</span>' +
+                    '<textarea id="' + escapeHtml(contentId) + '" class="text-input announcement-textarea">' + escapeHtml(item.content || '') + '</textarea>' +
+                '</label>' +
+            '</div>' +
+            '<div class="issue-card-actions">' +
+                '<button class="btn-primary compact-btn" data-announcement-id="' + escapeHtml(announcementId) + '" onclick="updateAnnouncement(this.dataset.announcementId)">儲存公告</button>' +
+            '</div>' +
+            '</div>';
+    });
+
+    listEl.innerHTML = html;
+}
+
+function loadAnnouncements() {
+    return callAdminApi('list_announcements', { limit: 50, activeOnly: false }).then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || '載入公告失敗');
+        announcements = Array.isArray(data.announcements) ? data.announcements : [];
+        renderAnnouncements();
+        setAnnouncementAdminStatus('已載入 ' + announcements.length + ' 則公告', false);
+    });
+}
+
+function refreshAnnouncements() {
+    setAnnouncementAdminStatus('正在讀取公告...', false);
+    withAdminBusy(function () {
+        return loadAnnouncements();
+    }).catch(function (error) {
+        setAnnouncementAdminStatus('錯誤: ' + error.message, true);
+    });
+}
+
+function publishAnnouncement() {
+    var titleEl = document.getElementById('announcement-title');
+    var contentEl = document.getElementById('announcement-content');
+    var pinnedEl = document.getElementById('announcement-pinned');
+    var title = String(titleEl && titleEl.value || '');
+    var content = String(contentEl && contentEl.value || '');
+    var pinned = !!(pinnedEl && pinnedEl.checked);
+
+    setAnnouncementAdminStatus('正在發布公告...', false);
+    withAdminBusy(function () {
+        return callAdminApi('publish_announcement', {
+            title: title,
+            content: content,
+            pinned: pinned,
+            isActive: true
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '發布公告失敗');
+            if (titleEl) titleEl.value = '';
+            if (contentEl) contentEl.value = '';
+            if (pinnedEl) pinnedEl.checked = false;
+            setAnnouncementAdminStatus('公告已發布', false);
+            return loadAnnouncements();
+        });
+    }).catch(function (error) {
+        setAnnouncementAdminStatus('錯誤: ' + error.message, true);
+    });
+}
+
+function updateAnnouncement(announcementId) {
+    var titleEl = document.getElementById(getAnnouncementTitleId(announcementId));
+    var contentEl = document.getElementById(getAnnouncementContentId(announcementId));
+    var activeEl = document.getElementById(getAnnouncementActiveId(announcementId));
+    var pinnedEl = document.getElementById(getAnnouncementPinnedId(announcementId));
+
+    setAnnouncementAdminStatus('正在更新公告...', false);
+    withAdminBusy(function () {
+        return callAdminApi('update_announcement', {
+            announcementId: announcementId,
+            title: String(titleEl && titleEl.value || ''),
+            content: String(contentEl && contentEl.value || ''),
+            isActive: !!(activeEl && activeEl.checked),
+            pinned: !!(pinnedEl && pinnedEl.checked)
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '更新公告失敗');
+            setAnnouncementAdminStatus('公告已更新', false);
+            return loadAnnouncements();
+        });
+    }).catch(function (error) {
+        setAnnouncementAdminStatus('錯誤: ' + error.message, true);
+    });
+}
+
 function initAdminToolsPage() {
-    setAdminStatus('目前管理頁已啟用高額下注重製與託管帳號管理', false);
+    setAdminStatus('目前管理頁已啟用高額下注重製、託管帳號、問題回報與更新公告管理', false);
     refreshCustodyUsers();
+    refreshIssueReports();
+    refreshAnnouncements();
 }

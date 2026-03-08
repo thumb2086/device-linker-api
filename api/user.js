@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+﻿import { kv } from "@vercel/kv";
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { ethers } from "ethers";
 import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
@@ -7,6 +7,13 @@ import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { buildVipStatus } from "../lib/vip.js";
 import { getSession, saveSession } from "../lib/session-store.js";
 import { ensureDisplayName, getDisplayName, setDisplayName } from "../lib/user-profile.js";
+import {
+    createIssueReport,
+    listAnnouncements,
+    listIssueReports,
+    sanitizeIssueInput,
+    validateIssueInput
+} from "../lib/support-center.js";
 
 const ALLOWED_PLATFORMS = new Set(["android", "ios", "web", "macos", "windows", "linux", "unknown"]);
 const ALLOWED_CLIENT_TYPES = new Set(["mobile", "desktop", "web", "server", "unknown"]);
@@ -15,13 +22,18 @@ const CUSTODY_USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
 const CUSTODY_PASSWORD_MIN = 6;
 const CUSTODY_PASSWORD_MAX = 128;
 const CUSTODY_REGISTER_BONUS = "100000";
-const AUTH_API_BUILD = "2026-03-08-user-compat-v2";
+const AUTH_API_BUILD = "2026-03-08-user-compat-v3";
 
 function normalizeText(value, fallback = "unknown", maxLength = 64) {
     if (typeof value !== "string") return fallback;
     const normalized = value.trim().toLowerCase();
     if (!normalized) return fallback;
     return normalized.slice(0, maxLength);
+}
+
+function trimRawText(value, maxLength = 256) {
+    if (typeof value !== "string") return "";
+    return value.replace(/\r\n/g, "\n").replace(/\u0000/g, "").trim().slice(0, maxLength);
 }
 
 function normalizeSessionId(rawSessionId) {
@@ -198,6 +210,14 @@ function resolveProfileAction(action) {
     if (action === "get_profile" || action === "get") return "get";
     if (action === "set_profile" || action === "set") return "set";
     return "";
+}
+
+async function requireAuthorizedSession(sessionId) {
+    const session = await getSession(sessionId);
+    if (!session || !session.address) {
+        throw new Error("Session expired");
+    }
+    return session;
 }
 
 export default async function handler(req, res) {
@@ -437,6 +457,68 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, displayName });
         }
 
+        if (action === "get_announcements") {
+            const result = await listAnnouncements({
+                limit: body.limit,
+                activeOnly: body.activeOnly === undefined ? true : String(body.activeOnly).trim().toLowerCase() === "true"
+            });
+            return res.status(200).json({
+                success: true,
+                announcements: result.announcements,
+                total: result.total,
+                returned: result.announcements.length
+            });
+        }
+
+        if (action === "submit_issue_report") {
+            if (!sessionId) {
+                return res.status(400).json({ success: false, error: "Missing sessionId" });
+            }
+            const reportSession = await requireAuthorizedSession(sessionId);
+            const input = sanitizeIssueInput({
+                title: body.title,
+                category: body.category,
+                message: body.message,
+                contact: body.contact,
+                pageUrl: body.pageUrl,
+                userAgent: body.userAgent
+            });
+            const validationError = validateIssueInput(input);
+            if (validationError) {
+                return res.status(400).json({ success: false, error: validationError });
+            }
+
+            const report = await createIssueReport({
+                ...input,
+                address: String(reportSession.address || "").toLowerCase(),
+                displayName: await getDisplayName(reportSession.address),
+                platform: reportSession.platform || normalizePlatform(body.platform),
+                clientType: reportSession.clientType || normalizeClientType(body.clientType),
+                deviceId: reportSession.deviceId || normalizeDeviceId(body.deviceId),
+                appVersion: reportSession.appVersion || trimRawText(body.appVersion, 64),
+                mode: reportSession.mode || "live"
+            });
+
+            return res.status(200).json({ success: true, report });
+        }
+
+        if (action === "list_my_issue_reports") {
+            if (!sessionId) {
+                return res.status(400).json({ success: false, error: "Missing sessionId" });
+            }
+            const reportSession = await requireAuthorizedSession(sessionId);
+            const result = await listIssueReports({
+                limit: body.limit,
+                address: String(reportSession.address || "").toLowerCase()
+            });
+            return res.status(200).json({
+                success: true,
+                reports: result.reports,
+                total: result.total,
+                returned: result.reports.length
+            });
+        }
+
         if (action === "get_history") {
             const address = String(body.address || "").trim();
             const page = Number(body.page || 1);
@@ -535,7 +617,22 @@ export default async function handler(req, res) {
             });
         }
 
-        return res.status(400).json({ success: false, error: "Unsupported action" });
+        return res.status(400).json({
+            success: false,
+            error: "Unsupported action",
+            supportedActions: [
+                "create_session",
+                "get_status",
+                "authorize",
+                "custody_login",
+                "get_profile",
+                "set_profile",
+                "get_history",
+                "get_announcements",
+                "submit_issue_report",
+                "list_my_issue_reports"
+            ]
+        });
     } catch (error) {
         console.error("User API Error:", error);
         return res.status(500).json({

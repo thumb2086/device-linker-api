@@ -1,6 +1,6 @@
 /* === 猜硬幣遊戲邏輯 === */
 
-var COINFLIP_ROUND_MS = 20000;
+var COINFLIP_ROUND_MS = 10000;
 var COINFLIP_LOCK_MS = 3000;
 var coinflipPreviewToken = 0;
 var isCoinflipDrawing = false;

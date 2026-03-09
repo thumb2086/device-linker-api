@@ -739,6 +739,16 @@ function buildSimpleSelectOptionsHtml(items, selectedValue) {
     }).join('');
 }
 
+function getRewardTitleCategoryOptions() {
+    return [
+        { value: 'featured', label: '精選' },
+        { value: 'achievement', label: '成就' },
+        { value: 'event', label: '活動' },
+        { value: 'vip', label: 'VIP' },
+        { value: 'special', label: '特別' }
+    ];
+}
+
 function renderRewardSelectOptions(selectId, items, emptyLabel) {
     var el = document.getElementById(selectId);
     if (!el) return;
@@ -799,6 +809,18 @@ function renderRewardAdminSelects() {
             { value: 'shop', label: '商店' }
         ], 'admin');
     }
+    var titleCategoryEl = document.getElementById('reward-title-category');
+    if (titleCategoryEl) {
+        titleCategoryEl.innerHTML = buildSimpleSelectOptionsHtml(getRewardTitleCategoryOptions(), 'featured');
+    }
+    var existingTitleCategoryEl = document.getElementById('reward-existing-title-category');
+    if (existingTitleCategoryEl) {
+        existingTitleCategoryEl.innerHTML = buildSimpleSelectOptionsHtml(getRewardTitleCategoryOptions(), 'featured');
+    }
+    var existingTitleSelectEl = document.getElementById('reward-existing-title-id');
+    if (existingTitleSelectEl) {
+        existingTitleSelectEl.innerHTML = buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.titles, '選擇既有稱號', '');
+    }
 }
 
 function getRewardCatalogTitle(titleId) {
@@ -825,6 +847,11 @@ function renderRewardTitlePricing() {
     listEl.innerHTML = titles.map(function (title) {
         var enabledId = getRewardTitleFieldId(title.id, 'shop_enabled');
         var priceId = getRewardTitleFieldId(title.id, 'shop_price');
+        var categoryId = getRewardTitleFieldId(title.id, 'shop_category');
+        var priorityId = getRewardTitleFieldId(title.id, 'shop_priority');
+        var salePriceId = getRewardTitleFieldId(title.id, 'sale_price');
+        var saleStartId = getRewardTitleFieldId(title.id, 'sale_start');
+        var saleEndId = getRewardTitleFieldId(title.id, 'sale_end');
         var descId = getRewardTitleFieldId(title.id, 'shop_desc');
         return '<div class="announcement-admin-card">' +
             '<div class="announcement-admin-head">' +
@@ -835,12 +862,19 @@ function renderRewardTitlePricing() {
                         '<span>' + escapeHtml(title.source || 'admin') + '</span>' +
                         '<span>' + escapeHtml(title.rarity || 'epic') + '</span>' +
                         '<span>' + escapeHtml(title.showOnLeaderboard ? '排行榜顯示' : '僅個人頁顯示') + '</span>' +
+                        '<span>分類：' + escapeHtml(title.shopCategory || 'featured') + '</span>' +
+                        '<span>排序：' + escapeHtml(String(title.shopPriority || 0)) + '</span>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
             '<div class="announcement-form-grid">' +
                 '<label><span>稱號售價</span><input id="' + escapeHtml(priceId) + '" class="text-input" type="number" min="0" step="1" value="' + escapeHtml(String(title.shopPrice || 0)) + '"></label>' +
+                '<label><span>商店分類</span><select id="' + escapeHtml(categoryId) + '" class="text-input">' + buildSimpleSelectOptionsHtml(getRewardTitleCategoryOptions(), title.shopCategory || 'featured') + '</select></label>' +
+                '<label><span>商店排序</span><input id="' + escapeHtml(priorityId) + '" class="text-input" type="number" min="0" step="1" value="' + escapeHtml(String(title.shopPriority || 0)) + '"></label>' +
                 '<label class="toggle-field"><input id="' + escapeHtml(enabledId) + '" type="checkbox"' + (title.shopEnabled ? ' checked' : '') + '><span>上架到稱號商店</span></label>' +
+                '<label><span>限時折扣價</span><input id="' + escapeHtml(salePriceId) + '" class="text-input" type="number" min="0" step="1" value="' + escapeHtml(String(title.salePrice || 0)) + '"></label>' +
+                '<label><span>折扣開始時間</span><input id="' + escapeHtml(saleStartId) + '" class="text-input" type="datetime-local" value="' + escapeHtml(toDateTimeLocalValue(title.saleStartAt || '')) + '"></label>' +
+                '<label><span>折扣結束時間</span><input id="' + escapeHtml(saleEndId) + '" class="text-input" type="datetime-local" value="' + escapeHtml(toDateTimeLocalValue(title.saleEndAt || '')) + '"></label>' +
                 '<label class="full-span"><span>商店說明</span><textarea id="' + escapeHtml(descId) + '" class="text-input announcement-textarea" placeholder="玩家在稱號商店看到的說明">' + escapeHtml(title.shopDescription || '') + '</textarea></label>' +
             '</div>' +
             '<div class="issue-card-actions">' +
@@ -848,6 +882,27 @@ function renderRewardTitlePricing() {
             '</div>' +
             '</div>';
     }).join('');
+}
+
+function loadExistingRewardTitleForSale(titleId) {
+    var title = getRewardCatalogTitle(titleId);
+    if (!title) return;
+    var priceEl = document.getElementById('reward-existing-title-price');
+    var categoryEl = document.getElementById('reward-existing-title-category');
+    var priorityEl = document.getElementById('reward-existing-title-priority');
+    var enabledEl = document.getElementById('reward-existing-title-shop-enabled');
+    var salePriceEl = document.getElementById('reward-existing-title-sale-price');
+    var saleStartEl = document.getElementById('reward-existing-title-sale-start-at');
+    var saleEndEl = document.getElementById('reward-existing-title-sale-end-at');
+    var descEl = document.getElementById('reward-existing-title-shop-description');
+    if (priceEl) priceEl.value = String(title.shopPrice || 0);
+    if (categoryEl) categoryEl.value = String(title.shopCategory || 'featured');
+    if (priorityEl) priorityEl.value = String(title.shopPriority || 0);
+    if (enabledEl) enabledEl.checked = !!title.shopEnabled;
+    if (salePriceEl) salePriceEl.value = String(title.salePrice || 0);
+    if (saleStartEl) saleStartEl.value = toDateTimeLocalValue(title.saleStartAt || '');
+    if (saleEndEl) saleEndEl.value = toDateTimeLocalValue(title.saleEndAt || '');
+    if (descEl) descEl.value = String(title.shopDescription || '');
 }
 
 function renderRewardCampaigns() {
@@ -954,6 +1009,13 @@ function loadRewardAdmin() {
         renderRewardTitlePricing();
         renderRewardCampaigns();
         renderRewardGrantLogs();
+        var existingTitleSelectEl = document.getElementById('reward-existing-title-id');
+        if (existingTitleSelectEl) {
+            if (!existingTitleSelectEl.value && existingTitleSelectEl.options.length > 1) {
+                existingTitleSelectEl.value = existingTitleSelectEl.options[1].value;
+            }
+            loadExistingRewardTitleForSale(existingTitleSelectEl.value);
+        }
         setRewardAdminStatus('稱號與活動資料已同步', false);
     });
 }
@@ -1027,16 +1089,26 @@ function publishRewardTitle() {
             adminGrantable: true,
             shopEnabled: !!document.getElementById('reward-title-shop-enabled').checked,
             shopPrice: String(document.getElementById('reward-title-price').value || '0'),
-            shopDescription: String(document.getElementById('reward-title-shop-description').value || '')
+            shopDescription: String(document.getElementById('reward-title-shop-description').value || ''),
+            shopCategory: String(document.getElementById('reward-title-category').value || 'featured'),
+            shopPriority: String(document.getElementById('reward-title-priority').value || '0'),
+            salePrice: String(document.getElementById('reward-title-sale-price').value || '0'),
+            saleStartAt: getIsoDateTimeValue('reward-title-sale-start-at'),
+            saleEndAt: getIsoDateTimeValue('reward-title-sale-end-at')
         }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '新增稱號失敗');
             document.getElementById('reward-title-name').value = '';
             document.getElementById('reward-title-id').value = '';
             document.getElementById('reward-title-rarity').value = 'epic';
             document.getElementById('reward-title-source').value = 'admin';
+            document.getElementById('reward-title-category').value = 'featured';
+            document.getElementById('reward-title-priority').value = '0';
             document.getElementById('reward-title-leaderboard').checked = true;
             document.getElementById('reward-title-shop-enabled').checked = false;
             document.getElementById('reward-title-price').value = '0';
+            document.getElementById('reward-title-sale-price').value = '0';
+            document.getElementById('reward-title-sale-start-at').value = '';
+            document.getElementById('reward-title-sale-end-at').value = '';
             document.getElementById('reward-title-shop-description').value = '';
             setRewardAdminStatus('稱號已新增，可直接用於發放與活動', false);
             showAdminToast('自訂稱號已新增', false);
@@ -1067,12 +1139,61 @@ function saveRewardTitlePricing(titleId) {
             showOnLeaderboard: !!title.showOnLeaderboard,
             shopEnabled: !!(document.getElementById(getRewardTitleFieldId(titleId, 'shop_enabled')) || {}).checked,
             shopPrice: String((document.getElementById(getRewardTitleFieldId(titleId, 'shop_price')) || {}).value || '0'),
-            shopDescription: String((document.getElementById(getRewardTitleFieldId(titleId, 'shop_desc')) || {}).value || '')
+            shopDescription: String((document.getElementById(getRewardTitleFieldId(titleId, 'shop_desc')) || {}).value || ''),
+            shopCategory: String((document.getElementById(getRewardTitleFieldId(titleId, 'shop_category')) || {}).value || 'featured'),
+            shopPriority: String((document.getElementById(getRewardTitleFieldId(titleId, 'shop_priority')) || {}).value || '0'),
+            salePrice: String((document.getElementById(getRewardTitleFieldId(titleId, 'sale_price')) || {}).value || '0'),
+            saleStartAt: getIsoDateTimeValue(getRewardTitleFieldId(titleId, 'sale_start')),
+            saleEndAt: getIsoDateTimeValue(getRewardTitleFieldId(titleId, 'sale_end'))
         }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '更新稱號定價失敗');
             setRewardAdminStatus('稱號定價已更新', false);
             showAdminToast('稱號定價已更新', false);
             return loadRewardAdmin();
+        });
+    }).catch(function (error) {
+        setRewardAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
+    });
+}
+
+function saveExistingRewardTitleSale() {
+    var titleId = String((document.getElementById('reward-existing-title-id') || {}).value || '');
+    var title = getRewardCatalogTitle(titleId);
+    if (!title) {
+        setRewardAdminStatus('錯誤: 請先選擇既有稱號', true);
+        showAdminToast('請先選擇既有稱號', true);
+        return;
+    }
+
+    setRewardAdminStatus('套用既有稱號上架設定中...', false);
+    withAdminBusy('reward', function () {
+        return callRewardsAdminApi('admin_upsert_title', {
+            titleId: title.id,
+            titleName: title.name,
+            titleRarity: title.rarity || 'epic',
+            titleSource: title.source || 'admin',
+            adminGrantable: title.adminGrantable !== false,
+            showOnLeaderboard: !!title.showOnLeaderboard,
+            shopEnabled: !!(document.getElementById('reward-existing-title-shop-enabled') || {}).checked,
+            shopPrice: String((document.getElementById('reward-existing-title-price') || {}).value || '0'),
+            shopDescription: String((document.getElementById('reward-existing-title-shop-description') || {}).value || ''),
+            shopCategory: String((document.getElementById('reward-existing-title-category') || {}).value || 'featured'),
+            shopPriority: String((document.getElementById('reward-existing-title-priority') || {}).value || '0'),
+            salePrice: String((document.getElementById('reward-existing-title-sale-price') || {}).value || '0'),
+            saleStartAt: getIsoDateTimeValue('reward-existing-title-sale-start-at'),
+            saleEndAt: getIsoDateTimeValue('reward-existing-title-sale-end-at')
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '套用既有稱號上架失敗');
+            setRewardAdminStatus('既有稱號上架設定已更新', false);
+            showAdminToast('既有稱號上架設定已更新', false);
+            return loadRewardAdmin().then(function () {
+                var selectEl = document.getElementById('reward-existing-title-id');
+                if (selectEl) {
+                    selectEl.value = title.id;
+                    loadExistingRewardTitleForSale(title.id);
+                }
+            });
         });
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);

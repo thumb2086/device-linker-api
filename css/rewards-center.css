@@ -207,6 +207,28 @@ body.rewards-body {
     color: #d7e5f5;
 }
 
+.reward-card-price {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.reward-card-price .price-now {
+    color: #ffd36a;
+    font-weight: 800;
+}
+
+.reward-card-price .price-old {
+    color: #7f93a7;
+    text-decoration: line-through;
+    font-size: 0.92rem;
+}
+
+.reward-card-price.sale .price-now {
+    color: #7bf0a9;
+}
+
 .reward-card-detail-list {
     display: grid;
     gap: 6px;
@@ -222,6 +244,29 @@ body.rewards-body {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+.reward-filter-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.reward-filter-chip {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.05);
+    color: #d7e5f5;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.reward-filter-chip.active {
+    background: rgba(255, 211, 106, 0.14);
+    color: #ffd36a;
+    border-color: rgba(255, 211, 106, 0.24);
 }
 
 .reward-empty {

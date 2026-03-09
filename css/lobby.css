@@ -17,6 +17,10 @@ body.lobby-body {
 
 .auth-public-links {
     margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 16px;
 }
 
 .auth-inline-link {
@@ -453,6 +457,64 @@ body.lobby-body {
     text-align: center;
 }
 
+.guide-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 8px;
+}
+
+.guide-card {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+    min-height: 220px;
+    padding: 28px;
+    border-radius: 26px;
+    text-decoration: none;
+    color: #fff;
+    background:
+        radial-gradient(circle at top right, rgba(255, 204, 0, 0.12), transparent 34%),
+        rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.guide-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 204, 0, 0.24);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.34);
+}
+
+.guide-kicker {
+    color: rgba(255, 204, 0, 0.72);
+    letter-spacing: 0.22em;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.guide-card h2 {
+    margin: 0 0 10px;
+    font-size: 1.6rem;
+    color: #fff;
+}
+
+.guide-card p {
+    color: #a7a7a7;
+    line-height: 1.7;
+    max-width: 420px;
+}
+
+.guide-link {
+    flex-shrink: 0;
+    color: var(--gold);
+    font-weight: 800;
+    white-space: nowrap;
+}
+
 /* --- 頁尾 --- */
 .lobby-footer {
     text-align: center;
@@ -520,6 +582,15 @@ body.lobby-body {
         grid-template-columns: 1fr;
     }
 
+    .guide-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .guide-card {
+        min-height: 0;
+        padding: 22px;
+    }
+
     .lobby-stats {
         padding: 16px 20px;
     }
@@ -561,6 +632,11 @@ body.lobby-body {
 
     .lobby-title h1 {
         font-size: 1.8rem;
+    }
+
+    .guide-card {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
 

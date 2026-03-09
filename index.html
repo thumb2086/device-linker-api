@@ -188,6 +188,20 @@
                 .replace(/'/g, '&#39;');
         }
 
+        function parseLobbyCampaignTime(value, fallback) {
+            if (!value) return fallback;
+            var ts = Date.parse(String(value || ''));
+            return Number.isFinite(ts) ? ts : fallback;
+        }
+
+        function isLobbyCampaignActive(item) {
+            if (!item || item.isActive === false) return false;
+            var now = Date.now();
+            var startAt = parseLobbyCampaignTime(item.startAt, Number.NEGATIVE_INFINITY);
+            var endAt = parseLobbyCampaignTime(item.endAt, Number.POSITIVE_INFINITY);
+            return startAt <= now && endAt >= now;
+        }
+
         function renderLobbyCampaignCards(campaigns) {
             var panel = document.getElementById('lobby-campaigns-panel');
             var list = document.getElementById('lobby-campaign-list');
@@ -236,14 +250,14 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'summary',
+                    action: 'list_campaigns',
                     sessionId: user.sessionId
                 })
             })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
                     if (!data || !data.success) throw new Error((data && data.error) || '活動載入失敗');
-                    renderLobbyCampaignCards(data.campaigns || []);
+                    renderLobbyCampaignCards((data.campaigns || []).filter(isLobbyCampaignActive));
                 })
                 .catch(function () {
                     renderLobbyCampaignCards([]);

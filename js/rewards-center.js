@@ -50,6 +50,20 @@ function renderIdentity(profile) {
     if (avatarNameEl) avatarNameEl.innerText = profile && profile.avatar ? profile.avatar.name : '經典籌碼';
 }
 
+function parseRewardDateMs(value, fallback) {
+    if (!value) return fallback;
+    var ts = Date.parse(String(value || ''));
+    return Number.isFinite(ts) ? ts : fallback;
+}
+
+function isCampaignActiveNow(item) {
+    if (!item || item.isActive === false) return false;
+    var now = Date.now();
+    var startAt = parseRewardDateMs(item.startAt, Number.NEGATIVE_INFINITY);
+    var endAt = parseRewardDateMs(item.endAt, Number.POSITIVE_INFINITY);
+    return startAt <= now && endAt >= now;
+}
+
 function rewardCatalogMap(kind) {
     var items = rewardsState && rewardsState.catalog ? rewardsState.catalog[kind] : [];
     var map = {};
@@ -205,12 +219,17 @@ function renderAvatars(items, profile) {
 function renderTitles(items, profile) {
     var listEl = document.getElementById('title-list');
     if (!listEl) return;
-    if (!items || !items.length) {
-        listEl.innerHTML = '<div class="reward-empty">尚未持有可裝備稱號</div>';
-        return;
-    }
+    var titleCards = [];
+    titleCards.push('<div class="reward-card">' +
+        '<div class="reward-card-head"><strong>VIP 自動稱號</strong><span class="reward-rarity">預設</span></div>' +
+        '<div class="reward-card-meta">卸下目前稱號後，會回到依 VIP 等級自動顯示的稱號。</div>' +
+        '<div class="reward-card-actions">' +
+            '<button class="' + (!profile || !profile.selectedTitleId ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipRewardTitle(\'\')">' + (!profile || !profile.selectedTitleId ? '目前使用中' : '卸下稱號') + '</button>' +
+        '</div>' +
+        '</div>');
 
-    listEl.innerHTML = items.map(function (item) {
+    if (items && items.length) {
+        titleCards = titleCards.concat(items.map(function (item) {
         var isSelected = profile && profile.selectedTitleId === item.id;
         var expireText = item.expiresAt ? ('到期：' + item.expiresAt) : '永久稱號';
         return '<div class="reward-card">' +
@@ -220,7 +239,10 @@ function renderTitles(items, profile) {
                 '<button class="' + (isSelected ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipRewardTitle(\'' + escapeRewardsHtml(item.id) + '\')">' + (isSelected ? '使用中' : '裝備') + '</button>' +
             '</div>' +
             '</div>';
-    }).join('');
+        }));
+    }
+
+    listEl.innerHTML = titleCards.join('');
 }
 
 function renderBuffs(items) {
@@ -298,10 +320,17 @@ function refreshRewardsCenter() {
     if (rewardsBusy) return;
     rewardsBusy = true;
     setRewardsStatus('同步獎勵中心中...', false);
-    rewardsApi('summary')
-        .then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '獎勵中心同步失敗');
-            applyRewardsState(data);
+    Promise.all([
+        rewardsApi('summary'),
+        rewardsApi('list_campaigns')
+    ])
+        .then(function (results) {
+            var summaryData = results[0];
+            var campaignData = results[1];
+            if (!summaryData || !summaryData.success) throw new Error((summaryData && summaryData.error) || '獎勵中心同步失敗');
+            if (!campaignData || !campaignData.success) throw new Error((campaignData && campaignData.error) || '活動資料同步失敗');
+            summaryData.campaigns = (campaignData.campaigns || []).filter(isCampaignActiveNow);
+            applyRewardsState(summaryData);
             setRewardsStatus('獎勵中心已更新', false);
         })
         .catch(function (error) {

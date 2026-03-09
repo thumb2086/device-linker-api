@@ -15,6 +15,11 @@ var custodyLoaded = false;
 var custodyExpanded = false;
 var announcementsLoaded = false;
 var announcementsExpanded = false;
+var rewardLoaded = false;
+var rewardExpanded = false;
+var issueLoaded = false;
+var issueExpanded = false;
+var opsExpanded = false;
 
 function setAdminStatus(text, isError) {
     var el = document.getElementById('status-msg');
@@ -425,10 +430,26 @@ function loadIssueReports() {
 function refreshIssueReports() {
     setIssueStatus('正在讀取問題回報...', false);
     withAdminBusy('issue', function () {
-        return loadIssueReports();
+        return loadIssueReports().then(function () {
+            issueLoaded = true;
+        });
     }).catch(function (error) {
         setIssueStatus('錯誤: ' + error.message, true);
     });
+}
+
+function toggleIssueSection() {
+    var body = document.getElementById('issues-section-body');
+    var btn = document.getElementById('issue-toggle-btn');
+    if (!body || !btn) return;
+
+    issueExpanded = !issueExpanded;
+    body.classList.toggle('hidden', !issueExpanded);
+    btn.innerText = issueExpanded ? '收合問題回報' : '展開問題回報';
+
+    if (issueExpanded && !issueLoaded) {
+        refreshIssueReports();
+    }
 }
 
 function updateIssueReport(reportId) {
@@ -783,10 +804,26 @@ function loadRewardAdmin() {
 function refreshRewardAdmin() {
     setRewardAdminStatus('同步稱號與活動資料中...', false);
     withAdminBusy('reward', function () {
-        return loadRewardAdmin();
+        return loadRewardAdmin().then(function () {
+            rewardLoaded = true;
+        });
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);
     });
+}
+
+function toggleRewardSection() {
+    var body = document.getElementById('rewards-section-body');
+    var btn = document.getElementById('reward-toggle-btn');
+    if (!body || !btn) return;
+
+    rewardExpanded = !rewardExpanded;
+    body.classList.toggle('hidden', !rewardExpanded);
+    btn.innerText = rewardExpanded ? '收合稱號活動管理' : '展開稱號活動管理';
+
+    if (rewardExpanded && !rewardLoaded) {
+        refreshRewardAdmin();
+    }
 }
 
 function grantRewardBundleAdmin() {
@@ -887,8 +924,16 @@ function saveRewardCampaign(campaignId) {
     });
 }
 
+function toggleOpsSection() {
+    var body = document.getElementById('ops-section-body');
+    var btn = document.getElementById('ops-toggle-btn');
+    if (!body || !btn) return;
+
+    opsExpanded = !opsExpanded;
+    body.classList.toggle('hidden', !opsExpanded);
+    btn.innerText = opsExpanded ? '收合高額下注重製' : '展開高額下注重製';
+}
+
 function initAdminToolsPage() {
     setAdminStatus('目前管理頁已啟用公告、稱號活動發放、問題回報、託管帳號與高額下注重製', false);
-    refreshIssueReports();
-    refreshRewardAdmin();
 }

@@ -27,16 +27,6 @@ body.announcements-body {
     max-width: 720px;
 }
 
-.announcements-actions {
-    display: flex;
-    justify-content: flex-start;
-    margin-bottom: 14px;
-}
-
-.announcements-action-link {
-    text-decoration: none;
-}
-
 .announcement-page-status {
     margin: 0 0 18px;
     color: #9fd0ff;
@@ -147,12 +137,4 @@ body.announcements-body {
         padding: 18px;
     }
 
-    .announcements-actions {
-        justify-content: stretch;
-    }
-
-    .announcements-action-link {
-        width: 100%;
-        text-align: center;
-    }
 }

@@ -8,13 +8,6 @@ function setSupportStatus(text, isError) {
     el.style.color = isError ? '#ff7d7d' : '#9bf1b9';
 }
 
-function setAnnouncementStatus(text, isError) {
-    var el = document.getElementById('announcement-status-msg');
-    if (!el) return;
-    el.innerText = text || '';
-    el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
-}
-
 function withSupportBusy(task) {
     if (supportBusy) return Promise.reject(new Error('請稍候，上一筆操作尚未完成'));
     supportBusy = true;
@@ -118,7 +111,6 @@ function loadMyReports() {
 }
 
 function refreshSupportPage() {
-    setAnnouncementStatus('公告已移至公告中心頁面', false);
     setSupportStatus('正在同步回報紀錄...', false);
     withSupportBusy(function () {
         return Promise.all([loadMyReports()]).then(function () {
@@ -163,7 +155,6 @@ function submitIssueReport() {
 function initSupportPage() {
     var pageEl = document.getElementById('report-page-url');
     if (pageEl) pageEl.value = window.location.href;
-    setAnnouncementStatus('公告已移至公告中心頁面', false);
     setSupportStatus('目前可提交問題回報，並查看最新處理進度', false);
     refreshSupportPage();
 }

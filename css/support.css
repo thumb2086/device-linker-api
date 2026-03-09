@@ -52,31 +52,13 @@
     gap: 12px;
 }
 
-.support-overview-card {
-    background:
-        radial-gradient(circle at top right, rgba(255, 204, 0, 0.1), transparent 28%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
-        rgba(0, 0, 0, 0.18);
-}
-
-.support-overview-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.support-link-btn {
-    text-decoration: none;
-}
-
 .tool-note {
     color: #a7a7a7;
     line-height: 1.6;
     margin-bottom: 14px;
 }
 
-#support-status-msg,
-#announcement-status-msg {
+#support-status-msg {
     margin-top: 8px;
     font-size: 0.9rem;
 }
@@ -224,9 +206,6 @@
         flex-direction: column;
     }
 
-    .support-overview-actions {
-        width: 100%;
-    }
 }
 
 @media (max-width: 520px) {

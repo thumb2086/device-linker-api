@@ -254,10 +254,16 @@ function renderBuffs(items) {
     }
 
     listEl.innerHTML = items.map(function (item) {
+        var remainingUsesText = (item.remainingUses === null || item.remainingUses === undefined) ? '無次數限制' : String(item.remainingUses);
+        var buffName = item.effectType === 'profit_boost'
+            ? '獲利翻倍'
+            : (item.effectType === 'loss_shield'
+                ? '免損護盾'
+                : (item.effectType === 'luck_boost' ? '幸運增幅' : item.effectType));
         return '<div class="reward-card">' +
-            '<div class="reward-card-head"><strong>' + escapeRewardsHtml(item.effectType) + '</strong><span class="reward-rarity">啟用中</span></div>' +
+            '<div class="reward-card-head"><strong>' + escapeRewardsHtml(buffName) + '</strong><span class="reward-rarity">啟用中</span></div>' +
             '<div class="reward-card-meta">到期：' + escapeRewardsHtml(item.expiresAt || '不限時') + '</div>' +
-            '<div class="reward-card-meta">剩餘次數：' + escapeRewardsHtml(String(item.remainingUses || 0)) + '</div>' +
+            '<div class="reward-card-meta">剩餘次數：' + escapeRewardsHtml(remainingUsesText) + '</div>' +
             '</div>';
     }).join('');
 }

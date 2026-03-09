@@ -1,12 +1,37 @@
 var rewardsState = null;
 var rewardsBusy = false;
 var rewardsTab = 'campaign';
+var rewardsToastSeq = 0;
 
 function setRewardsStatus(text, isError) {
     var el = document.getElementById('rewards-status');
     if (!el) return;
     el.innerText = text || '';
     el.style.color = isError ? '#ff7b7b' : '#ffd36a';
+}
+
+function showRewardsToast(text, isError) {
+    var stackEl = document.getElementById('rewards-toast-stack');
+    if (!stackEl || !text) return;
+
+    rewardsToastSeq += 1;
+    var toastEl = document.createElement('div');
+    toastEl.className = 'rewards-toast ' + (isError ? 'error' : 'success');
+    toastEl.innerHTML =
+        '<strong class="rewards-toast-title">' + (isError ? '操作失敗' : '操作成功') + '</strong>' +
+        '<div class="rewards-toast-copy">' + escapeRewardsHtml(text) + '</div>';
+    stackEl.appendChild(toastEl);
+
+    requestAnimationFrame(function () {
+        toastEl.classList.add('visible');
+    });
+
+    window.setTimeout(function () {
+        toastEl.classList.remove('visible');
+        window.setTimeout(function () {
+            if (toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+        }, 220);
+    }, isError ? 4200 : 2600);
 }
 
 function rewardsApi(action, payload) {
@@ -277,6 +302,37 @@ function renderShop(items) {
     }).join('');
 }
 
+function renderTitleShop(items) {
+    var listEl = document.getElementById('title-shop-list');
+    if (!listEl) return;
+    var sellableTitles = (items || []).filter(function (item) {
+        return !!item && item.shopEnabled === true && Number(item.shopPrice || 0) > 0;
+    });
+
+    if (!sellableTitles.length) {
+        listEl.innerHTML = '<div class="reward-empty">目前沒有上架稱號</div>';
+        return;
+    }
+
+    listEl.innerHTML = sellableTitles.map(function (item) {
+        return '<div class="reward-card">' +
+            '<div class="reward-card-head">' +
+                '<div class="reward-card-title">' +
+                    '<span class="reward-icon">🏷️</span>' +
+                    '<div><strong>' + escapeRewardsHtml(item.name) + '</strong><div class="reward-card-meta">' + escapeRewardsHtml(rarityLabel(item.rarity)) + ' 稱號</div></div>' +
+                '</div>' +
+                '<span class="reward-rarity">' + escapeRewardsHtml(item.showOnLeaderboard ? '榜單可顯示' : '個人收藏') + '</span>' +
+            '</div>' +
+            '<div class="reward-card-copy">' + escapeRewardsHtml(item.shopDescription || item.description || '永久稱號，購買後會直接加入稱號收藏。') + '</div>' +
+            '<div class="reward-card-meta">來源：' + escapeRewardsHtml(item.source || 'shop') + '</div>' +
+            '<div class="reward-card-meta">售價：' + formatCompactZh(item.shopPrice, 2) + ' 子熙幣</div>' +
+            '<div class="reward-card-actions">' +
+                '<button class="btn-primary compact-btn" onclick="buyRewardTitle(\'' + escapeRewardsHtml(item.id) + '\')">購買稱號</button>' +
+            '</div>' +
+            '</div>';
+    }).join('');
+}
+
 function renderInventoryGroup(listId, items, emptyText) {
     var listEl = document.getElementById(listId);
     if (!listEl) return;
@@ -358,6 +414,7 @@ function renderTitles(items, profile) {
         return '<div class="reward-card">' +
             '<div class="reward-card-head"><strong>' + escapeRewardsHtml(item.name) + '</strong><span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span></div>' +
             '<div class="reward-card-meta">來源：' + escapeRewardsHtml(item.source || 'unknown') + ' / ' + escapeRewardsHtml(expireText) + '</div>' +
+            (item.shopDescription ? '<div class="reward-card-copy">' + escapeRewardsHtml(item.shopDescription) + '</div>' : '') +
             '<div class="reward-card-actions">' +
                 '<button class="' + (isSelected ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipRewardTitle(\'' + escapeRewardsHtml(item.id) + '\')">' + (isSelected ? '使用中' : '裝備') + '</button>' +
             '</div>' +
@@ -439,6 +496,7 @@ function applyRewardsState(data) {
     renderCampaigns(data.campaigns || []);
     renderItemGuide(data.catalog && data.catalog.shopItems ? data.catalog.shopItems : []);
     renderShop(data.catalog && data.catalog.shopItems ? data.catalog.shopItems : []);
+    renderTitleShop(data.catalog && data.catalog.titles ? data.catalog.titles : []);
     renderInventory(data.profile.inventory || []);
     renderAvatars(data.profile.avatars || [], data.profile);
     renderTitles(data.profile.titles || [], data.profile);
@@ -473,9 +531,29 @@ function buyRewardItem(itemId) {
             refreshBalance();
             showPurchaseModal(data.purchased);
             setRewardsStatus('商品已入庫', false);
+            showRewardsToast('商品已入庫', false);
         })
         .catch(function (error) {
             setRewardsStatus('錯誤: ' + error.message, true);
+            showRewardsToast(error.message, true);
+        });
+}
+
+function buyRewardTitle(titleId) {
+    setRewardsStatus('購買稱號中...', false);
+    rewardsApi('buy_title', { titleId: titleId })
+        .then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '購買稱號失敗');
+            applyRewardsState(data);
+            refreshBalance();
+            showPurchaseModal(data.purchasedTitle);
+            switchRewardsTab('title');
+            setRewardsStatus('稱號已加入收藏', false);
+            showRewardsToast('稱號已加入收藏', false);
+        })
+        .catch(function (error) {
+            setRewardsStatus('錯誤: ' + error.message, true);
+            showRewardsToast(error.message, true);
         });
 }
 
@@ -488,9 +566,11 @@ function useRewardItem(itemId) {
             applyRewardsState(rewardsState);
             switchRewardsTab('buff');
             setRewardsStatus('道具已啟用', false);
+            showRewardsToast('道具已啟用', false);
         })
         .catch(function (error) {
             setRewardsStatus('錯誤: ' + error.message, true);
+            showRewardsToast(error.message, true);
         });
 }
 
@@ -505,9 +585,11 @@ function openRewardChest(itemId) {
             switchRewardsTab('inventory');
             showRewardResultModal(data.chestName || '獎勵已取得', data.rewards);
             setRewardsStatus('獎勵已開啟', false);
+            showRewardsToast('獎勵已開啟', false);
         })
         .catch(function (error) {
             setRewardsStatus('錯誤: ' + error.message, true);
+            showRewardsToast(error.message, true);
         });
 }
 
@@ -519,9 +601,11 @@ function equipRewardAvatar(avatarId) {
             applyRewardsState(rewardsState);
             switchRewardsTab('avatar');
             setRewardsStatus('頭像已裝備', false);
+            showRewardsToast('頭像已裝備', false);
         })
         .catch(function (error) {
             setRewardsStatus('錯誤: ' + error.message, true);
+            showRewardsToast(error.message, true);
         });
 }
 
@@ -533,9 +617,11 @@ function equipRewardTitle(titleId) {
             applyRewardsState(rewardsState);
             switchRewardsTab('title');
             setRewardsStatus('稱號已裝備', false);
+            showRewardsToast(titleId ? '稱號已裝備' : '已切回 VIP 自動稱號', false);
         })
         .catch(function (error) {
             setRewardsStatus('錯誤: ' + error.message, true);
+            showRewardsToast(error.message, true);
         });
 }
 
@@ -550,10 +636,12 @@ function claimRewardCampaign(campaignId) {
             switchRewardsTab('campaign');
             showRewardResultModal(data.campaign && data.campaign.title ? data.campaign.title : '活動獎勵', data.campaign && data.campaign.rewards ? data.campaign.rewards : {});
             setRewardsStatus('活動獎勵已領取', false);
+            showRewardsToast('活動獎勵已領取', false);
             refreshRewardsCenter();
         })
         .catch(function (error) {
             setRewardsStatus('錯誤: ' + error.message, true);
+            showRewardsToast(error.message, true);
         });
 }
 

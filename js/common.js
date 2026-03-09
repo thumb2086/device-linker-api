@@ -8,6 +8,16 @@ function toSafeNumber(value, fallback) {
     return parsed;
 }
 
+function formatDisplayNumber(value, digits) {
+    var num = toSafeNumber(value, 0);
+    var fractionDigits = digits === undefined ? 2 : digits;
+
+    return num.toLocaleString(undefined, {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits
+    });
+}
+
 function formatCompactZh(value, digits) {
     var num = toSafeNumber(value, 0);
     var sign = num < 0 ? '-' : '';
@@ -39,7 +49,7 @@ function renderMaxBetNote(maxBet) {
         return;
     }
 
-    noteEl.innerText = '單注上限 ' + formatCompactZh(maxBet, 2) + ' 子熙幣，依目前 VIP 等級自動調整';
+    noteEl.innerText = '單注上限 ' + formatDisplayNumber(maxBet, 2) + ' 子熙幣，依目前 VIP 等級自動調整';
 }
 
 function ensureSupportShortcutStyle() {
@@ -96,10 +106,7 @@ function updateUI(data) {
 
     if (data.balance !== undefined) {
         var balanceNum = toSafeNumber(data.balance, 0);
-        var balanceText = balanceNum.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
+        var balanceText = formatDisplayNumber(balanceNum, 2);
 
         var balEl = document.getElementById('balance-val');
         if (balEl) balEl.innerText = balanceText;
@@ -111,13 +118,13 @@ function updateUI(data) {
     if (data.totalBet !== undefined) {
         var totalBetNum = toSafeNumber(data.totalBet, 0);
         var totalBetEl = document.getElementById('total-bet-val');
-        if (totalBetEl) totalBetEl.innerText = formatCompactZh(totalBetNum, 2);
+        if (totalBetEl) totalBetEl.innerText = formatDisplayNumber(totalBetNum, 2);
     }
 
     if (data.vipLevel) {
         var vipText = data.vipLevel;
         if (data.maxBet !== undefined) {
-            vipText += ' | 單注上限 ' + formatCompactZh(data.maxBet, 2) + ' 子熙幣';
+            vipText += ' | 單注上限 ' + formatDisplayNumber(data.maxBet, 2) + ' 子熙幣';
         }
 
         var badge = document.getElementById('vip-badge');

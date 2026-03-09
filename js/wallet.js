@@ -301,7 +301,7 @@ function exportFunds() {
     withWalletBusy(function () {
         return callWallet('export', { to: to, amount: amount }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '匯出失敗');
-            setWalletStatus('匯出成功：-' + amount + ' 子熙幣', false);
+            setWalletStatus('匯出成功：-' + formatDisplayNumber(amount, 2) + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
             return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
         });
@@ -318,7 +318,7 @@ function withdrawToTreasury() {
     withWalletBusy(function () {
         return callWallet('withdraw', { amount: amount }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '匯回失敗');
-            setWalletStatus('匯回成功：-' + amount + ' 子熙幣', false);
+            setWalletStatus('匯回成功：-' + formatDisplayNumber(amount, 2) + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
             return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
         });

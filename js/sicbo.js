@@ -238,7 +238,7 @@ function updatePendingSicboBetsUI() {
 
     var html = '<div style="font-size:0.92em;color:#aaa;margin-top:10px;line-height:1.6;">待開獎下注：<br/>';
     pendingSicboBets.forEach(function (bet) {
-        html += bet.label + ' (' + Number(bet.amount).toFixed(2) + ' 子熙幣)<br/>';
+        html += bet.label + ' (' + formatDisplayNumber(bet.amount, 2) + ' 子熙幣)<br/>';
     });
     html += '</div>';
     txLog.innerHTML = html;
@@ -291,7 +291,7 @@ function startSicboDraw(roundId) {
 
         if (status) {
             if (totalPayout > 0) {
-                status.innerText = '開獎結果 ' + resolvedDice.join('-') + '，本輪獲得 ' + totalPayout.toFixed(2) + ' 子熙幣';
+                status.innerText = '開獎結果 ' + resolvedDice.join('-') + '，本輪獲得 ' + formatDisplayNumber(totalPayout, 2) + ' 子熙幣';
                 status.style.color = '#34f59f';
             } else {
                 status.innerText = '開獎結果 ' + resolvedDice.join('-') + '，本輪未中獎';
@@ -352,8 +352,8 @@ function placeSicboBet() {
     }
 
     var tempBalance = currentBalance - amount;
-    document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-    if (headerBalance) headerBalance.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    document.getElementById('balance-val').innerText = formatDisplayNumber(tempBalance, 2);
+    if (headerBalance) headerBalance.innerText = formatDisplayNumber(tempBalance, 2);
 
     fetch('/api/game?game=sicbo', {
         method: 'POST',
@@ -391,8 +391,8 @@ function placeSicboBet() {
             document.getElementById('tx-log').innerHTML = txLinkHTML(data.txHash);
         })
         .catch(function (error) {
-            document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-            if (headerBalance) headerBalance.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+            document.getElementById('balance-val').innerText = formatDisplayNumber(currentBalance, 2);
+            if (headerBalance) headerBalance.innerText = formatDisplayNumber(currentBalance, 2);
             if (status) {
                 status.innerText = '錯誤: ' + error.message;
                 status.style.color = '#ff6b6b';

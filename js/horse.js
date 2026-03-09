@@ -151,7 +151,7 @@ function startRaceDraw(roundId) {
                 });
 
                 if (totalWon > 0) {
-                    statusMsg.innerHTML = '🏆 第 ' + roundId + ' 局結算：贏得 ' + totalWon.toFixed(2) + ' 子熙幣！';
+                    statusMsg.innerHTML = '🏆 第 ' + roundId + ' 局結算：贏得 ' + formatDisplayNumber(totalWon, 2) + ' 子熙幣！';
                     statusMsg.style.color = '#00ff88';
                 } else {
                     statusMsg.innerText = '💀 第 ' + roundId + ' 局結算：未中獎，再接再厲';
@@ -444,7 +444,7 @@ function updatePendingBetsUI() {
     }
     var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">目前待開獎下注：<br/>';
     pendingBets.forEach(function(b) {
-        html += '第 ' + b.roundId + ' 局: ' + HORSE_CONFIG[b.horseId].name + ' (' + b.amount + ' 子熙幣)<br/>';
+        html += '第 ' + b.roundId + ' 局: ' + HORSE_CONFIG[b.horseId].name + ' (' + formatDisplayNumber(b.amount, 2) + ' 子熙幣)<br/>';
     });
     html += '</div>';
     txLog.innerHTML = html;
@@ -479,9 +479,9 @@ function runRace() {
 
     var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
     var tempBalance = currentBalance - amount;
-    document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    document.getElementById('balance-val').innerText = formatDisplayNumber(tempBalance, 2);
     var hBal = document.getElementById('header-balance');
-    if (hBal) hBal.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    if (hBal) hBal.innerText = formatDisplayNumber(tempBalance, 2);
 
     fetch('/api/game?game=horse', {
         method: 'POST',
@@ -513,8 +513,8 @@ function runRace() {
     .catch(function (e) {
         statusMsg.innerText = '❌ 錯誤: ' + e.message;
         statusMsg.style.color = 'red';
-        document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        document.getElementById('balance-val').innerText = formatDisplayNumber(currentBalance, 2);
+        if (hBal) hBal.innerText = formatDisplayNumber(currentBalance, 2);
     })
     .finally(function() {
         isSubmitting = false;

@@ -25,11 +25,11 @@ function renderMyBalanceRank(data) {
     if (myBalanceEl) myBalanceEl.innerText = formatCompactZh(data.myRank.netWorth, 2) + ' 子熙幣';
     if (myAssetsEl) {
         myAssetsEl.innerText =
-            '鏈上 ' + formatCompactZh(data.myRank.walletBalance, 2) +
-            ' / 銀行 ' + formatCompactZh(data.myRank.bankBalance, 2) +
-            ' / 股票 ' + formatCompactZh(data.myRank.stockValue, 2) +
-            ' / 期貨損益 ' + formatCompactZh(data.myRank.futuresUnrealizedPnl, 2) +
-            ' / 負債 -' + formatCompactZh(data.myRank.loanPrincipal, 2);
+            '鏈上 ' + formatDisplayNumber(data.myRank.walletBalance, 2) +
+            ' / 銀行 ' + formatDisplayNumber(data.myRank.bankBalance, 2) +
+            ' / 股票 ' + formatDisplayNumber(data.myRank.stockValue, 2) +
+            ' / 期貨損益 ' + formatDisplayNumber(data.myRank.futuresUnrealizedPnl, 2) +
+            ' / 負債 -' + formatDisplayNumber(data.myRank.loanPrincipal, 2);
     }
 }
 
@@ -53,7 +53,7 @@ function renderBalanceLeaderboardRows(items) {
         html += '<div class="leaderboard-row leaderboard-balance-row' + (isMine ? ' is-me' : '') + '">' +
             '<span class="rank-col">#' + Number(item.rank).toLocaleString() + '</span>' +
             '<span class="addr-col" title="' + item.address + '">' + displayName + (isMine ? ' (你)' : '') + '</span>' +
-            '<span class="bet-col" title="鏈上 ' + item.walletBalance + ' / 銀行 ' + item.bankBalance + ' / 股票 ' + item.stockValue + ' / 期貨損益 ' + item.futuresUnrealizedPnl + ' / 負債 -' + item.loanPrincipal + '">' + formatCompactZh(item.netWorth, 2) + ' 子熙幣</span>' +
+            '<span class="bet-col" title="鏈上 ' + formatDisplayNumber(item.walletBalance, 2) + ' / 銀行 ' + formatDisplayNumber(item.bankBalance, 2) + ' / 股票 ' + formatDisplayNumber(item.stockValue, 2) + ' / 期貨損益 ' + formatDisplayNumber(item.futuresUnrealizedPnl, 2) + ' / 負債 -' + formatDisplayNumber(item.loanPrincipal, 2) + '">' + formatCompactZh(item.netWorth, 2) + ' 子熙幣</span>' +
             '<span class="vip-col">' + item.vipLevel + '</span>' +
             '</div>';
     });

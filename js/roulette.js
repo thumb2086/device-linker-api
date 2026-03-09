@@ -202,7 +202,7 @@ function updatePendingRouletteBetsUI() {
             label = '號碼 ' + b.betValue;
         }
 
-        html += label + ' (' + b.amount + ' 子熙幣)<br/>';
+        html += label + ' (' + formatDisplayNumber(b.amount, 2) + ' 子熙幣)<br/>';
     });
     html += '</div>';
 
@@ -296,7 +296,7 @@ function startRouletteDraw(roundId) {
 
             if (status) {
                 if (totalPayout > 0) {
-                    status.innerText = '中獎，派彩 ' + totalPayout.toFixed(2) + ' 子熙幣';
+                    status.innerText = '中獎，派彩 ' + formatDisplayNumber(totalPayout, 2) + ' 子熙幣';
                     status.style.color = '#00ff88';
                 } else {
                     status.innerText = '未中獎';
@@ -391,8 +391,8 @@ function spinRoulette() {
 
     var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
     var tempBalance = currentBalance - amount;
-    document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-    if (hBal) hBal.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    document.getElementById('balance-val').innerText = formatDisplayNumber(tempBalance, 2);
+    if (hBal) hBal.innerText = formatDisplayNumber(tempBalance, 2);
 
     fetch('/api/game?game=roulette', {
         method: 'POST',
@@ -428,8 +428,8 @@ function spinRoulette() {
         .catch(function (e) {
             status.innerText = '錯誤: ' + e.message;
             status.style.color = 'red';
-            document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-            if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+            document.getElementById('balance-val').innerText = formatDisplayNumber(currentBalance, 2);
+            if (hBal) hBal.innerText = formatDisplayNumber(currentBalance, 2);
             syncRouletteClock(true);
         })
         .finally(function () {

@@ -64,6 +64,19 @@ function isCampaignActiveNow(item) {
     return startAt <= now && endAt >= now;
 }
 
+function formatRewardDateTime(value) {
+    if (!value) return '';
+    var date = new Date(String(value || ''));
+    if (!Number.isFinite(date.getTime())) return String(value || '');
+    return date.toLocaleString('zh-TW', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 function rewardCatalogMap(kind) {
     var items = rewardsState && rewardsState.catalog ? rewardsState.catalog[kind] : [];
     var map = {};
@@ -119,7 +132,7 @@ function renderCampaigns(items) {
                 '<span class="reward-rarity">活動</span>' +
             '</div>' +
             '<div class="reward-card-copy">' + escapeRewardsHtml(item.description || '限時登入領取') + '</div>' +
-            '<div class="reward-card-meta">時間：' + escapeRewardsHtml(item.startAt || '即刻開始') + ' ~ ' + escapeRewardsHtml(item.endAt || '不限結束') + '</div>' +
+            '<div class="reward-card-meta">時間：' + escapeRewardsHtml(formatRewardDateTime(item.startAt) || '即刻開始') + ' ~ ' + escapeRewardsHtml(formatRewardDateTime(item.endAt) || '不限結束') + '</div>' +
             '<div class="reward-card-meta">獎勵：' + escapeRewardsHtml(rewardItemSummary(item.rewards).join(' / ') || '未設定') + '</div>' +
             '<div class="reward-card-actions">' +
                 '<button class="btn-primary compact-btn" onclick="claimRewardCampaign(\'' + escapeRewardsHtml(item.id) + '\')">立即領取</button>' +
@@ -326,16 +339,9 @@ function refreshRewardsCenter() {
     if (rewardsBusy) return;
     rewardsBusy = true;
     setRewardsStatus('同步獎勵中心中...', false);
-    Promise.all([
-        rewardsApi('summary'),
-        rewardsApi('list_campaigns')
-    ])
-        .then(function (results) {
-            var summaryData = results[0];
-            var campaignData = results[1];
+    rewardsApi('summary')
+        .then(function (summaryData) {
             if (!summaryData || !summaryData.success) throw new Error((summaryData && summaryData.error) || '獎勵中心同步失敗');
-            if (!campaignData || !campaignData.success) throw new Error((campaignData && campaignData.error) || '活動資料同步失敗');
-            summaryData.campaigns = (campaignData.campaigns || []).filter(isCampaignActiveNow);
             applyRewardsState(summaryData);
             setRewardsStatus('獎勵中心已更新', false);
         })

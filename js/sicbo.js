@@ -286,7 +286,7 @@ function startSicboDraw(roundId) {
         var totalPayout = 0;
         roundBets.forEach(function (bet) {
             var multiplier = evaluateBet(resolvedDice, bet.betType, bet.betValue);
-            if (multiplier > 0) totalPayout += bet.amount + (bet.amount * multiplier);
+            if (multiplier > 0) totalPayout += bet.amount * (multiplier + 1);
         });
 
         if (status) {
@@ -336,10 +336,24 @@ function placeSicboBet() {
     }
 
     if (betValue === '' || betValue === null) betValue = undefined;
+    var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+    var headerBalance = document.getElementById('header-balance');
+    if (currentBalance < amount) {
+        if (status) {
+            status.innerText = '餘額不足';
+            status.style.color = '#ff6b6b';
+        }
+        return;
+    }
+
     if (status) {
         status.innerText = '下注送出中...';
         status.style.color = '#ffd36a';
     }
+
+    var tempBalance = currentBalance - amount;
+    document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    if (headerBalance) headerBalance.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
     fetch('/api/game?game=sicbo', {
         method: 'POST',
@@ -377,6 +391,8 @@ function placeSicboBet() {
             document.getElementById('tx-log').innerHTML = txLinkHTML(data.txHash);
         })
         .catch(function (error) {
+            document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+            if (headerBalance) headerBalance.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
             if (status) {
                 status.innerText = '錯誤: ' + error.message;
                 status.style.color = '#ff6b6b';

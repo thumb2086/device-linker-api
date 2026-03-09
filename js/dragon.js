@@ -208,8 +208,7 @@ function playDragon() {
             shotCard.classList.add('opened');
 
             if (result.resultType === 'win') {
-                var profit = amount * result.multiplier;
-                var newBalance = tempBalance + amount + profit;
+                var newBalance = tempBalance + (amount * result.multiplier);
                 document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
                 if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
                 statusMsg.innerHTML = '🏆 命中龍門！<span class="result-multiplier" style="display:inline;">' + result.multiplier + 'x</span>';

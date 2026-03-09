@@ -11,6 +11,15 @@ function fmt(value, digits) {
     });
 }
 
+function fmtPercent(value) {
+    var num = Number(value || 0);
+    if (!isFinite(num)) num = 0;
+    return (num * 100).toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+    }) + '%';
+}
+
 function setStatus(text, isError) {
     var el = document.getElementById('status-msg');
     if (!el) return;
@@ -171,6 +180,14 @@ function renderOverview(payload) {
     document.getElementById('sim-net').innerText = fmt(account.netWorth, 2);
     document.getElementById('market-vol').innerText = fmt(market.marketVolatilityPct, 2) + '%';
     document.getElementById('fg-index').innerText = String(market.fearGreedIndex);
+    var bankRateLabel = document.getElementById('bank-rate-label');
+    var loanRateLabel = document.getElementById('loan-rate-label');
+    if (bankRateLabel && payload.params) {
+        bankRateLabel.innerText = fmtPercent(payload.params.bankAnnualRate);
+    }
+    if (loanRateLabel && payload.params) {
+        loanRateLabel.innerText = fmtPercent(payload.params.loanAnnualRate);
+    }
     var futuresMaxBetEl = document.getElementById('futures-max-bet');
     if (futuresMaxBetEl && payload.maxBet !== undefined) {
         futuresMaxBetEl.innerText = formatCompactZh(payload.maxBet, 2) + ' 子熙幣';

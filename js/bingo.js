@@ -225,7 +225,7 @@ function startBingoDraw(roundId) {
         roundBets.forEach(function (b) {
             var hits = b.numbers.filter(function (n) { return drawnSet[n]; }).length;
             var mult = payoutForHits(hits);
-            if (mult > 0) totalPayout += b.amount + (b.amount * mult);
+            if (mult > 0) totalPayout += b.amount * (mult + 1);
         });
 
         if (status) {
@@ -262,10 +262,24 @@ function placeBingoBet() {
         return;
     }
 
+    var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+    var headerBalance = document.getElementById('header-balance');
+    if (currentBalance < amount) {
+        if (status) {
+            status.innerText = '餘額不足';
+            status.style.color = '#ff6666';
+        }
+        return;
+    }
+
     if (status) {
         status.innerText = '下注中...';
         status.style.color = '#ffd36a';
     }
+
+    var tempBalance = currentBalance - amount;
+    document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    if (headerBalance) headerBalance.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
     fetch('/api/game', {
         method: 'POST',
@@ -296,6 +310,8 @@ function placeBingoBet() {
             updateUI({ totalBet: data.totalBet, vipLevel: data.vipLevel, maxBet: data.maxBet });
         })
         .catch(function (err) {
+            document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+            if (headerBalance) headerBalance.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
             if (status) {
                 status.innerText = '錯誤: ' + err.message;
                 status.style.color = '#ff6666';

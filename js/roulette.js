@@ -290,7 +290,7 @@ function startRouletteDraw(roundId) {
             roundBets.forEach(function (b) {
                 var mult = evaluateRouletteBet(winningNumber, b.betType, b.betValue);
                 if (mult > 0 || (winningNumber === Number(b.betValue) && b.betType === 'number')) {
-                    totalPayout += b.amount + (b.amount * mult);
+                    totalPayout += b.amount * (mult + 1);
                 }
             });
 

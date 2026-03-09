@@ -13,6 +13,8 @@ var rewardCampaigns = [];
 var rewardGrantLogs = [];
 var custodyLoaded = false;
 var custodyExpanded = false;
+var announcementsLoaded = false;
+var announcementsExpanded = false;
 
 function setAdminStatus(text, isError) {
     var el = document.getElementById('status-msg');
@@ -525,10 +527,26 @@ function loadAnnouncements() {
 function refreshAnnouncements() {
     setAnnouncementAdminStatus('正在讀取公告...', false);
     withAdminBusy('announcement', function () {
-        return loadAnnouncements();
+        return loadAnnouncements().then(function () {
+            announcementsLoaded = true;
+        });
     }).catch(function (error) {
         setAnnouncementAdminStatus('錯誤: ' + error.message, true);
     });
+}
+
+function toggleAnnouncementSection() {
+    var body = document.getElementById('announcements-section-body');
+    var btn = document.getElementById('announcement-toggle-btn');
+    if (!body || !btn) return;
+
+    announcementsExpanded = !announcementsExpanded;
+    body.classList.toggle('hidden', !announcementsExpanded);
+    btn.innerText = announcementsExpanded ? '收合公告中心' : '展開公告中心';
+
+    if (announcementsExpanded && !announcementsLoaded) {
+        refreshAnnouncements();
+    }
 }
 
 function publishAnnouncement() {
@@ -871,7 +889,6 @@ function saveRewardCampaign(campaignId) {
 
 function initAdminToolsPage() {
     setAdminStatus('目前管理頁已啟用公告、稱號活動發放、問題回報、託管帳號與高額下注重製', false);
-    refreshAnnouncements();
     refreshIssueReports();
     refreshRewardAdmin();
 }

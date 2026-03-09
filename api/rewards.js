@@ -2,7 +2,7 @@ import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
-import { buildVipStatus } from "../lib/vip.js";
+import { buildVipStatus, getVipTierOptions } from "../lib/vip.js";
 import { withChainTxLock } from "../lib/tx-lock.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import {
@@ -22,7 +22,8 @@ import {
     openChest,
     purchaseShopItem,
     saveRewardCampaign,
-    activateInventoryItem
+    activateInventoryItem,
+    upsertRewardTitle
 } from "../lib/reward-center.js";
 
 const CONTRACT_ABI = [
@@ -135,13 +136,17 @@ async function getContractContext() {
 }
 
 async function buildSummaryPayload(address, totalBet) {
-    const [profile, campaigns] = await Promise.all([
+    const [profile, campaigns, catalog] = await Promise.all([
         buildRewardSummary(address, totalBet),
-        listRewardCampaigns({ activeOnly: true })
+        listRewardCampaigns({ activeOnly: true }),
+        getRewardCatalog()
     ]);
     return {
         profile,
-        catalog: getRewardCatalog(),
+        catalog: {
+            ...catalog,
+            vipLevels: getVipTierOptions()
+        },
         campaigns: campaigns.campaigns
     };
 }
@@ -171,7 +176,7 @@ export default async function handler(req, res) {
         if (action === "buy") {
             const context = await getUserContext(sessionId);
             const itemId = trimText(body.shopItemId || body.itemId, 64);
-            const catalog = getRewardCatalog();
+            const catalog = await getRewardCatalog();
             const item = (catalog.shopItems || []).find((entry) => entry.id === itemId);
             if (!item) {
                 return res.status(404).json({ success: false, error: "Shop item not found" });
@@ -205,7 +210,7 @@ export default async function handler(req, res) {
             const profile = await activateInventoryItem(context.address, itemId);
             return res.status(200).json({
                 success: true,
-                profile: buildRewardSummaryFromProfile(profile, context.totalBet)
+                profile: await buildRewardSummaryFromProfile(profile, context.totalBet)
             });
         }
 
@@ -214,7 +219,7 @@ export default async function handler(req, res) {
             const profile = await equipAvatar(context.address, trimText(body.avatarId, 64));
             return res.status(200).json({
                 success: true,
-                profile: buildRewardSummaryFromProfile(profile, context.totalBet)
+                profile: await buildRewardSummaryFromProfile(profile, context.totalBet)
             });
         }
 
@@ -223,7 +228,7 @@ export default async function handler(req, res) {
             const profile = await equipTitle(context.address, trimText(body.titleId, 64));
             return res.status(200).json({
                 success: true,
-                profile: buildRewardSummaryFromProfile(profile, context.totalBet)
+                profile: await buildRewardSummaryFromProfile(profile, context.totalBet)
             });
         }
 
@@ -251,7 +256,7 @@ export default async function handler(req, res) {
                 chestName: result.chestName,
                 rewardRarity: result.rewardRarity,
                 rewards: result.rewards,
-                profile: buildRewardSummaryFromProfile(result.profile, context.totalBet)
+                profile: await buildRewardSummaryFromProfile(result.profile, context.totalBet)
             });
         }
 
@@ -285,8 +290,21 @@ export default async function handler(req, res) {
                 success: true,
                 txHash,
                 campaign: result.campaign,
-                profile: buildRewardSummaryFromProfile(result.profile, context.totalBet)
+                profile: await buildRewardSummaryFromProfile(result.profile, context.totalBet)
             });
+        }
+
+        if (action === "admin_upsert_title") {
+            await requireAdmin(sessionId);
+            const title = await upsertRewardTitle({
+                id: trimText(body.titleCatalogId || body.titleId, 64),
+                name: trimText(body.titleName, 80),
+                rarity: trimText(body.titleRarity, 24) || "epic",
+                source: trimText(body.titleSource, 32) || "admin",
+                adminGrantable: body.adminGrantable !== false,
+                showOnLeaderboard: toBoolean(body.showOnLeaderboard)
+            });
+            return res.status(200).json({ success: true, title });
         }
 
         if (action === "admin_list_campaigns") {
@@ -369,7 +387,7 @@ export default async function handler(req, res) {
             return res.status(200).json({
                 success: true,
                 txHash,
-                profile: buildRewardSummaryFromProfile(grant.profile, Number(await kv.get(`total_bet:${targetAddress}`) || 0))
+                profile: await buildRewardSummaryFromProfile(grant.profile, Number(await kv.get(`total_bet:${targetAddress}`) || 0))
             });
         }
 

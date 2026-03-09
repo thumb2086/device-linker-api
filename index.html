@@ -78,6 +78,18 @@
             <button class="btn-secondary" onclick="promptDisplayName()">設定使用者名稱</button>
         </div>
 
+        <section id="lobby-campaigns-panel" class="lobby-campaigns-panel hidden">
+            <div class="lobby-campaigns-head">
+                <div>
+                    <p class="section-kicker">Live Event</p>
+                    <h2>限時活動</h2>
+                    <p class="lobby-campaigns-copy">有進行中的活動時，這裡會顯示活動卡片，點進去即可領取。</p>
+                </div>
+                <a href="games/rewards-center.html" class="btn-secondary lobby-campaigns-link" onclick="event.preventDefault(); navigateToGameWithAuth('games/rewards-center.html');">前往獎勵中心</a>
+            </div>
+            <div id="lobby-campaign-list" class="lobby-campaign-list"></div>
+        </section>
+
         <div class="section-title">選擇模組</div>
 
         <div class="game-grid">
@@ -160,6 +172,77 @@
     <script src="js/announcements.js"></script>
     <script src="js/auth.js"></script>
     <script>
+        function escapeLobbyHtml(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function renderLobbyCampaignCards(campaigns) {
+            var panel = document.getElementById('lobby-campaigns-panel');
+            var list = document.getElementById('lobby-campaign-list');
+            if (!panel || !list) return;
+
+            if (!campaigns || !campaigns.length) {
+                panel.classList.add('hidden');
+                list.innerHTML = '';
+                return;
+            }
+
+            panel.classList.remove('hidden');
+            list.innerHTML = campaigns.slice(0, 3).map(function (item) {
+                var rewards = [];
+                if (item.rewards && Array.isArray(item.rewards.titles)) {
+                    rewards = rewards.concat(item.rewards.titles.map(function (entry) {
+                        return typeof entry === 'string' ? entry : String(entry && entry.id || '');
+                    }));
+                }
+                if (item.rewards && Array.isArray(item.rewards.avatars)) {
+                    rewards = rewards.concat(item.rewards.avatars);
+                }
+                if (item.rewards && Array.isArray(item.rewards.items)) {
+                    rewards = rewards.concat(item.rewards.items.map(function (entry) {
+                        return String(entry.id || '') + ' x' + String(entry.qty || 1);
+                    }));
+                }
+                if (item.rewards && item.rewards.tokens) {
+                    rewards.push(formatCompactZh(item.rewards.tokens, 2) + ' 子熙幣');
+                }
+
+                return '<button class="lobby-campaign-card" onclick="navigateToGameWithAuth(\'games/rewards-center.html\')">' +
+                    '<span class="lobby-campaign-badge">限時活動</span>' +
+                    '<strong>' + escapeLobbyHtml(item.title || '活動') + '</strong>' +
+                    '<p>' + escapeLobbyHtml(item.description || '前往獎勵中心查看活動內容') + '</p>' +
+                    '<div class="lobby-campaign-meta">獎勵：' + escapeLobbyHtml(rewards.join(' / ') || '未設定') + '</div>' +
+                    '<div class="lobby-campaign-meta">時間：' + escapeLobbyHtml(item.startAt || '即刻開始') + ' ~ ' + escapeLobbyHtml(item.endAt || '不限結束') + '</div>' +
+                    '<span class="lobby-campaign-link">點擊進入領取 →</span>' +
+                    '</button>';
+            }).join('');
+        }
+
+        function loadLobbyCampaignCards() {
+            if (!user.sessionId) return;
+            fetch('/api/rewards', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'summary',
+                    sessionId: user.sessionId
+                })
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (!data || !data.success) throw new Error((data && data.error) || '活動載入失敗');
+                    renderLobbyCampaignCards(data.campaigns || []);
+                })
+                .catch(function () {
+                    renderLobbyCampaignCards([]);
+                });
+        }
+
         function initLobbyPage() {
             showPageTransition('驗證登入中...');
             initLobbyAuth(function (data) {
@@ -168,6 +251,7 @@
                 document.getElementById('lobby-ui').classList.remove('hidden');
                 updateUI(data);
                 startBalanceRefresh();
+                loadLobbyCampaignCards();
                 hidePageTransition();
 
                 // 只有管理員才顯示維運工具

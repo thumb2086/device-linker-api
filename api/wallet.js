@@ -183,13 +183,6 @@ export default async function handler(req, res) {
                 const trackedDistributedWei = await getTrackedAirdropDistributedWei();
                 policy = calculateAirdropRewardWei(decimals, trackedDistributedWei);
 
-                if (policy.rewardWei <= 0n) {
-                    const error = new Error("Airdrop cap reached");
-                    error.code = "AIRDROP_CAP_REACHED";
-                    error.policy = policy;
-                    throw error;
-                }
-
                 const sentTx = await transferFromTreasuryWithAutoTopup(
                     contract,
                     treasuryAddress,
@@ -200,23 +193,7 @@ export default async function handler(req, res) {
                 newDistributedWei = policy.distributedWei + policy.rewardWei;
                 await kv.set(AIRDROP_DISTRIBUTED_TOTAL_KEY, newDistributedWei.toString());
                 return sentTx;
-            }).catch((error) => {
-                if (error && error.code === "AIRDROP_CAP_REACHED" && error.policy) {
-                    return null;
-                }
-                throw error;
             });
-
-            if (!tx) {
-                return res.status(400).json({
-                    success: false,
-                    error: "Airdrop cap reached",
-                    distributedExcludingAdmin: ethers.formatUnits(policy.distributedWei, decimals),
-                    distributed: ethers.formatUnits(policy.distributedWei, decimals),
-                    cap: ethers.formatUnits(policy.capWei, decimals),
-                    remaining: "0"
-                });
-            }
 
             return res.status(200).json({
                 success: true,
@@ -225,8 +202,8 @@ export default async function handler(req, res) {
                 halvingCount: policy.halvingCount,
                 distributed: ethers.formatUnits(newDistributedWei, decimals),
                 distributedExcludingAdmin: ethers.formatUnits(newDistributedWei, decimals),
-                cap: ethers.formatUnits(policy.capWei, decimals),
-                remaining: ethers.formatUnits(policy.capWei - newDistributedWei, decimals),
+                cap: null,
+                remaining: null,
                 adminWalletAddress: normalizeAddress(adminWallet.address, "adminWalletAddress")
             });
         }
@@ -270,8 +247,8 @@ export default async function handler(req, res) {
                 airdrop: {
                     distributed: ethers.formatUnits(airdropPolicy.distributedWei, decimals),
                     distributedExcludingAdmin: ethers.formatUnits(airdropPolicy.distributedWei, decimals),
-                    cap: ethers.formatUnits(airdropPolicy.capWei, decimals),
-                    remaining: ethers.formatUnits(airdropPolicy.remainingWei, decimals),
+                    cap: null,
+                    remaining: null,
                     reward: ethers.formatUnits(airdropPolicy.rewardWei, decimals),
                     halvingCount: airdropPolicy.halvingCount,
                     nextHalvingAt: ethers.formatUnits(nextHalvingAtWei, decimals)

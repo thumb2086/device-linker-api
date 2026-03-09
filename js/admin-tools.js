@@ -656,6 +656,24 @@ function buildRewardSelectOptionsHtml(items, emptyLabel, selectedValue) {
     return html;
 }
 
+function buildVipSelectOptionsHtml(items, selectedValue) {
+    var html = '<option value="">不限 VIP</option>';
+    (items || []).forEach(function (item) {
+        var value = String(item && item.label || '');
+        if (!value || value === '普通會員') return;
+        html += '<option value="' + escapeHtml(value) + '"' + (value === String(selectedValue || '') ? ' selected' : '') + '>' + escapeHtml(value) + '</option>';
+    });
+    return html;
+}
+
+function buildSimpleSelectOptionsHtml(items, selectedValue) {
+    return (items || []).map(function (item) {
+        var value = String(item && item.value || '');
+        var label = String(item && item.label || value);
+        return '<option value="' + escapeHtml(value) + '"' + (value === String(selectedValue || '') ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+    }).join('');
+}
+
 function renderRewardSelectOptions(selectId, items, emptyLabel) {
     var el = document.getElementById(selectId);
     if (!el) return;
@@ -686,12 +704,36 @@ function getPrimaryRewardTitle(bundle) {
 
 function renderRewardAdminSelects() {
     if (!rewardCatalog) return;
+    var titleCountEl = document.getElementById('reward-title-count');
     renderRewardSelectOptions('reward-grant-item', rewardCatalog.shopItems, '不發道具');
     renderRewardSelectOptions('reward-grant-avatar', rewardCatalog.avatars, '不發頭像');
     renderRewardSelectOptions('reward-grant-title', rewardCatalog.titles, '不發稱號');
     renderRewardSelectOptions('campaign-item', rewardCatalog.shopItems, '不發道具');
     renderRewardSelectOptions('campaign-avatar', rewardCatalog.avatars, '不發頭像');
     renderRewardSelectOptions('campaign-title-id', rewardCatalog.titles, '不發稱號');
+    if (titleCountEl) titleCountEl.innerText = String((rewardCatalog.titles || []).length);
+    var vipEl = document.getElementById('campaign-min-vip');
+    if (vipEl) {
+        vipEl.innerHTML = buildVipSelectOptionsHtml(rewardCatalog.vipLevels, '');
+    }
+    var titleRarityEl = document.getElementById('reward-title-rarity');
+    if (titleRarityEl) {
+        titleRarityEl.innerHTML = buildSimpleSelectOptionsHtml([
+            { value: 'rare', label: '稀有' },
+            { value: 'epic', label: '史詩' },
+            { value: 'mythic', label: '神話' },
+            { value: 'legendary', label: '傳奇' }
+        ], 'epic');
+    }
+    var titleSourceEl = document.getElementById('reward-title-source');
+    if (titleSourceEl) {
+        titleSourceEl.innerHTML = buildSimpleSelectOptionsHtml([
+            { value: 'admin', label: '管理員' },
+            { value: 'campaign', label: '活動' },
+            { value: 'system', label: '系統' },
+            { value: 'shop', label: '商店' }
+        ], 'admin');
+    }
 }
 
 function renderRewardCampaigns() {
@@ -739,7 +781,7 @@ function renderRewardCampaigns() {
                 '<label><span>每人可領次數</span><input id="' + escapeHtml(claimLimitId) + '" class="text-input" type="number" min="1" step="1" value="' + escapeHtml(String(item.claimLimitPerUser || 1)) + '"></label>' +
                 '<label><span>開始時間</span><input id="' + escapeHtml(startId) + '" class="text-input" type="datetime-local" value="' + escapeHtml((item.startAt || '').slice(0, 16)) + '"></label>' +
                 '<label><span>結束時間</span><input id="' + escapeHtml(endId) + '" class="text-input" type="datetime-local" value="' + escapeHtml((item.endAt || '').slice(0, 16)) + '"></label>' +
-                '<label><span>最低 VIP</span><input id="' + escapeHtml(minVipId) + '" class="text-input" type="text" maxlength="64" value="' + escapeHtml(item.minVipLevel || '') + '" placeholder="留空表示不限"></label>' +
+                '<label><span>最低 VIP</span><select id="' + escapeHtml(minVipId) + '" class="text-input">' + buildVipSelectOptionsHtml(rewardCatalog && rewardCatalog.vipLevels, item.minVipLevel || '') + '</select></label>' +
                 '<label class="toggle-field"><input id="' + escapeHtml(activeId) + '" type="checkbox"' + (item.isActive ? ' checked' : '') + '><span>啟用活動</span></label>' +
                 '<label class="full-span"><span>描述</span><textarea id="' + escapeHtml(descId) + '" class="text-input announcement-textarea">' + escapeHtml(item.description || '') + '</textarea></label>' +
                 '<label><span>活動道具</span><select id="' + escapeHtml(itemId) + '" class="text-input">' + buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.shopItems, '不發道具', rewardItem && rewardItem.id) + '</select></label>' +
@@ -849,6 +891,31 @@ function grantRewardBundleAdmin() {
             document.getElementById('reward-grant-token-amount').value = '0';
             document.getElementById('reward-grant-note').value = '';
             setRewardAdminStatus('發放完成', false);
+            return loadRewardAdmin();
+        });
+    }).catch(function (error) {
+        setRewardAdminStatus('錯誤: ' + error.message, true);
+    });
+}
+
+function publishRewardTitle() {
+    setRewardAdminStatus('新增稱號中...', false);
+    withAdminBusy('reward', function () {
+        return callRewardsAdminApi('admin_upsert_title', {
+            titleName: String(document.getElementById('reward-title-name').value || ''),
+            titleCatalogId: String(document.getElementById('reward-title-id').value || ''),
+            titleRarity: String(document.getElementById('reward-title-rarity').value || 'epic'),
+            titleSource: String(document.getElementById('reward-title-source').value || 'admin'),
+            showOnLeaderboard: !!document.getElementById('reward-title-leaderboard').checked,
+            adminGrantable: true
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '新增稱號失敗');
+            document.getElementById('reward-title-name').value = '';
+            document.getElementById('reward-title-id').value = '';
+            document.getElementById('reward-title-rarity').value = 'epic';
+            document.getElementById('reward-title-source').value = 'admin';
+            document.getElementById('reward-title-leaderboard').checked = true;
+            setRewardAdminStatus('稱號已新增，可直接用於發放與活動', false);
             return loadRewardAdmin();
         });
     }).catch(function (error) {

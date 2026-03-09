@@ -134,12 +134,41 @@
                         <strong id="reward-grant-count">0</strong>
                     </div>
                     <div class="summary-card">
-                        <span>永久稱號</span>
-                        <strong>到期時間留空</strong>
+                        <span>稱號總數</span>
+                        <strong id="reward-title-count">0</strong>
                     </div>
                 </div>
 
                 <div class="toolbar-grid reward-admin-grid">
+                    <div class="announcement-editor-card">
+                        <h3>新增自訂稱號</h3>
+                        <div class="announcement-form-grid">
+                            <label>
+                                稱號名稱
+                                <input id="reward-title-name" class="text-input" type="text" maxlength="80" placeholder="例如：遠征先鋒">
+                            </label>
+                            <label>
+                                稱號 ID
+                                <input id="reward-title-id" class="text-input" type="text" maxlength="64" placeholder="留空自動產生">
+                            </label>
+                            <label>
+                                稀有度
+                                <select id="reward-title-rarity" class="text-input"></select>
+                            </label>
+                            <label>
+                                來源
+                                <select id="reward-title-source" class="text-input"></select>
+                            </label>
+                            <label class="toggle-field">
+                                <input id="reward-title-leaderboard" type="checkbox" checked>
+                                <span>顯示於排行榜</span>
+                            </label>
+                        </div>
+                        <div class="form-row single-row">
+                            <button class="btn-primary" onclick="publishRewardTitle()">新增稱號</button>
+                        </div>
+                    </div>
+
                     <div class="announcement-editor-card">
                         <h3>管理員直接發放</h3>
                         <div class="announcement-form-grid">
@@ -202,7 +231,7 @@
                             </label>
                             <label>
                                 最低 VIP
-                                <input id="campaign-min-vip" class="text-input" type="text" maxlength="64" placeholder="留空表示不限">
+                                <select id="campaign-min-vip" class="text-input"></select>
                             </label>
                             <label class="toggle-field">
                                 <input id="campaign-active" type="checkbox" checked>

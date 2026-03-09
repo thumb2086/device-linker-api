@@ -7,6 +7,8 @@
 var custodyUsers = [];
 var issueReports = [];
 var announcements = [];
+var custodyLoaded = false;
+var custodyExpanded = false;
 
 function setAdminStatus(text, isError) {
     var el = document.getElementById('status-msg');
@@ -252,10 +254,26 @@ function loadCustodyUsers() {
 function refreshCustodyUsers() {
     setCustodyStatus('正在讀取託管帳號...', false);
     withAdminBusy('custody', function () {
-        return loadCustodyUsers();
+        return loadCustodyUsers().then(function () {
+            custodyLoaded = true;
+        });
     }).catch(function (error) {
         setCustodyStatus('錯誤: ' + error.message, true);
     });
+}
+
+function toggleCustodySection() {
+    var body = document.getElementById('custody-section-body');
+    var btn = document.getElementById('custody-toggle-btn');
+    if (!body || !btn) return;
+
+    custodyExpanded = !custodyExpanded;
+    body.classList.toggle('hidden', !custodyExpanded);
+    btn.innerText = custodyExpanded ? '收合託管帳號' : '展開託管帳號';
+
+    if (custodyExpanded && !custodyLoaded) {
+        refreshCustodyUsers();
+    }
 }
 
 function resetCustodyPassword(username) {
@@ -539,7 +557,6 @@ function updateAnnouncement(announcementId) {
 
 function initAdminToolsPage() {
     setAdminStatus('目前管理頁已啟用高額下注重製、託管帳號、問題回報與更新公告管理', false);
-    refreshCustodyUsers();
-    refreshIssueReports();
     refreshAnnouncements();
+    refreshIssueReports();
 }

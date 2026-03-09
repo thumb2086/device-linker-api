@@ -5,6 +5,7 @@ import { AIRDROP_HALVING_STEP, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.j
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { calculateAirdropRewardWei } from "../lib/airdrop-policy.js";
 import { listGameHistory } from "../lib/game-history.js";
+import { withChainTxLock } from "../lib/tx-lock.js";
 
 const MAX_TRANSFER_AMOUNT = 100000000;
 const CONTRACT_ABI = [
@@ -181,13 +182,13 @@ export default async function handler(req, res) {
                 });
             }
 
-            const tx = await transferFromTreasuryWithAutoTopup(
+            const tx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
                 contract,
                 treasuryAddress,
                 targetAddress,
                 policy.rewardWei,
                 { gasLimit: 220000 }
-            );
+            ));
             const newDistributedWei = policy.distributedWei + policy.rewardWei;
 
             return res.status(200).json({
@@ -267,13 +268,13 @@ export default async function handler(req, res) {
 
         if (action === "import" || action === "deposit") {
             const userAddress = sessionAddress || normalizeAddress(body.address, "address");
-            const tx = await transferFromTreasuryWithAutoTopup(
+            const tx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
                 contract,
                 treasuryAddress,
                 userAddress,
                 amountWei,
                 { gasLimit: 220000 }
-            );
+            ));
 
             return res.status(200).json({
                 success: true,
@@ -292,7 +293,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ success: false, error: "Insufficient balance" });
             }
 
-            const tx = await contract.adminTransfer(userAddress, treasuryAddress, amountWei, { gasLimit: 220000 });
+            const tx = await withChainTxLock(() => contract.adminTransfer(userAddress, treasuryAddress, amountWei, { gasLimit: 220000 }));
             return res.status(200).json({
                 success: true,
                 action: "withdraw",
@@ -355,7 +356,7 @@ export default async function handler(req, res) {
                 }
             }
 
-            const tx = await contract.adminTransfer(fromAddress, toAddress, transferWei, { gasLimit: 220000 });
+            const tx = await withChainTxLock(() => contract.adminTransfer(fromAddress, toAddress, transferWei, { gasLimit: 220000 }));
             return res.status(200).json({
                 success: true,
                 txHash: tx.hash,
@@ -378,7 +379,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ success: false, error: "Insufficient balance" });
             }
 
-            const tx = await contract.adminTransfer(userAddress, toAddress, amountWei, { gasLimit: 220000 });
+            const tx = await withChainTxLock(() => contract.adminTransfer(userAddress, toAddress, amountWei, { gasLimit: 220000 }));
             return res.status(200).json({
                 success: true,
                 action: "export",

@@ -27,6 +27,22 @@ body.announcements-body {
     max-width: 720px;
 }
 
+.announcements-actions {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 14px;
+}
+
+.announcements-action-link {
+    text-decoration: none;
+}
+
+.announcement-page-status {
+    margin: 0 0 18px;
+    color: #9fd0ff;
+    font-size: 0.92rem;
+}
+
 .announcement-page-list {
     display: grid;
     gap: 18px;
@@ -110,6 +126,13 @@ body.announcements-body {
     overflow: hidden;
 }
 
+.result-empty {
+    padding: 20px 16px;
+    border-radius: 18px;
+    background: rgba(0, 0, 0, 0.2);
+    color: #999;
+}
+
 @media (max-width: 720px) {
     body.announcements-body {
         padding: 16px 16px 36px;
@@ -122,5 +145,14 @@ body.announcements-body {
 
     .announcement-card {
         padding: 18px;
+    }
+
+    .announcements-actions {
+        justify-content: stretch;
+    }
+
+    .announcements-action-link {
+        width: 100%;
+        text-align: center;
     }
 }

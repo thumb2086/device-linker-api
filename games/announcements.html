@@ -4,28 +4,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公告 | 子熙模擬器</title>
+    <title>公告中心 | 子熙模擬器</title>
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/announcements.css">
 </head>
 
 <body class="announcements-body">
     <div class="page-header">
-        <a href="/" class="back-btn">← 返回登入頁</a>
+        <a href="/" class="back-btn">← 返回首頁</a>
     </div>
 
     <div class="casino-card announcements-card">
         <div class="announcements-hero">
             <p class="section-kicker">公開資訊</p>
-            <h1>📢 系統公告</h1>
-            <p class="announcements-subtitle">這一頁不需要登入，登入前可先查看最新消息、活動與維護安排。</p>
+            <h1>📢 公告中心</h1>
+            <p class="announcements-subtitle">這一頁不需要登入。你可以先看最新公告、維護通知與系統更新；若要提交問題，再登入後前往問題回報。</p>
         </div>
 
+        <div class="announcements-actions">
+            <a href="/games/support.html" class="btn-secondary announcements-action-link">登入後前往問題回報</a>
+        </div>
+
+        <p id="announcement-page-status" class="announcement-page-status">讀取公告中...</p>
         <div id="announcement-page-list" class="announcement-page-list"></div>
     </div>
 
     <script src="../js/common.js"></script>
-    <script src="../js/announcements-data.js"></script>
     <script src="../js/announcements.js"></script>
     <script>
         window.onload = function () {

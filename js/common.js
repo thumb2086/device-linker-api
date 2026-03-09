@@ -82,7 +82,7 @@ function ensureSupportShortcut() {
     link.id = 'support-shortcut-link';
     link.className = 'support-shortcut-link';
     link.href = '/games/support.html';
-    link.innerText = '問題回報 / 公告';
+    link.innerText = '問題回報';
     document.body.appendChild(link);
 }
 

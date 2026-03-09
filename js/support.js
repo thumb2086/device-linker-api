@@ -1,5 +1,4 @@
 ﻿var myIssueReports = [];
-var currentAnnouncements = [];
 var supportBusy = false;
 
 function setSupportStatus(text, isError) {
@@ -80,33 +79,6 @@ function callSupportApi(action, extraPayload) {
     }).then(function (res) { return res.json(); });
 }
 
-function renderAnnouncements() {
-    var listEl = document.getElementById('announcement-list');
-    if (!listEl) return;
-
-    var activeItems = currentAnnouncements.filter(function (item) {
-        return item && item.isActive !== false;
-    });
-
-    if (activeItems.length === 0) {
-        listEl.innerHTML = '<div class="result-empty">目前沒有有效公告</div>';
-        return;
-    }
-
-    var html = '';
-    activeItems.forEach(function (item) {
-        html += '<div class="announcement-card">' +
-            '<div class="announcement-head">' +
-                '<strong>' + escapeSupportHtml(item.title) + '</strong>' +
-                '<span>' + escapeSupportHtml(formatSupportTime(item.updatedAt || item.createdAt)) + '</span>' +
-            '</div>' +
-            '<div class="announcement-content">' + escapeSupportHtml(item.content).replace(/\n/g, '<br>') + '</div>' +
-            '</div>';
-    });
-
-    listEl.innerHTML = html;
-}
-
 function renderMyReports() {
     var listEl = document.getElementById('my-report-list');
     if (!listEl) return;
@@ -137,18 +109,6 @@ function renderMyReports() {
     listEl.innerHTML = html;
 }
 
-function loadAnnouncements() {
-    return callSupportApi('get_announcements', {
-        activeOnly: true,
-        limit: 20
-    }).then(function (data) {
-        if (!data || !data.success) throw new Error((data && data.error) || '載入公告失敗');
-        currentAnnouncements = Array.isArray(data.announcements) ? data.announcements : [];
-        renderAnnouncements();
-        setAnnouncementStatus('已載入 ' + currentAnnouncements.length + ' 則有效公告', false);
-    });
-}
-
 function loadMyReports() {
     return callSupportApi('list_my_issue_reports', { limit: 50 }).then(function (data) {
         if (!data || !data.success) throw new Error((data && data.error) || '載入回報紀錄失敗');
@@ -158,15 +118,14 @@ function loadMyReports() {
 }
 
 function refreshSupportPage() {
-    setAnnouncementStatus('正在讀取公告...', false);
+    setAnnouncementStatus('公告已移至公告中心頁面', false);
     setSupportStatus('正在同步回報紀錄...', false);
     withSupportBusy(function () {
-        return Promise.all([loadAnnouncements(), loadMyReports()]).then(function () {
+        return Promise.all([loadMyReports()]).then(function () {
             setSupportStatus('同步完成', false);
         });
     }).catch(function (error) {
         setSupportStatus('錯誤: ' + error.message, true);
-        setAnnouncementStatus('錯誤: ' + error.message, true);
     });
 }
 
@@ -204,7 +163,7 @@ function submitIssueReport() {
 function initSupportPage() {
     var pageEl = document.getElementById('report-page-url');
     if (pageEl) pageEl.value = window.location.href;
-    setAnnouncementStatus('正在讀取公告...', false);
+    setAnnouncementStatus('公告已移至公告中心頁面', false);
     setSupportStatus('目前可提交問題回報，並查看最新處理進度', false);
     refreshSupportPage();
 }

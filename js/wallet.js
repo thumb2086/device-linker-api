@@ -10,6 +10,11 @@ function fmtToken(value, digits) {
     });
 }
 
+function fmtTokenOrUnlimited(value, digits) {
+    if (value === null || value === undefined || value === '') return '無上限';
+    return fmtToken(value, digits);
+}
+
 function setWalletStatus(text, isError) {
     var el = document.getElementById('status-msg');
     if (!el) return;
@@ -220,7 +225,7 @@ function renderWalletSummary(data) {
 
     var airdropRemainEl = document.getElementById('airdrop-remaining');
     if (airdropRemainEl && data.airdrop) {
-        airdropRemainEl.innerText = fmtToken(data.airdrop.remaining);
+        airdropRemainEl.innerText = fmtTokenOrUnlimited(data.airdrop.remaining);
     }
 
     var airdropRewardEl = document.getElementById('airdrop-reward');
@@ -238,7 +243,7 @@ function renderWalletSummary(data) {
         airdropMetaEl.innerText =
             '目前每次可領: ' + fmtToken(data.airdrop.reward) +
             ' | 已空投總量: ' + fmtToken(data.airdrop.distributedExcludingAdmin || data.airdrop.distributed) +
-            ' / 上限: ' + fmtToken(data.airdrop.cap) +
+            ' / 上限: ' + fmtTokenOrUnlimited(data.airdrop.cap) +
             ' | 下次減半門檻: ' + fmtToken(data.airdrop.nextHalvingAt);
     }
 

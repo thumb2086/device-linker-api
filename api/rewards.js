@@ -262,7 +262,11 @@ export default async function handler(req, res) {
 
         if (action === "list_campaigns") {
             const context = await getUserContext(sessionId);
-            const result = await listRewardCampaigns({ activeOnly: false });
+            const result = await listRewardCampaigns({
+                activeOnly: toBoolean(body.activeOnly),
+                hideClaimed: toBoolean(body.hideClaimed),
+                address: context.address
+            });
             return res.status(200).json({
                 success: true,
                 vipLevel: context.vipStatus.vipLevel,

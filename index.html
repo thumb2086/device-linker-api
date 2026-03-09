@@ -251,13 +251,15 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'list_campaigns',
-                    sessionId: user.sessionId
+                    sessionId: user.sessionId,
+                    activeOnly: true,
+                    hideClaimed: true
                 })
             })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
                     if (!data || !data.success) throw new Error((data && data.error) || '活動載入失敗');
-                    renderLobbyCampaignCards((data.campaigns || []).filter(isLobbyCampaignActive));
+                    renderLobbyCampaignCards(data.campaigns || []);
                 })
                 .catch(function () {
                     renderLobbyCampaignCards([]);

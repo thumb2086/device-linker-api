@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>問題回報與公告 | Device Linker Casino</title>
+    <title>問題回報中心 | 子熙模擬器</title>
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/support.css">
 </head>
@@ -14,33 +14,37 @@
         <a href="/" class="back-btn">返回首頁</a>
         <div class="header-stats">
             <span class="vip" id="header-vip">-</span>
-            <span><span class="balance" id="header-balance">-</span> DLINK</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
             <button class="logout-btn" onclick="logoutUser()">登出</button>
         </div>
     </div>
 
     <div class="casino-card" id="main-card">
-        <h1>問題回報與更新公告</h1>
+        <div class="support-hero">
+            <p class="support-kicker">Support Center</p>
+            <h1>問題回報中心</h1>
+            <p class="support-hero-copy">公告獨立公開，回報集中處理。你可以在這裡提交問題、補充資訊，並持續追蹤管理員的最新處理更新。</p>
+        </div>
 
         <div class="user-stats">
             <span id="vip-badge">載入中</span>
-            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> DLINK</div>
-            <div class="stat-row">累計下注: <span id="total-bet-val">0.00</span> DLINK</div>
+            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計下注: <span id="total-bet-val">0.00</span> 子熙幣</div>
             <div class="stat-row">顯示名稱: <span id="display-name-val">未設定</span></div>
         </div>
 
-        <div class="section-block">
+        <div class="section-block support-overview-card">
             <div class="section-heading-row">
                 <div>
-                    <h2>更新公告欄</h2>
-                    <p class="tool-note">這裡會顯示目前有效中的最新公告與更新說明。</p>
+                    <h2>公告與回報分流</h2>
+                    <p class="tool-note">公告已獨立整理成公開頁，這裡專心處理問題回報與追蹤。需要先看最新維護、活動或系統異動，可直接前往公告中心。</p>
                 </div>
-                <button class="btn-secondary compact-btn" onclick="refreshSupportPage()">重新整理</button>
+                <div class="support-overview-actions">
+                    <a href="/games/announcements.html" class="btn-secondary compact-btn support-link-btn">查看公告中心</a>
+                    <button class="btn-secondary compact-btn" onclick="refreshSupportPage()">重新整理</button>
+                </div>
             </div>
-            <p id="announcement-status-msg">載入中...</p>
-            <div id="announcement-list" class="announcement-list">
-                <div class="result-empty">尚未載入公告</div>
-            </div>
+            <p id="announcement-status-msg">這裡不再顯示完整公告列表，請改到公告中心查看。</p>
         </div>
 
         <div class="section-block">

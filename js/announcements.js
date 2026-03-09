@@ -1,3 +1,26 @@
+var currentPublicAnnouncements = [];
+
+function escapeAnnouncementHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatAnnouncementTime(value) {
+    var date = new Date(value || '');
+    if (!Number.isFinite(date.getTime())) return '-';
+    return date.toLocaleString('zh-TW', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 function createAnnouncementCard(item, isPreview) {
     var card = document.createElement('article');
     card.className = 'announcement-card' + (isPreview ? ' preview' : '');
@@ -6,23 +29,23 @@ function createAnnouncementCard(item, isPreview) {
     meta.className = 'announcement-meta';
 
     var tag = document.createElement('span');
-    tag.className = 'announcement-tag ' + (item.tag || 'notice');
-    tag.innerText = item.tagLabel || '公告';
+    tag.className = 'announcement-tag ' + ((item.pinned ? 'activity' : 'update'));
+    tag.innerText = item.pinned ? '置頂公告' : '公告';
 
     var date = document.createElement('span');
     date.className = 'announcement-date';
-    date.innerText = item.date || '';
+    date.innerText = formatAnnouncementTime(item.updatedAt || item.createdAt);
 
     meta.appendChild(tag);
     meta.appendChild(date);
 
     var title = document.createElement('h3');
     title.className = 'announcement-title';
-    title.innerText = item.title || '';
+    title.innerText = item.title || '未命名公告';
 
     var body = document.createElement('p');
     body.className = 'announcement-body' + (isPreview ? ' preview' : '');
-    body.innerText = item.body || '';
+    body.innerHTML = escapeAnnouncementHtml(item.content || '').replace(/\n/g, '<br>');
 
     card.appendChild(meta);
     card.appendChild(title);
@@ -31,14 +54,45 @@ function createAnnouncementCard(item, isPreview) {
     return card;
 }
 
-function renderAnnouncements(containerId, limit) {
+function setAnnouncementPageStatus(text, isError) {
+    var el = document.getElementById('announcement-page-status');
+    if (!el) return;
+    el.innerText = text || '';
+    el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
+}
+
+function fetchPublicAnnouncements(limit) {
+    return fetch('/api/user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'get_announcements',
+            activeOnly: true,
+            limit: limit || 20
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || !data.success) {
+                throw new Error((data && data.error) || '載入公告失敗');
+            }
+            currentPublicAnnouncements = Array.isArray(data.announcements) ? data.announcements : [];
+            return currentPublicAnnouncements;
+        });
+}
+
+function renderAnnouncements(containerId, items, limit) {
     var container = document.getElementById(containerId);
-    if (!container || !Array.isArray(ANNOUNCEMENTS)) return;
+    if (!container) return;
 
     container.innerHTML = '';
-    var items = typeof limit === 'number' ? ANNOUNCEMENTS.slice(0, limit) : ANNOUNCEMENTS.slice();
+    if (!Array.isArray(items) || !items.length) {
+        container.innerHTML = '<div class="result-empty">目前沒有有效公告</div>';
+        return;
+    }
 
-    items.forEach(function (item) {
+    var displayItems = typeof limit === 'number' ? items.slice(0, limit) : items.slice();
+    displayItems.forEach(function (item) {
         container.appendChild(createAnnouncementCard(item, typeof limit === 'number'));
     });
 }
@@ -47,9 +101,24 @@ function initAnnouncementPreview() {
     var panel = document.getElementById('auth-announcements');
     if (!panel) return;
     panel.classList.remove('hidden');
-    renderAnnouncements('announcement-preview-list', 3);
+    fetchPublicAnnouncements(3)
+        .then(function (items) {
+            renderAnnouncements('announcement-preview-list', items, 3);
+        })
+        .catch(function () {
+            renderAnnouncements('announcement-preview-list', [], 3);
+        });
 }
 
 function initAnnouncementPage() {
-    renderAnnouncements('announcement-page-list');
+    setAnnouncementPageStatus('讀取公告中...', false);
+    fetchPublicAnnouncements(50)
+        .then(function (items) {
+            renderAnnouncements('announcement-page-list', items);
+            setAnnouncementPageStatus('已載入 ' + items.length + ' 則有效公告', false);
+        })
+        .catch(function (error) {
+            renderAnnouncements('announcement-page-list', []);
+            setAnnouncementPageStatus('錯誤: ' + error.message, true);
+        });
 }

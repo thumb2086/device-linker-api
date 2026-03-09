@@ -8,13 +8,35 @@
     margin-bottom: 24px;
 }
 
-.section-block {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
-    padding: 16px;
-    margin-bottom: 14px;
+.support-hero {
     text-align: left;
+    margin-bottom: 24px;
+}
+
+.support-kicker {
+    color: rgba(255, 204, 0, 0.7);
+    letter-spacing: 0.28em;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.support-hero-copy {
+    color: #aaaaaa;
+    line-height: 1.7;
+    max-width: 760px;
+}
+
+.section-block {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 22px;
+    padding: 22px;
+    margin-bottom: 16px;
+    text-align: left;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
 }
 
 .section-block h2 {
@@ -28,6 +50,23 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
+}
+
+.support-overview-card {
+    background:
+        radial-gradient(circle at top right, rgba(255, 204, 0, 0.1), transparent 28%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.18);
+}
+
+.support-overview-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.support-link-btn {
+    text-decoration: none;
 }
 
 .tool-note {
@@ -50,9 +89,11 @@
 
 .announcement-card,
 .report-card {
-    padding: 14px;
-    border-radius: 14px;
-    background: rgba(0, 0, 0, 0.22);
+    padding: 18px;
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: #fff;
 }
@@ -182,6 +223,10 @@
     .report-card-head {
         flex-direction: column;
     }
+
+    .support-overview-actions {
+        width: 100%;
+    }
 }
 
 @media (max-width: 520px) {
@@ -191,5 +236,10 @@
 
     #main-card {
         padding: 24px 14px;
+    }
+
+    .section-block {
+        padding: 18px;
+        border-radius: 18px;
     }
 }

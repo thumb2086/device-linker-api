@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理工具 | Device Linker Casino</title>
+    <title>管理中心 | 子熙模擬器</title>
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/admin-tools.css">
 </head>
@@ -14,22 +14,49 @@
         <a href="/" class="back-btn">返回首頁</a>
         <div class="header-stats">
             <span class="vip" id="header-vip">-</span>
-            <span><span class="balance" id="header-balance">-</span> DLINK</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
             <button class="logout-btn" onclick="logoutUser()">登出</button>
         </div>
     </div>
 
     <div class="casino-card" id="main-card">
-        <h1>管理工具</h1>
+        <div class="admin-hero">
+            <p class="admin-kicker">Control Center</p>
+            <h1>管理中心</h1>
+            <p class="admin-hero-copy">把高風險操作、託管帳號、問題回報與公告管理集中在同一頁，降低切換成本，也讓優先順序更清楚。</p>
+        </div>
 
         <div class="user-stats">
             <span id="vip-badge">管理員</span>
-            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> DLINK</div>
-            <div class="stat-row">累計下注: <span id="total-bet-val">0.00</span> DLINK</div>
+            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計下注: <span id="total-bet-val">0.00</span> 子熙幣</div>
             <div class="stat-row">顯示名稱: <span id="display-name-val">未設定</span></div>
         </div>
 
-        <div class="section-block">
+        <div class="admin-overview-grid">
+            <a href="#ops-section" class="admin-overview-card">
+                <span>維運操作</span>
+                <strong>高額下注重製</strong>
+                <p>先預覽，再正式執行一次性維運操作。</p>
+            </a>
+            <a href="#custody-section" class="admin-overview-card">
+                <span>帳號管理</span>
+                <strong>託管帳號</strong>
+                <p>快速檢索託管用戶並重設密碼。</p>
+            </a>
+            <a href="#issues-section" class="admin-overview-card">
+                <span>客服處理</span>
+                <strong>問題回報</strong>
+                <p>集中追蹤待處理、處理中與已處理案件。</p>
+            </a>
+            <a href="#announcements-section" class="admin-overview-card">
+                <span>內容發布</span>
+                <strong>公告中心</strong>
+                <p>發布、置頂、停用與維護所有正式公告。</p>
+            </a>
+        </div>
+
+        <div id="ops-section" class="section-block section-block-ops">
             <h2>高額下注帳號重製</h2>
             <p class="tool-note">只會處理 total_bet 超過門檻的帳號。先預覽，再執行正式重製。</p>
             <div class="form-row">
@@ -61,7 +88,7 @@
             </div>
         </div>
 
-        <div class="section-block custody-section">
+        <div id="custody-section" class="section-block custody-section">
             <div class="section-heading-row">
                 <div>
                     <h2>託管帳號管理</h2>
@@ -95,11 +122,11 @@
             </div>
         </div>
 
-        <div class="section-block issue-section">
+        <div id="issues-section" class="section-block issue-section">
             <div class="section-heading-row">
                 <div>
                     <h2>問題回報</h2>
-                    <p class="tool-note">查看使用者提交的問題回報，更新處理狀態與最新進度。</p>
+                    <p class="tool-note">查看使用者提交的問題回報，更新處理狀態與最新進度。這裡會直接對應前台的問題回報中心。</p>
                 </div>
                 <button class="btn-secondary compact-btn" onclick="refreshIssueReports()">重新整理</button>
             </div>
@@ -128,6 +155,10 @@
                     <span>待處理</span>
                     <strong id="issue-open-count">0</strong>
                 </div>
+                <div class="summary-card">
+                    <span>處理中</span>
+                    <strong id="issue-progress-count">0</strong>
+                </div>
             </div>
 
             <div id="issue-report-list" class="issue-report-list">
@@ -135,13 +166,28 @@
             </div>
         </div>
 
-        <div class="section-block announcement-section">
+        <div id="announcements-section" class="section-block announcement-section">
             <div class="section-heading-row">
                 <div>
-                    <h2>更新公告欄</h2>
-                    <p class="tool-note">管理員可發布新公告，或更新既有公告的內容、置頂與啟用狀態。</p>
+                    <h2>公告中心管理</h2>
+                    <p class="tool-note">管理員可發布新公告，或更新既有公告的內容、置頂與啟用狀態。前台公開公告頁會直接讀這裡的資料。</p>
                 </div>
                 <button class="btn-secondary compact-btn" onclick="refreshAnnouncements()">重新整理</button>
+            </div>
+
+            <div class="summary-grid announcement-summary-grid">
+                <div class="summary-card">
+                    <span>公告總數</span>
+                    <strong id="announcement-total-count">0</strong>
+                </div>
+                <div class="summary-card">
+                    <span>啟用中</span>
+                    <strong id="announcement-active-count">0</strong>
+                </div>
+                <div class="summary-card">
+                    <span>置頂中</span>
+                    <strong id="announcement-pinned-count">0</strong>
+                </div>
             </div>
 
             <div class="announcement-editor-card">

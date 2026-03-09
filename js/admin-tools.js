@@ -282,6 +282,7 @@ function renderIssueReports() {
     var totalEl = document.getElementById('issue-total-count');
     var visibleEl = document.getElementById('issue-visible-count');
     var openEl = document.getElementById('issue-open-count');
+    var progressEl = document.getElementById('issue-progress-count');
     var filterEl = document.getElementById('issue-filter-input');
     var statusEl = document.getElementById('issue-status-filter');
     var keyword = String(filterEl && filterEl.value || '').trim().toLowerCase();
@@ -290,6 +291,9 @@ function renderIssueReports() {
     if (totalEl) totalEl.innerText = String(issueReports.length);
     if (openEl) {
         openEl.innerText = String(issueReports.filter(function (item) { return item.status === 'open'; }).length);
+    }
+    if (progressEl) {
+        progressEl.innerText = String(issueReports.filter(function (item) { return item.status === 'in_progress'; }).length);
     }
     if (!listEl) return;
 
@@ -398,7 +402,14 @@ function updateIssueReport(reportId) {
 
 function renderAnnouncements() {
     var listEl = document.getElementById('announcement-admin-list');
+    var totalEl = document.getElementById('announcement-total-count');
+    var activeEl = document.getElementById('announcement-active-count');
+    var pinnedEl = document.getElementById('announcement-pinned-count');
     if (!listEl) return;
+
+    if (totalEl) totalEl.innerText = String(announcements.length);
+    if (activeEl) activeEl.innerText = String(announcements.filter(function (item) { return item.isActive; }).length);
+    if (pinnedEl) pinnedEl.innerText = String(announcements.filter(function (item) { return item.pinned; }).length);
 
     if (!announcements.length) {
         listEl.innerHTML = '<div class="result-empty">目前尚未發布任何公告</div>';

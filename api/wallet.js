@@ -1,12 +1,10 @@
-import { kv } from "@vercel/kv";
 import { verify } from "crypto";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
-import { AIRDROP_TOTAL_CAP, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
+import { AIRDROP_HALVING_STEP, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { calculateAirdropRewardWei } from "../lib/airdrop-policy.js";
 
-const AIRDROP_DISTRIBUTED_WEI_KEY = "airdrop:distributed_wei";
 const MAX_TRANSFER_AMOUNT = 100000000;
 const CONTRACT_ABI = [
     "function mint(address to, uint256 amount) public",
@@ -160,6 +158,7 @@ export default async function handler(req, res) {
         if (!privateKey.startsWith("0x")) privateKey = `0x${privateKey}`;
 
         const adminWallet = new ethers.Wallet(privateKey, provider);
+        const adminWalletAddress = normalizeAddress(process.env.ADMIN_WALLET_ADDRESS || adminWallet.address, "ADMIN_WALLET_ADDRESS");
         const treasuryAddress = normalizeAddress(process.env.LOSS_POOL_ADDRESS || adminWallet.address, "LOSS_POOL_ADDRESS");
         const contract = new ethers.Contract(contractAddress, CONTRACT_ABI, adminWallet);
 
@@ -207,14 +206,20 @@ export default async function handler(req, res) {
 
         if (action === "summary" || action === "status" || action === "balance") {
             const userAddress = sessionAddress || normalizeAddress(body.address, "address");
-            const [userBalanceWei, treasuryBalanceWei, distributedWeiRaw] = await Promise.all([
+            const [userBalanceWei, treasuryBalanceWei, totalSupplyWei, adminWalletBalanceWei] = await Promise.all([
                 contract.balanceOf(userAddress),
                 contract.balanceOf(treasuryAddress),
-                kv.get(AIRDROP_DISTRIBUTED_WEI_KEY)
+                contract.totalSupply(),
+                contract.balanceOf(adminWalletAddress)
             ]);
-            const distributedWei = BigInt(String(distributedWeiRaw || "0"));
-            const capWei = ethers.parseUnits(AIRDROP_TOTAL_CAP, decimals);
-            const remainingWei = capWei > distributedWei ? capWei - distributedWei : 0n;
+            const publicDistributedWei = totalSupplyWei > adminWalletBalanceWei
+                ? totalSupplyWei - adminWalletBalanceWei
+                : 0n;
+            const airdropPolicy = calculateAirdropRewardWei(decimals, publicDistributedWei);
+            const halvingStepWei = ethers.parseUnits(AIRDROP_HALVING_STEP, decimals);
+            const nextHalvingAtWei = halvingStepWei > 0n
+                ? halvingStepWei * BigInt(airdropPolicy.halvingCount + 1)
+                : 0n;
 
             return res.status(200).json({
                 success: true,
@@ -225,9 +230,13 @@ export default async function handler(req, res) {
                 userBalance: ethers.formatUnits(userBalanceWei, decimals),
                 treasuryBalance: ethers.formatUnits(treasuryBalanceWei, decimals),
                 airdrop: {
-                    distributed: ethers.formatUnits(distributedWei, decimals),
-                    cap: ethers.formatUnits(capWei, decimals),
-                    remaining: ethers.formatUnits(remainingWei, decimals)
+                    distributed: ethers.formatUnits(airdropPolicy.distributedWei, decimals),
+                    distributedExcludingAdmin: ethers.formatUnits(airdropPolicy.distributedWei, decimals),
+                    cap: ethers.formatUnits(airdropPolicy.capWei, decimals),
+                    remaining: ethers.formatUnits(airdropPolicy.remainingWei, decimals),
+                    reward: ethers.formatUnits(airdropPolicy.rewardWei, decimals),
+                    halvingCount: airdropPolicy.halvingCount,
+                    nextHalvingAt: ethers.formatUnits(nextHalvingAtWei, decimals)
                 }
             });
         }

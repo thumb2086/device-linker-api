@@ -1,0 +1,126 @@
+body.announcements-body {
+    justify-content: flex-start;
+    padding: 20px 40px 48px;
+}
+
+.announcements-card {
+    width: 100%;
+    max-width: 960px;
+}
+
+.announcements-hero {
+    text-align: left;
+    margin-bottom: 28px;
+}
+
+.section-kicker {
+    color: rgba(255, 204, 0, 0.7);
+    letter-spacing: 0.28em;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.announcements-subtitle {
+    color: #a5a5a5;
+    line-height: 1.7;
+    max-width: 720px;
+}
+
+.announcement-page-list {
+    display: grid;
+    gap: 18px;
+}
+
+.announcement-card {
+    text-align: left;
+    padding: 22px 24px;
+    border-radius: 22px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.announcement-card.preview {
+    padding: 18px 20px;
+    border-radius: 18px;
+}
+
+.announcement-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.announcement-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.announcement-tag.activity {
+    color: #0b2617;
+    background: #66f0a8;
+}
+
+.announcement-tag.maintenance {
+    color: #2d2000;
+    background: #ffd36c;
+}
+
+.announcement-tag.update {
+    color: #041f33;
+    background: #70cbff;
+}
+
+.announcement-tag.notice {
+    color: #3b3356;
+    background: #d4c4ff;
+}
+
+.announcement-date {
+    color: #8d8d8d;
+    font-size: 0.82rem;
+}
+
+.announcement-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 10px;
+}
+
+.announcement-body {
+    color: #bcbcbc;
+    line-height: 1.75;
+}
+
+.announcement-body.preview {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+}
+
+@media (max-width: 720px) {
+    body.announcements-body {
+        padding: 16px 16px 36px;
+    }
+
+    .announcements-card {
+        padding: 28px 20px;
+        border-radius: 24px;
+    }
+
+    .announcement-card {
+        padding: 18px;
+    }
+}

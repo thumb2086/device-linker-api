@@ -15,6 +15,74 @@ body.lobby-body {
     font-size: 1.8rem;
 }
 
+.auth-public-links {
+    margin-top: 14px;
+}
+
+.auth-inline-link {
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.auth-inline-link:hover {
+    text-decoration: underline;
+}
+
+.section-kicker {
+    color: rgba(255, 204, 0, 0.7);
+    letter-spacing: 0.28em;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.auth-announcements-panel {
+    width: 100%;
+    max-width: 860px;
+    margin: 24px auto 0;
+    padding: 26px;
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at top right, rgba(255, 204, 0, 0.12), transparent 28%),
+        rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.auth-announcements-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.auth-announcements-head h2 {
+    margin: 0 0 8px;
+    font-size: 1.5rem;
+    color: #fff;
+}
+
+.auth-announcements-copy {
+    color: #a2a2a2;
+    line-height: 1.65;
+}
+
+.auth-announcements-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 140px;
+    text-decoration: none;
+}
+
+.announcement-preview-list {
+    display: grid;
+    gap: 14px;
+}
+
 /* --- 大廳容器 --- */
 .lobby-container {
     width: 100%;
@@ -415,6 +483,15 @@ body.lobby-body {
 @media (max-width: 768px) {
     body.lobby-body {
         padding: 16px;
+    }
+
+    .auth-announcements-panel {
+        padding: 22px 18px;
+        border-radius: 24px;
+    }
+
+    .auth-announcements-head {
+        flex-direction: column;
     }
 
     .game-grid {

@@ -72,10 +72,23 @@ function renderWalletSummary(data) {
         airdropRemainEl.innerText = fmtToken(data.airdrop.remaining);
     }
 
+    var airdropRewardEl = document.getElementById('airdrop-reward');
+    if (airdropRewardEl && data.airdrop) {
+        airdropRewardEl.innerText = fmtToken(data.airdrop.reward);
+    }
+
+    var airdropHalvingCountEl = document.getElementById('airdrop-halving-count');
+    if (airdropHalvingCountEl && data.airdrop) {
+        airdropHalvingCountEl.innerText = String(data.airdrop.halvingCount || 0);
+    }
+
     var airdropMetaEl = document.getElementById('airdrop-meta');
     if (airdropMetaEl && data.airdrop) {
-        airdropMetaEl.innerText = '已發放: ' + fmtToken(data.airdrop.distributed) +
-            ' / 上限: ' + fmtToken(data.airdrop.cap);
+        airdropMetaEl.innerText =
+            '目前每次可領: ' + fmtToken(data.airdrop.reward) +
+            ' | 已對外發放: ' + fmtToken(data.airdrop.distributedExcludingAdmin || data.airdrop.distributed) +
+            ' / 上限: ' + fmtToken(data.airdrop.cap) +
+            ' | 下次減半門檻: ' + fmtToken(data.airdrop.nextHalvingAt);
     }
 
     updateUI({ balance: data.userBalance });

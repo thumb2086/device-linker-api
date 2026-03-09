@@ -237,7 +237,7 @@ function renderWalletSummary(data) {
     if (airdropMetaEl && data.airdrop) {
         airdropMetaEl.innerText =
             '目前每次可領: ' + fmtToken(data.airdrop.reward) +
-            ' | 已對外發放: ' + fmtToken(data.airdrop.distributedExcludingAdmin || data.airdrop.distributed) +
+            ' | 已空投總量: ' + fmtToken(data.airdrop.distributedExcludingAdmin || data.airdrop.distributed) +
             ' / 上限: ' + fmtToken(data.airdrop.cap) +
             ' | 下次減半門檻: ' + fmtToken(data.airdrop.nextHalvingAt);
     }

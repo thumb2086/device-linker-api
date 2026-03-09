@@ -1,5 +1,14 @@
 var balanceLeaderboardBusy = false;
 
+function escapeBalanceHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function setBalanceLeaderboardStatus(text, isError) {
     var el = document.getElementById('leaderboard-status');
     if (!el) return;
@@ -50,9 +59,11 @@ function renderBalanceLeaderboardRows(items) {
     items.forEach(function (item) {
         var isMine = item.address === currentAddress;
         var displayName = item.displayName || item.maskedAddress;
+        var avatar = item.avatar && item.avatar.icon ? '<span class="leaderboard-avatar">' + escapeBalanceHtml(item.avatar.icon) + '</span>' : '';
+        var title = item.title && item.title.name ? '<span class="leaderboard-title-chip">' + escapeBalanceHtml(item.title.name) + '</span>' : '';
         html += '<div class="leaderboard-row leaderboard-balance-row' + (isMine ? ' is-me' : '') + '">' +
             '<span class="rank-col">#' + Number(item.rank).toLocaleString() + '</span>' +
-            '<span class="addr-col" title="' + item.address + '">' + displayName + (isMine ? ' (你)' : '') + '</span>' +
+            '<span class="addr-col" title="' + escapeBalanceHtml(item.address) + '">' + avatar + title + '<span class="leaderboard-name">' + escapeBalanceHtml(displayName) + (isMine ? ' (你)' : '') + '</span></span>' +
             '<span class="bet-col" title="鏈上 ' + formatDisplayNumber(item.walletBalance, 2) + ' / 銀行 ' + formatDisplayNumber(item.bankBalance, 2) + ' / 股票 ' + formatDisplayNumber(item.stockValue, 2) + ' / 期貨損益 ' + formatDisplayNumber(item.futuresUnrealizedPnl, 2) + ' / 負債 -' + formatDisplayNumber(item.loanPrincipal, 2) + '">' + formatCompactZh(item.netWorth, 2) + ' 子熙幣</span>' +
             '<span class="vip-col">' + item.vipLevel + '</span>' +
             '</div>';

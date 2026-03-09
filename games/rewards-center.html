@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>獎勵中心 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/rewards-center.css">
+</head>
+
+<body class="rewards-body">
+    <div class="page-header">
+        <a href="/games/casino.html" class="back-btn">返回賭場</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card rewards-shell" id="main-card">
+        <h1>獎勵中心</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <div class="rewards-hero">
+            <div class="rewards-identity-card">
+                <div class="identity-avatar" id="identity-avatar">🪙</div>
+                <div>
+                    <div class="identity-label">目前裝備</div>
+                    <h2 id="identity-title">VIP 自動稱號</h2>
+                    <p id="identity-avatar-name">經典籌碼</p>
+                </div>
+            </div>
+            <div class="rewards-hero-copy">
+                <p class="rewards-kicker">Shop / Inventory / Campaign</p>
+                <p>購買道具、開寶箱、裝備頭像與稱號，並在活動期間登入領取限定獎勵。</p>
+            </div>
+        </div>
+
+        <p id="rewards-status" class="rewards-status">同步中...</p>
+
+        <div class="rewards-grid">
+            <section class="rewards-section">
+                <div class="section-heading">
+                    <h2>限時領取</h2>
+                    <button class="btn-secondary compact-btn" onclick="refreshRewardsCenter()">重新整理</button>
+                </div>
+                <div id="campaign-list" class="reward-card-list">
+                    <div class="reward-empty">目前沒有可顯示的活動</div>
+                </div>
+            </section>
+
+            <section class="rewards-section">
+                <div class="section-heading">
+                    <h2>商店</h2>
+                </div>
+                <div id="shop-list" class="reward-card-list">
+                    <div class="reward-empty">載入中...</div>
+                </div>
+            </section>
+        </div>
+
+        <div class="rewards-grid rewards-grid-bottom">
+            <section class="rewards-section">
+                <div class="section-heading">
+                    <h2>背包道具</h2>
+                </div>
+                <div id="inventory-list" class="reward-card-list">
+                    <div class="reward-empty">目前背包是空的</div>
+                </div>
+            </section>
+
+            <section class="rewards-section">
+                <div class="section-heading">
+                    <h2>頭像收藏</h2>
+                </div>
+                <div id="avatar-list" class="reward-card-list compact-grid">
+                    <div class="reward-empty">尚未擁有其他頭像</div>
+                </div>
+            </section>
+
+            <section class="rewards-section">
+                <div class="section-heading">
+                    <h2>稱號收藏</h2>
+                </div>
+                <div id="title-list" class="reward-card-list">
+                    <div class="reward-empty">尚未持有可裝備稱號</div>
+                </div>
+            </section>
+
+            <section class="rewards-section">
+                <div class="section-heading">
+                    <h2>生效中 Buff</h2>
+                </div>
+                <div id="buff-list" class="reward-card-list">
+                    <div class="reward-empty">目前沒有啟用中的 Buff</div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/rewards-center.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initRewardsCenterPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

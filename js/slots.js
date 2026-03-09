@@ -262,13 +262,12 @@ function showResult(result, betAmount, tempBalance) {
             window.audioManager.play(isBigWin ? 'win_big' : 'win_small');
         }
 
-        var profitAmount = betAmount * result.multiplier;
         var displayMultiplier = result.multiplier + 'x';
         statusMsg.innerHTML = '🏆 三連線！' +
             ' <span class="result-multiplier" style="display:inline;">' + displayMultiplier + '</span>';
         statusMsg.style.color = '#00ff88';
 
-        var newBalance = tempBalance + betAmount + profitAmount;
+        var newBalance = tempBalance + (betAmount * result.multiplier);
         document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     } else if (result.resultType === 'double') {

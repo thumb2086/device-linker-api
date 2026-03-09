@@ -19,8 +19,8 @@ function calcDisplayBalance(realBalance) {
     return realBalance;
 }
 
-var HORSE_ROUND_MS = 45000;
-var HORSE_LOCK_MS = 4000;
+var HORSE_ROUND_MS = 20000;
+var HORSE_LOCK_MS = 3000;
 var TRACKS = ['乾地', '濕地', '夜賽'];
 
 var HORSE_CONFIG = {

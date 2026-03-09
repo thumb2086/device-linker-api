@@ -103,20 +103,70 @@ body.slots-body {
 /* --- 中獎線 --- */
 .payline {
     position: absolute;
-    left: -4px;
-    right: -4px;
-    top: 50%;
-    transform: translateY(-50%);
-    height: 90px;
-    border: 2px solid rgba(255, 204, 0, 0.2);
-    border-radius: 12px;
+    opacity: 0;
+    transition: opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     pointer-events: none;
     z-index: 3;
 }
 
+.payline-top,
+.payline-middle,
+.payline-bottom {
+    left: -4px;
+    right: -4px;
+    height: 90px;
+    border: 2px solid rgba(255, 204, 0, 0.2);
+    border-radius: 12px;
+}
+
+.payline-top {
+    top: 0;
+}
+
+.payline-middle {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.payline-bottom {
+    bottom: 0;
+}
+
+.payline-diag-down,
+.payline-diag-up {
+    left: 6px;
+    right: 6px;
+    top: 50%;
+    height: 2px;
+    background: rgba(255, 204, 0, 0.2);
+    transform-origin: center;
+    border-radius: 999px;
+}
+
+.payline-diag-down {
+    transform: rotate(40deg);
+}
+
+.payline-diag-up {
+    transform: rotate(-40deg);
+}
+
 .payline.win {
+    opacity: 1;
+}
+
+.payline-top.win,
+.payline-middle.win,
+.payline-bottom.win {
     border-color: var(--gold);
     box-shadow: 0 0 20px var(--gold-glow), inset 0 0 20px rgba(255, 204, 0, 0.1);
+    animation: paylineGlow 0.8s ease infinite alternate;
+}
+
+.payline-diag-down.win,
+.payline-diag-up.win {
+    background: var(--gold);
+    box-shadow: 0 0 20px var(--gold-glow);
     animation: paylineGlow 0.8s ease infinite alternate;
 }
 

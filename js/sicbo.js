@@ -1,5 +1,5 @@
-﻿var SICBO_ROUND_MS = 25000;
-var SICBO_LOCK_MS = 3000;
+﻿var SICBO_ROUND_MS = 15000;
+var SICBO_LOCK_MS = 2000;
 var serverTimeOffsetMs = 0;
 var serverTimeSynced = false;
 var isClockSyncing = false;

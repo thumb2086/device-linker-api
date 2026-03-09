@@ -137,18 +137,41 @@ body.slots-body {
     left: 6px;
     right: 6px;
     top: 50%;
-    height: 2px;
+    height: 1px;
     background: rgba(255, 204, 0, 0.2);
     transform-origin: center;
     border-radius: 999px;
 }
 
 .payline-diag-down {
-    transform: rotate(40deg);
+    transform: rotate(42deg);
 }
 
 .payline-diag-up {
-    transform: rotate(-40deg);
+    transform: rotate(-42deg);
+}
+
+.payline-left-col,
+.payline-middle-col,
+.payline-right-col {
+    top: -4px;
+    bottom: -4px;
+    width: 100px;
+    border: 2px solid rgba(255, 204, 0, 0.2);
+    border-radius: 12px;
+}
+
+.payline-left-col {
+    left: 0;
+}
+
+.payline-middle-col {
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.payline-right-col {
+    right: 0;
 }
 
 .payline.win {
@@ -157,7 +180,10 @@ body.slots-body {
 
 .payline-top.win,
 .payline-middle.win,
-.payline-bottom.win {
+.payline-bottom.win,
+.payline-left-col.win,
+.payline-middle-col.win,
+.payline-right-col.win {
     border-color: var(--gold);
     box-shadow: 0 0 20px var(--gold-glow), inset 0 0 20px rgba(255, 204, 0, 0.1);
     animation: paylineGlow 0.8s ease infinite alternate;
@@ -166,8 +192,8 @@ body.slots-body {
 .payline-diag-down.win,
 .payline-diag-up.win {
     background: var(--gold);
-    box-shadow: 0 0 20px var(--gold-glow);
-    animation: paylineGlow 0.8s ease infinite alternate;
+    box-shadow: 0 0 8px var(--gold-glow);
+    animation: diagPaylineGlow 0.8s ease infinite alternate;
 }
 
 @keyframes paylineGlow {
@@ -176,6 +202,15 @@ body.slots-body {
     }
     to {
         box-shadow: 0 0 35px var(--gold-glow), inset 0 0 30px rgba(255, 204, 0, 0.15);
+    }
+}
+
+@keyframes diagPaylineGlow {
+    from {
+        box-shadow: 0 0 8px var(--gold-glow);
+    }
+    to {
+        box-shadow: 0 0 15px var(--gold-glow);
     }
 }
 

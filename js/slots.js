@@ -1,169 +1,287 @@
+function buildSlotsSymbolMap() {
+    return {
+        cherry: { emoji: "🍒", className: "is-cherry" },
+        lemon: { emoji: "🍋", className: "is-lemon" },
+        bell: { emoji: "🔔", className: "is-bell" },
+        star: { emoji: "⭐", className: "is-star" },
+        diamond: { emoji: "💎", className: "is-diamond" },
+        seven: { emoji: "7️⃣", className: "is-seven" }
+    };
+}
+
 class SlotMachine {
     constructor(reelsGrid, paylineSvg) {
         this.reelsGrid = reelsGrid;
         this.paylineSvg = paylineSvg;
-        this.symbols = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣'];
+        this.boardEl = document.getElementById("slots-board");
+        this.spinButton = document.getElementById("spin-btn");
+        this.statusMsg = document.getElementById("status-msg");
+        this.resultTypeEl = document.getElementById("slots-result-type");
+        this.resultCopyEl = document.getElementById("slots-result-copy");
+        this.symbolMap = buildSlotsSymbolMap();
+        this.symbolKeys = Object.keys(this.symbolMap);
         this.isSpinning = false;
         this.cells = [];
+        this.lastWinLines = [];
 
         this.init();
+        this.bindEvents();
+    }
+
+    bindEvents() {
+        var self = this;
+        window.addEventListener("resize", function () {
+            if (self.lastWinLines.length) {
+                self.drawPaylines(self.lastWinLines);
+            }
+        });
     }
 
     init() {
-        this.reelsGrid.innerHTML = '';
-        for (let i = 0; i < 9; i++) {
-            const cell = document.createElement('div');
-            cell.classList.add('reel-cell');
+        this.reelsGrid.innerHTML = "";
+        this.cells = [];
+
+        for (var index = 0; index < 9; index += 1) {
+            var cell = document.createElement("div");
+            cell.className = "reel-cell";
+            cell.setAttribute("data-cell-index", String(index));
             this.reelsGrid.appendChild(cell);
             this.cells.push(cell);
         }
+
         this.setInitialState();
+        this.setResultState("待命中", "三連中獎、雙連退半與交易狀態都會顯示在這裡。", "");
     }
 
     setInitialState() {
-        for (let i = 0; i < this.cells.length; i++) {
-            this.cells[i].textContent = this.symbols[i % this.symbols.length];
+        for (var index = 0; index < this.cells.length; index += 1) {
+            this.renderSymbol(this.cells[index], this.symbolKeys[index % this.symbolKeys.length], false);
         }
+    }
+
+    renderSymbol(cell, symbolKey, isSpinning) {
+        var symbol = this.symbolMap[symbolKey] || this.symbolMap.cherry;
+        cell.innerHTML = "";
+
+        var glyph = document.createElement("span");
+        glyph.className = "reel-symbol " + symbol.className + (isSpinning ? " is-spinning" : "");
+        glyph.textContent = symbol.emoji;
+        cell.appendChild(glyph);
+    }
+
+    renderBoard(columns, isSpinning) {
+        for (var col = 0; col < 3; col += 1) {
+            for (var row = 0; row < 3; row += 1) {
+                var cellIndex = (row * 3) + col;
+                var cell = this.cells[cellIndex];
+                var symbol = columns && columns[col] && columns[col][row] ? columns[col][row].name : this.symbolKeys[(cellIndex + col) % this.symbolKeys.length];
+                this.renderSymbol(cell, symbol, Boolean(isSpinning));
+            }
+        }
+    }
+
+    setStatus(text, isError, allowHtml) {
+        if (!this.statusMsg) return;
+        if (allowHtml) {
+            this.statusMsg.innerHTML = text || "";
+        } else {
+            this.statusMsg.textContent = text || "";
+        }
+        this.statusMsg.style.color = isError ? "#ff9c9c" : "";
+    }
+
+    setResultState(label, copy, tone) {
+        if (this.resultTypeEl) {
+            this.resultTypeEl.className = "slots-result-chip" + (tone ? (" " + tone) : "");
+            this.resultTypeEl.textContent = label || "待命中";
+        }
+        if (this.resultCopyEl) {
+            this.resultCopyEl.textContent = copy || "";
+        }
+    }
+
+    setSpinningState(isBusy) {
+        this.isSpinning = Boolean(isBusy);
+        if (this.spinButton) {
+            this.spinButton.disabled = this.isSpinning;
+            this.spinButton.textContent = this.isSpinning ? "旋轉中..." : "🎰 旋轉";
+        }
+    }
+
+    clearPaylines() {
+        this.lastWinLines = [];
+        if (this.paylineSvg) this.paylineSvg.innerHTML = "";
+    }
+
+    getCellCenter(cellIndex) {
+        var cell = this.cells[cellIndex];
+        if (!cell || !this.boardEl) return null;
+
+        var boardRect = this.boardEl.getBoundingClientRect();
+        var cellRect = cell.getBoundingClientRect();
+
+        return {
+            x: cellRect.left - boardRect.left + (cellRect.width / 2),
+            y: cellRect.top - boardRect.top + (cellRect.height / 2)
+        };
+    }
+
+    drawPaylines(winLines) {
+        if (!this.paylineSvg || !this.boardEl) return;
+
+        this.paylineSvg.innerHTML = "";
+        this.lastWinLines = Array.isArray(winLines) ? winLines.slice() : [];
+        if (!this.lastWinLines.length) return;
+
+        var boardRect = this.boardEl.getBoundingClientRect();
+        this.paylineSvg.setAttribute("viewBox", "0 0 " + boardRect.width + " " + boardRect.height);
+
+        var lineCellMap = {
+            top: [0, 2],
+            middle: [3, 5],
+            bottom: [6, 8],
+            "left-col": [0, 6],
+            "middle-col": [1, 7],
+            "right-col": [2, 8],
+            "diag-down": [0, 8],
+            "diag-up": [6, 2]
+        };
+
+        for (var index = 0; index < this.lastWinLines.length; index += 1) {
+            var lineId = this.lastWinLines[index];
+            var endpoints = lineCellMap[lineId];
+            if (!endpoints) continue;
+
+            var start = this.getCellCenter(endpoints[0]);
+            var end = this.getCellCenter(endpoints[1]);
+            if (!start || !end) continue;
+
+            var line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", start.x.toFixed(2));
+            line.setAttribute("y1", start.y.toFixed(2));
+            line.setAttribute("x2", end.x.toFixed(2));
+            line.setAttribute("y2", end.y.toFixed(2));
+            line.classList.add("line", "win");
+            line.classList.add(lineId.indexOf("diag") === 0 ? "diagonal" : (lineId.indexOf("col") !== -1 ? "vertical" : "horizontal"));
+            line.setAttribute("stroke-dasharray", "14 10");
+            this.paylineSvg.appendChild(line);
+        }
+    }
+
+    updateDisplayedBalance(nextBalance) {
+        updateUI({ balance: nextBalance });
+    }
+
+    updateTxLog(txHash, details) {
+        var txLog = document.getElementById("tx-log");
+        if (!txLog) return;
+
+        var html = txHash ? txLinkHTML(txHash) : "";
+        if (details) {
+            html += (html ? "<br>" : "") + "<span style=\"color:#a8a8a8; font-size:0.85rem;\">" + details.replace(/</g, "&lt;").replace(/>/g, "&gt;") + "</span>";
+        }
+        txLog.innerHTML = html;
     }
 
     async spin() {
         if (this.isSpinning) return;
 
-        this.isSpinning = true;
-        this.clearPaylines();
-        
-        const statusMsg = document.getElementById('status-msg');
-        const betAmount = parseFloat(document.getElementById('bet-amount').value);
-
-        if (isNaN(betAmount) || betAmount <= 0) {
-            statusMsg.innerText = '❌ 請輸入有效的金額';
-            this.isSpinning = false;
+        var betAmount = parseFloat(document.getElementById("bet-amount").value);
+        if (!Number.isFinite(betAmount) || betAmount <= 0) {
+            this.setStatus("❌ 請輸入有效的金額", true);
+            this.setResultState("輸入錯誤", "下注金額必須大於 0。", "is-error");
             return;
         }
 
-        // Optimistic UI update for balance
-        const balanceEl = document.getElementById('balance-val');
-        const headerBalanceEl = document.getElementById('header-balance');
-        const txLog = document.getElementById('tx-log');
-        const currentBalance = parseFloat(balanceEl.innerText.replace(/,/g, ''));
+        var balanceEl = document.getElementById("balance-val");
+        var currentBalance = parseFloat(String(balanceEl && balanceEl.innerText || "0").replace(/,/g, ""));
         if (currentBalance < betAmount) {
-            statusMsg.innerText = '❌ 餘額不足';
-            this.isSpinning = false;
+            this.setStatus("❌ 餘額不足", true);
+            this.setResultState("餘額不足", "目前餘額不足以支付這一筆旋轉。", "is-error");
             return;
         }
-        const tempBalance = currentBalance - betAmount;
-        balanceEl.innerText = formatDisplayNumber(tempBalance, 2);
-        if (headerBalanceEl) headerBalanceEl.innerText = formatDisplayNumber(tempBalance, 2);
-        if (txLog) txLog.innerHTML = '';
-        
-        statusMsg.innerHTML = '<span class="loader"></span> 旋轉中...';
 
-        // Start spinning animation
-        const spinInterval = setInterval(() => {
-            this.cells.forEach(cell => {
-                cell.textContent = this.symbols[Math.floor(Math.random() * this.symbols.length)];
-            });
-        }, 80);
+        this.setSpinningState(true);
+        this.clearPaylines();
+        this.updateTxLog("", "");
+        this.setStatus("<span class=\"loader\"></span> 旋轉中...", false, true);
+        this.setResultState("旋轉中", "正在與後端同步盤面與鏈上結算。", "");
+
+        var tempBalance = currentBalance - betAmount;
+        this.updateDisplayedBalance(tempBalance);
+
+        var self = this;
+        var spinInterval = setInterval(function () {
+            for (var index = 0; index < self.cells.length; index += 1) {
+                self.renderSymbol(self.cells[index], self.symbolKeys[Math.floor(Math.random() * self.symbolKeys.length)], true);
+            }
+        }, 90);
 
         try {
-            const response = await fetch('/api/game?game=slots', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            var response = await fetch("/api/game?game=slots", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     address: user.address,
                     amount: betAmount,
                     sessionId: user.sessionId
                 })
             });
-            const result = await response.json();
-
+            var result = await response.json();
             clearInterval(spinInterval);
 
-            if (result.error) {
-                throw new Error(result.error);
+            if (!result || result.error) {
+                throw new Error((result && (result.details ? (result.error + "：" + result.details) : result.error)) || "老虎機交易失敗");
             }
 
             this.showResult(result, betAmount, tempBalance);
-            this.drawPaylines(result.winLines);
-
         } catch (error) {
             clearInterval(spinInterval);
-            console.error('Spinning failed:', error);
-            statusMsg.innerText = `❌ 錯誤: ${error.message}`;
-            // Revert balance
-            balanceEl.innerText = formatDisplayNumber(currentBalance, 2);
-            if (headerBalanceEl) headerBalanceEl.innerText = formatDisplayNumber(currentBalance, 2);
+            console.error("Slots spin failed:", error);
+            this.renderBoard(null, false);
+            this.updateDisplayedBalance(currentBalance);
+            this.setStatus("❌ " + error.message, true, false);
+            this.setResultState("交易失敗", "這筆旋轉沒有完成結算，餘額已回復。", "is-error");
+            this.updateTxLog("", error.message);
         } finally {
-            this.isSpinning = false;
+            this.setSpinningState(false);
         }
     }
 
     showResult(result, betAmount, tempBalance) {
-        const statusMsg = document.getElementById('status-msg');
-        const balanceEl = document.getElementById('balance-val');
-        const headerBalanceEl = document.getElementById('header-balance');
-        const txLog = document.getElementById('tx-log');
+        var finalBalance = tempBalance;
+        var statusText = "💀 沒有連線，下次好運！";
+        var resultLabel = "未中獎";
+        var resultCopy = "本局沒有命中有效連線，已保留完整交易紀錄。";
+        var resultTone = "";
 
-        updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel, maxBet: result.maxBet });
-        
-        // Update cells with the result from the server
-        for (let col = 0; col < 3; col++) {
-            for (let row = 0; row < 3; row++) {
-                const cellIndex = row * 3 + col;
-                this.cells[cellIndex].textContent = result.columns[col][row].emoji;
-            }
-        }
-        
-        if (result.resultType === 'triple') {
-            const newBalance = tempBalance + (betAmount * result.multiplier);
-            balanceEl.innerText = formatDisplayNumber(newBalance, 2);
-            if (headerBalanceEl) headerBalanceEl.innerText = formatDisplayNumber(newBalance, 2);
-            statusMsg.innerHTML = `🏆 三連線！ 獲得 ${result.multiplier}x 獎勵！`;
-        } else if (result.resultType === 'double') {
-            const halfBackBalance = tempBalance + (betAmount * 0.5);
-            balanceEl.innerText = formatDisplayNumber(halfBackBalance, 2);
-            if (headerBalanceEl) headerBalanceEl.innerText = formatDisplayNumber(halfBackBalance, 2);
-            statusMsg.innerHTML = `⭐ 兩連線，返還 0.5x`;
-        } else {
-            statusMsg.innerHTML = '💀 沒有連線，下次好運！';
-        }
-
-        if (txLog) txLog.innerHTML = txLinkHTML(result.txHash);
-        setTimeout(refreshBalance, 10000);
-    }
-
-    clearPaylines() {
-        this.paylineSvg.innerHTML = '';
-    }
-
-    drawPaylines(winLines) {
-        if (!winLines || winLines.length === 0) return;
-
-        const lineCoordinates = {
-            // Horizontal
-            top:    { x1: '16.66%', y1: '16.66%', x2: '83.33%', y2: '16.66%', type: 'horizontal' },
-            middle: { x1: '16.66%', y1: '50%',    x2: '83.33%', y2: '50%',    type: 'horizontal' },
-            bottom: { x1: '16.66%', y1: '83.33%', x2: '83.33%', y2: '83.33%', type: 'horizontal' },
-            // Vertical
-            'left-col':   { x1: '16.66%', y1: '16.66%', x2: '16.66%', y2: '83.33%', type: 'vertical' },
-            'middle-col': { x1: '50%',    y1: '16.66%', x2: '50%',    y2: '83.33%', type: 'vertical' },
-            'right-col':  { x1: '83.33%', y1: '16.66%', x2: '83.33%', y2: '83.33%', type: 'vertical' },
-            // Diagonal
-            'diag-down': { x1: '16.66%', y1: '16.66%', x2: '83.33%', y2: '83.33%', type: 'diagonal' },
-            'diag-up':   { x1: '16.66%', y1: '83.33%', x2: '83.33%', y2: '16.66%', type: 'diagonal' },
-        };
-
-        winLines.forEach(lineId => {
-            const coords = lineCoordinates[lineId];
-            if (coords) {
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', coords.x1);
-                line.setAttribute('y1', coords.y1);
-                line.setAttribute('x2', coords.x2);
-                line.setAttribute('y2', coords.y2);
-                line.classList.add('line', 'win', coords.type);
-                this.paylineSvg.appendChild(line);
-            }
+        updateUI({
+            totalBet: result.totalBet,
+            vipLevel: result.vipLevel,
+            maxBet: result.maxBet
         });
+
+        this.renderBoard(result.columns, false);
+        this.drawPaylines(result.winLines || []);
+
+        if (result.resultType === "triple") {
+            finalBalance = tempBalance + (betAmount * result.multiplier);
+            statusText = "🏆 三連線！獲得 " + result.multiplier + "x 獎勵！";
+            resultLabel = "三連中獎";
+            resultCopy = "命中 " + (result.winLines || []).length + " 條連線，派彩倍率 " + result.multiplier + "x。";
+            resultTone = "is-win";
+        } else if (result.resultType === "double") {
+            finalBalance = tempBalance + (betAmount * 0.5);
+            statusText = "⭐ 兩連線，返還 0.5x";
+            resultLabel = "雙連退半";
+            resultCopy = "未達三連，但命中保底雙連，系統已返還半倍押注。";
+            resultTone = "is-refund";
+        }
+
+        this.updateDisplayedBalance(finalBalance);
+        this.setStatus(statusText, false, false);
+        this.setResultState(resultLabel, resultCopy, resultTone);
+        this.updateTxLog(result.txHash, result.winLines && result.winLines.length ? ("中獎線: " + result.winLines.join(", ")) : "");
+        setTimeout(refreshBalance, 10000);
     }
 }

@@ -1,5 +1,3 @@
-/* === 老虎機遊戲樣式 === */
-
 body.slots-body {
     justify-content: flex-start;
     padding: 10px 40px 40px;
@@ -11,177 +9,302 @@ body.slots-body {
     }
 }
 
-/* --- 老虎機外框 --- */
 .slots-machine {
-    background: linear-gradient(180deg, #1a1200 0%, #0a0800 100%);
+    background:
+        radial-gradient(circle at top, rgba(255, 212, 92, 0.1), transparent 38%),
+        linear-gradient(180deg, #1d1303 0%, #0b0802 100%);
     border: 3px solid var(--gold-dark);
-    border-radius: 24px;
+    border-radius: 28px;
     padding: 24px 20px;
     margin: 20px 0;
     position: relative;
+    overflow: hidden;
     box-shadow:
         inset 0 2px 10px rgba(255, 204, 0, 0.08),
-        0 10px 40px rgba(0, 0, 0, 0.6);
+        0 18px 44px rgba(0, 0, 0, 0.45);
 }
 
 .slots-machine::before {
-    content: '';
+    content: "";
     position: absolute;
-    top: -1px;
-    left: 30px;
-    right: 30px;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--gold), transparent);
-    border-radius: 1px;
-}
-
-/* --- 轉輪容器 --- */
-.reels-container {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    position: relative;
-}
-
-/* --- 單個轉輪 --- */
-.reel {
-    width: 100px;
-    height: 270px;
-    overflow: hidden;
-    position: relative;
-    background: rgba(0, 0, 0, 0.6);
-    border-radius: 16px;
-    border: 2px solid rgba(255, 204, 0, 0.15);
-    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
-}
-
-/* 轉輪頂部和底部漸層遮罩 */
-.reel::before,
-.reel::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 60px;
-    z-index: 2;
+    inset: 0;
+    background:
+        linear-gradient(90deg, transparent, rgba(255, 215, 122, 0.08), transparent),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 30%);
     pointer-events: none;
 }
 
-.reel::before {
-    top: 0;
-    background: linear-gradient(to bottom, rgba(10, 8, 0, 0.9), transparent);
+.slots-layout {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+    gap: 18px;
+    align-items: start;
 }
 
-.reel::after {
-    bottom: 0;
-    background: linear-gradient(to top, rgba(10, 8, 0, 0.9), transparent);
+.slots-board-wrap,
+.payout-panel {
+    position: relative;
+    z-index: 1;
 }
 
-/* --- 轉輪符號帶 --- */
-.reel-strip {
+.slots-board-header,
+.payout-panel-head {
     display: flex;
-    flex-direction: column;
-    transition: transform 0.6s cubic-bezier(0.15, 0.85, 0.35, 1.05);
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
 }
 
-.reel-strip.spinning {
-    transition: none;
+.slots-board-title,
+.payout-panel-head h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #f7d87d;
+    letter-spacing: 0.08em;
 }
 
-/* --- 單個符號 --- */
-.reel-symbol {
-    width: 100px;
-    height: 90px;
+.slots-board-note,
+.payout-panel-head p {
+    margin: 0;
+    color: #baa97a;
+    font-size: 0.82rem;
+}
+
+.slots-board {
+    position: relative;
+    width: min(100%, 364px);
+    margin: 0 auto;
+    padding: 12px;
+    border-radius: 24px;
+    background:
+        linear-gradient(180deg, rgba(39, 26, 5, 0.96), rgba(9, 8, 5, 0.98));
+    border: 2px solid rgba(255, 205, 95, 0.22);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+        inset 0 20px 30px rgba(255, 213, 112, 0.05),
+        0 16px 30px rgba(0, 0, 0, 0.28);
+    overflow: hidden;
+}
+
+.reels-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.reel-cell {
+    position: relative;
+    min-width: 0;
+    aspect-ratio: 1 / 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 3rem;
-    flex-shrink: 0;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    padding: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 239, 195, 0.06), rgba(255, 255, 255, 0.01)),
+        linear-gradient(180deg, #150f03 0%, #090703 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 218, 126, 0.12);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -10px 18px rgba(0, 0, 0, 0.38);
+    overflow: hidden;
 }
 
-/* --- 中獎線 (SVG) --- */
+.reel-cell::after {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    pointer-events: none;
+}
+
+.reel-symbol {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    line-height: 1;
+    font-size: clamp(2.2rem, 6vw, 3.25rem);
+    transform: translateY(-1px);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.36));
+    will-change: transform, filter;
+}
+
+.reel-symbol.is-seven {
+    font-size: clamp(1.85rem, 5vw, 2.55rem);
+    letter-spacing: -0.08em;
+}
+
+.reel-symbol.is-spinning {
+    animation: symbol-pulse 180ms linear infinite alternate;
+}
+
+@keyframes symbol-pulse {
+    from {
+        transform: translateY(-1px) scale(0.96);
+        opacity: 0.72;
+    }
+    to {
+        transform: translateY(1px) scale(1.04);
+        opacity: 1;
+    }
+}
+
 .payline-svg-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
     width: 100%;
     height: 100%;
     pointer-events: none;
-    z-index: 5;
+    z-index: 3;
 }
 
 .payline-svg-overlay .line {
     stroke: var(--gold);
-    stroke-width: 4;
-    stroke-linecap: round;
     fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
     opacity: 0;
-    filter: drop-shadow(0 0 5px var(--gold-glow));
-    transition: opacity 0.3s ease;
+    filter: drop-shadow(0 0 8px rgba(255, 204, 0, 0.6));
+    transition: opacity 0.25s ease;
 }
 
 .payline-svg-overlay .line.win {
     opacity: 1;
-    animation: payline-dash 5s linear infinite;
+    animation: payline-dash 4.5s linear infinite;
+}
+
+.payline-svg-overlay .line.horizontal,
+.payline-svg-overlay .line.vertical {
+    stroke-width: 5;
+}
+
+.payline-svg-overlay .line.diagonal {
+    stroke-width: 3;
 }
 
 @keyframes payline-dash {
     from {
-        stroke-dashoffset: 100;
+        stroke-dashoffset: 120;
     }
     to {
         stroke-dashoffset: 0;
     }
 }
 
-/* --- 賠率資訊 --- */
+.slots-result-strip {
+    margin-top: 14px;
+    display: grid;
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.slots-result-chip {
+    width: fit-content;
+    min-width: 88px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(255, 204, 0, 0.12);
+    color: #ffd971;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+}
+
+.slots-result-chip.is-win {
+    background: rgba(0, 255, 136, 0.14);
+    color: #7ff3b1;
+}
+
+.slots-result-chip.is-refund {
+    background: rgba(99, 198, 255, 0.16);
+    color: #8bd8ff;
+}
+
+.slots-result-chip.is-error {
+    background: rgba(255, 82, 82, 0.16);
+    color: #ff9c9c;
+}
+
+.slots-result-copy {
+    color: #d6d0bd;
+    line-height: 1.6;
+    font-size: 0.92rem;
+}
+
+.payout-panel {
+    padding: 16px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+}
+
 .payout-info {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
 }
 
 .payout-item {
-    font-size: 0.7rem;
-    color: #555;
+    padding: 12px 10px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     text-align: center;
-    line-height: 1.4;
 }
 
-.payout-item .payout-symbol {
-    font-size: 1.2rem;
+.payout-symbol {
     display: block;
-    margin-bottom: 2px;
+    margin-bottom: 6px;
+    font-size: 1.35rem;
+    line-height: 1.1;
 }
 
-.payout-item .payout-mult {
+.payout-mult {
+    display: block;
     color: var(--gold);
-    font-weight: 700;
-    font-size: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 800;
 }
 
-.payout-item .payout-rate {
+.payout-rate {
     display: block;
+    margin-top: 4px;
     color: #bdbdbd;
-    font-size: 0.72rem;
-    margin-top: 2px;
+    font-size: 0.78rem;
 }
 
-.slots-odds-note {
-    margin-top: 14px;
-    color: #a5a5a5;
-    font-size: 0.82rem;
+.slots-odds-note,
+.slots-helper-note {
+    margin: 14px 0 0;
+    color: #aea58e;
+    font-size: 0.84rem;
     line-height: 1.6;
     text-align: center;
 }
 
-/* --- 投注與旋轉區 --- */
 .spin-controls {
     margin-top: 20px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 180px;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.spin-controls input {
+    min-width: 0;
 }
 
 .btn-spin {
@@ -189,148 +312,84 @@ body.slots-body {
     padding: 18px;
     border-radius: 16px;
     border: none;
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     font-weight: 900;
     cursor: pointer;
-    background: linear-gradient(180deg, #ffcc00, #b8860b);
+    background: linear-gradient(180deg, #ffcf4d, #bb8300);
     color: #221a00;
     box-shadow: 0 10px 30px var(--gold-glow);
-    transition: all 0.3s;
-    letter-spacing: 2px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    letter-spacing: 0.08em;
 }
 
 .btn-spin:hover:not(:disabled) {
-    transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 15px 40px rgba(255, 204, 0, 0.5);
-}
-
-.btn-spin:active:not(:disabled) {
-    transform: translateY(0);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 34px rgba(255, 204, 0, 0.38);
 }
 
 .btn-spin:disabled {
-    opacity: 0.5;
+    opacity: 0.55;
     cursor: not-allowed;
     transform: none;
 }
 
-/* --- 自動旋轉控制 --- */
-.auto-controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 12px;
-    margin-top: 20px;
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
-    flex-wrap: wrap;
+#status-msg {
+    margin-top: 14px;
+    text-align: center;
+    min-height: 24px;
 }
 
-.btn-auto {
-    background: #333;
-    color: #fff;
-    border: 1px solid #444;
-    padding: 10px 20px;
-    border-radius: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-size: 0.95rem;
+#tx-log {
+    margin-top: 8px;
+    text-align: center;
 }
 
-.btn-auto:hover {
-    background: #444;
-    border-color: #555;
-}
-
-.btn-auto.active {
-    background: linear-gradient(180deg, #ffcc00, #d4af37);
-    color: #000;
-    border: none;
-    box-shadow: 0 0 15px rgba(255, 204, 0, 0.3);
-}
-
-#auto-count {
-    background: #1a1a1a;
-    color: #fff;
-    border: 1px solid #333;
-    padding: 10px 12px;
-    border-radius: 10px;
-    outline: none;
-    font-weight: 700;
-}
-
-.auto-stop-config {
-    display: flex;
-    gap: 15px;
-    width: 100%;
-    justify-content: center;
-    margin-top: 10px;
-}
-
-.auto-stop-config label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-    color: #aaa;
-    cursor: pointer;
-}
-
-.auto-stop-config input[type="checkbox"] {
-    accent-color: var(--gold);
-}
-
-/* --- 結果訊息 --- */
-.result-display {
-    margin-top: 15px;
-    min-height: 40px;
-}
-
-.result-text {
-    font-size: 1.1rem;
-    font-weight: 700;
-}
-
-.result-text.win {
-    color: var(--win-green);
-    text-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
-}
-
-.result-text.lose {
-    color: var(--lose-red);
-}
-
-.result-multiplier {
-    font-size: 2rem;
-    font-weight: 900;
-    color: var(--gold);
-    text-shadow: 0 0 20px var(--gold-glow);
-    animation: pulse 1.5s ease infinite;
-    margin: 8px 0;
-}
-
-/* --- RWD --- */
-@media (max-width: 420px) {
-    .reel {
-        width: 85px;
-        height: 240px;
+@media (max-width: 860px) {
+    .slots-layout {
+        grid-template-columns: 1fr;
     }
 
-    .reel-symbol {
-        width: 85px;
-        height: 80px;
-        font-size: 2.4rem;
-    }
-
-    .slots-machine {
-        padding: 20px 14px;
+    .slots-board {
+        width: min(100%, 380px);
     }
 
     .payout-info {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 4px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .slots-machine {
+        padding: 18px 14px;
+        border-radius: 24px;
+    }
+
+    .slots-board {
+        padding: 10px;
+    }
+
+    .reels-grid {
+        gap: 8px;
+    }
+
+    .reel-cell {
+        border-radius: 14px;
+        padding: 6px;
+    }
+
+    .reel-symbol {
+        font-size: clamp(2rem, 11vw, 2.7rem);
+    }
+
+    .reel-symbol.is-seven {
+        font-size: clamp(1.7rem, 9vw, 2.2rem);
+    }
+
+    .payout-info {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .spin-controls {
+        grid-template-columns: 1fr;
     }
 }

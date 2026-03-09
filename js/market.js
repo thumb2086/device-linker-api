@@ -353,21 +353,6 @@ function submitLoan(action) {
     });
 }
 
-function resetSimulation() {
-    if (!window.confirm('確定要重置模擬帳戶嗎？')) return;
-    setStatus('重置中...', false);
-
-    withBusy(function () {
-        return callMarket('reset').then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '重置失敗');
-            renderOverview(data);
-            setStatus('模擬帳戶已重置', false);
-        });
-    }).catch(function (e) {
-        setStatus('錯誤: ' + e.message, true);
-    });
-}
-
 function initMarketPage() {
     refreshMarket(false);
     setInterval(function () {

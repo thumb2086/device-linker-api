@@ -100,117 +100,38 @@ body.slots-body {
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
-/* --- 中獎線 --- */
-.payline {
+/* --- 中獎線 (SVG) --- */
+.payline-svg-overlay {
     position: absolute;
-    opacity: 0;
-    transition: opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    pointer-events: none;
-    z-index: 3;
-}
-
-.payline-top,
-.payline-middle,
-.payline-bottom {
-    left: -4px;
-    right: -4px;
-    height: 90px;
-    border: 2px solid rgba(255, 204, 0, 0.2);
-    border-radius: 12px;
-}
-
-.payline-top {
     top: 0;
-}
-
-.payline-middle {
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.payline-bottom {
-    bottom: 0;
-}
-
-.payline-diag-down,
-.payline-diag-up {
-    left: 6px;
-    right: 6px;
-    top: 50%;
-    height: 1px;
-    background: rgba(255, 204, 0, 0.2);
-    transform-origin: center;
-    border-radius: 999px;
-}
-
-.payline-diag-down {
-    transform: rotate(42deg);
-}
-
-.payline-diag-up {
-    transform: rotate(-42deg);
-}
-
-.payline-left-col,
-.payline-middle-col,
-.payline-right-col {
-    top: -4px;
-    bottom: -4px;
-    width: 100px;
-    border: 2px solid rgba(255, 204, 0, 0.2);
-    border-radius: 12px;
-}
-
-.payline-left-col {
     left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
 }
 
-.payline-middle-col {
-    left: 50%;
-    transform: translateX(-50%);
+.payline-svg-overlay .line {
+    stroke: var(--gold);
+    stroke-width: 4;
+    stroke-linecap: round;
+    fill: none;
+    opacity: 0;
+    filter: drop-shadow(0 0 5px var(--gold-glow));
+    transition: opacity 0.3s ease;
 }
 
-.payline-right-col {
-    right: 0;
-}
-
-.payline.win {
+.payline-svg-overlay .line.win {
     opacity: 1;
+    animation: payline-dash 5s linear infinite;
 }
 
-.payline-top.win,
-.payline-middle.win,
-.payline-bottom.win,
-.payline-left-col.win,
-.payline-middle-col.win,
-.payline-right-col.win {
-    border-color: var(--gold);
-    box-shadow: 0 0 20px var(--gold-glow), inset 0 0 20px rgba(255, 204, 0, 0.1);
-    animation: paylineGlow 0.8s ease infinite alternate;
-}
-
-.payline-diag-down.win,
-.payline-diag-up.win {
-    background: var(--gold);
-    box-shadow: 0 0 8px var(--gold-glow);
-    animation: diagPaylineGlow 0.8s ease infinite alternate;
-}
-
-@keyframes paylineGlow {
+@keyframes payline-dash {
     from {
-        box-shadow: 0 0 15px var(--gold-glow), inset 0 0 15px rgba(255, 204, 0, 0.08);
+        stroke-dashoffset: 100;
     }
     to {
-        box-shadow: 0 0 35px var(--gold-glow), inset 0 0 30px rgba(255, 204, 0, 0.15);
-    }
-}
-
-@keyframes diagPaylineGlow {
-    from {
-        box-shadow: 0 0 8px var(--gold-glow);
-    }
-    to {
-        box-shadow: 0 0 15px var(--gold-glow);
+        stroke-dashoffset: 0;
     }
 }
 
@@ -402,10 +323,6 @@ body.slots-body {
         width: 85px;
         height: 80px;
         font-size: 2.4rem;
-    }
-
-    .payline {
-        height: 80px;
     }
 
     .slots-machine {

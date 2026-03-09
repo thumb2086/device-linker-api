@@ -179,7 +179,7 @@ function updatePendingBingoBetsUI() {
     }
     var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">待開獎下注：<br/>';
     pendingBingoBets.forEach(function (b) {
-        html += b.numbers.join(',') + ' (' + b.amount + ' 子熙幣)<br/>';
+        html += b.numbers.join(',') + ' (' + formatDisplayNumber(b.amount, 2) + ' 子熙幣)<br/>';
     });
     html += '</div>';
     txLog.innerHTML = html;
@@ -230,7 +230,7 @@ function startBingoDraw(roundId) {
 
         if (status) {
             if (totalPayout > 0) {
-                status.innerText = '開獎完成，派彩 ' + totalPayout.toFixed(2) + ' 子熙幣';
+                status.innerText = '開獎完成，派彩 ' + formatDisplayNumber(totalPayout, 2) + ' 子熙幣';
                 status.style.color = '#00ff88';
             } else {
                 status.innerText = '開獎完成，未中獎';
@@ -278,8 +278,8 @@ function placeBingoBet() {
     }
 
     var tempBalance = currentBalance - amount;
-    document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-    if (headerBalance) headerBalance.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    document.getElementById('balance-val').innerText = formatDisplayNumber(tempBalance, 2);
+    if (headerBalance) headerBalance.innerText = formatDisplayNumber(tempBalance, 2);
 
     fetch('/api/game', {
         method: 'POST',
@@ -310,8 +310,8 @@ function placeBingoBet() {
             updateUI({ totalBet: data.totalBet, vipLevel: data.vipLevel, maxBet: data.maxBet });
         })
         .catch(function (err) {
-            document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-            if (headerBalance) headerBalance.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+            document.getElementById('balance-val').innerText = formatDisplayNumber(currentBalance, 2);
+            if (headerBalance) headerBalance.innerText = formatDisplayNumber(currentBalance, 2);
             if (status) {
                 status.innerText = '錯誤: ' + err.message;
                 status.style.color = '#ff6666';

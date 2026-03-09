@@ -353,7 +353,7 @@ function cashOut() {
 
             hideCrashOverlay();
             setMultiplierDisplay(result.multiplier || multiplier, 'is-win');
-            statusMsg.innerHTML = '成功兌現，獲得 ' + result.payout + ' 子熙幣 (' + Number(result.multiplier || multiplier).toFixed(2) + 'x)';
+            statusMsg.innerHTML = '成功兌現，獲得 ' + formatDisplayNumber(result.payout, 2) + ' 子熙幣 (' + Number(result.multiplier || multiplier).toFixed(2) + 'x)';
             statusMsg.style.color = '#34f59f';
             document.getElementById('tx-log').innerHTML = txLinkHTML(result.txHash);
 

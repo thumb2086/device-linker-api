@@ -376,7 +376,7 @@ function startCustodyAuth() {
             });
 
             if (data.isNewAccount && data.bonusGranted) {
-                updateAuthMessage('✅ 註冊成功，已送 ' + data.registerBonus + ' 子熙幣');
+                updateAuthMessage('✅ 註冊成功，已送 ' + formatDisplayNumber(data.registerBonus, 2) + ' 子熙幣');
             } else if (data.isNewAccount && data.bonusError) {
                 updateAuthMessage('⚠️ 已註冊，但送幣失敗：' + data.bonusError);
             } else {

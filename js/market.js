@@ -190,7 +190,7 @@ function renderOverview(payload) {
     }
     var futuresMaxBetEl = document.getElementById('futures-max-bet');
     if (futuresMaxBetEl && payload.maxBet !== undefined) {
-        futuresMaxBetEl.innerText = formatCompactZh(payload.maxBet, 2) + ' 子熙幣';
+        futuresMaxBetEl.innerText = formatDisplayNumber(payload.maxBet, 2) + ' 子熙幣';
     }
 
     updateUI({

@@ -121,7 +121,7 @@ function updatePendingCoinflipBetsUI() {
 
     var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">待開獎下注：<br/>';
     pendingCoinflipBets.forEach(function (b) {
-        html += (b.choice === 'heads' ? '正面' : '反面') + ' (' + b.amount + ' 子熙幣)<br/>';
+        html += (b.choice === 'heads' ? '正面' : '反面') + ' (' + formatDisplayNumber(b.amount, 2) + ' 子熙幣)<br/>';
     });
     html += '</div>';
 
@@ -182,7 +182,7 @@ function startCoinflipDraw(roundId) {
             });
 
             if (totalWon > 0) {
-                status.innerText = '中獎，派彩 ' + totalWon.toFixed(2) + ' 子熙幣';
+                status.innerText = '中獎，派彩 ' + formatDisplayNumber(totalWon, 2) + ' 子熙幣';
                 status.style.color = '#00ff88';
             } else {
                 status.innerText = '未中獎';
@@ -253,9 +253,9 @@ function play(choice) {
 
     var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
     var tempBalance = currentBalance - amount;
-    document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    document.getElementById('balance-val').innerText = formatDisplayNumber(tempBalance, 2);
     var hBal = document.getElementById('header-balance');
-    if (hBal) hBal.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    if (hBal) hBal.innerText = formatDisplayNumber(tempBalance, 2);
 
     fetch('/api/game?game=coinflip', {
         method: 'POST',
@@ -289,8 +289,8 @@ function play(choice) {
         .catch(function (e) {
             status.innerText = '錯誤: ' + e.message;
             status.style.color = 'red';
-            document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-            if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+            document.getElementById('balance-val').innerText = formatDisplayNumber(currentBalance, 2);
+            if (hBal) hBal.innerText = formatDisplayNumber(currentBalance, 2);
             syncCoinflipClock(true);
         })
         .finally(function () {

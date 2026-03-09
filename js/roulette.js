@@ -1,7 +1,7 @@
 /* === 輪盤遊戲邏輯 === */
 
-var ROULETTE_ROUND_MS = 30000;
-var ROULETTE_LOCK_MS = 3000;
+var ROULETTE_ROUND_MS = 15000;
+var ROULETTE_LOCK_MS = 2000;
 var roulettePreviewToken = 0;
 var currentRotation = 0;
 var isRouletteDrawing = false;

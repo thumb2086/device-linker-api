@@ -8,6 +8,7 @@ var isSpinning = false;
 var isAutoSpinning = false;
 var autoSpinsLeft = 0;
 var reelSoundId = null;
+var PAYLINE_IDS = ['top', 'middle', 'bottom', 'diag-down', 'diag-up'];
 
 /**
  * 動態取得符號高度 (配合 RWD)
@@ -33,6 +34,21 @@ function buildReels() {
         }
         strip.style.transform = 'translateY(0px)';
     }
+}
+
+function clearPaylines() {
+    PAYLINE_IDS.forEach(function(line) {
+        var el = document.getElementById('payline-' + line);
+        if (el) el.classList.remove('win');
+    });
+}
+
+function highlightPaylines(lines) {
+    clearPaylines();
+    (lines || []).forEach(function(line) {
+        var el = document.getElementById('payline-' + line);
+        if (el) el.classList.add('win');
+    });
 }
 
 /**
@@ -98,24 +114,29 @@ function animateReel(strip) {
 /**
  * 停止某個轉輪並定位到目標符號
  */
-function stopReel(reelNum, targetEmoji, callback) {
+function stopReel(reelNum, columnSymbols, callback) {
     var strip = document.getElementById('reel-' + reelNum);
     strip.classList.remove('spinning');
 
     if (window.audioManager) window.audioManager.play('slot_stop');
 
-    var targetIndex = SLOT_SYMBOLS.indexOf(targetEmoji);
+    var centerEmoji = columnSymbols[1];
+    var targetIndex = SLOT_SYMBOLS.indexOf(centerEmoji);
     if (targetIndex === -1) targetIndex = 0;
 
     var extraLoops = (3 + reelNum) * SLOT_SYMBOLS.length; 
     var finalIndex = extraLoops + targetIndex;
 
-    while (strip.children.length < finalIndex + 3) {
+    while (strip.children.length < finalIndex + 4) {
         var div = document.createElement('div');
         div.className = 'reel-symbol';
         div.textContent = SLOT_SYMBOLS[strip.children.length % SLOT_SYMBOLS.length];
         strip.appendChild(div);
     }
+
+    strip.children[finalIndex - 1].textContent = columnSymbols[0];
+    strip.children[finalIndex].textContent = columnSymbols[1];
+    strip.children[finalIndex + 1].textContent = columnSymbols[2];
 
     var targetY = -(finalIndex - 1) * getSymbolHeight();
     strip.style.transform = 'translateY(' + targetY + 'px)';
@@ -142,7 +163,6 @@ function spin() {
     var statusMsg = document.getElementById('status-msg');
     var txLog = document.getElementById('tx-log');
     var spinBtn = document.getElementById('spin-btn');
-    var payline = document.getElementById('payline');
 
     if (isNaN(amount) || amount <= 0) {
         statusMsg.innerText = '❌ 請輸入有效的金額';
@@ -163,7 +183,7 @@ function spin() {
     statusMsg.innerHTML = '<span class="loader"></span> 交易確認中...';
     statusMsg.style.color = '#ffcc00';
     txLog.innerHTML = '';
-    payline.classList.remove('win');
+    clearPaylines();
 
     if (window.audioManager) {
         window.audioManager.play('bet');
@@ -196,16 +216,18 @@ function spin() {
         if (result.error) throw new Error(result.error);
         statusMsg.innerHTML = '<span class="loader"></span> 開獎中...';
 
-        var reelEmojis = result.reels.map(function(r) { return r.emoji; });
+        var reelColumns = result.columns.map(function(column) {
+            return column.map(function(cell) { return cell.emoji; });
+        });
         var minSpinTime = 1200;
         var stopDelay = 400;
 
         setTimeout(function() {
-            stopReel(1, reelEmojis[0], function() {
+            stopReel(1, reelColumns[0], function() {
                 setTimeout(function() {
-                    stopReel(2, reelEmojis[1], function() {
+                    stopReel(2, reelColumns[1], function() {
                         setTimeout(function() {
-                            stopReel(3, reelEmojis[2], function() {
+                            stopReel(3, reelColumns[2], function() {
                                 if (window.audioManager && reelSoundId) {
                                     window.audioManager.stop('slot_reel', reelSoundId);
                                 }
@@ -243,7 +265,6 @@ function showResult(result, betAmount, tempBalance) {
     var statusMsg = document.getElementById('status-msg');
     var txLog = document.getElementById('tx-log');
     var spinBtn = document.getElementById('spin-btn');
-    var payline = document.getElementById('payline');
     var hBal = document.getElementById('header-balance');
     var stopOnWin = document.getElementById('stop-on-win').checked;
     var stopOnBigWin = document.getElementById('stop-on-big-win').checked;
@@ -257,7 +278,7 @@ function showResult(result, betAmount, tempBalance) {
         isWin = true;
         if (result.multiplier >= 15) isBigWin = true;
         
-        payline.classList.add('win');
+        highlightPaylines(result.winLines);
         if (window.audioManager) {
             window.audioManager.play(isBigWin ? 'win_big' : 'win_small');
         }
@@ -272,7 +293,7 @@ function showResult(result, betAmount, tempBalance) {
         if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     } else if (result.resultType === 'double') {
         isWin = true;
-        payline.classList.add('win');
+        highlightPaylines(result.winLines);
         if (window.audioManager) window.audioManager.play('win_small');
 
         statusMsg.innerHTML = '⭐ 兩連線，返還 <span class="result-multiplier" style="display:inline;">0.5x</span>';
@@ -282,6 +303,7 @@ function showResult(result, betAmount, tempBalance) {
         document.getElementById('balance-val').innerText = halfBackBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = halfBackBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
     } else {
+        clearPaylines();
         statusMsg.innerText = '💀 沒有連線，下次好運！';
         statusMsg.style.color = '#ff4444';
     }

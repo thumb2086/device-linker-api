@@ -1,5 +1,5 @@
-var BINGO_ROUND_MS = 60000;
-var BINGO_LOCK_MS = 5000;
+var BINGO_ROUND_MS = 25000;
+var BINGO_LOCK_MS = 3000;
 var serverTimeOffsetMs = 0;
 var serverTimeSynced = false;
 var isClockSyncing = false;

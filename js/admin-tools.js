@@ -91,6 +91,29 @@ function formatTime(value) {
     });
 }
 
+function toDateTimeLocalValue(value) {
+    if (!value) return '';
+    var date = new Date(String(value || ''));
+    if (!Number.isFinite(date.getTime())) {
+        return String(value || '').slice(0, 16);
+    }
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    return date.getFullYear() + '-' +
+        pad(date.getMonth() + 1) + '-' +
+        pad(date.getDate()) + 'T' +
+        pad(date.getHours()) + ':' +
+        pad(date.getMinutes());
+}
+
+function getIsoDateTimeValue(inputId) {
+    var el = document.getElementById(inputId);
+    var raw = String(el && el.value || '').trim();
+    if (!raw) return '';
+    var date = new Date(raw);
+    if (!Number.isFinite(date.getTime())) return raw;
+    return date.toISOString();
+}
+
 function getPasswordInputId(username) {
     return 'custody-password-' + String(username || '').replace(/[^a-zA-Z0-9_-]/g, '_');
 }
@@ -779,8 +802,8 @@ function renderRewardCampaigns() {
             '<div class="announcement-form-grid">' +
                 '<label><span>標題</span><input id="' + escapeHtml(titleId) + '" class="text-input" type="text" value="' + escapeHtml(item.title || '') + '"></label>' +
                 '<label><span>每人可領次數</span><input id="' + escapeHtml(claimLimitId) + '" class="text-input" type="number" min="1" step="1" value="' + escapeHtml(String(item.claimLimitPerUser || 1)) + '"></label>' +
-                '<label><span>開始時間</span><input id="' + escapeHtml(startId) + '" class="text-input" type="datetime-local" value="' + escapeHtml((item.startAt || '').slice(0, 16)) + '"></label>' +
-                '<label><span>結束時間</span><input id="' + escapeHtml(endId) + '" class="text-input" type="datetime-local" value="' + escapeHtml((item.endAt || '').slice(0, 16)) + '"></label>' +
+                '<label><span>開始時間</span><input id="' + escapeHtml(startId) + '" class="text-input" type="datetime-local" value="' + escapeHtml(toDateTimeLocalValue(item.startAt || '')) + '"></label>' +
+                '<label><span>結束時間</span><input id="' + escapeHtml(endId) + '" class="text-input" type="datetime-local" value="' + escapeHtml(toDateTimeLocalValue(item.endAt || '')) + '"></label>' +
                 '<label><span>最低 VIP</span><select id="' + escapeHtml(minVipId) + '" class="text-input">' + buildVipSelectOptionsHtml(rewardCatalog && rewardCatalog.vipLevels, item.minVipLevel || '') + '</select></label>' +
                 '<label class="toggle-field"><input id="' + escapeHtml(activeId) + '" type="checkbox"' + (item.isActive ? ' checked' : '') + '><span>啟用活動</span></label>' +
                 '<label class="full-span"><span>描述</span><textarea id="' + escapeHtml(descId) + '" class="text-input announcement-textarea">' + escapeHtml(item.description || '') + '</textarea></label>' +
@@ -788,7 +811,7 @@ function renderRewardCampaigns() {
                 '<label><span>道具數量</span><input id="' + escapeHtml(itemQtyId) + '" class="text-input" type="number" min="1" step="1" value="' + escapeHtml(String(rewardItem && rewardItem.qty || 1)) + '"></label>' +
                 '<label><span>活動頭像</span><select id="' + escapeHtml(avatarId) + '" class="text-input">' + buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.avatars, '不發頭像', rewardAvatar) + '</select></label>' +
                 '<label><span>活動稱號</span><select id="' + escapeHtml(rewardTitleId) + '" class="text-input">' + buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.titles, '不發稱號', rewardTitle && rewardTitle.id) + '</select></label>' +
-                '<label><span>稱號到期時間</span><input id="' + escapeHtml(titleExpiresId) + '" class="text-input" type="datetime-local" value="' + escapeHtml((rewardTitle && rewardTitle.expiresAt || '').slice(0, 16)) + '"></label>' +
+                '<label><span>稱號到期時間</span><input id="' + escapeHtml(titleExpiresId) + '" class="text-input" type="datetime-local" value="' + escapeHtml(toDateTimeLocalValue(rewardTitle && rewardTitle.expiresAt || '')) + '"></label>' +
                 '<label><span>額外子熙幣</span><input id="' + escapeHtml(tokenAmountId) + '" class="text-input" type="number" min="0" step="1" value="' + escapeHtml(String(item.rewards && item.rewards.tokens || 0)) + '"></label>' +
             '</div>' +
             '<div class="issue-card-actions">' +
@@ -877,7 +900,7 @@ function grantRewardBundleAdmin() {
             itemQty: String(document.getElementById('reward-grant-item-qty').value || '1'),
             avatarId: String(document.getElementById('reward-grant-avatar').value || ''),
             titleId: String(document.getElementById('reward-grant-title').value || ''),
-            expiresAt: String(document.getElementById('reward-grant-expires-at').value || ''),
+            expiresAt: getIsoDateTimeValue('reward-grant-expires-at'),
             tokenAmount: String(document.getElementById('reward-grant-token-amount').value || '0'),
             note: String(document.getElementById('reward-grant-note').value || '')
         }).then(function (data) {
@@ -929,8 +952,8 @@ function publishRewardCampaign() {
         return callRewardsAdminApi('admin_upsert_campaign', {
             title: String(document.getElementById('campaign-title').value || ''),
             description: String(document.getElementById('campaign-description').value || ''),
-            startAt: String(document.getElementById('campaign-start-at').value || ''),
-            endAt: String(document.getElementById('campaign-end-at').value || ''),
+            startAt: getIsoDateTimeValue('campaign-start-at'),
+            endAt: getIsoDateTimeValue('campaign-end-at'),
             claimLimitPerUser: String(document.getElementById('campaign-claim-limit').value || '1'),
             minVipLevel: String(document.getElementById('campaign-min-vip').value || ''),
             isActive: !!document.getElementById('campaign-active').checked,
@@ -938,7 +961,7 @@ function publishRewardCampaign() {
             itemQty: String(document.getElementById('campaign-item-qty').value || '1'),
             avatarId: String(document.getElementById('campaign-avatar').value || ''),
             titleId: String(document.getElementById('campaign-title-id').value || ''),
-            titleExpiresAt: String(document.getElementById('campaign-title-expires-at').value || ''),
+            titleExpiresAt: getIsoDateTimeValue('campaign-title-expires-at'),
             tokenAmount: String(document.getElementById('campaign-token-amount').value || '0')
         }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '建立活動失敗');
@@ -970,8 +993,8 @@ function saveRewardCampaign(campaignId) {
             campaignId: campaignId,
             title: String(document.getElementById(getCampaignFieldId(campaignId, 'title')).value || ''),
             description: String(document.getElementById(getCampaignFieldId(campaignId, 'description')).value || ''),
-            startAt: String(document.getElementById(getCampaignFieldId(campaignId, 'start')).value || ''),
-            endAt: String(document.getElementById(getCampaignFieldId(campaignId, 'end')).value || ''),
+            startAt: getIsoDateTimeValue(getCampaignFieldId(campaignId, 'start')),
+            endAt: getIsoDateTimeValue(getCampaignFieldId(campaignId, 'end')),
             claimLimitPerUser: String(document.getElementById(getCampaignFieldId(campaignId, 'claim_limit')).value || '1'),
             minVipLevel: String(document.getElementById(getCampaignFieldId(campaignId, 'min_vip')).value || ''),
             isActive: !!document.getElementById(getCampaignFieldId(campaignId, 'active')).checked,
@@ -979,7 +1002,7 @@ function saveRewardCampaign(campaignId) {
             itemQty: String(document.getElementById(getCampaignFieldId(campaignId, 'item_qty')).value || '1'),
             avatarId: String(document.getElementById(getCampaignFieldId(campaignId, 'avatar')).value || ''),
             titleId: String(document.getElementById(getCampaignFieldId(campaignId, 'reward_title')).value || ''),
-            titleExpiresAt: String(document.getElementById(getCampaignFieldId(campaignId, 'title_expires_at')).value || ''),
+            titleExpiresAt: getIsoDateTimeValue(getCampaignFieldId(campaignId, 'title_expires_at')),
             tokenAmount: String(document.getElementById(getCampaignFieldId(campaignId, 'token_amount')).value || '0')
         }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '更新活動失敗');

@@ -1,5 +1,6 @@
 var rewardsState = null;
 var rewardsBusy = false;
+var rewardsTab = 'campaign';
 
 function setRewardsStatus(text, isError) {
     var el = document.getElementById('rewards-status');
@@ -49,6 +50,46 @@ function renderIdentity(profile) {
     if (avatarNameEl) avatarNameEl.innerText = profile && profile.avatar ? profile.avatar.name : '經典籌碼';
 }
 
+function rewardCatalogMap(kind) {
+    var items = rewardsState && rewardsState.catalog ? rewardsState.catalog[kind] : [];
+    var map = {};
+    (items || []).forEach(function (item) {
+        if (!item || !item.id) return;
+        map[item.id] = item;
+    });
+    return map;
+}
+
+function rewardItemSummary(bundle) {
+    var labels = [];
+    var itemMap = rewardCatalogMap('shopItems');
+    var avatarMap = rewardCatalogMap('avatars');
+    var titleMap = rewardCatalogMap('titles');
+    if (bundle && Array.isArray(bundle.items)) {
+        labels = labels.concat(bundle.items.map(function (entry) {
+            var itemId = String(entry.id || '-');
+            var label = itemMap[itemId] && itemMap[itemId].name ? itemMap[itemId].name : itemId;
+            return label + ' x' + String(entry.qty || 1);
+        }));
+    }
+    if (bundle && Array.isArray(bundle.avatars)) {
+        labels = labels.concat(bundle.avatars.map(function (entry) {
+            var avatarId = String(entry || '');
+            return avatarMap[avatarId] && avatarMap[avatarId].name ? avatarMap[avatarId].name : avatarId;
+        }));
+    }
+    if (bundle && Array.isArray(bundle.titles)) {
+        labels = labels.concat(bundle.titles.map(function (entry) {
+            var titleId = typeof entry === 'string' ? entry : String(entry && entry.id || '');
+            return titleMap[titleId] && titleMap[titleId].name ? titleMap[titleId].name : (titleId || '-');
+        }));
+    }
+    if (bundle && bundle.tokens) {
+        labels.push(formatCompactZh(bundle.tokens, 2) + ' 子熙幣');
+    }
+    return labels;
+}
+
 function renderCampaigns(items) {
     var listEl = document.getElementById('campaign-list');
     if (!listEl) return;
@@ -58,32 +99,14 @@ function renderCampaigns(items) {
     }
 
     listEl.innerHTML = items.map(function (item) {
-        var rewardLabels = [];
-        if (item.rewards && Array.isArray(item.rewards.items)) {
-            rewardLabels = rewardLabels.concat(item.rewards.items.map(function (entry) {
-                return entry.id + ' x' + entry.qty;
-            }));
-        }
-        if (item.rewards && Array.isArray(item.rewards.avatars)) {
-            rewardLabels = rewardLabels.concat(item.rewards.avatars);
-        }
-        if (item.rewards && Array.isArray(item.rewards.titles)) {
-            rewardLabels = rewardLabels.concat(item.rewards.titles.map(function (entry) {
-                return (entry && entry.id) || entry;
-            }));
-        }
-        if (item.rewards && item.rewards.tokens) {
-            rewardLabels.push(formatCompactZh(item.rewards.tokens, 2) + ' 子熙幣');
-        }
-
         return '<div class="reward-card">' +
             '<div class="reward-card-head">' +
                 '<strong>' + escapeRewardsHtml(item.title) + '</strong>' +
                 '<span class="reward-rarity">活動</span>' +
             '</div>' +
             '<div class="reward-card-copy">' + escapeRewardsHtml(item.description || '限時登入領取') + '</div>' +
-            '<div class="reward-card-meta">時間：' + escapeRewardsHtml(item.startAt || '-') + ' ~ ' + escapeRewardsHtml(item.endAt || '-') + '</div>' +
-            '<div class="reward-card-meta">獎勵：' + escapeRewardsHtml(rewardLabels.join(' / ') || '未設定') + '</div>' +
+            '<div class="reward-card-meta">時間：' + escapeRewardsHtml(item.startAt || '即刻開始') + ' ~ ' + escapeRewardsHtml(item.endAt || '不限結束') + '</div>' +
+            '<div class="reward-card-meta">獎勵：' + escapeRewardsHtml(rewardItemSummary(item.rewards).join(' / ') || '未設定') + '</div>' +
             '<div class="reward-card-actions">' +
                 '<button class="btn-primary compact-btn" onclick="claimRewardCampaign(\'' + escapeRewardsHtml(item.id) + '\')">立即領取</button>' +
             '</div>' +
@@ -100,11 +123,13 @@ function renderShop(items) {
     }
 
     listEl.innerHTML = items.map(function (item) {
+        var icon = item.type === 'chest' ? '🎁' : item.type === 'key' ? '🗝️' : '✨';
+        var typeLabel = item.type === 'key' ? '補給箱' : item.type;
         return '<div class="reward-card">' +
             '<div class="reward-card-head">' +
                 '<div class="reward-card-title">' +
-                    '<span class="reward-icon">' + (item.type === 'chest' ? '🎁' : item.type === 'key' ? '🗝️' : '✨') + '</span>' +
-                    '<div><strong>' + escapeRewardsHtml(item.name) + '</strong><div class="reward-card-meta">' + escapeRewardsHtml(item.type) + '</div></div>' +
+                    '<span class="reward-icon">' + icon + '</span>' +
+                    '<div><strong>' + escapeRewardsHtml(item.name) + '</strong><div class="reward-card-meta">' + escapeRewardsHtml(typeLabel) + '</div></div>' +
                 '</div>' +
                 '<span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span>' +
             '</div>' +
@@ -117,11 +142,11 @@ function renderShop(items) {
     }).join('');
 }
 
-function renderInventory(items) {
-    var listEl = document.getElementById('inventory-list');
+function renderInventoryGroup(listId, items, emptyText) {
+    var listEl = document.getElementById(listId);
     if (!listEl) return;
     if (!items || !items.length) {
-        listEl.innerHTML = '<div class="reward-empty">目前背包是空的</div>';
+        listEl.innerHTML = '<div class="reward-empty">' + escapeRewardsHtml(emptyText) + '</div>';
         return;
     }
 
@@ -129,7 +154,7 @@ function renderInventory(items) {
         var actionBtn = '';
         if (item.type === 'buff') {
             actionBtn = '<button class="btn-primary compact-btn" onclick="useRewardItem(\'' + escapeRewardsHtml(item.itemId) + '\')">啟用</button>';
-        } else if (item.type === 'chest') {
+        } else if (item.type === 'chest' || item.type === 'key') {
             actionBtn = '<button class="btn-primary compact-btn" onclick="openRewardChest(\'' + escapeRewardsHtml(item.itemId) + '\')">開啟</button>';
         }
         return '<div class="reward-card">' +
@@ -139,6 +164,22 @@ function renderInventory(items) {
             '<div class="reward-card-actions">' + actionBtn + '</div>' +
             '</div>';
     }).join('');
+}
+
+function renderInventory(items) {
+    var boxItems = [];
+    var buffItems = [];
+    var otherItems = [];
+
+    (items || []).forEach(function (item) {
+        if (item.type === 'chest' || item.type === 'key') boxItems.push(item);
+        else if (item.type === 'buff') buffItems.push(item);
+        else otherItems.push(item);
+    });
+
+    renderInventoryGroup('inventory-box-list', boxItems, '尚未持有可開啟箱子');
+    renderInventoryGroup('inventory-buff-list', buffItems, '尚未持有 Buff 道具');
+    renderInventoryGroup('inventory-other-list', otherItems, '目前沒有其他道具');
 }
 
 function renderAvatars(items, profile) {
@@ -199,6 +240,47 @@ function renderBuffs(items) {
     }).join('');
 }
 
+function switchRewardsTab(tabName) {
+    rewardsTab = String(tabName || 'campaign');
+    document.querySelectorAll('.rewards-nav-btn').forEach(function (button) {
+        button.classList.toggle('active', button.getAttribute('data-tab') === rewardsTab);
+    });
+    document.querySelectorAll('.rewards-panel').forEach(function (panel) {
+        panel.classList.toggle('active', panel.getAttribute('data-panel') === rewardsTab);
+    });
+}
+
+function renderRewardResultEntries(title, entries) {
+    var titleEl = document.getElementById('reward-result-title');
+    var listEl = document.getElementById('reward-result-list');
+    var modalEl = document.getElementById('reward-result-modal');
+    if (!titleEl || !listEl || !modalEl) return;
+
+    titleEl.innerText = title || '獎勵到手';
+    if (!entries || !entries.length) {
+        listEl.innerHTML = '<div class="reward-result-item">已完成，本次沒有可顯示獎勵</div>';
+    } else {
+        listEl.innerHTML = entries.map(function (entry) {
+            return '<div class="reward-result-item">' + escapeRewardsHtml(entry) + '</div>';
+        }).join('');
+    }
+    modalEl.classList.remove('hidden');
+}
+
+function closeRewardResultModal() {
+    var modalEl = document.getElementById('reward-result-modal');
+    if (modalEl) modalEl.classList.add('hidden');
+}
+
+function showRewardResultModal(title, bundle) {
+    renderRewardResultEntries(title, rewardItemSummary(bundle));
+}
+
+function showPurchaseModal(item) {
+    if (!item) return;
+    renderRewardResultEntries('商品已入庫', [item.name + ' x1']);
+}
+
 function applyRewardsState(data) {
     rewardsState = data || null;
     if (!data || !data.profile) return;
@@ -209,6 +291,7 @@ function applyRewardsState(data) {
     renderAvatars(data.profile.avatars || [], data.profile);
     renderTitles(data.profile.titles || [], data.profile);
     renderBuffs(data.profile.activeBuffs || []);
+    switchRewardsTab(rewardsTab);
 }
 
 function refreshRewardsCenter() {
@@ -236,6 +319,7 @@ function buyRewardItem(itemId) {
             if (!data || !data.success) throw new Error((data && data.error) || '購買失敗');
             applyRewardsState(data);
             refreshBalance();
+            showPurchaseModal(data.purchased);
             setRewardsStatus('商品已入庫', false);
         })
         .catch(function (error) {
@@ -250,6 +334,7 @@ function useRewardItem(itemId) {
             if (!data || !data.success) throw new Error((data && data.error) || '啟用失敗');
             if (rewardsState) rewardsState.profile = data.profile;
             applyRewardsState(rewardsState);
+            switchRewardsTab('buff');
             setRewardsStatus('道具已啟用', false);
         })
         .catch(function (error) {
@@ -258,14 +343,16 @@ function useRewardItem(itemId) {
 }
 
 function openRewardChest(itemId) {
-    setRewardsStatus('開啟寶箱中...', false);
+    setRewardsStatus('開啟獎勵箱中...', false);
     rewardsApi('open_chest', { chestItemId: itemId })
         .then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '開箱失敗');
+            if (!data || !data.success) throw new Error((data && data.error) || '開啟失敗');
             if (rewardsState) rewardsState.profile = data.profile;
             applyRewardsState(rewardsState);
             refreshBalance();
-            setRewardsStatus('寶箱已開啟：' + (data.rewardRarity || 'reward'), false);
+            switchRewardsTab('inventory');
+            showRewardResultModal(data.chestName || '獎勵已取得', data.rewards);
+            setRewardsStatus('獎勵已開啟', false);
         })
         .catch(function (error) {
             setRewardsStatus('錯誤: ' + error.message, true);
@@ -278,6 +365,7 @@ function equipRewardAvatar(avatarId) {
             if (!data || !data.success) throw new Error((data && data.error) || '裝備頭像失敗');
             if (rewardsState) rewardsState.profile = data.profile;
             applyRewardsState(rewardsState);
+            switchRewardsTab('avatar');
             setRewardsStatus('頭像已裝備', false);
         })
         .catch(function (error) {
@@ -291,6 +379,7 @@ function equipRewardTitle(titleId) {
             if (!data || !data.success) throw new Error((data && data.error) || '裝備稱號失敗');
             if (rewardsState) rewardsState.profile = data.profile;
             applyRewardsState(rewardsState);
+            switchRewardsTab('title');
             setRewardsStatus('稱號已裝備', false);
         })
         .catch(function (error) {
@@ -306,6 +395,8 @@ function claimRewardCampaign(campaignId) {
             if (rewardsState) rewardsState.profile = data.profile;
             applyRewardsState(rewardsState);
             refreshBalance();
+            switchRewardsTab('campaign');
+            showRewardResultModal(data.campaign && data.campaign.title ? data.campaign.title : '活動獎勵', data.campaign && data.campaign.rewards ? data.campaign.rewards : {});
             setRewardsStatus('活動獎勵已領取', false);
             refreshRewardsCenter();
         })
@@ -315,5 +406,6 @@ function claimRewardCampaign(campaignId) {
 }
 
 function initRewardsCenterPage() {
+    switchRewardsTab('campaign');
     refreshRewardsCenter();
 }

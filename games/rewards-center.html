@@ -11,7 +11,7 @@
 
 <body class="rewards-body">
     <div class="page-header">
-        <a href="/games/casino.html" class="back-btn">返回賭場</a>
+        <a href="/" class="back-btn">返回首頁</a>
         <div class="header-stats">
             <span class="vip" id="header-vip">-</span>
             <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
@@ -38,70 +38,101 @@
                 </div>
             </div>
             <div class="rewards-hero-copy">
-                <p class="rewards-kicker">Shop / Inventory / Campaign</p>
-                <p>購買道具、開寶箱、裝備頭像與稱號，並在活動期間登入領取限定獎勵。</p>
+                <p class="rewards-kicker">Campaign / Shop / Inventory</p>
+                <p>活動、商店、背包、頭像、稱號與 Buff 改成分頁管理，玩家可以直接知道該去哪裡領、去哪裡開、去哪裡裝備。</p>
             </div>
         </div>
 
         <p id="rewards-status" class="rewards-status">同步中...</p>
 
-        <div class="rewards-grid">
-            <section class="rewards-section">
-                <div class="section-heading">
-                    <h2>限時領取</h2>
-                    <button class="btn-secondary compact-btn" onclick="refreshRewardsCenter()">重新整理</button>
-                </div>
-                <div id="campaign-list" class="reward-card-list">
-                    <div class="reward-empty">目前沒有可顯示的活動</div>
-                </div>
-            </section>
-
-            <section class="rewards-section">
-                <div class="section-heading">
-                    <h2>商店</h2>
-                </div>
-                <div id="shop-list" class="reward-card-list">
-                    <div class="reward-empty">載入中...</div>
-                </div>
-            </section>
+        <div class="rewards-nav">
+            <button class="rewards-nav-btn active" data-tab="campaign" onclick="switchRewardsTab('campaign')">限時活動</button>
+            <button class="rewards-nav-btn" data-tab="shop" onclick="switchRewardsTab('shop')">商店</button>
+            <button class="rewards-nav-btn" data-tab="inventory" onclick="switchRewardsTab('inventory')">背包</button>
+            <button class="rewards-nav-btn" data-tab="avatar" onclick="switchRewardsTab('avatar')">頭像</button>
+            <button class="rewards-nav-btn" data-tab="title" onclick="switchRewardsTab('title')">稱號</button>
+            <button class="rewards-nav-btn" data-tab="buff" onclick="switchRewardsTab('buff')">Buff</button>
         </div>
 
-        <div class="rewards-grid rewards-grid-bottom">
-            <section class="rewards-section">
-                <div class="section-heading">
-                    <h2>背包道具</h2>
-                </div>
-                <div id="inventory-list" class="reward-card-list">
-                    <div class="reward-empty">目前背包是空的</div>
-                </div>
-            </section>
+        <section class="rewards-section rewards-panel active" data-panel="campaign">
+            <div class="section-heading">
+                <h2>限時領取</h2>
+                <button class="btn-secondary compact-btn" onclick="refreshRewardsCenter()">重新整理</button>
+            </div>
+            <div id="campaign-list" class="reward-card-list">
+                <div class="reward-empty">目前沒有可顯示的活動</div>
+            </div>
+        </section>
 
-            <section class="rewards-section">
-                <div class="section-heading">
-                    <h2>頭像收藏</h2>
-                </div>
-                <div id="avatar-list" class="reward-card-list compact-grid">
-                    <div class="reward-empty">尚未擁有其他頭像</div>
-                </div>
-            </section>
+        <section class="rewards-section rewards-panel" data-panel="shop">
+            <div class="section-heading">
+                <h2>商店</h2>
+            </div>
+            <div id="shop-list" class="reward-card-list reward-grid-list">
+                <div class="reward-empty">載入中...</div>
+            </div>
+        </section>
 
-            <section class="rewards-section">
-                <div class="section-heading">
-                    <h2>稱號收藏</h2>
+        <section class="rewards-section rewards-panel" data-panel="inventory">
+            <div class="section-heading">
+                <h2>背包道具</h2>
+            </div>
+            <div class="inventory-split-grid">
+                <div>
+                    <h3 class="reward-subheading">寶箱 / 補給箱</h3>
+                    <div id="inventory-box-list" class="reward-card-list">
+                        <div class="reward-empty">尚未持有可開啟箱子</div>
+                    </div>
                 </div>
-                <div id="title-list" class="reward-card-list">
-                    <div class="reward-empty">尚未持有可裝備稱號</div>
+                <div>
+                    <h3 class="reward-subheading">Buff 道具</h3>
+                    <div id="inventory-buff-list" class="reward-card-list">
+                        <div class="reward-empty">尚未持有 Buff 道具</div>
+                    </div>
                 </div>
-            </section>
+                <div class="full-span">
+                    <h3 class="reward-subheading">其他道具</h3>
+                    <div id="inventory-other-list" class="reward-card-list">
+                        <div class="reward-empty">目前沒有其他道具</div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-            <section class="rewards-section">
-                <div class="section-heading">
-                    <h2>生效中 Buff</h2>
-                </div>
-                <div id="buff-list" class="reward-card-list">
-                    <div class="reward-empty">目前沒有啟用中的 Buff</div>
-                </div>
-            </section>
+        <section class="rewards-section rewards-panel" data-panel="avatar">
+            <div class="section-heading">
+                <h2>頭像收藏</h2>
+            </div>
+            <div id="avatar-list" class="reward-card-list compact-grid">
+                <div class="reward-empty">尚未擁有其他頭像</div>
+            </div>
+        </section>
+
+        <section class="rewards-section rewards-panel" data-panel="title">
+            <div class="section-heading">
+                <h2>稱號收藏</h2>
+            </div>
+            <div id="title-list" class="reward-card-list">
+                <div class="reward-empty">尚未持有可裝備稱號</div>
+            </div>
+        </section>
+
+        <section class="rewards-section rewards-panel" data-panel="buff">
+            <div class="section-heading">
+                <h2>生效中 Buff</h2>
+            </div>
+            <div id="buff-list" class="reward-card-list">
+                <div class="reward-empty">目前沒有啟用中的 Buff</div>
+            </div>
+        </section>
+    </div>
+
+    <div id="reward-result-modal" class="reward-result-modal hidden">
+        <div class="reward-result-dialog">
+            <div class="reward-result-badge">已獲得</div>
+            <h2 id="reward-result-title">獎勵到手</h2>
+            <div id="reward-result-list" class="reward-result-list"></div>
+            <button class="btn-primary" onclick="closeRewardResultModal()">我知道了</button>
         </div>
     </div>
 

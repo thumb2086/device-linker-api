@@ -70,15 +70,39 @@ body.rewards-body {
     color: #ffd36a;
 }
 
-.rewards-grid {
-    margin-top: 20px;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px;
+.rewards-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
 }
 
-.rewards-grid-bottom {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.rewards-nav-btn {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.05);
+    color: #d7e5f5;
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+
+.rewards-nav-btn.active,
+.rewards-nav-btn:hover {
+    background: rgba(255, 211, 106, 0.14);
+    color: #ffd36a;
+    border-color: rgba(255, 211, 106, 0.24);
+    transform: translateY(-1px);
+}
+
+.rewards-panel {
+    display: none;
+    margin-top: 18px;
+}
+
+.rewards-panel.active {
+    display: block;
 }
 
 .section-heading {
@@ -89,8 +113,15 @@ body.rewards-body {
     margin-bottom: 16px;
 }
 
-.section-heading h2 {
+.section-heading h2,
+.reward-subheading {
     margin: 0;
+}
+
+.reward-subheading {
+    margin-bottom: 12px;
+    color: #ffd36a;
+    font-size: 0.96rem;
 }
 
 .reward-card-list {
@@ -98,8 +129,19 @@ body.rewards-body {
     gap: 12px;
 }
 
+.reward-grid-list,
 .compact-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.inventory-split-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.full-span {
+    grid-column: 1 / -1;
 }
 
 .reward-card {
@@ -168,14 +210,81 @@ body.rewards-body {
     color: #96a8bb;
 }
 
+.reward-result-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(6, 10, 14, 0.72);
+    backdrop-filter: blur(6px);
+}
+
+.reward-result-dialog {
+    width: min(100%, 520px);
+    padding: 28px;
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at top, rgba(255, 204, 0, 0.18), transparent 34%),
+        linear-gradient(180deg, rgba(25, 34, 44, 0.98), rgba(13, 20, 29, 0.98));
+    border: 1px solid rgba(255, 211, 106, 0.18);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.34);
+    text-align: center;
+}
+
+.reward-result-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(255, 211, 106, 0.14);
+    color: #ffd36a;
+    font-weight: 800;
+    margin-bottom: 14px;
+}
+
+.reward-result-dialog h2 {
+    margin: 0 0 18px;
+    color: #fff;
+}
+
+.reward-result-list {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.reward-result-item {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #f2f4f8;
+    font-weight: 700;
+}
+
 @media (max-width: 900px) {
     .rewards-hero,
-    .rewards-grid,
-    .rewards-grid-bottom {
+    .reward-grid-list,
+    .compact-grid,
+    .inventory-split-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 680px) {
+    .rewards-nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .rewards-hero {
         grid-template-columns: 1fr;
     }
 
-    .compact-grid {
-        grid-template-columns: 1fr;
+    .reward-result-dialog {
+        padding: 24px 18px;
     }
 }

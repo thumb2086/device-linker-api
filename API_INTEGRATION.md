@@ -13,6 +13,10 @@ This project now uses 6 simplified API endpoints:
 - `POST /api/game?game=<gameId>`
 - `POST /api/market-sim`
 
+Reward item reference:
+
+- [`docs/reward-items-guide.md`](/workspaces/device-linker-api/docs/reward-items-guide.md)
+
 ## 1. Hardware Authorization
 
 ### Create pending session

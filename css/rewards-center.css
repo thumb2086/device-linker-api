@@ -105,6 +105,10 @@ body.rewards-body {
     display: block;
 }
 
+.reward-guide-section {
+    margin-top: 18px;
+}
+
 .section-heading {
     display: flex;
     align-items: center;
@@ -195,6 +199,17 @@ body.rewards-body {
 .reward-card-copy,
 .reward-card-meta {
     color: #d7e5f5;
+}
+
+.reward-card-detail-list {
+    display: grid;
+    gap: 6px;
+}
+
+.reward-card-detail {
+    color: #afc2d6;
+    font-size: 0.92rem;
+    line-height: 1.45;
 }
 
 .reward-card-actions {

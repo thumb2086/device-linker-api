@@ -21,6 +21,7 @@ import {
     listGrantLogs,
     listRewardCampaigns,
     openChest,
+    purchaseRewardTitle,
     purchaseShopItem,
     saveRewardCampaign,
     activateInventoryItem,
@@ -205,6 +206,44 @@ export default async function handler(req, res) {
             });
         }
 
+        if (action === "buy_title") {
+            const context = await getUserContext(sessionId);
+            const titleId = trimText(body.titleId, 64);
+            const catalog = await getRewardCatalog();
+            const title = (catalog.titles || []).find((entry) => entry.id === titleId);
+            if (!title) {
+                return res.status(404).json({ success: false, error: "Title not found" });
+            }
+            if (!title.shopEnabled || Number(title.shopPrice || 0) <= 0) {
+                return res.status(400).json({ success: false, error: "此稱號尚未上架販售" });
+            }
+
+            const { contract, decimals, treasuryAddress } = await getContractContext();
+            const priceWei = ethers.parseUnits(String(title.shopPrice), decimals);
+            const balanceWei = await contract.balanceOf(context.address);
+            if (balanceWei < priceWei) {
+                return res.status(400).json({ success: false, error: "餘額不足，無法購買此稱號" });
+            }
+
+            const tx = await withChainTxLock(async () => {
+                const profile = await getRewardProfile(context.address);
+                if ((profile.ownedTitles || []).some((entry) => String(entry && entry.id || "") === title.id)) {
+                    throw new Error("已持有此稱號");
+                }
+                const sent = await sendManagedContractTx(contract, "adminTransfer", [context.address, treasuryAddress, priceWei], { gasLimit: 220000 });
+                await purchaseRewardTitle(context.address, title.id);
+                return sent;
+            });
+
+            const summary = await buildSummaryPayload(context.address, context.totalBet);
+            return res.status(200).json({
+                success: true,
+                txHash: tx.hash,
+                purchasedTitle: title,
+                ...summary
+            });
+        }
+
         if (action === "use_item") {
             const context = await getUserContext(sessionId);
             const itemId = trimText(body.itemId, 64);
@@ -307,7 +346,10 @@ export default async function handler(req, res) {
                 rarity: trimText(body.titleRarity, 24) || "epic",
                 source: trimText(body.titleSource, 32) || "admin",
                 adminGrantable: body.adminGrantable !== false,
-                showOnLeaderboard: toBoolean(body.showOnLeaderboard)
+                showOnLeaderboard: toBoolean(body.showOnLeaderboard),
+                shopEnabled: toBoolean(body.shopEnabled),
+                shopPrice: Number(body.shopPrice || 0),
+                shopDescription: trimText(body.shopDescription, 240)
             });
             return res.status(200).json({ success: true, title });
         }

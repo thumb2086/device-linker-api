@@ -388,6 +388,10 @@
     font-size: 0.82rem;
 }
 
+.reward-title-meta span {
+    word-break: break-word;
+}
+
 .issue-report-message {
     line-height: 1.7;
     color: #f2f2f2;

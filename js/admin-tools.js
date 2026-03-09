@@ -171,6 +171,10 @@ function getCampaignFieldId(campaignId, field) {
     return 'campaign-' + String(field || '').replace(/[^a-zA-Z0-9_-]/g, '_') + '-' + String(campaignId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
+function getRewardTitleFieldId(titleId, field) {
+    return 'reward-title-' + String(field || '').replace(/[^a-zA-Z0-9_-]/g, '_') + '-' + String(titleId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 function reportStatusLabel(status) {
     switch (String(status || 'open')) {
         case 'resolved':
@@ -797,6 +801,55 @@ function renderRewardAdminSelects() {
     }
 }
 
+function getRewardCatalogTitle(titleId) {
+    var titles = rewardCatalog && Array.isArray(rewardCatalog.titles) ? rewardCatalog.titles : [];
+    for (var i = 0; i < titles.length; i += 1) {
+        if (String(titles[i] && titles[i].id || '') === String(titleId || '')) return titles[i];
+    }
+    return null;
+}
+
+function renderRewardTitlePricing() {
+    var listEl = document.getElementById('reward-title-pricing-list');
+    if (!listEl) return;
+    var titles = rewardCatalog && Array.isArray(rewardCatalog.titles) ? rewardCatalog.titles.slice() : [];
+    titles.sort(function (left, right) {
+        return String(left && left.name || '').localeCompare(String(right && right.name || ''), 'zh-Hant');
+    });
+
+    if (!titles.length) {
+        listEl.innerHTML = '<div class="result-empty">尚未有可設定的稱號</div>';
+        return;
+    }
+
+    listEl.innerHTML = titles.map(function (title) {
+        var enabledId = getRewardTitleFieldId(title.id, 'shop_enabled');
+        var priceId = getRewardTitleFieldId(title.id, 'shop_price');
+        var descId = getRewardTitleFieldId(title.id, 'shop_desc');
+        return '<div class="announcement-admin-card">' +
+            '<div class="announcement-admin-head">' +
+                '<div>' +
+                    '<strong>' + escapeHtml(title.name || title.id || '未命名稱號') + '</strong>' +
+                    '<div class="issue-report-meta reward-title-meta">' +
+                        '<span>ID：' + escapeHtml(title.id || '-') + '</span>' +
+                        '<span>' + escapeHtml(title.source || 'admin') + '</span>' +
+                        '<span>' + escapeHtml(title.rarity || 'epic') + '</span>' +
+                        '<span>' + escapeHtml(title.showOnLeaderboard ? '排行榜顯示' : '僅個人頁顯示') + '</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="announcement-form-grid">' +
+                '<label><span>稱號售價</span><input id="' + escapeHtml(priceId) + '" class="text-input" type="number" min="0" step="1" value="' + escapeHtml(String(title.shopPrice || 0)) + '"></label>' +
+                '<label class="toggle-field"><input id="' + escapeHtml(enabledId) + '" type="checkbox"' + (title.shopEnabled ? ' checked' : '') + '><span>上架到稱號商店</span></label>' +
+                '<label class="full-span"><span>商店說明</span><textarea id="' + escapeHtml(descId) + '" class="text-input announcement-textarea" placeholder="玩家在稱號商店看到的說明">' + escapeHtml(title.shopDescription || '') + '</textarea></label>' +
+            '</div>' +
+            '<div class="issue-card-actions">' +
+                '<button class="btn-primary compact-btn" data-title-id="' + escapeHtml(title.id) + '" onclick="saveRewardTitlePricing(this.dataset.titleId)">儲存定價</button>' +
+            '</div>' +
+            '</div>';
+    }).join('');
+}
+
 function renderRewardCampaigns() {
     var listEl = document.getElementById('reward-campaign-list');
     var countEl = document.getElementById('reward-campaign-count');
@@ -898,6 +951,7 @@ function loadRewardAdmin() {
         rewardCampaigns = Array.isArray(campaignData.campaigns) ? campaignData.campaigns : [];
         rewardGrantLogs = Array.isArray(logData.logs) ? logData.logs : [];
         renderRewardAdminSelects();
+        renderRewardTitlePricing();
         renderRewardCampaigns();
         renderRewardGrantLogs();
         setRewardAdminStatus('稱號與活動資料已同步', false);
@@ -970,7 +1024,10 @@ function publishRewardTitle() {
             titleRarity: String(document.getElementById('reward-title-rarity').value || 'epic'),
             titleSource: String(document.getElementById('reward-title-source').value || 'admin'),
             showOnLeaderboard: !!document.getElementById('reward-title-leaderboard').checked,
-            adminGrantable: true
+            adminGrantable: true,
+            shopEnabled: !!document.getElementById('reward-title-shop-enabled').checked,
+            shopPrice: String(document.getElementById('reward-title-price').value || '0'),
+            shopDescription: String(document.getElementById('reward-title-shop-description').value || '')
         }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '新增稱號失敗');
             document.getElementById('reward-title-name').value = '';
@@ -978,8 +1035,43 @@ function publishRewardTitle() {
             document.getElementById('reward-title-rarity').value = 'epic';
             document.getElementById('reward-title-source').value = 'admin';
             document.getElementById('reward-title-leaderboard').checked = true;
+            document.getElementById('reward-title-shop-enabled').checked = false;
+            document.getElementById('reward-title-price').value = '0';
+            document.getElementById('reward-title-shop-description').value = '';
             setRewardAdminStatus('稱號已新增，可直接用於發放與活動', false);
             showAdminToast('自訂稱號已新增', false);
+            return loadRewardAdmin();
+        });
+    }).catch(function (error) {
+        setRewardAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
+    });
+}
+
+function saveRewardTitlePricing(titleId) {
+    var title = getRewardCatalogTitle(titleId);
+    if (!title) {
+        setRewardAdminStatus('錯誤: 找不到稱號資料', true);
+        showAdminToast('找不到稱號資料', true);
+        return;
+    }
+
+    setRewardAdminStatus('更新稱號定價中...', false);
+    withAdminBusy('reward', function () {
+        return callRewardsAdminApi('admin_upsert_title', {
+            titleId: title.id,
+            titleName: title.name,
+            titleRarity: title.rarity || 'epic',
+            titleSource: title.source || 'admin',
+            adminGrantable: title.adminGrantable !== false,
+            showOnLeaderboard: !!title.showOnLeaderboard,
+            shopEnabled: !!(document.getElementById(getRewardTitleFieldId(titleId, 'shop_enabled')) || {}).checked,
+            shopPrice: String((document.getElementById(getRewardTitleFieldId(titleId, 'shop_price')) || {}).value || '0'),
+            shopDescription: String((document.getElementById(getRewardTitleFieldId(titleId, 'shop_desc')) || {}).value || '')
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '更新稱號定價失敗');
+            setRewardAdminStatus('稱號定價已更新', false);
+            showAdminToast('稱號定價已更新', false);
             return loadRewardAdmin();
         });
     }).catch(function (error) {

@@ -5,6 +5,7 @@ import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.j
 import { buildVipStatus, getVipTierOptions } from "../lib/vip.js";
 import { withChainTxLock } from "../lib/tx-lock.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
+import { sendManagedContractTx } from "../lib/admin-chain.js";
 import {
     buildRewardSummary,
     buildRewardSummaryFromProfile,
@@ -190,7 +191,7 @@ export default async function handler(req, res) {
             }
 
             const tx = await withChainTxLock(async () => {
-                const sent = await contract.adminTransfer(context.address, treasuryAddress, priceWei, { gasLimit: 220000 });
+                const sent = await sendManagedContractTx(contract, "adminTransfer", [context.address, treasuryAddress, priceWei], { gasLimit: 220000 });
                 await purchaseShopItem(context.address, item.id);
                 return sent;
             });

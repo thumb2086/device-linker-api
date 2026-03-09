@@ -32,6 +32,79 @@ function rarityLabel(rarity) {
     return map[String(rarity || '').toLowerCase()] || String(rarity || '普通');
 }
 
+var rewardItemGuideMap = {
+    profit_boost_small: [
+        '效果：15 分鐘內淨盈利 x2',
+        '上限：總加成最多 2,000 萬',
+        '適用：單人遊戲結算'
+    ],
+    profit_boost_large: [
+        '效果：30 分鐘內淨盈利 x2',
+        '上限：總加成最多 5 億',
+        '適用：單人遊戲結算'
+    ],
+    loss_shield_single: [
+        '效果：失敗時返還本金 1 次',
+        '限制：按次數保護，不設金額上限',
+        '適用：單人遊戲結算'
+    ],
+    loss_shield_triple: [
+        '效果：失敗時返還本金 3 次',
+        '限制：按次數保護，不設金額上限',
+        '適用：單人遊戲結算'
+    ],
+    loss_shield_timed: [
+        '效果：15 分鐘內最多保護 3 次失敗',
+        '限制：按次數保護，不設金額上限',
+        '適用：單人遊戲結算'
+    ],
+    luck_boost: [
+        '效果：提高寶箱高稀有獎勵權重',
+        '限制：不直接提高遊戲勝率',
+        '適用：寶箱 / 額外掉落'
+    ],
+    rare_chest: [
+        '用途：開啟稀有獎勵池',
+        '可得：子熙幣、基礎 Buff、頭像、稱號'
+    ],
+    super_rare_chest: [
+        '用途：開啟超稀有獎勵池',
+        '可得：進階 Buff、稀有外觀、稱號'
+    ],
+    epic_chest: [
+        '用途：開啟史詩獎勵池',
+        '可得：高價 Buff、史詩外觀、稱號'
+    ],
+    mythic_chest: [
+        '用途：開啟神話獎勵池',
+        '可得：高價值道具、神話稱號、外觀'
+    ],
+    legendary_chest: [
+        '用途：開啟傳奇獎勵池',
+        '可得：頂級 Buff、傳奇稱號、限定外觀'
+    ],
+    basic_key: [
+        '用途：開啟普通補給箱',
+        '可得：基礎資源、Buff 或額外寶箱'
+    ],
+    advanced_key: [
+        '用途：開啟高級補給箱',
+        '可得：進階 Buff、稱號或高價值資源'
+    ],
+    master_key: [
+        '用途：開啟萬用補給箱',
+        '可得：高階稱號、傳奇資源與頂級 Buff'
+    ]
+};
+
+function rewardTypeLabel(item) {
+    if (!item) return '物品';
+    if (item.type === 'buff') return 'Buff 道具';
+    if (item.type === 'chest') return '寶箱';
+    if (item.type === 'key') return '補給箱';
+    return item.type || '物品';
+}
+
 function escapeRewardsHtml(text) {
     return String(text || '')
         .replace(/&/g, '&amp;')
@@ -117,6 +190,40 @@ function rewardItemSummary(bundle) {
     return labels;
 }
 
+function getRewardItemGuideLines(item) {
+    if (!item) return [];
+    var guideLines = rewardItemGuideMap[item.id];
+    if (guideLines && guideLines.length) return guideLines.slice();
+    var lines = [];
+    if (item.description) lines.push(item.description);
+    if (item.type) lines.push('類型：' + rewardTypeLabel(item));
+    return lines;
+}
+
+function renderRewardItemDetailsHtml(item) {
+    var lines = getRewardItemGuideLines(item);
+    if (!lines.length) return '';
+    return '<div class="reward-card-detail-list">' + lines.map(function (line) {
+        return '<div class="reward-card-detail">' + escapeRewardsHtml(line) + '</div>';
+    }).join('') + '</div>';
+}
+
+function renderItemGuide(items) {
+    var listEl = document.getElementById('item-guide-list');
+    if (!listEl) return;
+    if (!items || !items.length) {
+        listEl.innerHTML = '<div class="reward-empty">目前沒有可顯示的物品說明</div>';
+        return;
+    }
+
+    listEl.innerHTML = items.map(function (item) {
+        return '<div class="reward-card">' +
+            '<div class="reward-card-head"><strong>' + escapeRewardsHtml(item.name) + '</strong><span class="reward-rarity">' + escapeRewardsHtml(rewardTypeLabel(item)) + '</span></div>' +
+            renderRewardItemDetailsHtml(item) +
+            '</div>';
+    }).join('');
+}
+
 function renderCampaigns(items) {
     var listEl = document.getElementById('campaign-list');
     if (!listEl) return;
@@ -161,6 +268,7 @@ function renderShop(items) {
                 '<span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span>' +
             '</div>' +
             '<div class="reward-card-copy">' + escapeRewardsHtml(item.description || '') + '</div>' +
+            renderRewardItemDetailsHtml(item) +
             '<div class="reward-card-meta">售價：' + formatCompactZh(item.price, 2) + ' 子熙幣</div>' +
             '<div class="reward-card-actions">' +
                 '<button class="btn-primary compact-btn" onclick="buyRewardItem(\'' + escapeRewardsHtml(item.id) + '\')">購買</button>' +
@@ -178,6 +286,7 @@ function renderInventoryGroup(listId, items, emptyText) {
     }
 
     listEl.innerHTML = items.map(function (item) {
+        var catalogItem = rewardCatalogMap('shopItems')[item.itemId] || item;
         var actionBtn = '';
         if (item.type === 'buff') {
             actionBtn = '<button class="btn-primary compact-btn" onclick="useRewardItem(\'' + escapeRewardsHtml(item.itemId) + '\')">啟用</button>';
@@ -187,6 +296,7 @@ function renderInventoryGroup(listId, items, emptyText) {
         return '<div class="reward-card">' +
             '<div class="reward-card-head"><strong>' + escapeRewardsHtml(item.name) + '</strong><span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span></div>' +
             '<div class="reward-card-copy">' + escapeRewardsHtml(item.description || '') + '</div>' +
+            renderRewardItemDetailsHtml(catalogItem) +
             '<div class="reward-card-meta">持有數量：' + formatDisplayNumber(item.qty, 0) + '</div>' +
             '<div class="reward-card-actions">' + actionBtn + '</div>' +
             '</div>';
@@ -327,6 +437,7 @@ function applyRewardsState(data) {
     if (!data || !data.profile) return;
     renderIdentity(data.profile);
     renderCampaigns(data.campaigns || []);
+    renderItemGuide(data.catalog && data.catalog.shopItems ? data.catalog.shopItems : []);
     renderShop(data.catalog && data.catalog.shopItems ? data.catalog.shopItems : []);
     renderInventory(data.profile.inventory || []);
     renderAvatars(data.profile.avatars || [], data.profile);

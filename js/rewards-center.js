@@ -2,6 +2,7 @@ var rewardsState = null;
 var rewardsBusy = false;
 var rewardsTab = 'campaign';
 var rewardsToastSeq = 0;
+var rewardTitleShopCategory = 'all';
 
 function setRewardsStatus(text, isError) {
     var el = document.getElementById('rewards-status');
@@ -55,6 +56,18 @@ function rarityLabel(rarity) {
         legendary: '傳奇'
     };
     return map[String(rarity || '').toLowerCase()] || String(rarity || '普通');
+}
+
+function rewardTitleCategoryLabel(category) {
+    var map = {
+        all: '全部',
+        featured: '精選',
+        achievement: '成就',
+        event: '活動',
+        vip: 'VIP',
+        special: '特別'
+    };
+    return map[String(category || '').toLowerCase()] || String(category || '全部');
 }
 
 var rewardItemGuideMap = {
@@ -304,33 +317,86 @@ function renderShop(items) {
 
 function renderTitleShop(items) {
     var listEl = document.getElementById('title-shop-list');
+    var filterEl = document.getElementById('title-shop-filter');
     if (!listEl) return;
     var sellableTitles = (items || []).filter(function (item) {
         return !!item && item.shopEnabled === true && Number(item.shopPrice || 0) > 0;
     });
+
+    var categories = [{ value: 'all', label: '全部' }];
+    var seenCategories = { all: true };
+    sellableTitles.forEach(function (item) {
+        var key = String(item.shopCategory || 'featured');
+        if (seenCategories[key]) return;
+        seenCategories[key] = true;
+        categories.push({ value: key, label: rewardTitleCategoryLabel(key) });
+    });
+    if (!seenCategories[rewardTitleShopCategory]) {
+        rewardTitleShopCategory = 'all';
+    }
+    if (filterEl) {
+        filterEl.innerHTML = categories.map(function (item) {
+            return '<button class="reward-filter-chip' + (rewardTitleShopCategory === item.value ? ' active' : '') + '" onclick="setRewardTitleShopCategory(\'' + escapeRewardsHtml(item.value) + '\')">' + escapeRewardsHtml(item.label) + '</button>';
+        }).join('');
+    }
 
     if (!sellableTitles.length) {
         listEl.innerHTML = '<div class="reward-empty">目前沒有上架稱號</div>';
         return;
     }
 
+    sellableTitles = sellableTitles
+        .filter(function (item) {
+            return rewardTitleShopCategory === 'all' || String(item.shopCategory || 'featured') === rewardTitleShopCategory;
+        })
+        .sort(function (left, right) {
+            var priorityDiff = Number(right.shopPriority || 0) - Number(left.shopPriority || 0);
+            if (priorityDiff !== 0) return priorityDiff;
+            var saleDiff = Number(!!right.saleActive) - Number(!!left.saleActive);
+            if (saleDiff !== 0) return saleDiff;
+            var priceDiff = Number(left.effectiveShopPrice || left.shopPrice || 0) - Number(right.effectiveShopPrice || right.shopPrice || 0);
+            if (priceDiff !== 0) return priceDiff;
+            return String(left.name || '').localeCompare(String(right.name || ''), 'zh-Hant');
+        });
+
+    if (!sellableTitles.length) {
+        listEl.innerHTML = '<div class="reward-empty">這個分類目前沒有上架稱號</div>';
+        return;
+    }
+
     listEl.innerHTML = sellableTitles.map(function (item) {
+        var saleMeta = '';
+        if (item.saleActive) {
+            saleMeta = '<div class="reward-card-price sale"><span class="price-now">' + formatCompactZh(item.effectiveShopPrice, 2) + ' 子熙幣</span><span class="price-old">' + formatCompactZh(item.shopPrice, 2) + ' 子熙幣</span></div>';
+        } else {
+            saleMeta = '<div class="reward-card-price"><span class="price-now">' + formatCompactZh(item.effectiveShopPrice || item.shopPrice, 2) + ' 子熙幣</span></div>';
+        }
+        var saleWindow = '';
+        if (item.saleActive || item.saleStartAt || item.saleEndAt) {
+            saleWindow = '<div class="reward-card-meta">折扣時間：' + escapeRewardsHtml(formatRewardDateTime(item.saleStartAt) || '立即開始') + ' ~ ' + escapeRewardsHtml(formatRewardDateTime(item.saleEndAt) || '不限結束') + '</div>';
+        }
         return '<div class="reward-card">' +
             '<div class="reward-card-head">' +
                 '<div class="reward-card-title">' +
                     '<span class="reward-icon">🏷️</span>' +
                     '<div><strong>' + escapeRewardsHtml(item.name) + '</strong><div class="reward-card-meta">' + escapeRewardsHtml(rarityLabel(item.rarity)) + ' 稱號</div></div>' +
                 '</div>' +
-                '<span class="reward-rarity">' + escapeRewardsHtml(item.showOnLeaderboard ? '榜單可顯示' : '個人收藏') + '</span>' +
+                '<span class="reward-rarity">' + escapeRewardsHtml(item.saleActive ? '限時折扣' : (item.showOnLeaderboard ? '榜單可顯示' : '個人收藏')) + '</span>' +
             '</div>' +
             '<div class="reward-card-copy">' + escapeRewardsHtml(item.shopDescription || item.description || '永久稱號，購買後會直接加入稱號收藏。') + '</div>' +
-            '<div class="reward-card-meta">來源：' + escapeRewardsHtml(item.source || 'shop') + '</div>' +
-            '<div class="reward-card-meta">售價：' + formatCompactZh(item.shopPrice, 2) + ' 子熙幣</div>' +
+            '<div class="reward-card-meta">分類：' + escapeRewardsHtml(rewardTitleCategoryLabel(item.shopCategory || 'featured')) + ' / 來源：' + escapeRewardsHtml(item.source || 'shop') + '</div>' +
+            saleMeta +
+            saleWindow +
             '<div class="reward-card-actions">' +
                 '<button class="btn-primary compact-btn" onclick="buyRewardTitle(\'' + escapeRewardsHtml(item.id) + '\')">購買稱號</button>' +
             '</div>' +
             '</div>';
     }).join('');
+}
+
+function setRewardTitleShopCategory(category) {
+    rewardTitleShopCategory = String(category || 'all');
+    renderTitleShop(rewardsState && rewardsState.catalog ? rewardsState.catalog.titles : []);
 }
 
 function renderInventoryGroup(listId, items, emptyText) {

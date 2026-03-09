@@ -163,6 +163,14 @@
                                 稱號售價
                                 <input id="reward-title-price" class="text-input" type="number" min="0" step="1" value="0" placeholder="0 = 不販售">
                             </label>
+                            <label>
+                                商店分類
+                                <select id="reward-title-category" class="text-input"></select>
+                            </label>
+                            <label>
+                                商店排序
+                                <input id="reward-title-priority" class="text-input" type="number" min="0" step="1" value="0" placeholder="數字越高越前面">
+                            </label>
                             <label class="toggle-field">
                                 <input id="reward-title-leaderboard" type="checkbox" checked>
                                 <span>顯示於排行榜</span>
@@ -171,6 +179,18 @@
                                 <input id="reward-title-shop-enabled" type="checkbox">
                                 <span>上架到稱號商店</span>
                             </label>
+                            <label>
+                                限時折扣價
+                                <input id="reward-title-sale-price" class="text-input" type="number" min="0" step="1" value="0" placeholder="0 = 不折扣">
+                            </label>
+                            <label>
+                                折扣開始時間
+                                <input id="reward-title-sale-start-at" class="text-input" type="datetime-local">
+                            </label>
+                            <label>
+                                折扣結束時間
+                                <input id="reward-title-sale-end-at" class="text-input" type="datetime-local">
+                            </label>
                             <label class="full-span">
                                 商店說明
                                 <textarea id="reward-title-shop-description" class="text-input announcement-textarea" placeholder="例如：可直接在稱號商店購買的永久稱號"></textarea>
@@ -178,6 +198,51 @@
                         </div>
                         <div class="form-row single-row">
                             <button class="btn-primary" onclick="publishRewardTitle()">新增稱號</button>
+                        </div>
+                    </div>
+
+                    <div class="announcement-editor-card">
+                        <h3>既有稱號快速上架</h3>
+                        <div class="announcement-form-grid">
+                            <label class="full-span">
+                                選擇既有稱號
+                                <select id="reward-existing-title-id" class="text-input" onchange="loadExistingRewardTitleForSale(this.value)"></select>
+                            </label>
+                            <label>
+                                稱號售價
+                                <input id="reward-existing-title-price" class="text-input" type="number" min="0" step="1" value="0">
+                            </label>
+                            <label>
+                                商店分類
+                                <select id="reward-existing-title-category" class="text-input"></select>
+                            </label>
+                            <label>
+                                商店排序
+                                <input id="reward-existing-title-priority" class="text-input" type="number" min="0" step="1" value="0">
+                            </label>
+                            <label class="toggle-field">
+                                <input id="reward-existing-title-shop-enabled" type="checkbox">
+                                <span>上架到稱號商店</span>
+                            </label>
+                            <label>
+                                限時折扣價
+                                <input id="reward-existing-title-sale-price" class="text-input" type="number" min="0" step="1" value="0">
+                            </label>
+                            <label>
+                                折扣開始時間
+                                <input id="reward-existing-title-sale-start-at" class="text-input" type="datetime-local">
+                            </label>
+                            <label>
+                                折扣結束時間
+                                <input id="reward-existing-title-sale-end-at" class="text-input" type="datetime-local">
+                            </label>
+                            <label class="full-span">
+                                商店說明
+                                <textarea id="reward-existing-title-shop-description" class="text-input announcement-textarea" placeholder="例如：限定上架的永久稱號"></textarea>
+                            </label>
+                        </div>
+                        <div class="form-row single-row">
+                            <button class="btn-primary" onclick="saveExistingRewardTitleSale()">儲存既有稱號上架設定</button>
                         </div>
                     </div>
 

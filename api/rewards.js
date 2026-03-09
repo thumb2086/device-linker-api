@@ -214,12 +214,13 @@ export default async function handler(req, res) {
             if (!title) {
                 return res.status(404).json({ success: false, error: "Title not found" });
             }
-            if (!title.shopEnabled || Number(title.shopPrice || 0) <= 0) {
+            const effectivePrice = Number(title.effectiveShopPrice || 0);
+            if (!title.shopEnabled || effectivePrice <= 0) {
                 return res.status(400).json({ success: false, error: "此稱號尚未上架販售" });
             }
 
             const { contract, decimals, treasuryAddress } = await getContractContext();
-            const priceWei = ethers.parseUnits(String(title.shopPrice), decimals);
+            const priceWei = ethers.parseUnits(String(effectivePrice), decimals);
             const balanceWei = await contract.balanceOf(context.address);
             if (balanceWei < priceWei) {
                 return res.status(400).json({ success: false, error: "餘額不足，無法購買此稱號" });
@@ -349,7 +350,12 @@ export default async function handler(req, res) {
                 showOnLeaderboard: toBoolean(body.showOnLeaderboard),
                 shopEnabled: toBoolean(body.shopEnabled),
                 shopPrice: Number(body.shopPrice || 0),
-                shopDescription: trimText(body.shopDescription, 240)
+                shopDescription: trimText(body.shopDescription, 240),
+                shopCategory: trimText(body.shopCategory, 32),
+                shopPriority: Number(body.shopPriority || 0),
+                salePrice: Number(body.salePrice || 0),
+                saleStartAt: trimText(body.saleStartAt, 64),
+                saleEndAt: trimText(body.saleEndAt, 64)
             });
             return res.status(200).json({ success: true, title });
         }

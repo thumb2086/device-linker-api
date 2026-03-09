@@ -4,6 +4,7 @@ import { getSession } from "../lib/session-store.js";
 import { AIRDROP_HALVING_STEP, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { calculateAirdropRewardWei } from "../lib/airdrop-policy.js";
+import { listGameHistory } from "../lib/game-history.js";
 
 const MAX_TRANSFER_AMOUNT = 100000000;
 const CONTRACT_ABI = [
@@ -204,6 +205,18 @@ export default async function handler(req, res) {
         const sessionInfo = sessionId ? await resolveSessionAddress(sessionId) : { session: null, address: "" };
         const sessionAddress = sessionInfo.address;
 
+        if (action === "game_history") {
+            const historyAddress = sessionAddress || normalizeAddress(body.address, "address");
+            const result = await listGameHistory(historyAddress, { limit: body.limit });
+            return res.status(200).json({
+                success: true,
+                action: "game_history",
+                address: historyAddress,
+                total: result.total,
+                items: result.items
+            });
+        }
+
         if (action === "summary" || action === "status" || action === "balance") {
             const userAddress = sessionAddress || normalizeAddress(body.address, "address");
             const [userBalanceWei, treasuryBalanceWei, totalSupplyWei, adminWalletBalanceWei] = await Promise.all([
@@ -383,6 +396,7 @@ export default async function handler(req, res) {
                 "summary",
                 "status",
                 "balance",
+                "game_history",
                 "get_balance",
                 "airdrop",
                 "import",

@@ -89,6 +89,28 @@
             <p id="airdrop-meta">-</p>
         </div>
 
+        <div class="wallet-history-grid">
+            <div class="section-block history-block">
+                <div class="history-head">
+                    <h2>輸贏紀錄</h2>
+                    <button class="btn-secondary history-refresh-btn" onclick="refreshWalletHistory(false)">更新</button>
+                </div>
+                <div id="game-history-list" class="history-list">
+                    <div class="history-empty">載入中...</div>
+                </div>
+            </div>
+
+            <div class="section-block history-block">
+                <div class="history-head">
+                    <h2>交易紀錄</h2>
+                    <button class="btn-secondary history-refresh-btn" onclick="refreshWalletHistory(false)">更新</button>
+                </div>
+                <div id="tx-history-list" class="history-list">
+                    <div class="history-empty">載入中...</div>
+                </div>
+            </div>
+        </div>
+
         <p id="status-msg">載入中...</p>
         <div id="tx-log"></div>
     </div>

@@ -23,6 +23,157 @@ function setWalletTx(txHash) {
     txEl.innerHTML = txHash ? txLinkHTML(txHash) : '';
 }
 
+function escapeHtml(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatHistoryTime(value) {
+    var ts = Date.parse(String(value || ''));
+    if (!Number.isFinite(ts)) return '-';
+    return new Date(ts).toLocaleString('zh-TW', { hour12: false });
+}
+
+function formatNetAmount(value) {
+    var num = toSafeNumber(value, 0);
+    var sign = num > 0 ? '+' : '';
+    return sign + fmtToken(num);
+}
+
+function shortenWalletAddress(value) {
+    var text = String(value || '').trim();
+    if (text.length <= 14) return text || '-';
+    return text.slice(0, 6) + '...' + text.slice(-4);
+}
+
+function renderGameHistory(items) {
+    var el = document.getElementById('game-history-list');
+    if (!el) return;
+
+    if (!Array.isArray(items) || items.length === 0) {
+        el.innerHTML = '<div class="history-empty">目前還沒有遊戲輸贏紀錄</div>';
+        return;
+    }
+
+    el.innerHTML = items.map(function (item) {
+        var net = toSafeNumber(item.netAmount, 0);
+        var amountClass = net > 0 ? 'is-win' : (net < 0 ? 'is-lose' : 'is-flat');
+        var meta = [];
+        if (item.betAmount) meta.push('下注 ' + fmtToken(item.betAmount));
+        if (item.multiplier) meta.push('倍率 ' + Number(item.multiplier).toFixed(2) + 'x');
+        if (item.details) meta.push(item.details);
+
+        return '' +
+            '<div class="history-item-card">' +
+                '<div class="history-item-top">' +
+                    '<div>' +
+                        '<div class="history-item-title">' + escapeHtml(item.gameLabel || item.game || '-') + '</div>' +
+                        '<div class="history-item-label">' + escapeHtml(item.outcomeLabel || item.outcome || '-') + '</div>' +
+                    '</div>' +
+                    '<div class="history-amount ' + amountClass + '">' + formatNetAmount(item.netAmount) + '</div>' +
+                '</div>' +
+                '<div class="history-item-bottom">' +
+                    '<span class="history-meta">' + escapeHtml(meta.join(' | ')) + '</span>' +
+                    '<span class="history-meta">' + escapeHtml(formatHistoryTime(item.createdAt)) + '</span>' +
+                '</div>' +
+            '</div>';
+    }).join('');
+}
+
+function renderTxHistory(items) {
+    var el = document.getElementById('tx-history-list');
+    if (!el) return;
+
+    if (!Array.isArray(items) || items.length === 0) {
+        el.innerHTML = '<div class="history-empty">目前還沒有鏈上交易紀錄</div>';
+        return;
+    }
+
+    el.innerHTML = items.map(function (item) {
+        var isSend = item.type === 'send';
+        var amountClass = isSend ? 'is-lose' : 'is-win';
+        var amountText = (isSend ? '-' : '+') + fmtToken(item.amount);
+        var counterParty = item.counterParty ? shortenWalletAddress(item.counterParty) : '-';
+        var txLink = item.txHash ? '<a class="history-link" href="https://sepolia.etherscan.io/tx/' + encodeURIComponent(item.txHash) + '" target="_blank" rel="noopener noreferrer">查看交易</a>' : '';
+
+        return '' +
+            '<div class="history-item-card">' +
+                '<div class="history-item-top">' +
+                    '<div>' +
+                        '<div class="history-item-title">' + (isSend ? '轉出' : '轉入') + '</div>' +
+                        '<div class="history-item-label">' + escapeHtml(counterParty) + '</div>' +
+                    '</div>' +
+                    '<div class="history-amount ' + amountClass + '">' + amountText + '</div>' +
+                '</div>' +
+                '<div class="history-item-bottom">' +
+                    '<span class="history-meta">' + escapeHtml(item.date || '-') + '</span>' +
+                    '<span>' + txLink + '</span>' +
+                '</div>' +
+            '</div>';
+    }).join('');
+}
+
+function fetchWalletTxHistory() {
+    var historyAddress = currentWalletAddress || user.address;
+    if (!historyAddress) return Promise.resolve([]);
+
+    return fetch('/api/user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'get_history',
+            address: historyAddress,
+            limit: 10,
+            page: 1
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '讀取交易紀錄失敗');
+            return Array.isArray(data.history) ? data.history : [];
+        });
+}
+
+function fetchWalletGameHistory() {
+    return callWallet('game_history', { limit: 12 })
+        .then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '讀取輸贏紀錄失敗');
+            return Array.isArray(data.items) ? data.items : [];
+        });
+}
+
+function refreshWalletHistory(silent) {
+    if (!silent) setWalletStatus('同步紀錄中...', false);
+    return Promise.allSettled([fetchWalletGameHistory(), fetchWalletTxHistory()])
+        .then(function (results) {
+            var gameResult = results[0];
+            var txResult = results[1];
+            var errors = [];
+
+            if (gameResult.status === 'fulfilled') {
+                renderGameHistory(gameResult.value);
+            } else {
+                renderGameHistory([]);
+                errors.push(gameResult.reason && gameResult.reason.message ? gameResult.reason.message : '讀取輸贏紀錄失敗');
+            }
+
+            if (txResult.status === 'fulfilled') {
+                renderTxHistory(txResult.value);
+            } else {
+                renderTxHistory([]);
+                errors.push(txResult.reason && txResult.reason.message ? txResult.reason.message : '讀取交易紀錄失敗');
+            }
+
+            if (!silent) {
+                setWalletStatus(errors.length > 0 ? ('部分紀錄更新失敗: ' + errors.join(' / ')) : '紀錄已更新', errors.length > 0);
+            }
+        });
+}
+
 function withWalletBusy(task) {
     if (walletBusy) return Promise.reject(new Error('請稍候，上一筆操作仍在處理'));
     walletBusy = true;
@@ -152,7 +303,7 @@ function exportFunds() {
             if (!data || !data.success) throw new Error((data && data.error) || '匯出失敗');
             setWalletStatus('匯出成功：-' + amount + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
-            return refreshWalletSummary(true);
+            return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
         });
     }).catch(function (e) {
         setWalletStatus('錯誤: ' + e.message, true);
@@ -169,7 +320,7 @@ function withdrawToTreasury() {
             if (!data || !data.success) throw new Error((data && data.error) || '匯回失敗');
             setWalletStatus('匯回成功：-' + amount + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
-            return refreshWalletSummary(true);
+            return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
         });
     }).catch(function (e) {
         setWalletStatus('錯誤: ' + e.message, true);
@@ -196,7 +347,7 @@ function claimAirdrop() {
                 if (!data || !data.success) throw new Error((data && data.error) || '空投領取失敗');
                 setWalletStatus('空投成功：+' + fmtToken(data.reward) + ' 子熙幣', false);
                 setWalletTx(data.txHash || '');
-                return refreshWalletSummary(true);
+                return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
             });
     }).catch(function (e) {
         setWalletStatus('錯誤: ' + e.message, true);
@@ -205,8 +356,10 @@ function claimAirdrop() {
 
 function initWalletPage() {
     refreshWalletSummary(false);
+    refreshWalletHistory(true);
     setInterval(function () {
         if (walletBusy) return;
         refreshWalletSummary(true);
+        refreshWalletHistory(true);
     }, 30000);
 }

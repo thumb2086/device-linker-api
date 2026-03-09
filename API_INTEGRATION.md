@@ -214,6 +214,54 @@ Response:
 }
 ```
 
+### Get game settlement history
+
+`POST /api/wallet`
+
+```json
+{
+  "action": "game_history",
+  "sessionId": "session_xxx",
+  "limit": 12
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "action": "game_history",
+  "address": "0x1234...",
+  "total": 3,
+  "items": [
+    {
+      "id": "game_xxx",
+      "address": "0x1234...",
+      "game": "coinflip",
+      "gameLabel": "擲硬幣",
+      "outcome": "win",
+      "outcomeLabel": "猜中",
+      "betAmount": "100.0",
+      "payoutAmount": "80.0",
+      "netAmount": "80.0",
+      "multiplier": 0.8,
+      "roundId": "123456",
+      "mode": "",
+      "txHash": "0xhash...",
+      "details": "結果 heads / 下注 heads",
+      "createdAt": "2026-03-09T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+Notes:
+
+- `betAmount` is the stake for that round.
+- `payoutAmount` is the amount transferred back to the player wallet for the settlement.
+- `netAmount` is the real wallet delta for that round. Negative means loss.
+
 ## 4. History
 
 `POST /api/user`

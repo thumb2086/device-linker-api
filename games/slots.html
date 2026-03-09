@@ -30,60 +30,18 @@
         </div>
 
         <div class="slots-machine">
-            <div class="slots-layout">
-                <div class="slots-board-wrap">
-                    <div class="slots-board-header">
-                        <span class="slots-board-title">主轉盤</span>
-                        <span class="slots-board-note">3x3 全線判定</span>
-                    </div>
-                    <div class="slots-board" id="slots-board">
-                        <div class="reels-grid" id="reels-grid"></div>
-                        <svg class="payline-svg-overlay" id="payline-svg" aria-hidden="true"></svg>
-                    </div>
-                    <div class="slots-result-strip">
-                        <div class="slots-result-chip" id="slots-result-type">待命中</div>
-                        <div class="slots-result-copy" id="slots-result-copy">三連中獎、雙連退半與交易狀態都會顯示在這裡。</div>
-                    </div>
+            <div class="slots-board-wrap">
+                <div class="slots-board-header">
+                    <span class="slots-board-title">主轉盤</span>
+                    <span class="slots-board-note">3x3 全線判定</span>
                 </div>
-
-                <div class="payout-panel">
-                    <div class="payout-panel-head">
-                        <h2>派彩表</h2>
-                        <p>三連固定 15% 中獎率，雙連退回 0.5 倍。</p>
-                    </div>
-                    <div class="payout-info">
-                        <div class="payout-item">
-                            <span class="payout-symbol">7️⃣7️⃣7️⃣</span>
-                            <span class="payout-mult">50x</span>
-                            <span class="payout-rate">0.2%</span>
-                        </div>
-                        <div class="payout-item">
-                            <span class="payout-symbol">💎💎💎</span>
-                            <span class="payout-mult">15x</span>
-                            <span class="payout-rate">0.8%</span>
-                        </div>
-                        <div class="payout-item">
-                            <span class="payout-symbol">⭐⭐⭐</span>
-                            <span class="payout-mult">8x</span>
-                            <span class="payout-rate">1.5%</span>
-                        </div>
-                        <div class="payout-item">
-                            <span class="payout-symbol">🔔🔔🔔</span>
-                            <span class="payout-mult">5x</span>
-                            <span class="payout-rate">2.0%</span>
-                        </div>
-                        <div class="payout-item">
-                            <span class="payout-symbol">🍋🍋🍋</span>
-                            <span class="payout-mult">3x</span>
-                            <span class="payout-rate">2.5%</span>
-                        </div>
-                        <div class="payout-item">
-                            <span class="payout-symbol">🍒🍒🍒</span>
-                            <span class="payout-mult">2x</span>
-                            <span class="payout-rate">3.0%</span>
-                        </div>
-                    </div>
-                    <p class="slots-odds-note">支援上、中、下三條橫線，左、中、右三條垂直線，以及兩條斜線。7️⃣ 圖示已改為固定格內縮放，不再超出框線。</p>
+                <div class="slots-board" id="slots-board">
+                    <div class="reels-grid" id="reels-grid"></div>
+                    <svg class="payline-svg-overlay" id="payline-svg" aria-hidden="true"></svg>
+                </div>
+                <div class="slots-result-strip">
+                    <div class="slots-result-chip" id="slots-result-type">待命中</div>
+                    <div class="slots-result-copy" id="slots-result-copy">三連、雙連與組合派彩都會顯示在這裡。</div>
                 </div>
             </div>
         </div>
@@ -93,6 +51,46 @@
             <button class="btn-spin" id="spin-btn">🎰 旋轉</button>
         </div>
         <p id="max-bet-note" class="slots-helper-note">單注上限將依目前 VIP 等級計算</p>
+
+        <div class="payout-panel">
+            <div class="payout-panel-head">
+                <h2>派彩與判定</h2>
+                <p>說明移到押注下方，下注時可直接對照。</p>
+            </div>
+            <div class="payout-info">
+                <div class="payout-item">
+                    <span class="payout-symbol">7️⃣7️⃣7️⃣</span>
+                    <span class="payout-mult">50x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">💎💎💎</span>
+                    <span class="payout-mult">15x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">⭐⭐⭐</span>
+                    <span class="payout-mult">8x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">🔔🔔🔔</span>
+                    <span class="payout-mult">5x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">🍋🍋🍋</span>
+                    <span class="payout-mult">3x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">🍒🍒🍒</span>
+                    <span class="payout-mult">2x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+            </div>
+            <p class="slots-odds-note">每一條有效線都會獨立計算。兩條三連會把兩條倍率加總；兩條雙連會變成 1.0x 總返還；三連和雙連同時出現也會一起累加。支援上、中、下、左、中、右、左上斜、右上斜共 8 條線。</p>
+        </div>
 
         <p id="status-msg">準備開始...</p>
 

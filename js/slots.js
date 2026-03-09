@@ -100,6 +100,15 @@ class SlotMachine {
         }
     }
 
+    buildLineSummary(lineWins) {
+        if (!Array.isArray(lineWins) || lineWins.length === 0) return "";
+        return lineWins.map(function (item) {
+            return item.line + ":" + (item.type === "triple"
+                ? (item.symbol + " " + item.multiplier + "x")
+                : (item.symbol + " 對子 " + item.multiplier + "x"));
+        }).join(" / ");
+    }
+
     setSpinningState(isBusy) {
         this.isSpinning = Boolean(isBusy);
         if (this.spinButton) {
@@ -254,6 +263,10 @@ class SlotMachine {
         var resultLabel = "未中獎";
         var resultCopy = "本局沒有命中有效連線，已保留完整交易紀錄。";
         var resultTone = "";
+        var totalMultiplier = Number(result.totalMultiplier || result.multiplier || 0);
+        var tripleCount = Number(result.tripleCount || 0);
+        var doubleCount = Number(result.doubleCount || 0);
+        var lineSummary = this.buildLineSummary(result.lineWins);
 
         updateUI({
             totalBet: result.totalBet,
@@ -264,24 +277,29 @@ class SlotMachine {
         this.renderBoard(result.columns, false);
         this.drawPaylines(result.winLines || []);
 
-        if (result.resultType === "triple") {
-            finalBalance = tempBalance + (betAmount * result.multiplier);
-            statusText = "🏆 三連線！獲得 " + result.multiplier + "x 獎勵！";
-            resultLabel = "三連中獎";
-            resultCopy = "命中 " + (result.winLines || []).length + " 條連線，派彩倍率 " + result.multiplier + "x。";
-            resultTone = "is-win";
-        } else if (result.resultType === "double") {
-            finalBalance = tempBalance + (betAmount * 0.5);
-            statusText = "⭐ 兩連線，返還 0.5x";
-            resultLabel = "雙連退半";
-            resultCopy = "未達三連，但命中保底雙連，系統已返還半倍押注。";
-            resultTone = "is-refund";
+        if (totalMultiplier > 0) {
+            finalBalance = tempBalance + (betAmount * totalMultiplier);
+            if (tripleCount > 0) {
+                statusText = "🏆 命中 " + tripleCount + " 條三連";
+                if (doubleCount > 0) {
+                    statusText += "，外加 " + doubleCount + " 條雙連";
+                }
+                statusText += "，總派彩 " + totalMultiplier + "x！";
+                resultLabel = tripleCount > 1 || doubleCount > 0 ? "組合派彩" : "三連中獎";
+                resultCopy = "本局共命中三連 " + tripleCount + " 條、雙連 " + doubleCount + " 條，總倍率 " + totalMultiplier + "x。";
+                resultTone = "is-win";
+            } else {
+                statusText = "⭐ 命中 " + doubleCount + " 條雙連，總返還 " + totalMultiplier + "x";
+                resultLabel = doubleCount > 1 ? "多線雙連" : "雙連退還";
+                resultCopy = "雙連依條數累加，本局共命中 " + doubleCount + " 條雙連，總返還 " + totalMultiplier + "x。";
+                resultTone = totalMultiplier >= 1 ? "is-win" : "is-refund";
+            }
         }
 
         this.updateDisplayedBalance(finalBalance);
         this.setStatus(statusText, false, false);
         this.setResultState(resultLabel, resultCopy, resultTone);
-        this.updateTxLog(result.txHash, result.winLines && result.winLines.length ? ("中獎線: " + result.winLines.join(", ")) : "");
+        this.updateTxLog(result.txHash, lineSummary || (result.winLines && result.winLines.length ? ("中獎線: " + result.winLines.join(", ")) : ""));
         setTimeout(refreshBalance, 10000);
     }
 }

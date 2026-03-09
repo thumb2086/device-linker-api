@@ -20,6 +20,31 @@ var rewardExpanded = false;
 var issueLoaded = false;
 var issueExpanded = false;
 var opsExpanded = false;
+var adminToastTimerSeq = 0;
+
+function showAdminToast(text, isError) {
+    var stackEl = document.getElementById('admin-toast-stack');
+    if (!stackEl || !text) return;
+
+    adminToastTimerSeq += 1;
+    var toastEl = document.createElement('div');
+    toastEl.className = 'admin-toast ' + (isError ? 'error' : 'success');
+    toastEl.innerHTML =
+        '<strong class="admin-toast-title">' + (isError ? '操作失敗' : '操作成功') + '</strong>' +
+        '<div class="admin-toast-copy">' + escapeHtml(text) + '</div>';
+    stackEl.appendChild(toastEl);
+
+    requestAnimationFrame(function () {
+        toastEl.classList.add('visible');
+    });
+
+    window.setTimeout(function () {
+        toastEl.classList.remove('visible');
+        window.setTimeout(function () {
+            if (toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+        }, 220);
+    }, isError ? 4200 : 2600);
+}
 
 function setAdminStatus(text, isError) {
     var el = document.getElementById('status-msg');
@@ -226,9 +251,11 @@ function previewReset() {
             if (!data || !data.success) throw new Error((data && data.error) || '預覽失敗');
             renderResetResult(data);
             setAdminStatus('預覽完成，確認後可正式重製', false);
+            showAdminToast('預覽完成，已更新受影響名單', false);
         });
     }).catch(function (error) {
         setAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
     });
 }
 
@@ -239,9 +266,11 @@ function executeReset() {
             if (!data || !data.success) throw new Error((data && data.error) || '重製失敗');
             renderResetResult(data);
             setAdminStatus('重製完成', false);
+            showAdminToast('高額下注帳號重製完成', false);
         });
     }).catch(function (error) {
         setAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
     });
 }
 
@@ -339,6 +368,7 @@ function resetCustodyPassword(username) {
     var newPassword = String(input && input.value || '');
     if (newPassword.length < 6) {
         setCustodyStatus('密碼至少需要 6 個字元', true);
+        showAdminToast('密碼至少需要 6 個字元', true);
         return;
     }
 
@@ -351,10 +381,12 @@ function resetCustodyPassword(username) {
             if (!data || !data.success) throw new Error((data && data.error) || '重設密碼失敗');
             if (input) input.value = '';
             setCustodyStatus('已重設 ' + username + ' 的密碼', false);
+            showAdminToast('已重設 ' + username + ' 的密碼', false);
             return loadCustodyUsers();
         });
     }).catch(function (error) {
         setCustodyStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
     });
 }
 
@@ -490,10 +522,12 @@ function updateIssueReport(reportId) {
         }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '更新回報失敗');
             setIssueStatus('已更新回報狀態', false);
+            showAdminToast('問題回報狀態已更新', false);
             return loadIssueReports();
         });
     }).catch(function (error) {
         setIssueStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
     });
 }
 
@@ -614,10 +648,12 @@ function publishAnnouncement() {
             if (contentEl) contentEl.value = '';
             if (pinnedEl) pinnedEl.checked = false;
             setAnnouncementAdminStatus('公告已發布', false);
+            showAdminToast('公告已發布', false);
             return loadAnnouncements();
         });
     }).catch(function (error) {
         setAnnouncementAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
     });
 }
 
@@ -638,10 +674,12 @@ function updateAnnouncement(announcementId) {
         }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '更新公告失敗');
             setAnnouncementAdminStatus('公告已更新', false);
+            showAdminToast('公告已更新', false);
             return loadAnnouncements();
         });
     }).catch(function (error) {
         setAnnouncementAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
     });
 }
 
@@ -914,10 +952,12 @@ function grantRewardBundleAdmin() {
             document.getElementById('reward-grant-token-amount').value = '0';
             document.getElementById('reward-grant-note').value = '';
             setRewardAdminStatus('發放完成', false);
+            showAdminToast('獎勵已發放', false);
             return loadRewardAdmin();
         });
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
     });
 }
 
@@ -939,10 +979,12 @@ function publishRewardTitle() {
             document.getElementById('reward-title-source').value = 'admin';
             document.getElementById('reward-title-leaderboard').checked = true;
             setRewardAdminStatus('稱號已新增，可直接用於發放與活動', false);
+            showAdminToast('自訂稱號已新增', false);
             return loadRewardAdmin();
         });
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
     });
 }
 
@@ -979,10 +1021,12 @@ function publishRewardCampaign() {
             document.getElementById('campaign-title-expires-at').value = '';
             document.getElementById('campaign-token-amount').value = '0';
             setRewardAdminStatus('活動已建立', false);
+            showAdminToast('限時活動已建立', false);
             return loadRewardAdmin();
         });
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
     });
 }
 
@@ -1007,10 +1051,12 @@ function saveRewardCampaign(campaignId) {
         }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '更新活動失敗');
             setRewardAdminStatus('活動已更新', false);
+            showAdminToast('活動已更新', false);
             return loadRewardAdmin();
         });
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
     });
 }
 

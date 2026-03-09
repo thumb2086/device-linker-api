@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>撞球對戰 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/pool-duel.css">
+</head>
+
+<body class="pool-body">
+    <div class="page-header">
+        <a href="/games/casino.html" class="back-btn">返回賭場</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>撞球對戰</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <div class="pool-hero">
+            <div>
+                <p class="pool-kicker">PVP 對賭</p>
+                <h2>固定賭注 1,000 子熙幣</h2>
+                <p>兩位玩家配對後輪流出桿，先打進 3 顆球者贏下 2,000 子熙幣。</p>
+            </div>
+            <div class="pool-stake-card">
+                <span>單局固定</span>
+                <strong>1,000</strong>
+                <small>每人進場金額</small>
+            </div>
+        </div>
+
+        <div class="pool-table-card">
+            <div class="scoreboard">
+                <div class="score-card">
+                    <span class="score-label">你</span>
+                    <strong id="self-name">-</strong>
+                    <div class="score-value" id="self-score">0</div>
+                </div>
+                <div class="score-center">
+                    <div class="score-target">先進 3 球獲勝</div>
+                    <div class="turn-badge" id="turn-badge">等待配對</div>
+                    <div class="turn-timer" id="turn-timer">-</div>
+                </div>
+                <div class="score-card">
+                    <span class="score-label">對手</span>
+                    <strong id="opponent-name">等待中</strong>
+                    <div class="score-value" id="opponent-score">0</div>
+                </div>
+            </div>
+
+            <div class="pool-shot-panel">
+                <button class="shot-btn" id="shot-soft" onclick="submitPoolShot('soft')">輕推桿</button>
+                <button class="shot-btn" id="shot-bank" onclick="submitPoolShot('bank')">反彈球</button>
+                <button class="shot-btn" id="shot-power" onclick="submitPoolShot('power')">強力開球</button>
+            </div>
+
+            <div class="pool-actions">
+                <button class="btn-primary" id="join-btn" onclick="joinPoolQueue()">加入配對</button>
+                <button class="btn-secondary" id="cancel-btn" onclick="cancelPoolQueue()">取消等待</button>
+                <button class="btn-secondary" id="timeout-btn" onclick="claimTurnTimeout()">宣告對手超時</button>
+                <button class="btn-primary" id="reward-btn" onclick="claimPoolReward()">領取獎勵</button>
+            </div>
+        </div>
+
+        <div class="pool-status" id="status-msg">等待加入撞球對戰...</div>
+        <div id="tx-log"></div>
+
+        <div class="pool-log-card">
+            <h3>對局紀錄</h3>
+            <div class="pool-log" id="pool-log"></div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/pool-duel.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initPoolDuelPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

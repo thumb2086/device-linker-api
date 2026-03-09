@@ -34,14 +34,6 @@ body.slots-body {
     pointer-events: none;
 }
 
-.slots-layout {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
-    gap: 18px;
-    align-items: start;
-}
-
 .slots-board-wrap,
 .payout-panel {
     position: relative;
@@ -75,7 +67,7 @@ body.slots-body {
 
 .slots-board {
     position: relative;
-    width: min(100%, 364px);
+    width: min(100%, 392px);
     margin: 0 auto;
     padding: 12px;
     border-radius: 24px;
@@ -244,6 +236,7 @@ body.slots-body {
 }
 
 .payout-panel {
+    margin-top: 18px;
     padding: 16px;
     border-radius: 22px;
     background: rgba(255, 255, 255, 0.04);
@@ -345,16 +338,8 @@ body.slots-body {
 }
 
 @media (max-width: 860px) {
-    .slots-layout {
-        grid-template-columns: 1fr;
-    }
-
     .slots-board {
         width: min(100%, 380px);
-    }
-
-    .payout-info {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 

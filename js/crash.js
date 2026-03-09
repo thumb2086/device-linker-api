@@ -267,7 +267,8 @@ function checkIfCrashed() {
             address: user.address,
             sessionId: user.sessionId,
             action: 'get_result',
-            betId: currentBetId
+            betId: currentBetId,
+            currentMultiplier: currentMultiplier
         })
     })
         .then(function (res) { return res.json(); })

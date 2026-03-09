@@ -97,6 +97,104 @@ body.wallet-body {
     font-size: 1.05rem;
 }
 
+.wallet-history-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.history-block {
+    min-height: 420px;
+}
+
+.history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.history-head h2 {
+    margin: 0;
+}
+
+.history-refresh-btn {
+    min-width: 88px;
+    padding: 10px 14px;
+}
+
+.history-list {
+    display: grid;
+    gap: 10px;
+}
+
+.history-item-card,
+.history-empty {
+    background: rgba(8, 12, 18, 0.56);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 12px;
+}
+
+.history-empty {
+    color: #9ea7b3;
+}
+
+.history-item-top,
+.history-item-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.history-item-bottom {
+    margin-top: 8px;
+    color: #98a2ae;
+    font-size: 0.84rem;
+}
+
+.history-item-title {
+    font-weight: 700;
+    color: #fff;
+}
+
+.history-item-label {
+    color: #c8d1db;
+    font-size: 0.88rem;
+}
+
+.history-amount {
+    font-weight: 700;
+}
+
+.history-amount.is-win {
+    color: #34f59f;
+}
+
+.history-amount.is-lose {
+    color: #ff7b7b;
+}
+
+.history-amount.is-flat {
+    color: #ffd36a;
+}
+
+.history-meta {
+    color: #8d97a3;
+    font-size: 0.82rem;
+}
+
+.history-link {
+    color: #8fd7ff;
+    text-decoration: none;
+}
+
+.history-link:hover {
+    text-decoration: underline;
+}
+
 .form-row {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -160,6 +258,10 @@ body.wallet-body {
 
 @media (max-width: 900px) {
     .wallet-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .wallet-history-grid {
         grid-template-columns: 1fr;
     }
 

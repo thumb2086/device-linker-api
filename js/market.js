@@ -1,6 +1,7 @@
 var marketPayload = null;
 var marketSymbolsLoaded = false;
 var marketBusy = false;
+var marketRefreshBusy = false;
 
 function fmt(value, digits) {
     var num = Number(value || 0);
@@ -250,19 +251,20 @@ function loadSymbolOptions(symbols) {
 }
 
 function refreshMarket(silent) {
-    if (silent && marketBusy) return Promise.resolve();
+    if (marketRefreshBusy || marketBusy) return Promise.resolve();
     if (!silent) setStatus('同步行情中...', false);
+    marketRefreshBusy = true;
 
-    return withBusy(function () {
-        return callMarket('snapshot').then(function (data) {
-            if (!data || !data.success) {
-                throw new Error((data && data.error) || '行情同步失敗');
-            }
-            renderOverview(data);
-            if (!silent) setStatus('行情已更新', false);
-        });
+    return callMarket('snapshot').then(function (data) {
+        if (!data || !data.success) {
+            throw new Error((data && data.error) || '行情同步失敗');
+        }
+        renderOverview(data);
+        if (!silent) setStatus('行情已更新', false);
     }).catch(function (e) {
         setStatus('錯誤: ' + e.message, true);
+    }).finally(function () {
+        marketRefreshBusy = false;
     });
 }
 

@@ -1,9 +1,14 @@
+import { kv } from "@vercel/kv";
 import { verify } from "crypto";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { AIRDROP_HALVING_STEP, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
-import { calculateAirdropRewardWei } from "../lib/airdrop-policy.js";
+import {
+    AIRDROP_DISTRIBUTED_TOTAL_KEY,
+    calculateAirdropRewardWei,
+    normalizeAirdropDistributedWei
+} from "../lib/airdrop-policy.js";
 import { listGameHistory } from "../lib/game-history.js";
 import { withChainTxLock } from "../lib/tx-lock.js";
 
@@ -106,6 +111,11 @@ function toBooleanFlag(value) {
     return value === true || String(value || "").trim().toLowerCase() === "true";
 }
 
+async function getTrackedAirdropDistributedWei() {
+    const stored = await kv.get(AIRDROP_DISTRIBUTED_TOTAL_KEY);
+    return normalizeAirdropDistributedWei(stored);
+}
+
 function jsonError(res, statusCode, error) {
     return res.status(statusCode).json({
         success: false,
@@ -167,35 +177,53 @@ export default async function handler(req, res) {
         if (action === "airdrop") {
             const sessionInfo = sessionId ? await resolveSessionAddress(sessionId) : { session: null, address: "" };
             const targetAddress = sessionInfo.address || normalizeAddress(body.address, "address");
-            const adminBalanceWei = await contract.balanceOf(adminWallet.address);
-            const totalSupplyWei = await contract.totalSupply();
-            const publicDistributedWei = totalSupplyWei > adminBalanceWei ? totalSupplyWei - adminBalanceWei : 0n;
-            const policy = calculateAirdropRewardWei(decimals, publicDistributedWei);
+            let policy = null;
+            let newDistributedWei = 0n;
+            const tx = await withChainTxLock(async () => {
+                const trackedDistributedWei = await getTrackedAirdropDistributedWei();
+                policy = calculateAirdropRewardWei(decimals, trackedDistributedWei);
 
-            if (policy.rewardWei <= 0n) {
+                if (policy.rewardWei <= 0n) {
+                    const error = new Error("Airdrop cap reached");
+                    error.code = "AIRDROP_CAP_REACHED";
+                    error.policy = policy;
+                    throw error;
+                }
+
+                const sentTx = await transferFromTreasuryWithAutoTopup(
+                    contract,
+                    treasuryAddress,
+                    targetAddress,
+                    policy.rewardWei,
+                    { gasLimit: 220000 }
+                );
+                newDistributedWei = policy.distributedWei + policy.rewardWei;
+                await kv.set(AIRDROP_DISTRIBUTED_TOTAL_KEY, newDistributedWei.toString());
+                return sentTx;
+            }).catch((error) => {
+                if (error && error.code === "AIRDROP_CAP_REACHED" && error.policy) {
+                    return null;
+                }
+                throw error;
+            });
+
+            if (!tx) {
                 return res.status(400).json({
                     success: false,
                     error: "Airdrop cap reached",
                     distributedExcludingAdmin: ethers.formatUnits(policy.distributedWei, decimals),
+                    distributed: ethers.formatUnits(policy.distributedWei, decimals),
                     cap: ethers.formatUnits(policy.capWei, decimals),
                     remaining: "0"
                 });
             }
-
-            const tx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
-                contract,
-                treasuryAddress,
-                targetAddress,
-                policy.rewardWei,
-                { gasLimit: 220000 }
-            ));
-            const newDistributedWei = policy.distributedWei + policy.rewardWei;
 
             return res.status(200).json({
                 success: true,
                 txHash: tx.hash,
                 reward: ethers.formatUnits(policy.rewardWei, decimals),
                 halvingCount: policy.halvingCount,
+                distributed: ethers.formatUnits(newDistributedWei, decimals),
                 distributedExcludingAdmin: ethers.formatUnits(newDistributedWei, decimals),
                 cap: ethers.formatUnits(policy.capWei, decimals),
                 remaining: ethers.formatUnits(policy.capWei - newDistributedWei, decimals),
@@ -220,16 +248,12 @@ export default async function handler(req, res) {
 
         if (action === "summary" || action === "status" || action === "balance") {
             const userAddress = sessionAddress || normalizeAddress(body.address, "address");
-            const [userBalanceWei, treasuryBalanceWei, totalSupplyWei, adminWalletBalanceWei] = await Promise.all([
+            const [userBalanceWei, treasuryBalanceWei, trackedAirdropDistributedWei] = await Promise.all([
                 contract.balanceOf(userAddress),
                 contract.balanceOf(treasuryAddress),
-                contract.totalSupply(),
-                contract.balanceOf(adminWalletAddress)
+                getTrackedAirdropDistributedWei()
             ]);
-            const publicDistributedWei = totalSupplyWei > adminWalletBalanceWei
-                ? totalSupplyWei - adminWalletBalanceWei
-                : 0n;
-            const airdropPolicy = calculateAirdropRewardWei(decimals, publicDistributedWei);
+            const airdropPolicy = calculateAirdropRewardWei(decimals, trackedAirdropDistributedWei);
             const halvingStepWei = ethers.parseUnits(AIRDROP_HALVING_STEP, decimals);
             const nextHalvingAtWei = halvingStepWei > 0n
                 ? halvingStepWei * BigInt(airdropPolicy.halvingCount + 1)

@@ -38,7 +38,11 @@ function renderMyRank(data) {
 
     if (myRankEl) myRankEl.innerText = fmtRank(data.myRank.rank);
     if (myBetEl) myBetEl.innerText = formatCompactZh(data.myRank.totalBet, 2) + ' 子熙幣';
-    if (myNameEl) myNameEl.innerText = data.myRank.displayName || data.myRank.maskedAddress;
+    if (myNameEl) {
+        var titleText = data.myRank.title && data.myRank.title.name ? ('[' + data.myRank.title.name + '] ') : '';
+        var avatarText = data.myRank.avatar && data.myRank.avatar.icon ? (data.myRank.avatar.icon + ' ') : '';
+        myNameEl.innerText = avatarText + titleText + (data.myRank.displayName || data.myRank.maskedAddress);
+    }
 }
 
 function renderLeaderboardRows(items) {
@@ -58,9 +62,11 @@ function renderLeaderboardRows(items) {
     items.forEach(function (item) {
         var isMine = item.address === currentAddress;
         var displayName = item.displayName || item.maskedAddress;
+        var avatar = item.avatar && item.avatar.icon ? '<span class="leaderboard-avatar">' + escapeHtml(item.avatar.icon) + '</span>' : '';
+        var title = item.title && item.title.name ? '<span class="leaderboard-title-chip">' + escapeHtml(item.title.name) + '</span>' : '';
         html += '<div class="leaderboard-row' + (isMine ? ' is-me' : '') + '">' +
             '<span class="rank-col">' + fmtRank(item.rank) + '</span>' +
-            '<span class="addr-col" title="' + escapeHtml(item.address) + '">' + escapeHtml(displayName) + (isMine ? ' (你)' : '') + '</span>' +
+            '<span class="addr-col" title="' + escapeHtml(item.address) + '">' + avatar + title + '<span class="leaderboard-name">' + escapeHtml(displayName) + (isMine ? ' (你)' : '') + '</span></span>' +
             '<span class="bet-col">' + formatCompactZh(item.totalBet, 2) + ' 子熙幣</span>' +
             '<span class="vip-col">' + escapeHtml(item.vipLevel) + '</span>' +
             '</div>';

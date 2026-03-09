@@ -2,11 +2,15 @@
     ops: false,
     custody: false,
     issue: false,
-    announcement: false
+    announcement: false,
+    reward: false
 };
 var custodyUsers = [];
 var issueReports = [];
 var announcements = [];
+var rewardCatalog = null;
+var rewardCampaigns = [];
+var rewardGrantLogs = [];
 var custodyLoaded = false;
 var custodyExpanded = false;
 
@@ -36,6 +40,13 @@ function setAnnouncementAdminStatus(text, isError) {
     if (!el) return;
     el.innerText = text || '';
     el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
+}
+
+function setRewardAdminStatus(text, isError) {
+    var el = document.getElementById('reward-admin-status-msg');
+    if (!el) return;
+    el.innerText = text || '';
+    el.style.color = isError ? '#ff7d7d' : '#9bf1b9';
 }
 
 function withAdminBusy(section, task) {
@@ -101,6 +112,10 @@ function getAnnouncementPinnedId(announcementId) {
     return 'announcement-pinned-' + String(announcementId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
+function getCampaignFieldId(campaignId, field) {
+    return 'campaign-' + String(field || '').replace(/[^a-zA-Z0-9_-]/g, '_') + '-' + String(campaignId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 function reportStatusLabel(status) {
     switch (String(status || 'open')) {
         case 'resolved':
@@ -130,6 +145,19 @@ function callAdminApi(action, extraPayload) {
     }, extraPayload || {});
 
     return fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then(function (res) { return res.json(); });
+}
+
+function callRewardsAdminApi(action, extraPayload) {
+    var payload = Object.assign({
+        action: action,
+        sessionId: user.sessionId
+    }, extraPayload || {});
+
+    return fetch('/api/rewards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -555,8 +583,295 @@ function updateAnnouncement(announcementId) {
     });
 }
 
+function summarizeRewardBundle(bundle) {
+    var parts = [];
+    if (bundle && Array.isArray(bundle.items)) {
+        bundle.items.forEach(function (item) {
+            parts.push(String(item.id || '-') + ' x' + String(item.qty || 1));
+        });
+    }
+    if (bundle && Array.isArray(bundle.avatars)) {
+        bundle.avatars.forEach(function (avatarId) {
+            parts.push(String(avatarId || ''));
+        });
+    }
+    if (bundle && Array.isArray(bundle.titles)) {
+        bundle.titles.forEach(function (title) {
+            var titleId = typeof title === 'string' ? title : String(title && title.id || '');
+            var expiresAt = typeof title === 'object' && title ? String(title.expiresAt || '') : '';
+            parts.push(titleId + (expiresAt ? '（至 ' + formatTime(expiresAt) + '）' : '（永久）'));
+        });
+    }
+    if (bundle && bundle.tokens) {
+        parts.push(formatCompactZh(bundle.tokens, 2) + ' 子熙幣');
+    }
+    return parts.join(' / ') || '未設定';
+}
+
+function buildRewardSelectOptionsHtml(items, emptyLabel, selectedValue) {
+    var html = '<option value="">' + escapeHtml(emptyLabel || '不選擇') + '</option>';
+    (items || []).forEach(function (item) {
+        var isSelected = String(item.id || '') === String(selectedValue || '');
+        html += '<option value="' + escapeHtml(item.id) + '"' + (isSelected ? ' selected' : '') + '>' + escapeHtml(item.name) + '</option>';
+    });
+    return html;
+}
+
+function renderRewardSelectOptions(selectId, items, emptyLabel) {
+    var el = document.getElementById(selectId);
+    if (!el) return;
+    el.innerHTML = buildRewardSelectOptionsHtml(items, emptyLabel, '');
+}
+
+function getPrimaryRewardItem(bundle) {
+    if (!bundle || !Array.isArray(bundle.items) || !bundle.items.length) return null;
+    return bundle.items[0];
+}
+
+function getPrimaryRewardAvatar(bundle) {
+    if (!bundle || !Array.isArray(bundle.avatars) || !bundle.avatars.length) return '';
+    return String(bundle.avatars[0] || '');
+}
+
+function getPrimaryRewardTitle(bundle) {
+    if (!bundle || !Array.isArray(bundle.titles) || !bundle.titles.length) return null;
+    var first = bundle.titles[0];
+    if (typeof first === 'string') {
+        return { id: first, expiresAt: '' };
+    }
+    return {
+        id: String(first && first.id || ''),
+        expiresAt: String(first && first.expiresAt || '')
+    };
+}
+
+function renderRewardAdminSelects() {
+    if (!rewardCatalog) return;
+    renderRewardSelectOptions('reward-grant-item', rewardCatalog.shopItems, '不發道具');
+    renderRewardSelectOptions('reward-grant-avatar', rewardCatalog.avatars, '不發頭像');
+    renderRewardSelectOptions('reward-grant-title', rewardCatalog.titles, '不發稱號');
+    renderRewardSelectOptions('campaign-item', rewardCatalog.shopItems, '不發道具');
+    renderRewardSelectOptions('campaign-avatar', rewardCatalog.avatars, '不發頭像');
+    renderRewardSelectOptions('campaign-title-id', rewardCatalog.titles, '不發稱號');
+}
+
+function renderRewardCampaigns() {
+    var listEl = document.getElementById('reward-campaign-list');
+    var countEl = document.getElementById('reward-campaign-count');
+    if (countEl) countEl.innerText = String(rewardCampaigns.length);
+    if (!listEl) return;
+
+    if (!rewardCampaigns.length) {
+        listEl.innerHTML = '<div class="result-empty">目前沒有活動</div>';
+        return;
+    }
+
+    var html = '';
+    rewardCampaigns.forEach(function (item) {
+        var titleId = getCampaignFieldId(item.id, 'title');
+        var descId = getCampaignFieldId(item.id, 'description');
+        var startId = getCampaignFieldId(item.id, 'start');
+        var endId = getCampaignFieldId(item.id, 'end');
+        var activeId = getCampaignFieldId(item.id, 'active');
+        var claimLimitId = getCampaignFieldId(item.id, 'claim_limit');
+        var minVipId = getCampaignFieldId(item.id, 'min_vip');
+        var itemId = getCampaignFieldId(item.id, 'item');
+        var itemQtyId = getCampaignFieldId(item.id, 'item_qty');
+        var avatarId = getCampaignFieldId(item.id, 'avatar');
+        var rewardTitleId = getCampaignFieldId(item.id, 'reward_title');
+        var titleExpiresId = getCampaignFieldId(item.id, 'title_expires_at');
+        var tokenAmountId = getCampaignFieldId(item.id, 'token_amount');
+        var rewardItem = getPrimaryRewardItem(item.rewards);
+        var rewardAvatar = getPrimaryRewardAvatar(item.rewards);
+        var rewardTitle = getPrimaryRewardTitle(item.rewards);
+        html += '<div class="announcement-admin-card">' +
+            '<div class="announcement-admin-head">' +
+                '<div>' +
+                    '<strong>' + escapeHtml(item.title || '未命名活動') + '</strong>' +
+                    '<div class="issue-report-meta">' +
+                        '<span>' + escapeHtml(item.isActive ? '啟用中' : '已停用') + '</span>' +
+                        '<span>每人可領 ' + escapeHtml(String(item.claimLimitPerUser || 1)) + ' 次</span>' +
+                        '<span>' + escapeHtml(summarizeRewardBundle(item.rewards)) + '</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="announcement-form-grid">' +
+                '<label><span>標題</span><input id="' + escapeHtml(titleId) + '" class="text-input" type="text" value="' + escapeHtml(item.title || '') + '"></label>' +
+                '<label><span>每人可領次數</span><input id="' + escapeHtml(claimLimitId) + '" class="text-input" type="number" min="1" step="1" value="' + escapeHtml(String(item.claimLimitPerUser || 1)) + '"></label>' +
+                '<label><span>開始時間</span><input id="' + escapeHtml(startId) + '" class="text-input" type="datetime-local" value="' + escapeHtml((item.startAt || '').slice(0, 16)) + '"></label>' +
+                '<label><span>結束時間</span><input id="' + escapeHtml(endId) + '" class="text-input" type="datetime-local" value="' + escapeHtml((item.endAt || '').slice(0, 16)) + '"></label>' +
+                '<label><span>最低 VIP</span><input id="' + escapeHtml(minVipId) + '" class="text-input" type="text" maxlength="64" value="' + escapeHtml(item.minVipLevel || '') + '" placeholder="留空表示不限"></label>' +
+                '<label class="toggle-field"><input id="' + escapeHtml(activeId) + '" type="checkbox"' + (item.isActive ? ' checked' : '') + '><span>啟用活動</span></label>' +
+                '<label class="full-span"><span>描述</span><textarea id="' + escapeHtml(descId) + '" class="text-input announcement-textarea">' + escapeHtml(item.description || '') + '</textarea></label>' +
+                '<label><span>活動道具</span><select id="' + escapeHtml(itemId) + '" class="text-input">' + buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.shopItems, '不發道具', rewardItem && rewardItem.id) + '</select></label>' +
+                '<label><span>道具數量</span><input id="' + escapeHtml(itemQtyId) + '" class="text-input" type="number" min="1" step="1" value="' + escapeHtml(String(rewardItem && rewardItem.qty || 1)) + '"></label>' +
+                '<label><span>活動頭像</span><select id="' + escapeHtml(avatarId) + '" class="text-input">' + buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.avatars, '不發頭像', rewardAvatar) + '</select></label>' +
+                '<label><span>活動稱號</span><select id="' + escapeHtml(rewardTitleId) + '" class="text-input">' + buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.titles, '不發稱號', rewardTitle && rewardTitle.id) + '</select></label>' +
+                '<label><span>稱號到期時間</span><input id="' + escapeHtml(titleExpiresId) + '" class="text-input" type="datetime-local" value="' + escapeHtml((rewardTitle && rewardTitle.expiresAt || '').slice(0, 16)) + '"></label>' +
+                '<label><span>額外子熙幣</span><input id="' + escapeHtml(tokenAmountId) + '" class="text-input" type="number" min="0" step="1" value="' + escapeHtml(String(item.rewards && item.rewards.tokens || 0)) + '"></label>' +
+            '</div>' +
+            '<div class="issue-card-actions">' +
+                '<button class="btn-primary compact-btn" data-campaign-id="' + escapeHtml(item.id) + '" onclick="saveRewardCampaign(this.dataset.campaignId)">儲存活動</button>' +
+            '</div>' +
+            '</div>';
+    });
+    listEl.innerHTML = html;
+}
+
+function renderRewardGrantLogs() {
+    var listEl = document.getElementById('reward-grant-log-list');
+    var countEl = document.getElementById('reward-grant-count');
+    if (countEl) countEl.innerText = String(rewardGrantLogs.length);
+    if (!listEl) return;
+
+    if (!rewardGrantLogs.length) {
+        listEl.innerHTML = '<div class="result-empty">尚未有發放紀錄</div>';
+        return;
+    }
+
+    var html = '<div class="result-row result-head"><span>時間</span><span>地址</span><span>內容</span></div>';
+    rewardGrantLogs.forEach(function (item) {
+        html += '<div class="result-row">' +
+            '<span>' + escapeHtml(formatTime(item.createdAt)) + '</span>' +
+            '<span class="mono" title="' + escapeHtml(item.address || '-') + '">' + escapeHtml(maskAdminAddress(item.address || '-')) + '</span>' +
+            '<span>' + escapeHtml(summarizeRewardBundle(item.bundle)) + '</span>' +
+            '</div>';
+    });
+    listEl.innerHTML = html;
+}
+
+function loadRewardAdmin() {
+    return Promise.all([
+        callRewardsAdminApi('summary'),
+        callRewardsAdminApi('admin_list_campaigns'),
+        callRewardsAdminApi('admin_list_grant_logs', { limit: 20 })
+    ]).then(function (results) {
+        var summaryData = results[0];
+        var campaignData = results[1];
+        var logData = results[2];
+        if (!summaryData || !summaryData.success) throw new Error((summaryData && summaryData.error) || '載入獎勵目錄失敗');
+        if (!campaignData || !campaignData.success) throw new Error((campaignData && campaignData.error) || '載入活動失敗');
+        if (!logData || !logData.success) throw new Error((logData && logData.error) || '載入發放紀錄失敗');
+        rewardCatalog = summaryData.catalog || null;
+        rewardCampaigns = Array.isArray(campaignData.campaigns) ? campaignData.campaigns : [];
+        rewardGrantLogs = Array.isArray(logData.logs) ? logData.logs : [];
+        renderRewardAdminSelects();
+        renderRewardCampaigns();
+        renderRewardGrantLogs();
+        setRewardAdminStatus('稱號與活動資料已同步', false);
+    });
+}
+
+function refreshRewardAdmin() {
+    setRewardAdminStatus('同步稱號與活動資料中...', false);
+    withAdminBusy('reward', function () {
+        return loadRewardAdmin();
+    }).catch(function (error) {
+        setRewardAdminStatus('錯誤: ' + error.message, true);
+    });
+}
+
+function grantRewardBundleAdmin() {
+    setRewardAdminStatus('發放獎勵中...', false);
+    withAdminBusy('reward', function () {
+        return callRewardsAdminApi('admin_grant_rewards', {
+            address: String(document.getElementById('reward-grant-address').value || ''),
+            itemId: String(document.getElementById('reward-grant-item').value || ''),
+            itemQty: String(document.getElementById('reward-grant-item-qty').value || '1'),
+            avatarId: String(document.getElementById('reward-grant-avatar').value || ''),
+            titleId: String(document.getElementById('reward-grant-title').value || ''),
+            expiresAt: String(document.getElementById('reward-grant-expires-at').value || ''),
+            tokenAmount: String(document.getElementById('reward-grant-token-amount').value || '0'),
+            note: String(document.getElementById('reward-grant-note').value || '')
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '發放失敗');
+            document.getElementById('reward-grant-address').value = '';
+            document.getElementById('reward-grant-item').value = '';
+            document.getElementById('reward-grant-item-qty').value = '1';
+            document.getElementById('reward-grant-avatar').value = '';
+            document.getElementById('reward-grant-title').value = '';
+            document.getElementById('reward-grant-expires-at').value = '';
+            document.getElementById('reward-grant-token-amount').value = '0';
+            document.getElementById('reward-grant-note').value = '';
+            setRewardAdminStatus('發放完成', false);
+            return loadRewardAdmin();
+        });
+    }).catch(function (error) {
+        setRewardAdminStatus('錯誤: ' + error.message, true);
+    });
+}
+
+function publishRewardCampaign() {
+    setRewardAdminStatus('建立活動中...', false);
+    withAdminBusy('reward', function () {
+        return callRewardsAdminApi('admin_upsert_campaign', {
+            title: String(document.getElementById('campaign-title').value || ''),
+            description: String(document.getElementById('campaign-description').value || ''),
+            startAt: String(document.getElementById('campaign-start-at').value || ''),
+            endAt: String(document.getElementById('campaign-end-at').value || ''),
+            claimLimitPerUser: String(document.getElementById('campaign-claim-limit').value || '1'),
+            minVipLevel: String(document.getElementById('campaign-min-vip').value || ''),
+            isActive: !!document.getElementById('campaign-active').checked,
+            itemId: String(document.getElementById('campaign-item').value || ''),
+            itemQty: String(document.getElementById('campaign-item-qty').value || '1'),
+            avatarId: String(document.getElementById('campaign-avatar').value || ''),
+            titleId: String(document.getElementById('campaign-title-id').value || ''),
+            titleExpiresAt: String(document.getElementById('campaign-title-expires-at').value || ''),
+            tokenAmount: String(document.getElementById('campaign-token-amount').value || '0')
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '建立活動失敗');
+            document.getElementById('campaign-title').value = '';
+            document.getElementById('campaign-description').value = '';
+            document.getElementById('campaign-start-at').value = '';
+            document.getElementById('campaign-end-at').value = '';
+            document.getElementById('campaign-claim-limit').value = '1';
+            document.getElementById('campaign-min-vip').value = '';
+            document.getElementById('campaign-active').checked = true;
+            document.getElementById('campaign-item').value = '';
+            document.getElementById('campaign-item-qty').value = '1';
+            document.getElementById('campaign-avatar').value = '';
+            document.getElementById('campaign-title-id').value = '';
+            document.getElementById('campaign-title-expires-at').value = '';
+            document.getElementById('campaign-token-amount').value = '0';
+            setRewardAdminStatus('活動已建立', false);
+            return loadRewardAdmin();
+        });
+    }).catch(function (error) {
+        setRewardAdminStatus('錯誤: ' + error.message, true);
+    });
+}
+
+function saveRewardCampaign(campaignId) {
+    setRewardAdminStatus('更新活動中...', false);
+    withAdminBusy('reward', function () {
+        return callRewardsAdminApi('admin_upsert_campaign', {
+            campaignId: campaignId,
+            title: String(document.getElementById(getCampaignFieldId(campaignId, 'title')).value || ''),
+            description: String(document.getElementById(getCampaignFieldId(campaignId, 'description')).value || ''),
+            startAt: String(document.getElementById(getCampaignFieldId(campaignId, 'start')).value || ''),
+            endAt: String(document.getElementById(getCampaignFieldId(campaignId, 'end')).value || ''),
+            claimLimitPerUser: String(document.getElementById(getCampaignFieldId(campaignId, 'claim_limit')).value || '1'),
+            minVipLevel: String(document.getElementById(getCampaignFieldId(campaignId, 'min_vip')).value || ''),
+            isActive: !!document.getElementById(getCampaignFieldId(campaignId, 'active')).checked,
+            itemId: String(document.getElementById(getCampaignFieldId(campaignId, 'item')).value || ''),
+            itemQty: String(document.getElementById(getCampaignFieldId(campaignId, 'item_qty')).value || '1'),
+            avatarId: String(document.getElementById(getCampaignFieldId(campaignId, 'avatar')).value || ''),
+            titleId: String(document.getElementById(getCampaignFieldId(campaignId, 'reward_title')).value || ''),
+            titleExpiresAt: String(document.getElementById(getCampaignFieldId(campaignId, 'title_expires_at')).value || ''),
+            tokenAmount: String(document.getElementById(getCampaignFieldId(campaignId, 'token_amount')).value || '0')
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '更新活動失敗');
+            setRewardAdminStatus('活動已更新', false);
+            return loadRewardAdmin();
+        });
+    }).catch(function (error) {
+        setRewardAdminStatus('錯誤: ' + error.message, true);
+    });
+}
+
 function initAdminToolsPage() {
-    setAdminStatus('目前管理頁已啟用高額下注重製、託管帳號、問題回報與更新公告管理', false);
+    setAdminStatus('目前管理頁已啟用公告、稱號活動發放、問題回報、託管帳號與高額下注重製', false);
     refreshAnnouncements();
     refreshIssueReports();
+    refreshRewardAdmin();
 }

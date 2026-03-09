@@ -39,6 +39,11 @@
                 <strong>公告中心</strong>
                 <p>發布、置頂、停用與維護所有正式公告。</p>
             </a>
+            <a href="#rewards-section" class="admin-overview-card">
+                <span>獎勵系統</span>
+                <strong>稱號與限時領取</strong>
+                <p>管理稱號發放時間、活動領取期間與發放紀錄。</p>
+            </a>
             <a href="#ops-section" class="admin-overview-card">
                 <span>維運操作</span>
                 <strong>高額下注重製</strong>
@@ -104,6 +109,151 @@
 
             <div id="announcement-admin-list" class="announcement-admin-list">
                 <div class="result-empty">尚未載入公告</div>
+            </div>
+        </div>
+
+        <div id="rewards-section" class="section-block reward-admin-section">
+            <div class="section-heading-row">
+                <div>
+                    <h2>稱號 / 頭像 / 限時領取管理</h2>
+                    <p class="tool-note">管理員可直接發放永久或限時稱號，也可建立登入限時可領的活動。稱號到期時間留空即為永久。</p>
+                </div>
+                <button class="btn-secondary compact-btn" onclick="refreshRewardAdmin()">重新整理</button>
+            </div>
+
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <span>活動總數</span>
+                    <strong id="reward-campaign-count">0</strong>
+                </div>
+                <div class="summary-card">
+                    <span>近期發放紀錄</span>
+                    <strong id="reward-grant-count">0</strong>
+                </div>
+                <div class="summary-card">
+                    <span>永久稱號</span>
+                    <strong>到期時間留空</strong>
+                </div>
+            </div>
+
+            <div class="toolbar-grid reward-admin-grid">
+                <div class="announcement-editor-card">
+                    <h3>管理員直接發放</h3>
+                    <div class="announcement-form-grid">
+                        <label class="full-span">
+                            玩家地址
+                            <input id="reward-grant-address" class="text-input" type="text" placeholder="0x...">
+                        </label>
+                        <label>
+                            道具
+                            <select id="reward-grant-item" class="text-input"></select>
+                        </label>
+                        <label>
+                            數量
+                            <input id="reward-grant-item-qty" class="text-input" type="number" min="1" step="1" value="1">
+                        </label>
+                        <label>
+                            頭像
+                            <select id="reward-grant-avatar" class="text-input"></select>
+                        </label>
+                        <label>
+                            稱號
+                            <select id="reward-grant-title" class="text-input"></select>
+                        </label>
+                        <label>
+                            稱號到期時間
+                            <input id="reward-grant-expires-at" class="text-input" type="datetime-local">
+                        </label>
+                        <label>
+                            額外子熙幣
+                            <input id="reward-grant-token-amount" class="text-input" type="number" min="0" step="1" value="0">
+                        </label>
+                        <label class="full-span">
+                            備註
+                            <input id="reward-grant-note" class="text-input" type="text" maxlength="240" placeholder="例如：元老人物補發">
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="grantRewardBundleAdmin()">送出發放</button>
+                    </div>
+                </div>
+
+                <div class="announcement-editor-card">
+                    <h3>建立限時領取活動</h3>
+                    <div class="announcement-form-grid">
+                        <label>
+                            活動標題
+                            <input id="campaign-title" class="text-input" type="text" maxlength="120" placeholder="例如：開服七日登入禮">
+                        </label>
+                        <label>
+                            每人可領次數
+                            <input id="campaign-claim-limit" class="text-input" type="number" min="1" step="1" value="1">
+                        </label>
+                        <label>
+                            開始時間
+                            <input id="campaign-start-at" class="text-input" type="datetime-local">
+                        </label>
+                        <label>
+                            結束時間
+                            <input id="campaign-end-at" class="text-input" type="datetime-local">
+                        </label>
+                        <label>
+                            最低 VIP
+                            <input id="campaign-min-vip" class="text-input" type="text" maxlength="64" placeholder="留空表示不限">
+                        </label>
+                        <label class="toggle-field">
+                            <input id="campaign-active" type="checkbox" checked>
+                            <span>啟用活動</span>
+                        </label>
+                        <label class="full-span">
+                            活動描述
+                            <textarea id="campaign-description" class="text-input announcement-textarea" placeholder="例如：活動期間登入即可領取限定稱號"></textarea>
+                        </label>
+                        <label>
+                            活動道具
+                            <select id="campaign-item" class="text-input"></select>
+                        </label>
+                        <label>
+                            道具數量
+                            <input id="campaign-item-qty" class="text-input" type="number" min="1" step="1" value="1">
+                        </label>
+                        <label>
+                            活動頭像
+                            <select id="campaign-avatar" class="text-input"></select>
+                        </label>
+                        <label>
+                            活動稱號
+                            <select id="campaign-title-id" class="text-input"></select>
+                        </label>
+                        <label>
+                            稱號到期時間
+                            <input id="campaign-title-expires-at" class="text-input" type="datetime-local">
+                        </label>
+                        <label>
+                            額外子熙幣
+                            <input id="campaign-token-amount" class="text-input" type="number" min="0" step="1" value="0">
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="publishRewardCampaign()">建立活動</button>
+                    </div>
+                </div>
+            </div>
+
+            <p id="reward-admin-status-msg">讀取中...</p>
+
+            <div class="section-block section-block-muted">
+                <h3>活動列表</h3>
+                <div id="reward-campaign-list" class="announcement-admin-list">
+                    <div class="result-empty">尚未載入活動</div>
+                </div>
+            </div>
+
+            <div class="section-block section-block-muted">
+                <h3>近期發放紀錄</h3>
+                <div id="reward-grant-log-list" class="result-list">
+                    <div class="result-empty">尚未載入發放紀錄</div>
+                </div>
             </div>
         </div>
 

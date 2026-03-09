@@ -90,6 +90,10 @@ body.leaderboard-body {
 .addr-col {
     color: #fff;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .bet-col {
@@ -107,6 +111,34 @@ body.leaderboard-body {
     border-radius: 16px;
     background: rgba(255, 255, 255, 0.04);
     color: #999;
+}
+
+.leaderboard-avatar {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 1.05rem;
+}
+
+.leaderboard-player-meta,
+.leaderboard-name {
+    color: #fff;
+}
+
+.leaderboard-title-chip {
+    display: inline-flex;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 204, 0, 0.12);
+    border: 1px solid rgba(255, 204, 0, 0.18);
+    color: #ffd36a;
+    font-size: 0.78rem;
+    font-style: normal;
+    font-weight: 700;
 }
 
 .leaderboard-balance-row {

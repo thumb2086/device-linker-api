@@ -165,7 +165,8 @@
 #status-msg,
 #custody-status-msg,
 #issue-status-msg,
-#announcement-admin-status-msg {
+#announcement-admin-status-msg,
+#reward-admin-status-msg {
     margin-top: 8px;
     font-size: 0.9rem;
 }
@@ -180,6 +181,10 @@
 }
 
 #issue-status-msg {
+    color: #9bf1b9;
+}
+
+#reward-admin-status-msg {
     color: #9bf1b9;
 }
 
@@ -221,6 +226,11 @@
     grid-template-columns: minmax(0, 1fr) 180px;
     gap: 10px;
     margin-bottom: 10px;
+}
+
+.reward-admin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
 }
 
 .collapsible-body {
@@ -406,6 +416,7 @@
     .announcement-summary-grid,
     .custody-toolbar,
     .toolbar-grid,
+    .reward-admin-grid,
     .form-row,
     .issue-editor-grid,
     .announcement-form-grid {

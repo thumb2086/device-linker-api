@@ -4,6 +4,7 @@ import { getSession } from "../lib/session-store.js";
 import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { buildVipStatus } from "../lib/vip.js";
 import { buildDisplayNameMap } from "../lib/user-profile.js";
+import { buildRewardDisplayMap } from "../lib/reward-center.js";
 import {
     buildAccountSummary,
     buildMarketSnapshot,
@@ -246,9 +247,14 @@ export default async function handler(req, res) {
                 totalBet: Number(entry.totalBet || 0)
             }));
             const displayNameMap = await buildDisplayNameMap(entries.map((entry) => entry.address));
+            const rewardDisplayMap = await buildRewardDisplayMap(entries.map((entry) => entry.address), (address) => {
+                const entry = entries.find((item) => item.address === address);
+                return entry ? entry.totalBet : 0;
+            });
 
             const leaderboard = entries.slice(0, limit).map((entry, index) => {
                 const vipStatus = buildVipStatus(entry.totalBet);
+                const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
                 return {
                     rank: index + 1,
                     address: entry.address,
@@ -256,7 +262,9 @@ export default async function handler(req, res) {
                     maskedAddress: maskAddress(entry.address),
                     totalBet: entry.totalBet.toFixed(2),
                     vipLevel: vipStatus.vipLevel,
-                    maxBet: String(vipStatus.maxBet)
+                    maxBet: String(vipStatus.maxBet),
+                    avatar: rewardDisplay.avatar || null,
+                    title: rewardDisplay.title || null
                 };
             });
 
@@ -275,7 +283,9 @@ export default async function handler(req, res) {
                     maskedAddress: maskAddress(myRank.address),
                     totalBet: myRank.totalBet.toFixed(2),
                     vipLevel: buildVipStatus(myRank.totalBet).vipLevel,
-                    maxBet: String(buildVipStatus(myRank.totalBet).maxBet)
+                    maxBet: String(buildVipStatus(myRank.totalBet).maxBet),
+                    avatar: (rewardDisplayMap.get(myRank.address) || {}).avatar || null,
+                    title: (rewardDisplayMap.get(myRank.address) || {}).title || null
                 } : null
             });
         }
@@ -345,6 +355,19 @@ export default async function handler(req, res) {
                     vipLevel: vipStatus.vipLevel
                 };
             });
+            const rewardDisplayMap = await buildRewardDisplayMap(entries.map((entry) => entry.address), (address) => {
+                const entry = entries.find((item) => item.address === address);
+                return entry ? entry.totalBet : 0;
+            });
+
+            const leaderboardWithRewards = leaderboard.map((entry) => {
+                const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
+                return {
+                    ...entry,
+                    avatar: rewardDisplay.avatar || null,
+                    title: rewardDisplay.title || null
+                };
+            });
 
             const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
             const myRank = myIndex >= 0 ? entries[myIndex] : null;
@@ -353,7 +376,7 @@ export default async function handler(req, res) {
                 success: true,
                 generatedAt: cached.generatedAt || new Date().toISOString(),
                 totalPlayers: entries.length,
-                leaderboard,
+                leaderboard: leaderboardWithRewards,
                 myRank: myRank ? {
                     rank: myIndex + 1,
                     address: myRank.address,
@@ -366,7 +389,9 @@ export default async function handler(req, res) {
                     futuresUnrealizedPnl: myRank.futuresUnrealizedPnl.toFixed(2),
                     loanPrincipal: myRank.loanPrincipal.toFixed(2),
                     totalBet: myRank.totalBet.toFixed(2),
-                    vipLevel: buildVipStatus(myRank.totalBet).vipLevel
+                    vipLevel: buildVipStatus(myRank.totalBet).vipLevel,
+                    avatar: (rewardDisplayMap.get(myRank.address) || {}).avatar || null,
+                    title: (rewardDisplayMap.get(myRank.address) || {}).title || null
                 } : null
             });
         }

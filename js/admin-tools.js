@@ -1,4 +1,9 @@
-﻿var adminToolsBusy = false;
+﻿var adminBusyState = {
+    ops: false,
+    custody: false,
+    issue: false,
+    announcement: false
+};
 var custodyUsers = [];
 var issueReports = [];
 var announcements = [];
@@ -31,11 +36,11 @@ function setAnnouncementAdminStatus(text, isError) {
     el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
 }
 
-function withAdminBusy(task) {
-    if (adminToolsBusy) return Promise.reject(new Error('請稍候，上一筆管理操作仍在處理'));
-    adminToolsBusy = true;
+function withAdminBusy(section, task) {
+    if (adminBusyState[section]) return Promise.reject(new Error('請稍候，上一筆管理操作仍在處理'));
+    adminBusyState[section] = true;
     return task().finally(function () {
-        adminToolsBusy = false;
+        adminBusyState[section] = false;
     });
 }
 
@@ -156,7 +161,7 @@ function renderResetResult(data) {
 
 function previewReset() {
     setAdminStatus('正在預覽受影響名單...', false);
-    withAdminBusy(function () {
+    withAdminBusy('ops', function () {
         return callAdminApi('reset_total_bets', { dryRun: true }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '預覽失敗');
             renderResetResult(data);
@@ -169,7 +174,7 @@ function previewReset() {
 
 function executeReset() {
     setAdminStatus('正在執行重製...', false);
-    withAdminBusy(function () {
+    withAdminBusy('ops', function () {
         return callAdminApi('reset_total_bets', { dryRun: false }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '重製失敗');
             renderResetResult(data);
@@ -246,7 +251,7 @@ function loadCustodyUsers() {
 
 function refreshCustodyUsers() {
     setCustodyStatus('正在讀取託管帳號...', false);
-    withAdminBusy(function () {
+    withAdminBusy('custody', function () {
         return loadCustodyUsers();
     }).catch(function (error) {
         setCustodyStatus('錯誤: ' + error.message, true);
@@ -262,7 +267,7 @@ function resetCustodyPassword(username) {
     }
 
     setCustodyStatus('正在重設 ' + username + ' 的密碼...', false);
-    withAdminBusy(function () {
+    withAdminBusy('custody', function () {
         return callAdminApi('reset_custody_password', {
             username: username,
             newPassword: newPassword
@@ -371,7 +376,7 @@ function loadIssueReports() {
 
 function refreshIssueReports() {
     setIssueStatus('正在讀取問題回報...', false);
-    withAdminBusy(function () {
+    withAdminBusy('issue', function () {
         return loadIssueReports();
     }).catch(function (error) {
         setIssueStatus('錯誤: ' + error.message, true);
@@ -385,7 +390,7 @@ function updateIssueReport(reportId) {
     var adminUpdate = String(updateEl && updateEl.value || '');
 
     setIssueStatus('正在更新回報狀態...', false);
-    withAdminBusy(function () {
+    withAdminBusy('issue', function () {
         return callAdminApi('update_issue_report', {
             reportId: reportId,
             status: status,
@@ -473,7 +478,7 @@ function loadAnnouncements() {
 
 function refreshAnnouncements() {
     setAnnouncementAdminStatus('正在讀取公告...', false);
-    withAdminBusy(function () {
+    withAdminBusy('announcement', function () {
         return loadAnnouncements();
     }).catch(function (error) {
         setAnnouncementAdminStatus('錯誤: ' + error.message, true);
@@ -489,7 +494,7 @@ function publishAnnouncement() {
     var pinned = !!(pinnedEl && pinnedEl.checked);
 
     setAnnouncementAdminStatus('正在發布公告...', false);
-    withAdminBusy(function () {
+    withAdminBusy('announcement', function () {
         return callAdminApi('publish_announcement', {
             title: title,
             content: content,
@@ -515,7 +520,7 @@ function updateAnnouncement(announcementId) {
     var pinnedEl = document.getElementById(getAnnouncementPinnedId(announcementId));
 
     setAnnouncementAdminStatus('正在更新公告...', false);
-    withAdminBusy(function () {
+    withAdminBusy('announcement', function () {
         return callAdminApi('update_announcement', {
             announcementId: announcementId,
             title: String(titleEl && titleEl.value || ''),

@@ -7,6 +7,7 @@
     <title>子熙模擬器 | 子熙幣</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/lobby.css">
+    <link rel="stylesheet" href="css/announcements.css">
     <script async src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
 </head>
 
@@ -26,8 +27,23 @@
             <button class="btn-secondary auth-action-btn" onclick="copyAuthCode()">複製授權碼</button>
             <div class="auth-code-line">授權碼: <span id="auth-code">-</span></div>
         </div>
+        <div class="auth-public-links">
+            <a href="/games/announcements.html" class="auth-inline-link">查看最新公告</a>
+        </div>
         <div id="auth-msg"><span class="loader"></span> 等待硬體授權...</div>
     </div>
+
+    <section id="auth-announcements" class="auth-announcements-panel hidden">
+        <div class="auth-announcements-head">
+            <div>
+                <p class="section-kicker">公開資訊</p>
+                <h2>公告</h2>
+                <p class="auth-announcements-copy">登入前也可以先看系統更新、活動與維護時段。</p>
+            </div>
+            <a href="/games/announcements.html" class="btn-secondary auth-announcements-link">看完整公告</a>
+        </div>
+        <div id="announcement-preview-list" class="announcement-preview-list"></div>
+    </section>
 
     <!-- 大廳 -->
     <div id="lobby-ui" class="hidden lobby-container">
@@ -230,12 +246,15 @@
     </div>
 
     <script src="js/common.js"></script>
+    <script src="js/announcements-data.js"></script>
+    <script src="js/announcements.js"></script>
     <script src="js/auth.js"></script>
     <script>
         function initLobbyPage() {
             showPageTransition('驗證登入中...');
             initLobbyAuth(function (data) {
                 document.getElementById('auth-ui').classList.add('hidden');
+                document.getElementById('auth-announcements').classList.add('hidden');
                 document.getElementById('lobby-ui').classList.remove('hidden');
                 updateUI(data);
                 startBalanceRefresh();
@@ -254,6 +273,7 @@
                     });
                 });
             });
+            initAnnouncementPreview();
         }
 
         if (document.readyState === 'loading') {

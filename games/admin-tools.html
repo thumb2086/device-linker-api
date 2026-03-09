@@ -65,50 +65,52 @@
             <div class="section-heading-row">
                 <div>
                     <h2>公告中心管理</h2>
-                    <p class="tool-note">管理員可發布新公告，或更新既有公告的內容、置頂與啟用狀態。前台公開公告頁會直接讀這裡的資料。</p>
+                    <p class="tool-note">平常不需要操作時可以保持收合。需要發布或調整時再展開，避免管理頁過長。</p>
                 </div>
-                <button class="btn-secondary compact-btn" onclick="refreshAnnouncements()">重新整理</button>
+                <button id="announcement-toggle-btn" class="btn-secondary compact-btn" onclick="toggleAnnouncementSection()">展開公告中心</button>
             </div>
 
-            <div class="summary-grid announcement-summary-grid">
-                <div class="summary-card">
-                    <span>公告總數</span>
-                    <strong id="announcement-total-count">0</strong>
+            <div id="announcements-section-body" class="collapsible-body hidden">
+                <div class="summary-grid announcement-summary-grid">
+                    <div class="summary-card">
+                        <span>公告總數</span>
+                        <strong id="announcement-total-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>啟用中</span>
+                        <strong id="announcement-active-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>置頂中</span>
+                        <strong id="announcement-pinned-count">0</strong>
+                    </div>
                 </div>
-                <div class="summary-card">
-                    <span>啟用中</span>
-                    <strong id="announcement-active-count">0</strong>
-                </div>
-                <div class="summary-card">
-                    <span>置頂中</span>
-                    <strong id="announcement-pinned-count">0</strong>
-                </div>
-            </div>
 
-            <div class="announcement-editor-card">
-                <h3>發布新公告</h3>
-                <div class="announcement-form-grid">
-                    <label>
-                        標題
-                        <input id="announcement-title" class="text-input" type="text" maxlength="120" placeholder="例如：3/8 晚上 10 點進行更新">
-                    </label>
-                    <label class="toggle-field">
-                        <input id="announcement-pinned" type="checkbox">
-                        <span>置頂公告</span>
-                    </label>
-                    <label class="full-span">
-                        內容
-                        <textarea id="announcement-content" class="text-input announcement-textarea" placeholder="請填寫更新內容、影響範圍、預估時間"></textarea>
-                    </label>
+                <div class="announcement-editor-card">
+                    <h3>發布新公告</h3>
+                    <div class="announcement-form-grid">
+                        <label>
+                            標題
+                            <input id="announcement-title" class="text-input" type="text" maxlength="120" placeholder="例如：3/8 晚上 10 點進行更新">
+                        </label>
+                        <label class="toggle-field">
+                            <input id="announcement-pinned" type="checkbox">
+                            <span>置頂公告</span>
+                        </label>
+                        <label class="full-span">
+                            內容
+                            <textarea id="announcement-content" class="text-input announcement-textarea" placeholder="請填寫更新內容、影響範圍、預估時間"></textarea>
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="publishAnnouncement()">發布公告</button>
+                    </div>
                 </div>
-                <div class="form-row single-row">
-                    <button class="btn-primary" onclick="publishAnnouncement()">發布公告</button>
-                </div>
-            </div>
-            <p id="announcement-admin-status-msg">待命中</p>
+                <p id="announcement-admin-status-msg">尚未載入公告</p>
 
-            <div id="announcement-admin-list" class="announcement-admin-list">
-                <div class="result-empty">尚未載入公告</div>
+                <div id="announcement-admin-list" class="announcement-admin-list">
+                    <div class="result-empty">尚未載入公告</div>
+                </div>
             </div>
         </div>
 

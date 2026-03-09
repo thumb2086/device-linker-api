@@ -1,8 +1,12 @@
 body.pool-body {
     min-height: 100vh;
     background:
-        radial-gradient(circle at top, rgba(48, 140, 105, 0.25), transparent 32%),
+        radial-gradient(circle at top, rgba(48, 140, 105, 0.22), transparent 34%),
         linear-gradient(180deg, #07120f 0%, #0d1e18 100%);
+}
+
+.pool-shell {
+    max-width: 1240px;
 }
 
 .pool-hero,
@@ -77,11 +81,16 @@ body.pool-body {
 }
 
 .score-card,
-.score-center {
+.score-center,
+.pool-control-card,
+.pool-rules-note {
     border-radius: 20px;
     background: rgba(18, 45, 35, 0.88);
     border: 1px solid rgba(151, 213, 183, 0.14);
     padding: 18px;
+}
+
+.score-card {
     text-align: center;
 }
 
@@ -95,13 +104,27 @@ body.pool-body {
     display: block;
     color: #f4fff8;
     margin-top: 8px;
+    font-size: 1.3rem;
 }
 
-.score-value {
+.score-badge {
     margin-top: 14px;
-    font-size: 3rem;
-    font-weight: 800;
-    color: #8ef1bc;
+    display: inline-flex;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: rgba(142, 241, 188, 0.14);
+    color: #b8f2cf;
+    font-weight: 700;
+}
+
+.score-detail {
+    margin-top: 12px;
+    color: #d7f5e6;
+}
+
+.score-center {
+    min-width: 260px;
+    text-align: center;
 }
 
 .turn-badge {
@@ -113,32 +136,103 @@ body.pool-body {
     font-weight: 700;
 }
 
-.pool-shot-panel,
-.pool-actions {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+.pool-canvas-card {
     margin-top: 20px;
 }
 
+.pool-canvas-frame {
+    position: relative;
+    padding: 18px;
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.08), transparent 30%),
+        linear-gradient(180deg, #5e381d, #3d220f);
+    box-shadow: inset 0 0 0 1px rgba(255, 214, 170, 0.08);
+}
+
+#pool-canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #157654 0%, #0c5c41 100%);
+    box-shadow: inset 0 0 0 8px #542d16;
+}
+
+.pool-canvas-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: rgba(6, 18, 14, 0.72);
+    border: 1px solid rgba(151, 213, 183, 0.16);
+    color: #dff9ec;
+    font-weight: 600;
+    pointer-events: none;
+    text-align: center;
+}
+
+.pool-control-grid {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) 1fr;
+    gap: 16px;
+}
+
+.pool-control-card h3 {
+    margin: 0 0 14px;
+    color: #f2fff7;
+}
+
+.pool-slider-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: #d7f5e6;
+    font-weight: 600;
+}
+
+#shot-power-range {
+    width: 100%;
+    margin-top: 14px;
+    accent-color: #83e0ae;
+}
+
+.pool-aim-note {
+    margin-top: 12px;
+    color: #a9cabd;
+    min-height: 40px;
+}
+
+.shot-submit-btn {
+    width: 100%;
+    margin-top: 14px;
+}
+
 .pool-actions {
-    grid-template-columns: repeat(4, 1fr);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
 }
 
-.shot-btn {
-    border: 1px solid rgba(166, 230, 197, 0.16);
-    background: linear-gradient(180deg, rgba(28, 77, 56, 0.94), rgba(15, 48, 35, 0.94));
-    color: #ecfff3;
-    font-weight: 700;
-    padding: 14px 16px;
-    border-radius: 16px;
-    cursor: pointer;
-}
-
-.shot-btn:disabled,
-.pool-actions button:disabled {
+.pool-actions button:disabled,
+.shot-submit-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+}
+
+.pool-rules-note {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    color: #d7f5e6;
+}
+
+.pool-rules-note strong {
+    color: #f4fff8;
 }
 
 .pool-status {
@@ -160,15 +254,18 @@ body.pool-body {
     color: #d6efe2;
 }
 
-@media (max-width: 760px) {
-    .pool-hero,
-    .scoreboard,
-    .pool-shot-panel,
-    .pool-actions {
+@media (max-width: 900px) {
+    .pool-control-grid,
+    .scoreboard {
         grid-template-columns: 1fr;
-        display: grid;
     }
 
+    .score-center {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 760px) {
     .pool-hero {
         display: grid;
     }
@@ -176,5 +273,21 @@ body.pool-body {
     .pool-stake-card {
         min-width: 0;
         padding: 20px;
+    }
+
+    .pool-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .pool-canvas-frame {
+        padding: 12px;
+        border-radius: 22px;
+    }
+
+    .pool-canvas-hint {
+        left: 12px;
+        right: 12px;
+        bottom: 18px;
+        transform: none;
     }
 }

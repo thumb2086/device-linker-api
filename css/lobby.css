@@ -97,8 +97,15 @@ body.lobby-body {
 
 /* --- 大廳標題 --- */
 .lobby-title {
+    position: relative;
     text-align: center;
     margin-bottom: 10px;
+}
+
+.lobby-title-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
 }
 
 .lobby-title h1 {
@@ -682,6 +689,12 @@ body.lobby-body {
         font-size: 2rem;
     }
 
+    .lobby-title-actions {
+        position: static;
+        justify-content: center;
+        margin-bottom: 14px;
+    }
+
     .vip-system-intro {
         flex-direction: column;
     }
@@ -753,6 +766,10 @@ body.lobby-body {
 
     .lobby-title h1 {
         font-size: 1.8rem;
+    }
+
+    .lobby-title-actions {
+        width: 100%;
     }
 
     .guide-card {

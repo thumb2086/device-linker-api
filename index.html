@@ -51,9 +51,11 @@
     <div id="lobby-ui" class="hidden lobby-container">
 
         <div class="lobby-title">
+            <div class="lobby-title-actions header-stats">
+                <button class="logout-btn" onclick="logoutUser()">登出</button>
+            </div>
             <h1>⚡ 子熙模擬器</h1>
             <p class="subtitle">子熙模擬器</p>
-            <button class="logout-btn" onclick="logoutUser()">登出</button>
         </div>
 
         <div class="lobby-stats" id="main-card">
@@ -74,10 +76,6 @@
                 <span class="stat-value" id="total-bet-val">0.00</span>
             </div>
         </div>
-        <div style="margin: 12px 0 4px;">
-            <button class="btn-secondary" onclick="promptDisplayName()">設定使用者名稱</button>
-        </div>
-
         <section id="lobby-campaigns-panel" class="lobby-campaigns-panel hidden">
             <div class="lobby-campaigns-head">
                 <div>

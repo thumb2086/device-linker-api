@@ -10,7 +10,7 @@ import {
     normalizeAirdropDistributedWei
 } from "../lib/airdrop-policy.js";
 import { listGameHistory } from "../lib/game-history.js";
-import { withChainTxLock } from "../lib/tx-lock.js";
+import { withQueuedChainTxLock } from "../lib/tx-lock.js";
 import { sendManagedContractTx } from "../lib/admin-chain.js";
 
 const MAX_TRANSFER_AMOUNT = 100000000;
@@ -180,7 +180,7 @@ export default async function handler(req, res) {
             const targetAddress = sessionInfo.address || normalizeAddress(body.address, "address");
             let policy = null;
             let newDistributedWei = 0n;
-            const tx = await withChainTxLock(async () => {
+            const tx = await withQueuedChainTxLock(async () => {
                 const trackedDistributedWei = await getTrackedAirdropDistributedWei();
                 policy = calculateAirdropRewardWei(decimals, trackedDistributedWei);
 
@@ -270,7 +270,7 @@ export default async function handler(req, res) {
 
         if (action === "import" || action === "deposit") {
             const userAddress = sessionAddress || normalizeAddress(body.address, "address");
-            const tx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
+            const tx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
                 contract,
                 treasuryAddress,
                 userAddress,
@@ -295,7 +295,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ success: false, error: "Insufficient balance" });
             }
 
-            const tx = await withChainTxLock(() => sendManagedContractTx(contract, "adminTransfer", [userAddress, treasuryAddress, amountWei], { gasLimit: 220000, txSource: "wallet_withdraw" }), undefined, "wallet_withdraw");
+            const tx = await withQueuedChainTxLock(() => sendManagedContractTx(contract, "adminTransfer", [userAddress, treasuryAddress, amountWei], { gasLimit: 220000, txSource: "wallet_withdraw" }), undefined, "wallet_withdraw");
             return res.status(200).json({
                 success: true,
                 action: "withdraw",
@@ -358,7 +358,7 @@ export default async function handler(req, res) {
                 }
             }
 
-            const tx = await withChainTxLock(() => sendManagedContractTx(contract, "adminTransfer", [fromAddress, toAddress, transferWei], { gasLimit: 220000, txSource: "wallet_secure_transfer" }), undefined, "wallet_secure_transfer");
+            const tx = await withQueuedChainTxLock(() => sendManagedContractTx(contract, "adminTransfer", [fromAddress, toAddress, transferWei], { gasLimit: 220000, txSource: "wallet_secure_transfer" }), undefined, "wallet_secure_transfer");
             return res.status(200).json({
                 success: true,
                 txHash: tx.hash,
@@ -381,7 +381,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ success: false, error: "Insufficient balance" });
             }
 
-            const tx = await withChainTxLock(() => sendManagedContractTx(contract, "adminTransfer", [userAddress, toAddress, amountWei], { gasLimit: 220000, txSource: "wallet_export" }), undefined, "wallet_export");
+            const tx = await withQueuedChainTxLock(() => sendManagedContractTx(contract, "adminTransfer", [userAddress, toAddress, amountWei], { gasLimit: 220000, txSource: "wallet_export" }), undefined, "wallet_export");
             return res.status(200).json({
                 success: true,
                 action: "export",

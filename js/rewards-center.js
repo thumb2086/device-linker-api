@@ -592,6 +592,10 @@ function refreshRewardsCenter() {
 
 function buyRewardItem(itemId) {
     setRewardsStatus('購買商品中...', false);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     rewardsApi('buy', { shopItemId: itemId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '購買失敗');
@@ -609,6 +613,10 @@ function buyRewardItem(itemId) {
 
 function buyRewardTitle(titleId) {
     setRewardsStatus('購買稱號中...', false);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     rewardsApi('buy_title', { titleId: titleId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '購買稱號失敗');
@@ -627,6 +635,10 @@ function buyRewardTitle(titleId) {
 
 function useRewardItem(itemId) {
     setRewardsStatus('啟用道具中...', false);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     rewardsApi('use_item', { itemId: itemId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '啟用失敗');
@@ -644,6 +656,10 @@ function useRewardItem(itemId) {
 
 function openRewardChest(itemId) {
     setRewardsStatus('開啟獎勵箱中...', false);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     rewardsApi('open_chest', { chestItemId: itemId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '開啟失敗');
@@ -662,6 +678,9 @@ function openRewardChest(itemId) {
 }
 
 function equipRewardAvatar(avatarId) {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     rewardsApi('equip_avatar', { avatarId: avatarId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '裝備頭像失敗');
@@ -678,6 +697,9 @@ function equipRewardAvatar(avatarId) {
 }
 
 function equipRewardTitle(titleId) {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     rewardsApi('equip_title', { titleId: titleId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '裝備稱號失敗');
@@ -695,6 +717,10 @@ function equipRewardTitle(titleId) {
 
 function claimRewardCampaign(campaignId) {
     setRewardsStatus('領取活動獎勵中...', false);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     rewardsApi('claim_campaign', { campaignId: campaignId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '領取失敗');

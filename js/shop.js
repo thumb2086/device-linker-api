@@ -186,6 +186,10 @@ function refreshShop() {
 
 function buyShopItem(id) {
     setShopStatus('購買中...', false);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     shopApi('buy', { shopItemId: id })
         .then(function (data) {
             if (!data || !data.success) throw new Error(data.error || '購買失敗');
@@ -199,6 +203,10 @@ function buyShopItem(id) {
 
 function buyShopTitle(id) {
     setShopStatus('購買稱號中...', false);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     shopApi('buy_title', { titleId: id })
         .then(function (data) {
             if (!data || !data.success) throw new Error(data.error || '購買失敗');

@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { buildVipStatus, getVipTierOptions } from "../lib/vip.js";
-import { withChainTxLock } from "../lib/tx-lock.js";
+import { withQueuedChainTxLock } from "../lib/tx-lock.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { sendManagedContractTx } from "../lib/admin-chain.js";
 import {
@@ -147,7 +147,7 @@ async function getContractContext() {
 async function buildSummaryPayload(address, totalBet) {
     const [profile, campaigns, catalog] = await Promise.all([
         buildRewardSummary(address, totalBet),
-        listRewardCampaigns({ activeOnly: true, address }),
+        listRewardCampaigns({ activeOnly: true, address, hideClaimed: true }),
         getRewardCatalog()
     ]);
     return {
@@ -210,7 +210,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ success: false, error: "餘額不足，無法購買此商品" });
             }
 
-            const tx = await withChainTxLock(async () => {
+            const tx = await withQueuedChainTxLock(async () => {
                 const sent = await sendManagedContractTx(contract, "adminTransfer", [context.address, treasuryAddress, priceWei], { gasLimit: 220000, txSource: "rewards_shop_item" });
                 await purchaseShopItem(context.address, item.id);
                 return sent;
@@ -245,7 +245,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ success: false, error: "餘額不足，無法購買此稱號" });
             }
 
-            const tx = await withChainTxLock(async () => {
+            const tx = await withQueuedChainTxLock(async () => {
                 const profile = await getRewardProfile(context.address);
                 if ((profile.ownedTitles || []).some((entry) => String(entry && entry.id || "") === title.id)) {
                     throw new Error("已持有此稱號");
@@ -299,7 +299,7 @@ export default async function handler(req, res) {
             let txHash = "";
             if (Number(result.rewards && result.rewards.tokens || 0) > 0) {
                 const tokenWei = ethers.parseUnits(String(result.rewards.tokens), decimals);
-                const tx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
+                const tx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
                     contract,
                     treasuryAddress,
                     context.address,
@@ -341,7 +341,7 @@ export default async function handler(req, res) {
             let txHash = "";
             if (Number(result.tokens || 0) > 0) {
                 const tokenWei = ethers.parseUnits(String(result.tokens), decimals);
-                const tx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
+                const tx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
                     contract,
                     treasuryAddress,
                     context.address,
@@ -452,7 +452,7 @@ export default async function handler(req, res) {
             if (Number(bundle.tokens || 0) > 0) {
                 const { contract, decimals, treasuryAddress } = await getContractContext();
                 const amountWei = ethers.parseUnits(String(bundle.tokens), decimals);
-                const tx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
+                const tx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
                     contract,
                     treasuryAddress,
                     targetAddress,

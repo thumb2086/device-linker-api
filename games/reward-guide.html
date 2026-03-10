@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>道具與稱號指南 | 子熙模擬器</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/guides.css">
+    <style>
+        .guide-section-head {
+            margin: 40px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ffd36a;
+        }
+
+        .reward-guide-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        .reward-guide-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        .reward-guide-card strong {
+            display: block;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .reward-guide-type {
+            font-size: 0.75rem;
+            color: #ffd36a;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 10px;
+        }
+
+        .reward-guide-desc {
+            font-size: 0.9rem;
+            color: #96a8bb;
+            line-height: 1.5;
+        }
+
+        .reward-guide-details {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            font-size: 0.85rem;
+        }
+
+        .detail-item {
+            margin-bottom: 4px;
+        }
+
+        .detail-label {
+            color: #666;
+            margin-right: 6px;
+        }
+    </style>
+</head>
+
+<body class="guides-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">← 返回首頁</a>
+    </div>
+
+    <div class="casino-card guides-card">
+        <div class="guides-hero">
+            <p class="section-kicker">資產說明</p>
+            <h1>📦 道具與稱號指南</h1>
+            <p class="guides-subtitle">完整查看所有 Buff 道具、開運寶箱、成就稱號與頭像外觀的詳細效果與取得途徑。</p>
+        </div>
+
+        <div id="guide-content">
+            <h2 class="guide-section-head">✨ 增益道具 (Buffs)</h2>
+            <div id="guide-buffs" class="reward-guide-grid"></div>
+
+            <h2 class="guide-section-head">🎁 寶箱與補給箱</h2>
+            <div id="guide-chests" class="reward-guide-grid"></div>
+
+            <h2 class="guide-section-head">🏷️ 成就稱號</h2>
+            <div id="guide-titles" class="reward-guide-grid"></div>
+
+            <h2 class="guide-section-head">🖼️ 頭像外觀</h2>
+            <div id="guide-avatars" class="reward-guide-grid"></div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script>
+        function renderGuide(data) {
+            var catalog = data.catalog;
+            if (!catalog) return;
+
+            var buffsHtml = '';
+            var chestsHtml = '';
+            var titlesHtml = '';
+            var avatarsHtml = '';
+
+            (catalog.shopItems || []).forEach(function (item) {
+                var html = '<div class="reward-guide-card">' +
+                    '<div class="reward-guide-type">' + (item.type === 'buff' ? '增益道具' : '寶箱道具') + '</div>' +
+                    '<strong>' + item.name + '</strong>' +
+                    '<div class="reward-guide-desc">' + (item.description || '暫無說明') + '</div>' +
+                    '</div>';
+
+                if (item.type === 'buff') buffsHtml += html;
+                else chestsHtml += html;
+            });
+
+            (catalog.titles || []).forEach(function (item) {
+                titlesHtml += '<div class="reward-guide-card">' +
+                    '<div class="reward-guide-type">' + (item.rarity || '普通') + ' 稱號</div>' +
+                    '<strong>' + item.name + '</strong>' +
+                    '<div class="reward-guide-desc">' + (item.shopDescription || item.description || '永久稱號') + '</div>' +
+                    '<div class="reward-guide-details"><div class="detail-item"><span class="detail-label">取得途徑:</span>' + (item.source || '商店購買') + '</div></div>' +
+                    '</div>';
+            });
+
+            (catalog.avatars || []).forEach(function (item) {
+                avatarsHtml += '<div class="reward-guide-card">' +
+                    '<div class="reward-guide-type">頭像外觀</div>' +
+                    '<strong>' + item.icon + ' ' + item.name + '</strong>' +
+                    '<div class="reward-guide-desc">' + (item.description || '更換你的個人頭像顯示') + '</div>' +
+                    '</div>';
+            });
+
+            document.getElementById('guide-buffs').innerHTML = buffsHtml || '<div class="reward-empty">暫無資料</div>';
+            document.getElementById('guide-chests').innerHTML = chestsHtml || '<div class="reward-empty">暫無資料</div>';
+            document.getElementById('guide-titles').innerHTML = titlesHtml || '<div class="reward-empty">暫無資料</div>';
+            document.getElementById('guide-avatars').innerHTML = avatarsHtml || '<div class="reward-empty">暫無資料</div>';
+        }
+
+        window.onload = function () {
+            fetch('/api/rewards', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'summary', sessionId: 'public' })
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data && data.success) renderGuide(data);
+                })
+                .catch(function (e) { console.error('Guide load failed', e); });
+        };
+    </script>
+</body>
+
+</html>

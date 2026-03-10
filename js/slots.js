@@ -9,13 +9,131 @@ function buildSlotsSymbolMap() {
     };
 }
 
-var activeSlotsSettlement = null;
+var pendingSlotsSettlements = Object.create(null);
+
+function normalizeSlotsSpinId(value) {
+    return String(value || "").trim();
+}
+
+function computeSlotsPendingDelta(spin) {
+    if (!spin) return 0;
+    var settlementStatus = String(spin.settlementStatus || spin.status || "").trim().toLowerCase();
+    if (settlementStatus !== "pending" && settlementStatus !== "settling") {
+        return 0;
+    }
+
+    var amount = Number(spin.amount || 0);
+    var payoutAmount = Number(spin.payoutAmount || 0);
+    if (!Number.isFinite(amount)) amount = 0;
+    if (!Number.isFinite(payoutAmount)) payoutAmount = 0;
+
+    return Boolean(spin.betTransferred) ? payoutAmount : (payoutAmount - amount);
+}
+
+function getSlotsPendingSpin(spinId) {
+    var normalizedId = normalizeSlotsSpinId(spinId);
+    if (!normalizedId) return null;
+    return pendingSlotsSettlements[normalizedId] || null;
+}
+
+function hasPendingSlotsSettlements() {
+    return Object.keys(pendingSlotsSettlements).length > 0;
+}
+
+function upsertPendingSlotsSpin(spin, options) {
+    if (!spin) return null;
+
+    var normalizedId = normalizeSlotsSpinId(spin.spinId);
+    if (!normalizedId) return null;
+
+    var previous = pendingSlotsSettlements[normalizedId] || {};
+    var next = {
+        ...previous,
+        ...spin,
+        spinId: normalizedId
+    };
+
+    if (options && options.localOnly !== undefined) {
+        next.localOnly = Boolean(options.localOnly);
+    } else if (next.localOnly === undefined) {
+        next.localOnly = false;
+    }
+
+    if (options && options.registeredAt !== undefined) {
+        next.registeredAt = Number(options.registeredAt || 0);
+    } else if (!next.registeredAt) {
+        next.registeredAt = Date.now();
+    }
+
+    pendingSlotsSettlements[normalizedId] = next;
+    return next;
+}
+
+function removePendingSlotsSpin(spinId) {
+    var normalizedId = normalizeSlotsSpinId(spinId);
+    if (!normalizedId) return null;
+
+    var existing = pendingSlotsSettlements[normalizedId] || null;
+    delete pendingSlotsSettlements[normalizedId];
+    return existing;
+}
+
+function syncPendingSlotsFromServer(spins) {
+    var nextSettlements = Object.create(null);
+    var snapshotAt = Date.now();
+    var pendingList = Array.isArray(spins) ? spins : [];
+
+    for (var index = 0; index < pendingList.length; index += 1) {
+        var spin = pendingList[index];
+        var normalizedId = normalizeSlotsSpinId(spin && spin.spinId);
+        if (!normalizedId) continue;
+
+        nextSettlements[normalizedId] = {
+            ...(pendingSlotsSettlements[normalizedId] || {}),
+            ...spin,
+            spinId: normalizedId,
+            localOnly: false,
+            registeredAt: Number((pendingSlotsSettlements[normalizedId] && pendingSlotsSettlements[normalizedId].registeredAt) || snapshotAt)
+        };
+    }
+
+    var existingIds = Object.keys(pendingSlotsSettlements);
+    for (var pointer = 0; pointer < existingIds.length; pointer += 1) {
+        var existingId = existingIds[pointer];
+        if (nextSettlements[existingId]) continue;
+
+        var existingSpin = pendingSlotsSettlements[existingId];
+        if (existingSpin && existingSpin.localOnly && (snapshotAt - Number(existingSpin.registeredAt || 0)) < 5000) {
+            nextSettlements[existingId] = existingSpin;
+        }
+    }
+
+    pendingSlotsSettlements = nextSettlements;
+    return nextSettlements;
+}
+
+function getNewestPendingSlotsSpin() {
+    var spinIds = Object.keys(pendingSlotsSettlements);
+    if (!spinIds.length) return null;
+
+    spinIds.sort(function (leftId, rightId) {
+        var leftSpin = pendingSlotsSettlements[leftId] || {};
+        var rightSpin = pendingSlotsSettlements[rightId] || {};
+        var leftTime = Date.parse(String(leftSpin.createdAt || "")) || Number(leftSpin.registeredAt || 0) || 0;
+        var rightTime = Date.parse(String(rightSpin.createdAt || "")) || Number(rightSpin.registeredAt || 0) || 0;
+        return rightTime - leftTime;
+    });
+
+    return pendingSlotsSettlements[spinIds[0]] || null;
+}
 
 function calcDisplayBalance(realBalance) {
-    if (activeSlotsSettlement && activeSlotsSettlement.displayBalance !== undefined) {
-        return activeSlotsSettlement.displayBalance;
+    var baseBalance = Number(realBalance || 0);
+    var pendingSpinIds = Object.keys(pendingSlotsSettlements);
+    for (var index = 0; index < pendingSpinIds.length; index += 1) {
+        baseBalance += computeSlotsPendingDelta(pendingSlotsSettlements[pendingSpinIds[index]]);
     }
-    return realBalance;
+    return baseBalance;
 }
 
 class SlotMachine {
@@ -32,8 +150,10 @@ class SlotMachine {
         this.isSpinning = false;
         this.isSettling = false;
         this.pollTimer = null;
+        this.isPollingSettlement = false;
         this.cells = [];
         this.lastWinLines = [];
+        this.presentedSpinId = "";
 
         this.init();
         this.bindEvents();
@@ -146,8 +266,8 @@ class SlotMachine {
 
     setSettlementPendingState() {
         if (this.spinButton) {
-            this.spinButton.disabled = true;
-            this.spinButton.textContent = "結算中...";
+            this.spinButton.disabled = this.isSpinning;
+            this.spinButton.textContent = this.isSpinning ? "處理中..." : "🎰 再來一把";
         }
     }
 
@@ -211,8 +331,8 @@ class SlotMachine {
         }
     }
 
-    updateDisplayedBalance(nextBalance) {
-        setDisplayedBalance(nextBalance);
+    updateDisplayedBalance(nextBalance, ttlMs, source) {
+        setDisplayedBalance(nextBalance, ttlMs, source);
     }
 
     updateTxLog(txHash, details) {
@@ -261,14 +381,77 @@ class SlotMachine {
         };
     }
 
-    async pollSettlement(spinId, context) {
-        var self = this;
-        if (!spinId) return;
+    refreshPendingBalanceView(source) {
+        var chainBalance = Number(user.chainBalance || 0);
+        this.updateDisplayedBalance(calcDisplayBalance(chainBalance), 45000, source || "slots-pending");
+    }
 
-        if (this.pollTimer) {
-            clearTimeout(this.pollTimer);
-            this.pollTimer = null;
+    scheduleSettlementPolling(delayMs) {
+        var self = this;
+        if (this.pollTimer) return;
+        this.pollTimer = setTimeout(function () {
+            self.pollTimer = null;
+            self.pollSettlementQueue();
+        }, Math.max(0, Number(delayMs || 0)));
+    }
+
+    showFailedResult(result) {
+        this.setSettlingState(hasPendingSlotsSettlements());
+        this.setStatus("❌ " + (result.error || "老虎機結算失敗"), true, false);
+        this.setResultState("結算失敗", "鏈上結算沒有完成，餘額已自動回補。", "is-error");
+        this.updateTxLog("", result.error || "老虎機結算失敗");
+    }
+
+    applySettlementUpdate(result) {
+        if (!result || !result.spinId) return "";
+
+        var settlementStatus = String(result.settlementStatus || "").trim().toLowerCase();
+        if (settlementStatus === "pending" || settlementStatus === "settling") {
+            upsertPendingSlotsSpin(result, { localOnly: false });
+            return;
         }
+
+        var wasPresented = this.presentedSpinId === result.spinId;
+        var currentDisplayedBalance = getCurrentUserBalance();
+        removePendingSlotsSpin(result.spinId);
+
+        if (settlementStatus === "settled") {
+            this.updateDisplayedBalance(currentDisplayedBalance, 45000, "slots-settled");
+            if (wasPresented) {
+                this.showSettledResult(result);
+            }
+        } else if (settlementStatus === "failed") {
+            this.refreshPendingBalanceView("slots-failed");
+            if (wasPresented) {
+                this.showFailedResult(result);
+            } else {
+                showUserToast("老虎機背景結算失敗，餘額已回補。", true);
+            }
+        }
+
+        if (wasPresented) {
+            var newestPendingSpin = getNewestPendingSlotsSpin();
+            if (newestPendingSpin) {
+                this.showPendingResult(newestPendingSpin, {
+                    skipRegister: true,
+                    fromSync: true,
+                    skipPollingKickoff: true,
+                    preserveDisplayedBalance: settlementStatus === "settled"
+                });
+            }
+        }
+
+        return settlementStatus;
+    }
+
+    async pollSettlementQueue() {
+        var self = this;
+        if (this.isPollingSettlement || !user.sessionId || !hasPendingSlotsSettlements()) {
+            this.setSettlingState(hasPendingSlotsSettlements());
+            return;
+        }
+
+        this.isPollingSettlement = true;
 
         var result;
         try {
@@ -277,56 +460,64 @@ class SlotMachine {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     action: "status",
-                    spinId: spinId,
                     address: user.address,
                     sessionId: user.sessionId
                 })
             });
             result = await response.json();
         } catch (error) {
-            this.pollTimer = setTimeout(function () {
-                self.pollSettlement(spinId, context);
-            }, 900);
-            return;
-        }
-
-        if (!result || result.error) {
-            activeSlotsSettlement = null;
-            this.setSettlingState(false);
-            this.setSpinningState(false);
-            this.updateDisplayedBalance(context.originalBalance);
-            this.setStatus("❌ " + ((result && result.error) || "老虎機結算失敗"), true, false);
-            this.setResultState("結算失敗", "這筆旋轉沒有完成鏈上結算，餘額已回復。", "is-error");
-            this.updateTxLog("", (result && result.error) || "老虎機結算失敗");
-            return;
-        }
-
-        if (result.settlementStatus === "pending" || result.settlementStatus === "settling") {
-            activeSlotsSettlement = {
-                spinId: spinId,
-                displayBalance: context.finalBalance
-            };
-            this.setSettlementPendingState();
+            this.isPollingSettlement = false;
             this.setSettlingState(true);
-            this.pollTimer = setTimeout(function () {
-                self.pollSettlement(spinId, context);
-            }, 900);
+            this.setSettlementPendingState();
+            this.scheduleSettlementPolling(1200);
             return;
         }
 
-        activeSlotsSettlement = null;
+        this.isPollingSettlement = false;
+        if (!result || result.error) {
+            this.setSettlingState(true);
+            this.setSettlementPendingState();
+            this.scheduleSettlementPolling(1200);
+            return;
+        }
+
+        var updates = Array.isArray(result.updates) ? result.updates : [];
+        var hadSuccessfulSettle = false;
+        for (var updateIndex = 0; updateIndex < updates.length; updateIndex += 1) {
+            if (this.applySettlementUpdate(updates[updateIndex]) === "settled") {
+                hadSuccessfulSettle = true;
+            }
+        }
+
+        var pendingSpins = Array.isArray(result.spins) ? result.spins : [];
+        syncPendingSlotsFromServer(pendingSpins);
+
+        if (pendingSpins.length > 0) {
+            var presentedPendingSpin = getSlotsPendingSpin(this.presentedSpinId);
+            if (!presentedPendingSpin) {
+                var newestPendingSpin = getNewestPendingSlotsSpin();
+                if (newestPendingSpin) {
+                    this.showPendingResult(newestPendingSpin, {
+                        skipRegister: true,
+                        fromSync: true,
+                        skipPollingKickoff: true
+                    });
+                }
+            }
+            if (!hadSuccessfulSettle) {
+                this.refreshPendingBalanceView("slots-pending-sync");
+            }
+            this.setSettlingState(true);
+            this.setSettlementPendingState();
+            this.scheduleSettlementPolling(900);
+            return;
+        }
+
         this.setSettlingState(false);
-        this.setSpinningState(false);
-
-        if (result.settlementStatus === "failed") {
-            this.updateDisplayedBalance(context.originalBalance);
-            this.setStatus("❌ " + (result.error || "老虎機結算失敗"), true, false);
-            this.setResultState("結算失敗", "鏈上結算沒有完成，餘額已自動回補。", "is-error");
-            this.updateTxLog("", result.error || "老虎機結算失敗");
-            return;
+        if (!this.isSpinning) {
+            this.setSpinningState(false);
         }
-
-        this.showSettledResult(result, context);
+        setTimeout(refreshBalance, 2200);
     }
 
     async spin() {
@@ -339,8 +530,8 @@ class SlotMachine {
             return;
         }
 
-        var currentBalance = getCurrentUserBalance();
-        if (currentBalance < betAmount) {
+        var displayedBalanceBeforeSpin = getCurrentUserBalance();
+        if (displayedBalanceBeforeSpin < betAmount) {
             this.setStatus("❌ 餘額不足", true);
             this.setResultState("餘額不足", "目前餘額不足以支付這一筆旋轉。", "is-error");
             return;
@@ -353,7 +544,7 @@ class SlotMachine {
         this.setStatus("<span class=\"loader\"></span> 旋轉中...", false, true);
         this.setResultState("旋轉中", "正在與後端同步盤面與鏈上結算。", "");
 
-        this.updateDisplayedBalance(currentBalance - betAmount);
+        this.updateDisplayedBalance(Math.max(0, displayedBalanceBeforeSpin - betAmount), 5000, "slots-pre-spin");
 
         var self = this;
         var minSpinMs = 550;
@@ -388,31 +579,22 @@ class SlotMachine {
                 throw new Error((result && (result.details ? (result.error + "：" + result.details) : result.error)) || "老虎機交易失敗");
             }
 
-            var effectiveBetAmount = Number(result.amount || betAmount);
-            var effectivePendingBalance = result.betTransferred
-                ? currentBalance
-                : Math.max(0, currentBalance - effectiveBetAmount);
-            var effectiveFinalBalance = effectivePendingBalance + (effectiveBetAmount * Number(result.totalMultiplier || result.multiplier || 0));
-            this.showPendingResult(result, {
-                betAmount: effectiveBetAmount,
-                originalBalance: currentBalance,
-                pendingBalance: effectivePendingBalance,
-                finalBalance: effectiveFinalBalance
-            });
+            this.setSpinningState(false);
+            this.showPendingResult(result);
         } catch (error) {
             clearInterval(spinInterval);
             console.error("Slots spin failed:", error);
             this.setSettlingState(false);
             this.setSpinningState(false);
             this.renderBoard(null, false);
-            this.updateDisplayedBalance(currentBalance);
+            this.updateDisplayedBalance(displayedBalanceBeforeSpin, 12000, "slots-spin-error");
             this.setStatus("❌ " + error.message, true, false);
             this.setResultState("交易失敗", "這筆旋轉沒有完成結算，餘額已回復。", "is-error");
             this.updateTxLog("", error.message);
         }
     }
 
-    async resumePendingSettlement() {
+    async resumePendingSettlements() {
         if (!user.sessionId || this.isSpinning) return;
 
         try {
@@ -426,50 +608,62 @@ class SlotMachine {
                 })
             });
             var result = await response.json();
-            if (!result || result.error || !result.spinId) return;
-            if (result.settlementStatus !== "pending" && result.settlementStatus !== "settling") return;
+            if (!result || result.error) return;
 
-            var currentBalance = getCurrentUserBalance();
-            var effectiveBetAmount = Number(result.amount || 0);
-            var pendingBalance = result.betTransferred
-                ? currentBalance
-                : Math.max(0, currentBalance - effectiveBetAmount);
-            var finalBalance = pendingBalance + (effectiveBetAmount * Number(result.totalMultiplier || result.multiplier || 0));
+            var updates = Array.isArray(result.updates) ? result.updates : [];
+            for (var updateIndex = 0; updateIndex < updates.length; updateIndex += 1) {
+                this.applySettlementUpdate(updates[updateIndex]);
+            }
 
-            this.renderBoard(result.columns, false);
-            this.drawPaylines(result.winLines || []);
-            this.updateDisplayedBalance(finalBalance);
-            this.showPendingResult(result, {
-                betAmount: effectiveBetAmount,
-                originalBalance: currentBalance,
-                pendingBalance: pendingBalance,
-                finalBalance: finalBalance
+            var pendingSpins = Array.isArray(result.spins) ? result.spins : [];
+            syncPendingSlotsFromServer(pendingSpins);
+            if (!pendingSpins.length) return;
+
+            var newestPendingSpin = getNewestPendingSlotsSpin();
+            if (!newestPendingSpin) return;
+
+            this.showPendingResult(newestPendingSpin, {
+                skipRegister: true,
+                fromSync: true,
+                skipPollingKickoff: true
             });
+            this.scheduleSettlementPolling(400);
         } catch (_) {
             // ignore resume failures
         }
     }
 
-    showPendingResult(result, context) {
+    resumePendingSettlement() {
+        return this.resumePendingSettlements();
+    }
+
+    showPendingResult(result, options) {
+        var currentOptions = options || {};
+        if (!currentOptions.skipRegister) {
+            upsertPendingSlotsSpin(result, {
+                localOnly: !currentOptions.fromSync,
+                registeredAt: Date.now()
+            });
+        }
+
+        this.presentedSpinId = result.spinId || this.presentedSpinId;
         this.renderBoard(result.columns, false);
         this.drawPaylines(result.winLines || []);
         this.setSettlingState(true);
         this.setSettlementPendingState();
         var pendingView = this.buildPendingOutcome(result);
-        this.setStatus(pendingView.statusText, false, false);
+        this.setStatus(pendingView.statusText + "，鏈上背景同步中，可直接再轉。", false, false);
         this.setResultState(pendingView.resultLabel, pendingView.resultCopy, pendingView.resultTone);
-        this.updateDisplayedBalance(context.finalBalance);
+        if (!currentOptions.preserveDisplayedBalance) {
+            this.refreshPendingBalanceView("slots-pending");
+        }
         this.updateTxLog("", pendingView.lineSummary || "開獎已完成，鏈上正在背景同步");
-
-        activeSlotsSettlement = {
-            spinId: result.spinId,
-            displayBalance: context.finalBalance
-        };
-        this.pollSettlement(result.spinId, context);
+        if (!currentOptions.skipPollingKickoff) {
+            this.scheduleSettlementPolling(250);
+        }
     }
 
-    showSettledResult(result, context) {
-        var finalBalance = context.pendingBalance + (context.betAmount * Number(result.totalMultiplier || result.multiplier || 0));
+    showSettledResult(result) {
         var statusText = "💀 沒有連線，下次好運！";
         var resultLabel = "未中獎";
         var resultCopy = "本局沒有命中有效連線，鏈上已完成結算。";
@@ -503,7 +697,7 @@ class SlotMachine {
             }
         }
 
-        this.updateDisplayedBalance(finalBalance);
+        this.setSettlingState(hasPendingSlotsSettlements());
         this.setStatus(statusText, false, false);
         this.setResultState(resultLabel, resultCopy, resultTone);
         this.updateTxLog(result.txHash, lineSummary || (result.winLines && result.winLines.length ? ("中獎線: " + result.winLines.join(", ")) : ""));

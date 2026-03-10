@@ -3,7 +3,8 @@
     custody: false,
     issue: false,
     announcement: false,
-    reward: false
+    reward: false,
+    txHealth: false
 };
 var custodyUsers = [];
 var issueReports = [];
@@ -320,7 +321,7 @@ function renderTxHealthDashboard(dashboard) {
 
 function refreshTxHealthDashboard() {
     setTxHealthStatus('同步交易看板中...', false);
-    withAdminBusy('ops', function () {
+    withAdminBusy('txHealth', function () {
         return callAdminApi('get_tx_health_dashboard', {
             hours: String((document.getElementById('tx-health-hours') || {}).value || '24'),
             limit: 25

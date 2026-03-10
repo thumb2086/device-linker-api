@@ -3,6 +3,7 @@
 var user = { address: '', publicKey: '', sessionId: '', displayName: '', balance: 0, chainBalance: 0, totalBet: 0, vipLevel: '', maxBet: 0 };
 var userToastTimerSeq = 0;
 var BALANCE_OVERRIDE_KEY = 'zixi_balance_override';
+var BALANCE_OVERRIDE_ENABLED = false;
 var balanceRefreshIntervalId = null;
 var balanceAuthoritativeSyncIntervalId = null;
 
@@ -124,6 +125,7 @@ function clearDisplayedBalanceOverride() {
 function setDisplayedBalanceOverride(value, ttlMs, source) {
     var storage = getBalanceStorage();
     var nextBalance = toSafeNumber(value, 0);
+    if (!BALANCE_OVERRIDE_ENABLED) return nextBalance;
     if (!storage) return nextBalance;
 
     try {
@@ -168,6 +170,11 @@ function resolveDisplayedBalanceValue(realBalance) {
         nextBalance = toSafeNumber(calcDisplayBalance(nextBalance), nextBalance);
     }
 
+    if (!BALANCE_OVERRIDE_ENABLED) {
+        clearDisplayedBalanceOverride();
+        return nextBalance;
+    }
+
     var override = getActiveDisplayedBalanceOverride();
     if (!override) return nextBalance;
 
@@ -180,6 +187,15 @@ function resolveDisplayedBalanceValue(realBalance) {
 }
 
 function setDisplayedBalance(value, ttlMs, source) {
+    var normalizedSource = String(source || '').trim().toLowerCase();
+    var allowOverride = BALANCE_OVERRIDE_ENABLED && (normalizedSource === 'authoritative' || normalizedSource === 'chain');
+    if (!allowOverride) {
+        clearDisplayedBalanceOverride();
+        var chainBalance = toSafeNumber(user.chainBalance, 0);
+        user.balance = chainBalance;
+        renderBalanceValue(chainBalance);
+        return chainBalance;
+    }
     var nextBalance = setDisplayedBalanceOverride(value, ttlMs, source);
     user.balance = nextBalance;
     renderBalanceValue(nextBalance);

@@ -228,36 +228,43 @@ function rewardItemSummary(bundle) {
     return labels;
 }
 
-function getRewardItemGuideLines(item) {
+function getRewardItemGuideLines(item, type) {
     if (!item) return [];
-    var guideLines = rewardItemGuideMap[item.id];
-    if (guideLines && guideLines.length) return guideLines.slice();
+    if (type === 'item') {
+        var guideLines = rewardItemGuideMap[item.id];
+        if (guideLines && guideLines.length) return guideLines.slice();
+    }
     var lines = [];
-    if (item.description) lines.push(item.description);
-    if (item.type) lines.push('類型：' + rewardTypeLabel(item));
+    if (item.description || item.shopDescription) lines.push(item.description || item.shopDescription);
+    if (type === 'avatar') lines.push('類型：頭像外觀');
+    if (type === 'title') lines.push('類型：成就稱號');
     return lines;
 }
 
-function renderRewardItemDetailsHtml(item) {
-    var lines = getRewardItemGuideLines(item);
-    if (!lines.length) return '';
-    return '<div class="reward-card-detail-list">' + lines.map(function (line) {
-        return '<div class="reward-card-detail">' + escapeRewardsHtml(line) + '</div>';
-    }).join('') + '</div>';
-}
+function renderItemGuide(catalog) {
+    var listEl = document.getElementById('reward-guide-list');
+    if (!listEl || !catalog) return;
 
-function renderItemGuide(items) {
-    var listEl = document.getElementById('item-guide-list');
-    if (!listEl) return;
-    if (!items || !items.length) {
-        listEl.innerHTML = '<div class="reward-empty">目前沒有可顯示的物品說明</div>';
+    var allEntries = [];
+    (catalog.shopItems || []).forEach(function(it) { allEntries.push({ item: it, type: 'item', label: '道具' }); });
+    (catalog.avatars || []).forEach(function(it) { allEntries.push({ item: it, type: 'avatar', label: '頭像' }); });
+    (catalog.titles || []).forEach(function(it) { allEntries.push({ item: it, type: 'title', label: '稱號' }); });
+
+    if (!allEntries.length) {
+        listEl.innerHTML = '<div class="guide-empty">目前沒有可顯示的說明</div>';
         return;
     }
 
-    listEl.innerHTML = items.map(function (item) {
-        return '<div class="reward-card">' +
-            '<div class="reward-card-head"><strong>' + escapeRewardsHtml(item.name) + '</strong><span class="reward-rarity">' + escapeRewardsHtml(rewardTypeLabel(item)) + '</span></div>' +
-            renderRewardItemDetailsHtml(item) +
+    listEl.innerHTML = allEntries.map(function (entry) {
+        var item = entry.item;
+        var lines = getRewardItemGuideLines(item, entry.type);
+        if (!lines.length) return '';
+
+        return '<div class="guide-card">' +
+            '<div class="guide-card-head"><strong>' + escapeRewardsHtml(item.name) + '</strong><span class="guide-card-type">' + escapeRewardsHtml(entry.label) + '</span></div>' +
+            '<div class="guide-card-detail-list">' +
+                lines.map(function(line) { return '<div class="guide-card-detail">' + escapeRewardsHtml(line) + '</div>'; }).join('') +
+            '</div>' +
             '</div>';
     }).join('');
 }
@@ -571,13 +578,9 @@ function applyRewardsState(data) {
     if (!data || !data.profile) return;
     renderIdentity(data.profile);
     renderCampaigns(data.campaigns || []);
-    renderItemGuide(data.catalog && data.catalog.shopItems ? data.catalog.shopItems : []);
+    renderItemGuide(data.catalog);
     renderShop(data.catalog && data.catalog.shopItems ? data.catalog.shopItems : []);
     renderTitleShop(data.catalog && data.catalog.titles ? data.catalog.titles : []);
-    renderInventory(data.profile.inventory || []);
-    renderAvatars(data.profile.avatars || [], data.profile);
-    renderTitles(data.profile.titles || [], data.profile);
-    renderBuffs(data.profile.activeBuffs || []);
     switchRewardsTab(rewardsTab);
 }
 

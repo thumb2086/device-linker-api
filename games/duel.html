@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>玩家對賭 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/duel.css">
+</head>
+<body class="duel-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">返回首頁</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>⚔️ 玩家對賭</h1>
+        <p class="subtitle">建立或加入對局，勝者全拿 (1.8x - 2.0x 視平台手續費而定，目前 2.0x 無手續費)</p>
+
+        <div class="user-stats">
+            <div class="stat-row">我的地址: <span id="my-address">-</span></div>
+            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span></div>
+        </div>
+
+        <div class="duel-controls">
+            <div class="input-group">
+                <input type="number" id="duel-amount" placeholder="輸入賭注金額" min="100" step="100" value="1000">
+                <button class="btn-primary" onclick="createDuel()">建立新對局</button>
+            </div>
+            <button class="btn-secondary" onclick="refreshDuels()">重新整理清單</button>
+        </div>
+
+        <p id="status-msg">載入中...</p>
+
+        <div class="duel-list-container">
+            <div id="duel-list" class="duel-list">
+                <div class="empty-list">目前沒有可加入的對局</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/duel.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                document.getElementById('my-address').innerText = data.address;
+                startBalanceRefresh();
+                refreshDuels();
+            });
+        };
+    </script>
+</body>
+</html>

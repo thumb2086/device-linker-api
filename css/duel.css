@@ -1,0 +1,76 @@
+.duel-body {
+    padding: 20px;
+}
+
+.duel-controls {
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.input-group input {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.duel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+    text-align: left;
+}
+
+.duel-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: 0.3s;
+}
+
+.duel-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--gold);
+}
+
+.duel-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.creator-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.duel-meta {
+    font-size: 0.85rem;
+    color: #888;
+}
+
+.duel-amount {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--gold);
+}
+
+.empty-list {
+    padding: 40px;
+    text-align: center;
+    color: #666;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+}

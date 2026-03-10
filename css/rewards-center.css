@@ -105,8 +105,75 @@ body.rewards-body {
     display: block;
 }
 
-.reward-guide-section {
-    margin-top: 18px;
+/* --- 統一風格說明 (Guide) --- */
+.guide-section {
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.guide-grid-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.guide-card {
+    padding: 22px 24px;
+    border-radius: 22px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.guide-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.guide-card-head strong {
+    color: var(--gold);
+    font-size: 1.1rem;
+    text-shadow: 0 0 10px var(--gold-glow);
+}
+
+.guide-card-type {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 3px 10px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.guide-card-detail-list {
+    display: grid;
+    gap: 8px;
+}
+
+.guide-card-detail {
+    font-size: 0.9rem;
+    color: #bbb;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    line-height: 1.5;
+}
+
+.guide-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    background: rgba(255, 255, 255, 0.01);
+    border-radius: 20px;
 }
 
 .section-heading {

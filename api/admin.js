@@ -328,10 +328,16 @@ export default async function handler(req, res) {
         }
 
         if (action === "get_tx_health_dashboard") {
-            const dashboard = await buildChainTxDashboard({
-                hours: body.hours,
-                limit: body.limit
-            });
+            const timeoutMs = Math.max(500, Math.min(8000, Number(body.timeoutMs || 4000)));
+            const dashboard = await Promise.race([
+                buildChainTxDashboard({
+                    hours: body.hours,
+                    limit: body.limit,
+                    maxEvents: body.maxEvents,
+                    maxScanMs: body.maxScanMs
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("交易看板載入逾時")), timeoutMs))
+            ]);
             return res.status(200).json({ success: true, dashboard });
         }
 

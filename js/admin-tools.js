@@ -208,17 +208,31 @@ function reportStatusClass(status) {
     }
 }
 
-function callAdminApi(action, extraPayload) {
+function callAdminApi(action, extraPayload, options) {
     var payload = Object.assign({
         action: action,
         sessionId: user.sessionId
     }, extraPayload || {});
 
+    var controller = null;
+    var timeoutId = null;
+    var timeoutMs = options && Number(options.timeoutMs || 0);
+    if (timeoutMs > 0 && typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        timeoutId = window.setTimeout(function () {
+            controller.abort();
+        }, timeoutMs);
+    }
+
     return fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    }).then(function (res) { return res.json(); });
+        body: JSON.stringify(payload),
+        signal: controller ? controller.signal : undefined
+    }).then(function (res) { return res.json(); })
+        .finally(function () {
+            if (timeoutId) window.clearTimeout(timeoutId);
+        });
 }
 
 function callRewardsAdminApi(action, extraPayload) {
@@ -324,8 +338,11 @@ function refreshTxHealthDashboard() {
     withAdminBusy('txHealth', function () {
         return callAdminApi('get_tx_health_dashboard', {
             hours: String((document.getElementById('tx-health-hours') || {}).value || '24'),
-            limit: 25
-        }).then(function (data) {
+            limit: 25,
+            maxScanMs: 1500,
+            maxEvents: 2000,
+            timeoutMs: 3500
+        }, { timeoutMs: 8000 }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '載入交易看板失敗');
             renderTxHealthDashboard(data.dashboard || {});
             txHealthLoaded = true;
@@ -336,8 +353,10 @@ function refreshTxHealthDashboard() {
             }
         });
     }).catch(function (error) {
-        setTxHealthStatus('錯誤: ' + error.message, true);
-        showAdminToast(error.message, true);
+        var isAbort = error && (error.name === 'AbortError' || String(error.message || '').toLowerCase().indexOf('abort') >= 0);
+        var message = isAbort ? '載入逾時，請稍後重試' : (error.message || '載入交易看板失敗');
+        setTxHealthStatus('錯誤: ' + message, true);
+        showAdminToast(message, true);
     });
 }
 

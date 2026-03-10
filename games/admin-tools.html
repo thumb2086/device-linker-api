@@ -458,6 +458,52 @@
             </div>
         </div>
 
+        <div id="tx-queue-section" class="section-block section-block-muted">
+            <div class="section-heading-row">
+                <div>
+                    <h2>鏈上排隊狀態</h2>
+                    <p class="tool-note">顯示目前正在上鏈的交易與等待隊列。預設收合，需要時再展開。</p>
+                </div>
+                <button id="tx-queue-toggle-btn" class="btn-secondary compact-btn" onclick="toggleTxQueueSection()">展開排隊狀態</button>
+            </div>
+
+            <div id="tx-queue-section-body" class="collapsible-body hidden">
+                <div class="toolbar-grid">
+                    <button class="btn-secondary compact-btn" onclick="refreshTxQueueStatus()">重新整理</button>
+                </div>
+                <p id="tx-queue-status-msg">尚未載入排隊狀態</p>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>等待數量</span>
+                        <strong id="tx-queue-pending">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>目前服務票號</span>
+                        <strong id="tx-queue-serving">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>最新票號</span>
+                        <strong id="tx-queue-next">0</strong>
+                    </div>
+                </div>
+
+                <div class="section-block section-block-muted">
+                    <h3>正在上鏈</h3>
+                    <div id="tx-queue-lock" class="announcement-admin-list">
+                        <div class="result-empty">尚未載入上鏈狀態</div>
+                    </div>
+                </div>
+
+                <div class="section-block section-block-muted">
+                    <h3>等待隊列</h3>
+                    <div id="tx-queue-list" class="announcement-admin-list">
+                        <div class="result-empty">尚未載入等待隊列</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="ops-section" class="section-block section-block-ops">
             <div class="section-heading-row">
                 <div>

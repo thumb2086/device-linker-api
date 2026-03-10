@@ -4,7 +4,8 @@
     issue: false,
     announcement: false,
     reward: false,
-    txHealth: false
+    txHealth: false,
+    txQueue: false
 };
 var custodyUsers = [];
 var issueReports = [];
@@ -21,6 +22,8 @@ var rewardExpanded = false;
 var txHealthLoaded = false;
 var txHealthExpanded = false;
 var txHealthSourcesExpanded = false;
+var txQueueLoaded = false;
+var txQueueExpanded = false;
 var issueLoaded = false;
 var issueExpanded = false;
 var opsExpanded = false;
@@ -87,6 +90,13 @@ function setRewardAdminStatus(text, isError) {
 
 function setTxHealthStatus(text, isError) {
     var el = document.getElementById('tx-health-status-msg');
+    if (!el) return;
+    el.innerText = text || '';
+    el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
+}
+
+function setTxQueueStatus(text, isError) {
+    var el = document.getElementById('tx-queue-status-msg');
     if (!el) return;
     el.innerText = text || '';
     el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
@@ -358,6 +368,89 @@ function refreshTxHealthDashboard() {
         setTxHealthStatus('錯誤: ' + message, true);
         showAdminToast(message, true);
     });
+}
+
+function renderTxQueueStatus(snapshot) {
+    var data = snapshot || {};
+    var pendingEl = document.getElementById('tx-queue-pending');
+    var servingEl = document.getElementById('tx-queue-serving');
+    var nextEl = document.getElementById('tx-queue-next');
+    var lockEl = document.getElementById('tx-queue-lock');
+    var listEl = document.getElementById('tx-queue-list');
+
+    if (pendingEl) pendingEl.innerText = String(data.pendingCount || 0);
+    if (servingEl) servingEl.innerText = String(data.serving || 0);
+    if (nextEl) nextEl.innerText = String(data.next || 0);
+
+    if (lockEl) {
+        if (!data.lock) {
+            lockEl.innerHTML = '<div class="result-empty">目前沒有交易正在上鏈</div>';
+        } else {
+            lockEl.innerHTML = '<div class="announcement-admin-card">' +
+                '<div class="announcement-admin-head">' +
+                    '<div>' +
+                        '<strong>' + escapeHtml(data.lock.source || 'unknown') + '</strong>' +
+                        '<div class="issue-report-meta">' +
+                            '<span>acquired ' + escapeHtml(formatTime(data.lock.acquiredAt)) + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<span class="state-chip info">上鏈中</span>' +
+                '</div>' +
+                '</div>';
+        }
+    }
+
+    if (!listEl) return;
+    if (!data.queue || data.queue.length === 0) {
+        listEl.innerHTML = '<div class="result-empty">目前沒有等待中的交易</div>';
+        return;
+    }
+
+    listEl.innerHTML = data.queue.map(function (item) {
+        return '<div class="announcement-admin-card">' +
+            '<div class="announcement-admin-head">' +
+                '<div>' +
+                    '<strong>ticket ' + escapeHtml(String(item.ticket || '-')) + '</strong>' +
+                    '<div class="issue-report-meta">' +
+                        '<span>' + escapeHtml(item.source || 'unknown') + '</span>' +
+                        '<span>' + escapeHtml(formatTime(item.createdAt)) + '</span>' +
+                    '</div>' +
+                '</div>' +
+                '<span class="state-chip warn">排隊中</span>' +
+            '</div>' +
+            '</div>';
+    }).join('');
+}
+
+function refreshTxQueueStatus() {
+    setTxQueueStatus('同步排隊狀態中...', false);
+    withAdminBusy('txQueue', function () {
+        return callAdminApi('get_tx_queue_status', {
+            limit: 50
+        }, { timeoutMs: 8000 }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '載入排隊狀態失敗');
+            renderTxQueueStatus(data.snapshot || {});
+            txQueueLoaded = true;
+            setTxQueueStatus('排隊狀態已更新', false);
+        });
+    }).catch(function (error) {
+        setTxQueueStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
+    });
+}
+
+function toggleTxQueueSection() {
+    var body = document.getElementById('tx-queue-section-body');
+    var btn = document.getElementById('tx-queue-toggle-btn');
+    if (!body || !btn) return;
+
+    txQueueExpanded = !txQueueExpanded;
+    body.classList.toggle('hidden', !txQueueExpanded);
+    btn.innerText = txQueueExpanded ? '收合排隊狀態' : '展開排隊狀態';
+
+    if (txQueueExpanded && !txQueueLoaded) {
+        refreshTxQueueStatus();
+    }
 }
 
 function toggleTxHealthSection() {

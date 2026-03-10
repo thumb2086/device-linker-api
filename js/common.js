@@ -1,6 +1,25 @@
 ﻿/* === 子熙賭場 - 共用 UI 工具 === */
 
-var user = { address: '', publicKey: '', sessionId: '' };
+var user = { address: '', publicKey: '', sessionId: '', displayName: '' };
+
+function getNumberDisplayMode() {
+    try {
+        var stored = String(localStorage.getItem('zixi_number_mode') || '').trim().toLowerCase();
+        return stored === 'full' ? 'full' : 'compact';
+    } catch (error) {
+        return 'compact';
+    }
+}
+
+function setNumberDisplayMode(mode) {
+    var normalized = String(mode || '').trim().toLowerCase() === 'full' ? 'full' : 'compact';
+    try {
+        localStorage.setItem('zixi_number_mode', normalized);
+    } catch (error) {
+        console.log('Failed to persist number mode');
+    }
+    return normalized;
+}
 
 function toSafeNumber(value, fallback) {
     var parsed = Number(String(value === undefined || value === null ? '' : value).replace(/,/g, '').trim());
@@ -8,21 +27,16 @@ function toSafeNumber(value, fallback) {
     return parsed;
 }
 
-function formatDisplayNumber(value, digits) {
-    var num = toSafeNumber(value, 0);
-    var fractionDigits = digits === undefined ? 2 : digits;
-
+function formatFullNumberValue(num, fractionDigits) {
     return num.toLocaleString(undefined, {
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits
     });
 }
 
-function formatCompactZh(value, digits) {
-    var num = toSafeNumber(value, 0);
+function formatCompactNumberValue(num, fractionDigits) {
     var sign = num < 0 ? '-' : '';
     var abs = Math.abs(num);
-    var fractionDigits = digits === undefined ? 2 : digits;
 
     if (abs >= 1000000000000) {
         return sign + (abs / 1000000000000).toFixed(fractionDigits).replace(/\.?0+$/, '') + ' 兆';
@@ -38,6 +52,22 @@ function formatCompactZh(value, digits) {
         minimumFractionDigits: 0,
         maximumFractionDigits: fractionDigits
     });
+}
+
+function formatDisplayNumber(value, digits) {
+    var num = toSafeNumber(value, 0);
+    var fractionDigits = digits === undefined ? 2 : digits;
+    return getNumberDisplayMode() === 'full'
+        ? formatFullNumberValue(num, fractionDigits)
+        : formatCompactNumberValue(num, fractionDigits);
+}
+
+function formatCompactZh(value, digits) {
+    var num = toSafeNumber(value, 0);
+    var fractionDigits = digits === undefined ? 2 : digits;
+    return getNumberDisplayMode() === 'full'
+        ? formatFullNumberValue(num, fractionDigits)
+        : formatCompactNumberValue(num, fractionDigits);
 }
 
 function renderMaxBetNote(maxBet) {
@@ -96,10 +126,130 @@ function ensureSupportShortcut() {
     document.body.appendChild(link);
 }
 
+function ensureSettingsModal() {
+    var existing = document.getElementById('user-settings-modal');
+    if (existing) return existing;
+
+    var modal = document.createElement('div');
+    modal.id = 'user-settings-modal';
+    modal.className = 'settings-modal hidden';
+    modal.innerHTML = [
+        '<div class="settings-backdrop" onclick="closeUserSettings()"></div>',
+        '<div class="settings-dialog">',
+        '<div class="settings-head">',
+        '<div>',
+        '<div class="settings-kicker">Settings</div>',
+        '<h2>個人設定</h2>',
+        '</div>',
+        '<button class="settings-close" type="button" onclick="closeUserSettings()">關閉</button>',
+        '</div>',
+        '<div class="settings-grid">',
+        '<label class="settings-field">',
+        '<span>顯示名稱</span>',
+        '<input id="settings-display-name" class="settings-input" type="text" maxlength="24" placeholder="輸入顯示名稱">',
+        '</label>',
+        '<label class="settings-field">',
+        '<span>數字顯示</span>',
+        '<select id="settings-number-mode" class="settings-input">',
+        '<option value="compact">簡寫</option>',
+        '<option value="full">完整數字</option>',
+        '</select>',
+        '</label>',
+        '</div>',
+        '<p class="settings-note">簡寫會顯示成萬 / 億 / 兆，完整數字則會顯示完整位數。</p>',
+        '<div class="settings-actions">',
+        '<button class="back-btn" type="button" onclick="closeUserSettings()">取消</button>',
+        '<button class="btn-primary settings-save-btn" type="button" onclick="saveUserSettings()">儲存設定</button>',
+        '</div>',
+        '</div>'
+    ].join('');
+    document.body.appendChild(modal);
+    return modal;
+}
+
+function ensureSettingsButton() {
+    if (!user.sessionId) return;
+    var statsEl = document.querySelector('.header-stats');
+    if (!statsEl || document.getElementById('header-settings-btn')) return;
+
+    ensureSettingsModal();
+
+    var button = document.createElement('button');
+    button.id = 'header-settings-btn';
+    button.className = 'settings-btn';
+    button.type = 'button';
+    button.innerText = '設定';
+    button.onclick = openUserSettings;
+
+    var logoutBtn = statsEl.querySelector('.logout-btn');
+    if (logoutBtn) statsEl.insertBefore(button, logoutBtn);
+    else statsEl.appendChild(button);
+}
+
+function openUserSettings() {
+    if (!user.sessionId) return;
+    var modal = ensureSettingsModal();
+    var nameInput = document.getElementById('settings-display-name');
+    var numberModeInput = document.getElementById('settings-number-mode');
+    if (nameInput) nameInput.value = user.displayName || '';
+    if (numberModeInput) numberModeInput.value = getNumberDisplayMode();
+    modal.classList.remove('hidden');
+}
+
+function closeUserSettings() {
+    var modal = document.getElementById('user-settings-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function saveUserSettings() {
+    if (!user.sessionId) return;
+
+    var nameInput = document.getElementById('settings-display-name');
+    var modeInput = document.getElementById('settings-number-mode');
+    var nextDisplayName = String(nameInput && nameInput.value || '').trim();
+    var nextMode = modeInput ? modeInput.value : getNumberDisplayMode();
+    var currentDisplayName = String(user.displayName || '').trim();
+    var previousMode = getNumberDisplayMode();
+
+    var savePromise = Promise.resolve();
+    if (nextDisplayName !== currentDisplayName) {
+        savePromise = fetch('/api/user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'set_profile',
+                sessionId: user.sessionId,
+                displayName: nextDisplayName
+            })
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (!data || !data.success) throw new Error((data && data.error) || '更新顯示名稱失敗');
+                user.displayName = data.displayName || '';
+                updateUI({ displayName: user.displayName });
+            });
+    }
+
+    savePromise
+        .then(function () {
+            var normalizedMode = setNumberDisplayMode(nextMode);
+            closeUserSettings();
+            if (previousMode !== normalizedMode) {
+                window.location.reload();
+                return;
+            }
+            alert('設定已更新');
+        })
+        .catch(function (error) {
+            alert('更新失敗: ' + error.message);
+        });
+}
+
 function updateUI(data) {
     if (!data) return;
 
     if (data.displayName !== undefined) {
+        user.displayName = data.displayName || '';
         var nameEl = document.getElementById('display-name-val');
         if (nameEl) nameEl.innerText = data.displayName || '未設定';
     }
@@ -148,6 +298,7 @@ function updateUI(data) {
     }
 
     ensureSupportShortcut();
+    ensureSettingsButton();
 }
 
 function promptDisplayName() {

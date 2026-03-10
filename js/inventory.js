@@ -78,9 +78,22 @@ function renderIdentity(profile) {
     var avatarEl = document.getElementById('identity-avatar');
     var titleEl = document.getElementById('identity-title');
     var avatarNameEl = document.getElementById('identity-avatar-name');
+    var descEl = document.getElementById('identity-desc');
+
     if (avatarEl) avatarEl.innerText = profile && profile.avatar ? profile.avatar.icon : '🪙';
     if (titleEl) titleEl.innerText = profile && profile.title ? profile.title.name : 'VIP 自動稱號';
     if (avatarNameEl) avatarNameEl.innerText = profile && profile.avatar ? profile.avatar.name : '經典籌碼';
+
+    if (descEl) {
+        var desc = '';
+        if (profile && profile.title && profile.title.description) {
+            desc = profile.title.description;
+        } else if (profile && profile.avatar && profile.avatar.description) {
+            desc = profile.avatar.description;
+        }
+        descEl.innerText = desc || '';
+        descEl.style.display = desc ? 'block' : 'none';
+    }
 }
 
 function inventoryCatalogMap(kind) {
@@ -112,12 +125,20 @@ var inventoryItemGuideMap = {
 
 function getInventoryItemGuideLines(item, type) {
     if (!item) return [];
+    var lines = [];
     if (type === 'item') {
         var guideLines = inventoryItemGuideMap[item.id];
-        if (guideLines && guideLines.length) return guideLines.slice();
+        if (guideLines && guideLines.length) {
+            lines = guideLines.slice();
+        }
     }
-    var lines = [];
-    if (item.description || item.shopDescription) lines.push(item.description || item.shopDescription);
+
+    if (!lines.length) {
+        if (item.description || item.shopDescription) {
+            lines.push(item.description || item.shopDescription);
+        }
+    }
+
     if (type === 'avatar') lines.push('類型：頭像外觀');
     if (type === 'title') lines.push('類型：成就稱號');
     return lines;
@@ -168,6 +189,7 @@ function renderInventoryGroup(listId, items, emptyText) {
         }
         return '<div class="inventory-card">' +
             '<div class="inventory-card-head"><strong>' + escapeInventoryHtml(item.name) + '</strong><span class="inventory-rarity">' + escapeInventoryHtml(rarityLabel(item.rarity)) + '</span></div>' +
+            '<div class="inventory-card-meta desc">' + escapeInventoryHtml(item.description || '此道具暫無功能說明。') + '</div>' +
             '<div class="inventory-card-meta">持有數量：' + formatDisplayNumber(item.qty, 0) + '</div>' +
             '<div class="inventory-card-actions">' + actionBtn + '</div>' +
             '</div>';
@@ -202,7 +224,7 @@ function renderAvatars(items, profile) {
         var isSelected = profile && profile.selectedAvatarId === item.id;
         return '<div class="inventory-card">' +
             '<div class="inventory-card-head"><div class="inventory-card-title"><span class="inventory-icon">' + escapeInventoryHtml(item.icon) + '</span><strong>' + escapeInventoryHtml(item.name) + '</strong></div><span class="inventory-rarity">' + escapeInventoryHtml(rarityLabel(item.rarity)) + '</span></div>' +
-            '<div class="inventory-card-meta desc">' + escapeInventoryHtml(item.description || '更換你的個人頭像顯示。') + '</div>' +
+            '<div class="inventory-card-meta desc">' + escapeInventoryHtml(item.description || '個人外觀裝飾，可於聊天與榜單顯示。') + '</div>' +
             '<div class="inventory-card-meta">來源：' + escapeInventoryHtml(item.source || 'unknown') + '</div>' +
             '<div class="inventory-card-actions">' +
                 '<button class="' + (isSelected ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipInventoryAvatar(\'' + escapeInventoryHtml(item.id) + '\')">' + (isSelected ? '使用中' : '裝備') + '</button>' +

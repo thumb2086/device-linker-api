@@ -156,9 +156,22 @@ function renderIdentity(profile) {
     var avatarEl = document.getElementById('identity-avatar');
     var titleEl = document.getElementById('identity-title');
     var avatarNameEl = document.getElementById('identity-avatar-name');
+    var descEl = document.getElementById('identity-desc');
+
     if (avatarEl) avatarEl.innerText = profile && profile.avatar ? profile.avatar.icon : '🪙';
     if (titleEl) titleEl.innerText = profile && profile.title ? profile.title.name : 'VIP 自動稱號';
     if (avatarNameEl) avatarNameEl.innerText = profile && profile.avatar ? profile.avatar.name : '經典籌碼';
+
+    if (descEl) {
+        var desc = '';
+        if (profile && profile.title && profile.title.description) {
+            desc = profile.title.description;
+        } else if (profile && profile.avatar && profile.avatar.description) {
+            desc = profile.avatar.description;
+        }
+        descEl.innerText = desc || '';
+        descEl.style.display = desc ? 'block' : 'none';
+    }
 }
 
 function parseRewardDateMs(value, fallback) {
@@ -315,6 +328,7 @@ function renderShop(items) {
                 '</div>' +
                 '<span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span>' +
             '</div>' +
+            '<div class="reward-card-meta desc">' + escapeRewardsHtml(item.description || '此道具暫無功能說明。') + '</div>' +
             '<div class="reward-card-meta">售價：' + formatCompactZh(item.price, 2) + ' 子熙幣</div>' +
             '<div class="reward-card-actions">' +
                 '<button class="btn-primary compact-btn" onclick="buyRewardItem(\'' + escapeRewardsHtml(item.id) + '\')">購買</button>' +
@@ -395,6 +409,7 @@ function renderTitleShop(items) {
                 '</div>' +
                 '<span class="reward-rarity">' + escapeRewardsHtml(item.saleActive ? '限時折扣' : (item.showOnLeaderboard ? '榜單可顯示' : '個人收藏')) + '</span>' +
             '</div>' +
+            '<div class="reward-card-meta desc">' + escapeRewardsHtml(item.shopDescription || item.description || '成就與榮譽的象徵。') + '</div>' +
             saleMeta +
             saleWindow +
             '<div class="reward-card-actions">' +
@@ -426,6 +441,7 @@ function renderInventoryGroup(listId, items, emptyText) {
         }
         return '<div class="reward-card">' +
             '<div class="reward-card-head"><strong>' + escapeRewardsHtml(item.name) + '</strong><span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span></div>' +
+            '<div class="reward-card-meta desc">' + escapeRewardsHtml(item.description || '此道具暫無功能說明。') + '</div>' +
             '<div class="reward-card-meta">持有數量：' + formatDisplayNumber(item.qty, 0) + '</div>' +
             '<div class="reward-card-actions">' + actionBtn + '</div>' +
             '</div>';
@@ -460,6 +476,7 @@ function renderAvatars(items, profile) {
         var isSelected = profile && profile.selectedAvatarId === item.id;
         return '<div class="reward-card">' +
             '<div class="reward-card-head"><div class="reward-card-title"><span class="reward-icon">' + escapeRewardsHtml(item.icon) + '</span><strong>' + escapeRewardsHtml(item.name) + '</strong></div><span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span></div>' +
+            '<div class="reward-card-meta desc">' + escapeRewardsHtml(item.description || '個人外觀裝飾，可於聊天與榜單顯示。') + '</div>' +
             '<div class="reward-card-meta">來源：' + escapeRewardsHtml(item.source || 'unknown') + '</div>' +
             '<div class="reward-card-actions">' +
                 '<button class="' + (isSelected ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipRewardAvatar(\'' + escapeRewardsHtml(item.id) + '\')">' + (isSelected ? '使用中' : '裝備') + '</button>' +
@@ -474,6 +491,7 @@ function renderTitles(items, profile) {
     var titleCards = [];
     titleCards.push('<div class="reward-card">' +
         '<div class="reward-card-head"><strong>VIP 自動稱號</strong><span class="reward-rarity">預設</span></div>' +
+        '<div class="reward-card-meta desc">系統根據您當前的 VIP 等級自動分配的榮譽稱號。</div>' +
         '<div class="reward-card-meta">卸下目前稱號後，會回到依 VIP 等級自動顯示的稱號。</div>' +
         '<div class="reward-card-actions">' +
             '<button class="' + (!profile || !profile.selectedTitleId ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipRewardTitle(\'\')">' + (!profile || !profile.selectedTitleId ? '目前使用中' : '卸下稱號') + '</button>' +
@@ -486,6 +504,7 @@ function renderTitles(items, profile) {
         var expireText = item.expiresAt ? ('到期：' + item.expiresAt) : '永久稱號';
         return '<div class="reward-card">' +
             '<div class="reward-card-head"><strong>' + escapeRewardsHtml(item.name) + '</strong><span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span></div>' +
+            '<div class="reward-card-meta desc">' + escapeRewardsHtml(item.description || '成就與榮譽的象徵。') + '</div>' +
             '<div class="reward-card-meta">來源：' + escapeRewardsHtml(item.source || 'unknown') + ' / ' + escapeRewardsHtml(expireText) + '</div>' +
             '<div class="reward-card-actions">' +
                 '<button class="' + (isSelected ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipRewardTitle(\'' + escapeRewardsHtml(item.id) + '\')">' + (isSelected ? '使用中' : '裝備') + '</button>' +

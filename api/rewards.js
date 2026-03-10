@@ -84,6 +84,12 @@ async function requireSession(sessionId) {
 async function getUserContext(sessionId) {
     const session = await requireSession(sessionId);
     const address = normalizeAddress(session.address, "session address");
+
+    const blacklisted = await kv.get(`blacklist:${address.toLowerCase()}`);
+    if (blacklisted) {
+        throw new Error(`帳號已被禁止進入：${blacklisted.reason || "未註明原因"}`);
+    }
+
     const totalBet = Number(await kv.get(`total_bet:${address}`) || 0);
     const vipStatus = buildVipStatus(totalBet);
     return { session, address, totalBet, vipStatus };

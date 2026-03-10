@@ -307,12 +307,14 @@ function refreshWalletSummary(silent) {
 function exportFunds() {
     var to = String(document.getElementById('export-to').value || '').trim();
     var amount = String(document.getElementById('export-amount').value || '').trim();
+    var amountNum = toSafeNumber(amount, 0);
     setWalletStatus('匯出資金中...', false);
     setWalletTx('');
 
     withWalletBusy(function () {
         return callWallet('export', { to: to, amount: amount }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '匯出失敗');
+            setDisplayedBalance(getCurrentUserBalance() - amountNum, 45000, 'wallet_export');
             notifyWallet('匯出成功：-' + formatDisplayNumber(amount, 2) + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
             return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
@@ -324,12 +326,14 @@ function exportFunds() {
 
 function withdrawToTreasury() {
     var amount = String(document.getElementById('withdraw-amount').value || '').trim();
+    var amountNum = toSafeNumber(amount, 0);
     setWalletStatus('匯回金庫中...', false);
     setWalletTx('');
 
     withWalletBusy(function () {
         return callWallet('withdraw', { amount: amount }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '匯回失敗');
+            setDisplayedBalance(getCurrentUserBalance() - amountNum, 45000, 'wallet_withdraw');
             notifyWallet('匯回成功：-' + formatDisplayNumber(amount, 2) + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
             return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
@@ -357,6 +361,7 @@ function claimAirdrop() {
             .then(function (res) { return res.json(); })
             .then(function (data) {
                 if (!data || !data.success) throw new Error((data && data.error) || '空投領取失敗');
+                setDisplayedBalance(getCurrentUserBalance() + toSafeNumber(data.reward, 0), 45000, 'wallet_airdrop');
                 notifyWallet('空投成功：+' + fmtToken(data.reward) + ' 子熙幣', false);
                 setWalletTx(data.txHash || '');
                 return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);

@@ -271,16 +271,19 @@ function renderCampaigns(items) {
     }
 
     listEl.innerHTML = items.map(function (item) {
+        var limitReached = !!item.claimLimitReached;
+        var claimedText = '已領 ' + String(item.claimCount || 0) + ' / ' + String(item.claimLimitPerUser || 1) + ' 次';
         return '<div class="reward-card">' +
             '<div class="reward-card-head">' +
                 '<strong>' + escapeRewardsHtml(item.title) + '</strong>' +
-                '<span class="reward-rarity">活動</span>' +
+                '<span class="reward-rarity' + (limitReached ? ' reward-rarity-muted' : '') + '">' + escapeRewardsHtml(limitReached ? '已達上限' : '活動') + '</span>' +
             '</div>' +
             '<div class="reward-card-copy">' + escapeRewardsHtml(item.description || '限時登入領取') + '</div>' +
             '<div class="reward-card-meta">時間：' + escapeRewardsHtml(formatRewardDateTime(item.startAt) || '即刻開始') + ' ~ ' + escapeRewardsHtml(formatRewardDateTime(item.endAt) || '不限結束') + '</div>' +
+            '<div class="reward-card-meta">' + escapeRewardsHtml(claimedText) + '</div>' +
             '<div class="reward-card-meta">獎勵：' + escapeRewardsHtml(rewardItemSummary(item.rewards).join(' / ') || '未設定') + '</div>' +
             '<div class="reward-card-actions">' +
-                '<button class="btn-primary compact-btn" onclick="claimRewardCampaign(\'' + escapeRewardsHtml(item.id) + '\')">立即領取</button>' +
+                '<button class="' + (limitReached ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="' + (limitReached ? 'return false' : ('claimRewardCampaign(\'' + escapeRewardsHtml(item.id) + '\')')) + '"' + (limitReached ? ' disabled' : '') + '>' + (limitReached ? '已達上限' : '立即領取') + '</button>' +
             '</div>' +
             '</div>';
     }).join('');

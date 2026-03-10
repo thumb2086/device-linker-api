@@ -140,7 +140,7 @@ async function getContractContext() {
 async function buildSummaryPayload(address, totalBet) {
     const [profile, campaigns, catalog] = await Promise.all([
         buildRewardSummary(address, totalBet),
-        listRewardCampaigns({ activeOnly: true }),
+        listRewardCampaigns({ activeOnly: true, address }),
         getRewardCatalog()
     ]);
     return {

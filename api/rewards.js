@@ -172,6 +172,18 @@ export default async function handler(req, res) {
         const sessionId = normalizeSessionId(body.sessionId);
 
         if (action === "summary" || action === "catalog") {
+            if (sessionId === "public") {
+                const catalog = await getRewardCatalog();
+                const campaigns = await listRewardCampaigns({ activeOnly: true });
+                return res.status(200).json({
+                    success: true,
+                    catalog: {
+                        ...catalog,
+                        vipLevels: getVipTierOptions()
+                    },
+                    campaigns: campaigns.campaigns
+                });
+            }
             const context = await getUserContext(sessionId);
             const summary = await buildSummaryPayload(context.address, context.totalBet);
             return res.status(200).json({

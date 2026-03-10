@@ -388,8 +388,8 @@ export default async function handler(req, res) {
                             treasuryAddress,
                             custodyUser.address,
                             bonusWei,
-                            { gasLimit: 200000 }
-                        ));
+                            { gasLimit: 200000, txSource: "user_register_bonus" }
+                        ), undefined, "user_register_bonus");
                         bonusGranted = true;
                         bonusTxHash = bonusTx.hash;
                     }

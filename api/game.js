@@ -7,7 +7,9 @@ import dragonHandler from "../lib/game-handlers/dragon.js";
 import sicboHandler from "../lib/game-handlers/sicbo.js";
 import bingoHandler from "../lib/game-handlers/bingo.js";
 import crashHandler from "../lib/game-handlers/crash.js";
-import poolDuelHandler from "../lib/game-handlers/pool-duel.js";
+import duelHandler from "../lib/game-handlers/duel.js";
+import { kv } from "@vercel/kv";
+import { getSession } from "../lib/session-store.js";
 
 const GAME_HANDLERS = {
     coinflip: coinflipHandler,
@@ -19,13 +21,24 @@ const GAME_HANDLERS = {
     sicbo: sicboHandler,
     bingo: bingoHandler,
     crash: crashHandler,
-    poolduel: poolDuelHandler
+    duel: duelHandler
 };
 
 function resolveGame(req) {
     const byQuery = req.query && typeof req.query.game === "string" ? req.query.game : "";
     const byBody = req.body && typeof req.body.game === "string" ? req.body.game : "";
     return String(byQuery || byBody || "").trim().toLowerCase();
+}
+
+async function checkBlacklist(address) {
+    if (!address) return null;
+    try {
+        const blacklisted = await kv.get(`blacklist:${String(address).toLowerCase()}`);
+        return blacklisted || null;
+    } catch (e) {
+        console.error("Blacklist check failed:", e);
+        return null;
+    }
 }
 
 export default async function handler(req, res) {
@@ -38,6 +51,26 @@ export default async function handler(req, res) {
             error: "不支援的 game",
             supportedGames: Object.keys(GAME_HANDLERS)
         });
+    }
+
+    // 全域黑名單檢查：防止已登入但被封鎖的使用者繼續操作
+    const { sessionId } = req.body || req.query || {};
+    if (sessionId) {
+        try {
+            const session = await getSession(sessionId);
+            if (session && session.address) {
+                const blacklisted = await checkBlacklist(session.address);
+                if (blacklisted) {
+                    return res.status(403).json({
+                        success: false,
+                        status: "blacklisted",
+                        error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}`
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("Session/Blacklist check error in game API:", e);
+        }
     }
 
     return gameHandler(req, res);

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的背包 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/inventory.css">
+</head>
+
+<body class="inventory-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">返回首頁</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card inventory-shell" id="main-card">
+        <h1>我的背包</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <div class="inventory-hero">
+            <div class="inventory-identity-card">
+                <div class="identity-avatar" id="identity-avatar">🪙</div>
+                <div class="identity-info-box">
+                    <div class="identity-label">目前裝備</div>
+                    <h2 id="identity-title">VIP 自動稱號</h2>
+                    <div id="identity-title-desc" class="identity-desc-area"></div>
+                    <p id="identity-avatar-name">經典籌碼</p>
+                    <div id="identity-avatar-desc" class="identity-desc-area" style="border-left-color: #9fd0ff; background: rgba(159, 208, 255, 0.08); color: #9fd0ff; margin-top: 4px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <p id="inventory-status" class="inventory-status">同步中...</p>
+
+        <div class="inventory-nav">
+            <button class="inventory-nav-btn active" data-tab="item" onclick="switchInventoryTab('item')">道具</button>
+            <button class="inventory-nav-btn" data-tab="avatar" onclick="switchInventoryTab('avatar')">頭像</button>
+            <button class="inventory-nav-btn" data-tab="title" onclick="switchInventoryTab('title')">稱號</button>
+            <button class="inventory-nav-btn" data-tab="buff" onclick="switchInventoryTab('buff')">生效中 Buff</button>
+        </div>
+
+        <section class="inventory-section inventory-panel active" data-panel="item">
+            <div class="section-heading">
+                <h2>背包道具</h2>
+                <button class="btn-secondary compact-btn" onclick="refreshInventory()">重新整理</button>
+            </div>
+            <div class="inventory-split-grid">
+                <div>
+                    <h3 class="inventory-subheading">寶箱 / 補給箱</h3>
+                    <div id="inventory-box-list" class="inventory-card-list">
+                        <div class="inventory-empty">尚未持有可開啟箱子</div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="inventory-subheading">Buff 道具</h3>
+                    <div id="inventory-buff-list" class="inventory-card-list">
+                        <div class="inventory-empty">尚未持有 Buff 道具</div>
+                    </div>
+                </div>
+                <div class="full-span">
+                    <h3 class="inventory-subheading">其他道具</h3>
+                    <div id="inventory-other-list" class="inventory-card-list">
+                        <div class="inventory-empty">目前沒有其他道具</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="inventory-section inventory-panel" data-panel="avatar">
+            <div class="section-heading">
+                <h2>頭像收藏</h2>
+            </div>
+            <div id="avatar-list" class="inventory-card-list compact-grid">
+                <div class="inventory-empty">尚未擁有其他頭像</div>
+            </div>
+        </section>
+
+        <section class="inventory-section inventory-panel" data-panel="title">
+            <div class="section-heading">
+                <h2>稱號收藏</h2>
+            </div>
+            <div id="title-list" class="inventory-card-list">
+                <div class="inventory-empty">尚未持有可裝備稱號</div>
+            </div>
+        </section>
+
+        <section class="inventory-section inventory-panel" data-panel="buff">
+            <div class="section-heading">
+                <h2>生效中 Buff</h2>
+            </div>
+            <div id="buff-list" class="inventory-card-list">
+                <div class="inventory-empty">目前沒有啟用中的 Buff</div>
+            </div>
+        </section>
+
+        <section class="inventory-section guide-section" id="inventory-guide">
+            <div class="guide-promo-card">
+                <div class="guide-promo-content">
+                    <h3>💡 想要更了解道具效果？</h3>
+                    <p>查看完整的道具效果說明、稱號取得途徑以及頭像外觀指南。</p>
+                </div>
+                <a href="reward-guide.html" class="btn-secondary">查看說明指南</a>
+            </div>
+        </section>
+    </div>
+
+    <div id="reward-result-modal" class="reward-result-modal hidden">
+        <div class="reward-result-dialog">
+            <div class="reward-result-badge">已獲得</div>
+            <h2 id="reward-result-title">獎勵到手</h2>
+            <div id="reward-result-list" class="reward-result-list"></div>
+            <button class="btn-primary" onclick="closeRewardResultModal()">我知道了</button>
+        </div>
+    </div>
+
+    <div id="inventory-toast-stack" class="inventory-toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/inventory.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initInventoryPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

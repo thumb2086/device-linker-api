@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>稱號與道具商店 | 子熙模擬器</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/rewards-center.css">
+    <link rel="stylesheet" href="../css/shop.css">
+</head>
+
+<body class="rewards-body shop-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">返回首頁</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card rewards-shell" id="main-card">
+        <div class="shop-header">
+            <div class="shop-title-area">
+                <p class="section-kicker">Premium Shop</p>
+                <h1>子熙商店</h1>
+                <p class="shop-desc">在這裡購買各式道具與稱號，提升你的遊戲體驗與社交地位。</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-secondary compact-btn" onclick="refreshShop()">重新整理</button>
+                <a href="inventory.html" class="btn-primary compact-btn">查看我的背包</a>
+            </div>
+        </div>
+
+        <div class="user-stats-compact">
+            <div class="stat-box">
+                <span class="stat-label">當前餘額</span>
+                <span class="stat-value" id="balance-val">0.00</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">VIP 等級</span>
+                <span class="stat-value" id="vip-badge">普通會員</span>
+            </div>
+        </div>
+
+        <p id="rewards-status" class="rewards-status">同步中...</p>
+
+        <div class="rewards-nav shop-nav">
+            <button class="rewards-nav-btn active" data-tab="shop" onclick="switchShopTab('shop')">道具商店</button>
+            <button class="rewards-nav-btn" data-tab="title-shop" onclick="switchShopTab('title-shop')">稱號商店</button>
+        </div>
+
+        <!-- 道具商店面板 -->
+        <section class="rewards-section rewards-panel active" data-panel="shop">
+            <div class="section-heading">
+                <h2>推薦道具</h2>
+            </div>
+            <div id="shop-list" class="reward-card-list reward-grid-list">
+                <div class="reward-empty">載入中...</div>
+            </div>
+        </section>
+
+        <!-- 稱號商店面板 -->
+        <section class="rewards-section rewards-panel" data-panel="title-shop">
+            <div class="section-heading">
+                <h2>稱號收藏</h2>
+            </div>
+            <div id="title-shop-filter" class="reward-filter-row">
+                <button class="reward-filter-chip active">全部</button>
+            </div>
+            <div id="title-shop-list" class="reward-card-list reward-grid-list">
+                <div class="reward-empty">目前沒有上架稱號</div>
+            </div>
+        </section>
+
+        <!-- 說明指南 -->
+        <section class="rewards-section guide-section">
+            <div class="guide-promo-card">
+                <div class="guide-promo-content">
+                    <h3>💡 想要更了解道具效果？</h3>
+                    <p>查看完整的道具效果說明、稱號取得途徑以及頭像外觀指南。</p>
+                </div>
+                <a href="reward-guide.html" class="btn-secondary">查看說明指南</a>
+            </div>
+        </section>
+    </div>
+
+    <!-- 購買成功彈窗 -->
+    <div id="reward-result-modal" class="reward-result-modal hidden">
+        <div class="reward-result-dialog">
+            <div class="reward-result-badge">購買成功</div>
+            <h2 id="reward-result-title">商品已入庫</h2>
+            <div id="reward-result-list" class="reward-result-list"></div>
+            <div class="modal-footer-actions">
+                <a href="inventory.html" class="btn-secondary">前往背包使用</a>
+                <button class="btn-primary" onclick="closeRewardResultModal()">繼續購物</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rewards-toast-stack" class="rewards-toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/shop.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initShopPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

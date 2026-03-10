@@ -4,10 +4,11 @@ import { ethers } from "ethers";
 import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { getRoundInfo } from "../lib/auto-round.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
-import { withChainTxLock } from "../lib/tx-lock.js";
+import { withQueuedChainTxLock } from "../lib/tx-lock.js";
 import { buildVipStatus } from "../lib/vip.js";
 import { getSession, saveSession } from "../lib/session-store.js";
 import { ensureDisplayName, getDisplayName, setDisplayName } from "../lib/user-profile.js";
+import { buildRewardSummary } from "../lib/reward-center.js";
 import {
     createIssueReport,
     listAnnouncements,
@@ -157,7 +158,7 @@ function buildPendingPayload(sessionData = {}) {
     };
 }
 
-function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "") {
+function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "", rewardProfile = null) {
     const isAdmin = String(sessionData.address || "").toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
     return {
         success: true,
@@ -176,8 +177,20 @@ function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName
         totalBet: toDecimalString(totalBet),
         vipLevel: vipStatus.vipLevel,
         maxBet: toDecimalString(vipStatus.maxBet),
-        isAdmin
+        isAdmin,
+        rewardProfile
     };
+}
+
+async function checkBlacklist(address) {
+    if (!address) return null;
+    try {
+        const blacklisted = await kv.get(`blacklist:${String(address).toLowerCase()}`);
+        return blacklisted || null;
+    } catch (e) {
+        console.error("Blacklist check failed:", e);
+        return null;
+    }
 }
 
 async function loadUserMetrics(address) {
@@ -199,11 +212,14 @@ async function loadUserMetrics(address) {
     ]);
 
     const totalBet = Number(totalBetRaw || 0);
+    const rewardProfile = await buildRewardSummary(address, totalBet);
+
     return {
         balance: ethers.formatUnits(balanceRaw, decimals),
         totalBet,
         vipStatus: buildVipStatus(totalBet),
-        displayName
+        displayName,
+        rewardProfile
     };
 }
 
@@ -251,15 +267,24 @@ export default async function handler(req, res) {
             if (!sessionData) return res.status(200).json({ status: "pending" });
             if (sessionData.status === "pending") return res.status(200).json(buildPendingPayload(sessionData));
 
+            const blacklisted = await checkBlacklist(sessionData.address);
+            if (blacklisted) {
+                return res.status(200).json({
+                    success: false,
+                    status: "blacklisted",
+                    error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}`
+                });
+            }
+
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName)
+                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile)
                 );
             } catch (error) {
                 console.error("User metrics read failed:", error.message);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "")
+                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "", null)
                 );
             }
         }
@@ -275,15 +300,24 @@ export default async function handler(req, res) {
             if (!sessionData) return res.status(200).json({ status: "pending" });
             if (sessionData.status === "pending") return res.status(200).json(buildPendingPayload(sessionData));
 
+            const blacklisted = await checkBlacklist(sessionData.address);
+            if (blacklisted) {
+                return res.status(200).json({
+                    success: false,
+                    status: "blacklisted",
+                    error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}`
+                });
+            }
+
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName)
+                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile)
                 );
             } catch (error) {
                 console.error("User metrics read failed:", error.message);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "")
+                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "", null)
                 );
             }
         }
@@ -345,6 +379,9 @@ export default async function handler(req, res) {
             let bonusError = "";
 
             if (!custodyUser) {
+                const blacklisted = await checkBlacklist(buildCustodyAddress(`${username}:${password}`)); // Not perfectly safe but custody addrs are deterministic if we had the seed, however here the seed is generated.
+                // For custody users, we should probably check by username as well or by the final address if known.
+                // Let's check by address later after it's built if it's a new account, or by the stored address.
                 if (passwordHasOuterWhitespace) {
                     return res.status(400).json({
                         success: false,
@@ -383,7 +420,7 @@ export default async function handler(req, res) {
 
                         const decimals = await contract.decimals();
                         const bonusWei = ethers.parseUnits(CUSTODY_REGISTER_BONUS, decimals);
-                        const bonusTx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
+                        const bonusTx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
                             contract,
                             treasuryAddress,
                             custodyUser.address,
@@ -397,6 +434,10 @@ export default async function handler(req, res) {
                     bonusError = error.message || "Register bonus failed";
                 }
             } else {
+                const blacklisted = await checkBlacklist(custodyUser.address);
+                if (blacklisted) {
+                    return res.status(403).json({ success: false, error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}` });
+                }
                 if (!custodyUser.saltHex || !custodyUser.passwordHash) {
                     return res.status(500).json({ success: false, error: "Custody user record is invalid" });
                 }
@@ -575,6 +616,10 @@ export default async function handler(req, res) {
         if (action === "authorize") {
             const publicKey = safePublicKey(body.publicKey);
             const address = body.address;
+            const blacklisted = await checkBlacklist(address);
+            if (blacklisted) {
+                return res.status(403).json({ success: false, error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}` });
+            }
             if (!sessionId || !address || !publicKey) {
                 return res.status(400).json({ success: false, error: "Missing required fields" });
             }

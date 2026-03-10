@@ -298,6 +298,7 @@ function startRouletteDraw(roundId) {
                 if (totalPayout > 0) {
                     status.innerText = '中獎，派彩 ' + formatDisplayNumber(totalPayout, 2) + ' 子熙幣';
                     status.style.color = '#00ff88';
+                    if (window.audioManager) window.audioManager.play('win_small');
                 } else {
                     status.innerText = '未中獎';
                     status.style.color = '#ff4444';
@@ -387,6 +388,7 @@ function spinRoulette() {
     isRouletteSubmitting = true;
     spinBtn.disabled = true;
     status.innerHTML = '<span class="loader"></span> 下注交易中...';
+    if (window.audioManager) window.audioManager.play('bet');
     status.style.color = '#ffcc00';
 
     var currentBalance = getCurrentUserBalance();

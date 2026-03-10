@@ -184,6 +184,7 @@ function startCoinflipDraw(roundId) {
             if (totalWon > 0) {
                 status.innerText = '中獎，派彩 ' + formatDisplayNumber(totalWon, 2) + ' 子熙幣';
                 status.style.color = '#00ff88';
+                if (window.audioManager) window.audioManager.play('win_small');
             } else {
                 status.innerText = '未中獎';
                 status.style.color = '#ff4444';
@@ -248,6 +249,7 @@ function play(choice) {
     isCoinflipSubmitting = true;
     btn1.disabled = true;
     btn2.disabled = true;
+    if (window.audioManager) window.audioManager.play('bet');
     status.innerHTML = '<span class="loader"></span> 下注交易中...';
     status.style.color = '#ffcc00';
 

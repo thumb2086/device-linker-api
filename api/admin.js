@@ -178,6 +178,62 @@ export default async function handler(req, res) {
             });
         }
 
+        if (action === "add_to_blacklist") {
+            const targetAddress = normalizeAddress(body.address);
+            if (!targetAddress) {
+                return res.status(400).json({ success: false, error: "Invalid address" });
+            }
+            const reason = normalizeText(body.reason, 200) || "No reason provided";
+            await kv.set(`blacklist:${targetAddress}`, {
+                address: targetAddress,
+                reason,
+                operator: sessionAddress,
+                createdAt: new Date().toISOString()
+            });
+            return res.status(200).json({ success: true, message: `Address ${targetAddress} added to blacklist` });
+        }
+
+        if (action === "remove_from_blacklist") {
+            const targetAddress = normalizeAddress(body.address);
+            if (!targetAddress) {
+                return res.status(400).json({ success: false, error: "Invalid address" });
+            }
+            await kv.del(`blacklist:${targetAddress}`);
+            return res.status(200).json({ success: true, message: `Address ${targetAddress} removed from blacklist` });
+        }
+
+        if (action === "list_blacklist") {
+            const blacklist = [];
+            for await (const key of kv.scanIterator({ match: "blacklist:*", count: 1000 })) {
+                const record = await kv.get(key);
+                if (record) blacklist.push(record);
+            }
+            blacklist.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            return res.status(200).json({ success: true, blacklist });
+        }
+
+        if (action === "set_user_win_bias") {
+            const targetAddress = normalizeAddress(body.address);
+            if (!targetAddress) return res.status(400).json({ success: false, error: "Invalid address" });
+            if (body.bias === null || body.bias === undefined || body.bias === "") {
+                await kv.del(`user_win_bias:${targetAddress}`);
+                return res.status(200).json({ success: true, address: targetAddress, bias: null });
+            }
+            const bias = Number(body.bias);
+            if (isNaN(bias) || bias < 0 || bias > 1) {
+                return res.status(400).json({ success: false, error: "Bias must be between 0 and 1" });
+            }
+            await kv.set(`user_win_bias:${targetAddress}`, bias);
+            return res.status(200).json({ success: true, address: targetAddress, bias });
+        }
+
+        if (action === "get_user_win_bias") {
+            const targetAddress = normalizeAddress(body.address);
+            if (!targetAddress) return res.status(400).json({ success: false, error: "Invalid address" });
+            const bias = await kv.get(`user_win_bias:${targetAddress}`);
+            return res.status(200).json({ success: true, address: targetAddress, bias: bias ?? null });
+        }
+
         if (action === "inspect_custody_user") {
             const username = normalizeUsername(body.username);
             if (!CUSTODY_USERNAME_REGEX.test(username)) {
@@ -363,7 +419,12 @@ export default async function handler(req, res) {
                     "publish_announcement",
                     "update_announcement",
                     "get_tx_health_dashboard",
-                    "get_tx_queue_status"
+                "get_tx_queue_status",
+                "add_to_blacklist",
+                "remove_from_blacklist",
+                "list_blacklist",
+                "set_user_win_bias",
+                "get_user_win_bias"
                 ]
             });
         }

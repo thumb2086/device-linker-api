@@ -64,6 +64,16 @@
                 <strong>託管帳號</strong>
                 <p>需要時再展開查看，避免管理頁一開始過度擁擠。</p>
             </a>
+            <a href="#blacklist-section" class="admin-overview-card">
+                <span>安全防護</span>
+                <strong>黑名單管理</strong>
+                <p>禁止特定地址進入系統，並可註明原因。</p>
+            </a>
+            <a href="#win-bias-section" class="admin-overview-card">
+                <span>數值平衡</span>
+                <strong>勝率干預</strong>
+                <p>調整特定帳號的老虎機中獎機率（0 ~ 1）。</p>
+            </a>
         </div>
 
         <div id="announcements-section" class="section-block announcement-section section-block-primary">
@@ -119,6 +129,82 @@
             </div>
         </div>
 
+        <div id="win-bias-section" class="section-block win-bias-section section-block-muted">
+            <div class="section-heading-row">
+                <div>
+                    <h2>勝率干預管理</h2>
+                    <p class="tool-note">調整特定帳號的中獎機率。1.0 為 100% 中獎，0.0 為 0% 中獎（強制不中）。</p>
+                </div>
+                <button id="win-bias-toggle-btn" class="btn-secondary compact-btn" onclick="toggleWinBiasSection()">展開勝率干預</button>
+            </div>
+
+            <div id="win-bias-section-body" class="collapsible-body hidden">
+                <div class="announcement-editor-card">
+                    <div class="announcement-form-grid">
+                        <label>
+                            玩家地址
+                            <input id="win-bias-address" class="text-input" type="text" placeholder="0x...">
+                        </label>
+                        <label>
+                            中獎率 (Bias)
+                            <input id="win-bias-value" class="text-input" type="number" min="0" max="1" step="0.01" value="0.08" placeholder="預設 0.08">
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="queryWinBias()">查詢目前設定</button>
+                        <button class="btn-secondary" onclick="saveWinBias()">儲存勝率設定</button>
+                        <button class="btn-secondary" onclick="resetWinBias()">恢復預設 (不干預)</button>
+                    </div>
+                    <p id="win-bias-status-msg" style="margin-top: 10px; color: var(--gold);"></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="blacklist-section" class="section-block blacklist-section section-block-muted">
+            <div class="section-heading-row">
+                <div>
+                    <h2>黑名單管理</h2>
+                    <p class="tool-note">禁止特定地址進入系統。預設收合，需要時再展開。</p>
+                </div>
+                <button id="blacklist-toggle-btn" class="btn-secondary compact-btn" onclick="toggleBlacklistSection()">展開黑名單管理</button>
+            </div>
+
+            <div id="blacklist-section-body" class="collapsible-body hidden">
+                <div class="announcement-editor-card">
+                    <h3>加入黑名單</h3>
+                    <div class="announcement-form-grid">
+                        <label>
+                            玩家地址
+                            <input id="blacklist-address" class="text-input" type="text" placeholder="0x...">
+                        </label>
+                        <label class="full-span">
+                            原因
+                            <input id="blacklist-reason" class="text-input" type="text" placeholder="例如：惡意洗幣、違反規則">
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="addToBlacklist()">加入黑名單</button>
+                    </div>
+                </div>
+
+                <div class="custody-toolbar">
+                    <button class="btn-secondary compact-btn" onclick="refreshBlacklist()">重新整理清單</button>
+                </div>
+                <p id="blacklist-status-msg">尚未載入黑名單</p>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>黑名單總數</span>
+                        <strong id="blacklist-total-count">0</strong>
+                    </div>
+                </div>
+
+                <div id="blacklist-list" class="custody-user-list">
+                    <div class="result-empty">尚未載入黑名單</div>
+                </div>
+            </div>
+        </div>
+
         <div id="rewards-section" class="section-block reward-admin-section">
             <div class="section-heading-row">
                 <div>
@@ -145,9 +231,13 @@
                 </div>
 
                 <div class="toolbar-grid reward-admin-grid">
-                    <div class="announcement-editor-card">
-                        <h3>新增自訂稱號</h3>
+                    <div class="announcement-editor-card full-span">
+                        <h3>稱號管理 (新增/修改)</h3>
                         <div class="announcement-form-grid">
+                            <label class="full-span">
+                                選擇現有稱號進行編輯，或留空以建立新稱號
+                                <select id="reward-title-selector" class="text-input" onchange="onAdminTitleSelected(this.value)"></select>
+                            </label>
                             <label>
                                 稱號名稱
                                 <input id="reward-title-name" class="text-input" type="text" maxlength="80" placeholder="例如：遠征先鋒">
@@ -197,57 +287,17 @@
                                 <input id="reward-title-sale-end-at" class="text-input" type="datetime-local">
                             </label>
                             <label class="full-span">
-                                商店說明
-                                <textarea id="reward-title-shop-description" class="text-input announcement-textarea" placeholder="例如：可直接在稱號商店購買的永久稱號"></textarea>
+                                稱號說明 (通用)
+                                <textarea id="reward-title-description" class="text-input announcement-textarea" placeholder="顯示於身分卡、排行榜工具提示的詳細說明"></textarea>
+                            </label>
+                            <label class="full-span">
+                                商店說明 (若與通用說明不同)
+                                <textarea id="reward-title-shop-description" class="text-input announcement-textarea" placeholder="留空則使用通用說明"></textarea>
                             </label>
                         </div>
                         <div class="form-row single-row">
-                            <button class="btn-primary" onclick="publishRewardTitle()">新增稱號</button>
-                        </div>
-                    </div>
-
-                    <div class="announcement-editor-card">
-                        <h3>既有稱號快速上架</h3>
-                        <div class="announcement-form-grid">
-                            <label class="full-span">
-                                選擇既有稱號
-                                <select id="reward-existing-title-id" class="text-input" onchange="loadExistingRewardTitleForSale(this.value)"></select>
-                            </label>
-                            <label>
-                                稱號售價
-                                <input id="reward-existing-title-price" class="text-input" type="number" min="0" step="1" value="0">
-                            </label>
-                            <label>
-                                商店分類
-                                <select id="reward-existing-title-category" class="text-input"></select>
-                            </label>
-                            <label>
-                                商店排序
-                                <input id="reward-existing-title-priority" class="text-input" type="number" min="0" step="1" value="0">
-                            </label>
-                            <label class="toggle-field">
-                                <input id="reward-existing-title-shop-enabled" type="checkbox">
-                                <span>上架到稱號商店</span>
-                            </label>
-                            <label>
-                                限時折扣價
-                                <input id="reward-existing-title-sale-price" class="text-input" type="number" min="0" step="1" value="0">
-                            </label>
-                            <label>
-                                折扣開始時間
-                                <input id="reward-existing-title-sale-start-at" class="text-input" type="datetime-local">
-                            </label>
-                            <label>
-                                折扣結束時間
-                                <input id="reward-existing-title-sale-end-at" class="text-input" type="datetime-local">
-                            </label>
-                            <label class="full-span">
-                                商店說明
-                                <textarea id="reward-existing-title-shop-description" class="text-input announcement-textarea" placeholder="例如：限定上架的永久稱號"></textarea>
-                            </label>
-                        </div>
-                        <div class="form-row single-row">
-                            <button class="btn-primary" onclick="saveExistingRewardTitleSale()">儲存既有稱號上架設定</button>
+                            <button class="btn-primary" onclick="publishRewardTitle()">儲存稱號設定</button>
+                            <button class="btn-secondary" onclick="clearAdminTitleForm()">清空表單 (建立新稱號)</button>
                         </div>
                     </div>
 
@@ -292,12 +342,58 @@
                         </div>
                     </div>
 
-                    <div class="announcement-editor-card">
-                        <h3>建立限時領取活動</h3>
+                    <div class="announcement-editor-card full-span">
+                        <h3>頭像管理 (新增/修改)</h3>
                         <div class="announcement-form-grid">
+                            <label class="full-span">
+                                選擇現有頭像進行編輯，或留空以建立新頭像
+                                <select id="reward-avatar-selector" class="text-input" onchange="onAdminAvatarSelected(this.value)"></select>
+                            </label>
+                            <label>
+                                頭像名稱
+                                <input id="reward-avatar-name" class="text-input" type="text" maxlength="80" placeholder="例如：閃耀之星">
+                            </label>
+                            <label>
+                                頭像 ID
+                                <input id="reward-avatar-id" class="text-input" type="text" maxlength="64" placeholder="留空自動產生">
+                            </label>
+                            <label>
+                                圖示 (Emoji)
+                                <input id="reward-avatar-icon" class="text-input" type="text" maxlength="16" placeholder="例如：⭐">
+                            </label>
+                            <label>
+                                稀有度
+                                <select id="reward-avatar-rarity" class="text-input"></select>
+                            </label>
+                            <label>
+                                來源
+                                <select id="reward-avatar-source" class="text-input"></select>
+                            </label>
+                            <label class="full-span">
+                                頭像說明
+                                <textarea id="reward-avatar-description" class="text-input announcement-textarea" placeholder="顯示於身分卡、排行榜工具提示的詳細說明"></textarea>
+                            </label>
+                        </div>
+                        <div class="form-row single-row">
+                            <button class="btn-primary" onclick="publishRewardAvatar()">儲存頭像設定</button>
+                            <button class="btn-secondary" onclick="clearAdminAvatarForm()">清空表單 (建立新頭像)</button>
+                        </div>
+                    </div>
+
+                    <div class="announcement-editor-card">
+                        <h3>限時領取活動管理 (新增/修改)</h3>
+                        <div class="announcement-form-grid">
+                            <label class="full-span">
+                                選擇現有活動進行編輯，或留空以建立新活動
+                                <select id="reward-campaign-selector" class="text-input" onchange="onAdminCampaignSelected(this.value)"></select>
+                            </label>
                             <label>
                                 活動標題
                                 <input id="campaign-title" class="text-input" type="text" maxlength="120" placeholder="例如：開服七日登入禮">
+                            </label>
+                            <label>
+                                活動 ID (僅限更新，留空建立新活動)
+                                <input id="campaign-id-hidden" class="text-input" type="text" readonly placeholder="由系統產生">
                             </label>
                             <label>
                                 每人可領次數
@@ -349,26 +445,15 @@
                             </label>
                         </div>
                         <div class="form-row single-row">
-                            <button class="btn-primary" onclick="publishRewardCampaign()">建立活動</button>
+                            <button class="btn-primary" onclick="publishRewardCampaign()">儲存活動設定</button>
+                            <button class="btn-secondary" onclick="clearAdminCampaignForm()">清空表單 (建立新活動)</button>
                         </div>
                     </div>
                 </div>
 
                 <p id="reward-admin-status-msg">尚未載入稱號活動資料</p>
 
-                <div class="section-block section-block-muted">
-                    <h3>稱號定價管理</h3>
-                    <div id="reward-title-pricing-list" class="announcement-admin-list">
-                        <div class="result-empty">尚未載入稱號定價</div>
-                    </div>
-                </div>
 
-                <div class="section-block section-block-muted">
-                    <h3>活動列表</h3>
-                    <div id="reward-campaign-list" class="announcement-admin-list">
-                        <div class="result-empty">尚未載入活動</div>
-                    </div>
-                </div>
 
                 <div class="section-block section-block-muted">
                     <h3>近期發放紀錄</h3>

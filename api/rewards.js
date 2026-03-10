@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { buildVipStatus, getVipTierOptions } from "../lib/vip.js";
-import { withChainTxLock } from "../lib/tx-lock.js";
+import { withQueuedChainTxLock } from "../lib/tx-lock.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { sendManagedContractTx } from "../lib/admin-chain.js";
 import {
@@ -25,7 +25,8 @@ import {
     purchaseShopItem,
     saveRewardCampaign,
     activateInventoryItem,
-    upsertRewardTitle
+    upsertRewardTitle,
+    upsertRewardAvatar
 } from "../lib/reward-center.js";
 
 const CONTRACT_ABI = [
@@ -84,6 +85,12 @@ async function requireSession(sessionId) {
 async function getUserContext(sessionId) {
     const session = await requireSession(sessionId);
     const address = normalizeAddress(session.address, "session address");
+
+    const blacklisted = await kv.get(`blacklist:${address.toLowerCase()}`);
+    if (blacklisted) {
+        throw new Error(`帳號已被禁止進入：${blacklisted.reason || "未註明原因"}`);
+    }
+
     const totalBet = Number(await kv.get(`total_bet:${address}`) || 0);
     const vipStatus = buildVipStatus(totalBet);
     return { session, address, totalBet, vipStatus };
@@ -140,7 +147,7 @@ async function getContractContext() {
 async function buildSummaryPayload(address, totalBet) {
     const [profile, campaigns, catalog] = await Promise.all([
         buildRewardSummary(address, totalBet),
-        listRewardCampaigns({ activeOnly: true, address }),
+        listRewardCampaigns({ activeOnly: true, address, hideClaimed: true }),
         getRewardCatalog()
     ]);
     return {
@@ -166,6 +173,18 @@ export default async function handler(req, res) {
         const sessionId = normalizeSessionId(body.sessionId);
 
         if (action === "summary" || action === "catalog") {
+            if (sessionId === "public") {
+                const catalog = await getRewardCatalog();
+                const campaigns = await listRewardCampaigns({ activeOnly: true });
+                return res.status(200).json({
+                    success: true,
+                    catalog: {
+                        ...catalog,
+                        vipLevels: getVipTierOptions()
+                    },
+                    campaigns: campaigns.campaigns
+                });
+            }
             const context = await getUserContext(sessionId);
             const summary = await buildSummaryPayload(context.address, context.totalBet);
             return res.status(200).json({
@@ -191,7 +210,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ success: false, error: "餘額不足，無法購買此商品" });
             }
 
-            const tx = await withChainTxLock(async () => {
+            const tx = await withQueuedChainTxLock(async () => {
                 const sent = await sendManagedContractTx(contract, "adminTransfer", [context.address, treasuryAddress, priceWei], { gasLimit: 220000, txSource: "rewards_shop_item" });
                 await purchaseShopItem(context.address, item.id);
                 return sent;
@@ -226,7 +245,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({ success: false, error: "餘額不足，無法購買此稱號" });
             }
 
-            const tx = await withChainTxLock(async () => {
+            const tx = await withQueuedChainTxLock(async () => {
                 const profile = await getRewardProfile(context.address);
                 if ((profile.ownedTitles || []).some((entry) => String(entry && entry.id || "") === title.id)) {
                     throw new Error("已持有此稱號");
@@ -280,7 +299,7 @@ export default async function handler(req, res) {
             let txHash = "";
             if (Number(result.rewards && result.rewards.tokens || 0) > 0) {
                 const tokenWei = ethers.parseUnits(String(result.rewards.tokens), decimals);
-                const tx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
+                const tx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
                     contract,
                     treasuryAddress,
                     context.address,
@@ -322,7 +341,7 @@ export default async function handler(req, res) {
             let txHash = "";
             if (Number(result.tokens || 0) > 0) {
                 const tokenWei = ethers.parseUnits(String(result.tokens), decimals);
-                const tx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
+                const tx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
                     contract,
                     treasuryAddress,
                     context.address,
@@ -346,11 +365,12 @@ export default async function handler(req, res) {
                 name: trimText(body.titleName, 80),
                 rarity: trimText(body.titleRarity, 24) || "epic",
                 source: trimText(body.titleSource, 32) || "admin",
+                description: trimText(body.description || body.shopDescription, 240),
                 adminGrantable: body.adminGrantable !== false,
                 showOnLeaderboard: toBoolean(body.showOnLeaderboard),
                 shopEnabled: toBoolean(body.shopEnabled),
                 shopPrice: Number(body.shopPrice || 0),
-                shopDescription: trimText(body.shopDescription, 240),
+                shopDescription: trimText(body.shopDescription || body.description, 240),
                 shopCategory: trimText(body.shopCategory, 32),
                 shopPriority: Number(body.shopPriority || 0),
                 salePrice: Number(body.salePrice || 0),
@@ -358,6 +378,19 @@ export default async function handler(req, res) {
                 saleEndAt: trimText(body.saleEndAt, 64)
             });
             return res.status(200).json({ success: true, title });
+        }
+
+        if (action === "admin_upsert_avatar") {
+            await requireAdmin(sessionId);
+            const avatar = await upsertRewardAvatar({
+                id: trimText(body.avatarCatalogId || body.avatarId, 64),
+                name: trimText(body.avatarName, 80),
+                rarity: trimText(body.avatarRarity, 24) || "common",
+                icon: trimText(body.avatarIcon, 16) || "👤",
+                source: trimText(body.avatarSource, 32) || "admin",
+                description: trimText(body.avatarDescription || body.description, 240)
+            });
+            return res.status(200).json({ success: true, avatar });
         }
 
         if (action === "admin_list_campaigns") {
@@ -419,7 +452,7 @@ export default async function handler(req, res) {
             if (Number(bundle.tokens || 0) > 0) {
                 const { contract, decimals, treasuryAddress } = await getContractContext();
                 const amountWei = ethers.parseUnits(String(bundle.tokens), decimals);
-                const tx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
+                const tx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
                     contract,
                     treasuryAddress,
                     targetAddress,

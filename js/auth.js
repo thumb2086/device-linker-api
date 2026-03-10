@@ -211,6 +211,12 @@ function startAuthPolling(sessionId, onAuthorized) {
                 return res.json();
             })
             .then(function(data) {
+                if (data && data.status === 'blacklisted') {
+                    clearInterval(authPollInterval);
+                    authPollInterval = null;
+                    updateAuthMessage('❌ ' + (data.error || '帳號已被禁止進入'));
+                    return;
+                }
                 if (!data || data.status !== 'authorized') return;
 
                 clearInterval(authPollInterval);

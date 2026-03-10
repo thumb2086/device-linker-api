@@ -1,0 +1,82 @@
+.shop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 24px;
+    gap: 20px;
+}
+
+.shop-title-area h1 {
+    margin: 4px 0;
+}
+
+.shop-desc {
+    color: #96a8bb;
+    max-width: 500px;
+    margin: 0;
+}
+
+.user-stats-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.stat-box {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 12px 18px;
+}
+
+.stat-box .stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: #96a8bb;
+    margin-bottom: 4px;
+}
+
+.stat-box .stat-value {
+    font-weight: 800;
+    color: #ffd36a;
+    font-size: 1.1rem;
+}
+
+.modal-footer-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.reward-card-meta.desc {
+    color: #afc2d6;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px 14px;
+    border-left: 3px solid #ffd36a;
+    border-radius: 4px 12px 12px 4px;
+    margin: 10px 0;
+    position: relative;
+    text-align: left;
+}
+
+.reward-card-meta.desc::before {
+    content: "說明";
+    display: block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: #ffd36a;
+    margin-bottom: 4px;
+    font-weight: 800;
+    opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+    .shop-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

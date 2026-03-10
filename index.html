@@ -76,6 +76,19 @@
                 <span class="stat-value" id="total-bet-val">0.00</span>
             </div>
         </div>
+
+        <div class="lobby-identity-section">
+            <div class="lobby-identity-card">
+                <div class="identity-avatar" id="identity-avatar">🪙</div>
+                <div class="identity-info-box">
+                    <div class="identity-label">目前裝備</div>
+                    <h2 id="identity-title">VIP 自動稱號</h2>
+                    <div id="identity-title-desc" class="identity-desc-area"></div>
+                    <p id="identity-avatar-name">經典籌碼</p>
+                    <div id="identity-avatar-desc" class="identity-desc-area" style="border-left-color: #9fd0ff; background: rgba(159, 208, 255, 0.08); color: #9fd0ff; margin-top: 4px;"></div>
+                </div>
+            </div>
+        </div>
         <section id="lobby-campaigns-panel" class="lobby-campaigns-panel hidden">
             <div class="lobby-campaigns-head">
                 <div>
@@ -115,7 +128,7 @@
             <a href="games/casino.html" class="game-card">
                 <div class="game-icon">🎲</div>
                 <div class="game-name">子熙賭場</div>
-                <div class="game-desc">猜硬幣、老虎機、輪盤、二十一點、賽馬、射龍門、撞球對戰</div>
+                <div class="game-desc">猜硬幣、老虎機、輪盤、二十一點、賽馬、射龍門</div>
                 <div class="game-tag ready">開放中</div>
             </a>
 
@@ -135,8 +148,22 @@
 
             <a href="games/rewards-center.html" class="game-card">
                 <div class="game-icon">🎁</div>
-                <div class="game-name">獎勵中心</div>
-                <div class="game-desc">活動、商店、背包、頭像、稱號與 Buff 集中管理</div>
+                <div class="game-name">活動中心</div>
+                <div class="game-desc">限時活動與領取獎勵</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="games/shop.html" class="game-card">
+                <div class="game-icon">🛒</div>
+                <div class="game-name">子熙商店</div>
+                <div class="game-desc">購買道具、開運寶箱與成就稱號</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="games/inventory.html" class="game-card">
+                <div class="game-icon">🎒</div>
+                <div class="game-name">我的背包</div>
+                <div class="game-desc">管理我的道具、頭像、稱號與生效中的 Buff</div>
                 <div class="game-tag ready">開放中</div>
             </a>
 
@@ -156,6 +183,15 @@
                     <p class="guide-kicker">會員規則</p>
                     <h2>VIP 指南</h2>
                     <p>完整查看升級節點、單注上限與 VIP 運作方式，不用再回首頁翻長表。</p>
+                </div>
+                <span class="guide-link">前往查看 →</span>
+            </a>
+
+            <a href="games/reward-guide.html" class="guide-card">
+                <div>
+                    <p class="guide-kicker">資產說明</p>
+                    <h2>道具與稱號指南</h2>
+                    <p>完整查看所有 Buff 效果、寶箱掉落、稱號來源與頭像清單。</p>
                 </div>
                 <span class="guide-link">前往查看 →</span>
             </a>
@@ -242,22 +278,21 @@
             }).join('');
         }
 
-        function loadLobbyCampaignCards() {
+        function loadLobbyRewards() {
             if (!user.sessionId) return;
             fetch('/api/rewards', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'list_campaigns',
-                    sessionId: user.sessionId,
-                    activeOnly: true,
-                    hideClaimed: true
+                    action: 'summary',
+                    sessionId: user.sessionId
                 })
             })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
-                    if (!data || !data.success) throw new Error((data && data.error) || '活動載入失敗');
+                    if (!data || !data.success) throw new Error((data && data.error) || '獎勵資料載入失敗');
                     renderLobbyCampaignCards(data.campaigns || []);
+                    if (data.profile) renderIdentity(data.profile);
                 })
                 .catch(function () {
                     renderLobbyCampaignCards([]);
@@ -272,7 +307,7 @@
                 document.getElementById('lobby-ui').classList.remove('hidden');
                 updateUI(data);
                 startBalanceRefresh();
-                loadLobbyCampaignCards();
+                loadLobbyRewards();
                 hidePageTransition();
 
                 // 只有管理員才顯示維運工具

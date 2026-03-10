@@ -306,8 +306,15 @@ function refreshWalletSummary(silent) {
 
 function exportFunds() {
     var to = String(document.getElementById('export-to').value || '').trim();
-    var amount = String(document.getElementById('export-amount').value || '').trim();
-    var amountNum = toSafeNumber(amount, 0);
+    var amountText = String(document.getElementById('export-amount').value || '').trim();
+    var amountNum = toSafeNumber(amountText, 0);
+
+    if (!to) return notifyWallet('請輸入接收地址', true);
+    if (amountNum <= 0) return notifyWallet('請輸入有效金額', true);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     setWalletStatus('匯出資金中...', false);
     setWalletTx('');
 
@@ -325,8 +332,14 @@ function exportFunds() {
 }
 
 function withdrawToTreasury() {
-    var amount = String(document.getElementById('withdraw-amount').value || '').trim();
-    var amountNum = toSafeNumber(amount, 0);
+    var amountText = String(document.getElementById('withdraw-amount').value || '').trim();
+    var amountNum = toSafeNumber(amountText, 0);
+
+    if (amountNum <= 0) return notifyWallet('請輸入有效金額', true);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     setWalletStatus('匯回金庫中...', false);
     setWalletTx('');
 
@@ -345,6 +358,9 @@ function withdrawToTreasury() {
 
 function claimAirdrop() {
     if (!user.sessionId) return;
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
 
     setWalletStatus('領取空投中...', false);
     setWalletTx('');

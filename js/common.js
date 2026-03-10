@@ -153,6 +153,28 @@ function getActiveDisplayedBalanceOverride() {
     return override;
 }
 
+function renderIdentity(profile) {
+    var avatarEl = document.getElementById('identity-avatar');
+    var titleEl = document.getElementById('identity-title');
+    var avatarNameEl = document.getElementById('identity-avatar-name');
+    var descEl = document.getElementById('identity-desc');
+
+    if (avatarEl) avatarEl.innerText = profile && profile.avatar ? profile.avatar.icon : '🪙';
+    if (titleEl) titleEl.innerText = profile && profile.title ? profile.title.name : 'VIP 自動稱號';
+    if (avatarNameEl) avatarNameEl.innerText = profile && profile.avatar ? profile.avatar.name : '經典籌碼';
+
+    if (descEl) {
+        var desc = '';
+        if (profile && profile.title && profile.title.description) {
+            desc = profile.title.description;
+        } else if (profile && profile.avatar && profile.avatar.description) {
+            desc = profile.avatar.description;
+        }
+        descEl.innerText = desc || '';
+        descEl.style.display = desc ? 'block' : 'none';
+    }
+}
+
 function renderBalanceValue(value) {
     var nextBalance = toSafeNumber(value, 0);
     var balanceText = formatDisplayNumber(nextBalance, 2);
@@ -572,6 +594,10 @@ function updateUI(data) {
     if (data.maxBet !== undefined) {
         user.maxBet = toSafeNumber(data.maxBet, 0);
         renderMaxBetNote(data.maxBet);
+    }
+
+    if (data.rewardProfile) {
+        renderIdentity(data.rewardProfile);
     }
 
     ensureSupportShortcut();

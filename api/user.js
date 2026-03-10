@@ -8,6 +8,7 @@ import { withChainTxLock } from "../lib/tx-lock.js";
 import { buildVipStatus } from "../lib/vip.js";
 import { getSession, saveSession } from "../lib/session-store.js";
 import { ensureDisplayName, getDisplayName, setDisplayName } from "../lib/user-profile.js";
+import { buildRewardSummary } from "../lib/reward-center.js";
 import {
     createIssueReport,
     listAnnouncements,
@@ -157,7 +158,7 @@ function buildPendingPayload(sessionData = {}) {
     };
 }
 
-function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "") {
+function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "", rewardProfile = null) {
     const isAdmin = String(sessionData.address || "").toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
     return {
         success: true,
@@ -176,7 +177,8 @@ function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName
         totalBet: toDecimalString(totalBet),
         vipLevel: vipStatus.vipLevel,
         maxBet: toDecimalString(vipStatus.maxBet),
-        isAdmin
+        isAdmin,
+        rewardProfile
     };
 }
 
@@ -210,11 +212,14 @@ async function loadUserMetrics(address) {
     ]);
 
     const totalBet = Number(totalBetRaw || 0);
+    const rewardProfile = await buildRewardSummary(address, totalBet);
+
     return {
         balance: ethers.formatUnits(balanceRaw, decimals),
         totalBet,
         vipStatus: buildVipStatus(totalBet),
-        displayName
+        displayName,
+        rewardProfile
     };
 }
 
@@ -274,12 +279,12 @@ export default async function handler(req, res) {
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName)
+                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile)
                 );
             } catch (error) {
                 console.error("User metrics read failed:", error.message);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "")
+                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "", null)
                 );
             }
         }
@@ -307,12 +312,12 @@ export default async function handler(req, res) {
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName)
+                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile)
                 );
             } catch (error) {
                 console.error("User metrics read failed:", error.message);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "")
+                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "", null)
                 );
             }
         }

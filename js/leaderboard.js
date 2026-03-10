@@ -63,10 +63,13 @@ function renderLeaderboardRows(items) {
         var isMine = item.address === currentAddress;
         var displayName = item.displayName || item.maskedAddress;
         var avatar = item.avatar && item.avatar.icon ? '<span class="leaderboard-avatar">' + escapeHtml(item.avatar.icon) + '</span>' : '';
-        var title = item.title && item.title.name ? '<span class="leaderboard-title-chip">' + escapeHtml(item.title.name) + '</span>' : '';
+        var titleAttr = item.title && item.title.description ? (' title="' + escapeHtml(item.title.description) + '"') : '';
+        var avatarAttr = item.avatar && item.avatar.description ? (' title="' + escapeHtml(item.avatar.description) + '"') : '';
+        var title = item.title && item.title.name ? '<span class="leaderboard-title-chip"' + titleAttr + '>' + escapeHtml(item.title.name) + '</span>' : '';
+        var avatarSpan = item.avatar && item.avatar.icon ? '<span class="leaderboard-avatar"' + avatarAttr + '>' + escapeHtml(item.avatar.icon) + '</span>' : '';
         html += '<div class="leaderboard-row' + (isMine ? ' is-me' : '') + '">' +
             '<span class="rank-col">' + fmtRank(item.rank) + '</span>' +
-            '<span class="addr-col" title="' + escapeHtml(item.address) + '">' + avatar + title + '<span class="leaderboard-name">' + escapeHtml(displayName) + (isMine ? ' (你)' : '') + '</span></span>' +
+            '<span class="addr-col" title="' + escapeHtml(item.address) + '">' + avatarSpan + title + '<span class="leaderboard-name">' + escapeHtml(displayName) + (isMine ? ' (你)' : '') + '</span></span>' +
             '<span class="bet-col">' + formatCompactZh(item.totalBet, 2) + ' 子熙幣</span>' +
             '<span class="vip-col">' + escapeHtml(item.vipLevel) + '</span>' +
             '</div>';

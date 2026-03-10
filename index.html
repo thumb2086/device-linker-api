@@ -76,6 +76,18 @@
                 <span class="stat-value" id="total-bet-val">0.00</span>
             </div>
         </div>
+
+        <div class="lobby-identity-section">
+            <div class="lobby-identity-card">
+                <div class="identity-avatar" id="identity-avatar">🪙</div>
+                <div class="identity-info-box">
+                    <div class="identity-label">目前裝備</div>
+                    <h2 id="identity-title">VIP 自動稱號</h2>
+                    <p id="identity-avatar-name">經典籌碼</p>
+                    <div id="identity-desc" class="identity-desc-area"></div>
+                </div>
+            </div>
+        </div>
         <section id="lobby-campaigns-panel" class="lobby-campaigns-panel hidden">
             <div class="lobby-campaigns-head">
                 <div>
@@ -265,22 +277,21 @@
             }).join('');
         }
 
-        function loadLobbyCampaignCards() {
+        function loadLobbyRewards() {
             if (!user.sessionId) return;
             fetch('/api/rewards', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'list_campaigns',
-                    sessionId: user.sessionId,
-                    activeOnly: true,
-                    hideClaimed: true
+                    action: 'summary',
+                    sessionId: user.sessionId
                 })
             })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
-                    if (!data || !data.success) throw new Error((data && data.error) || '活動載入失敗');
+                    if (!data || !data.success) throw new Error((data && data.error) || '獎勵資料載入失敗');
                     renderLobbyCampaignCards(data.campaigns || []);
+                    if (data.profile) renderIdentity(data.profile);
                 })
                 .catch(function () {
                     renderLobbyCampaignCards([]);
@@ -295,7 +306,7 @@
                 document.getElementById('lobby-ui').classList.remove('hidden');
                 updateUI(data);
                 startBalanceRefresh();
-                loadLobbyCampaignCards();
+                loadLobbyRewards();
                 hidePageTransition();
 
                 // 只有管理員才顯示維運工具

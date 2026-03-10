@@ -152,28 +152,6 @@ function escapeRewardsHtml(text) {
         .replace(/'/g, '&#39;');
 }
 
-function renderIdentity(profile) {
-    var avatarEl = document.getElementById('identity-avatar');
-    var titleEl = document.getElementById('identity-title');
-    var avatarNameEl = document.getElementById('identity-avatar-name');
-    var descEl = document.getElementById('identity-desc');
-
-    if (avatarEl) avatarEl.innerText = profile && profile.avatar ? profile.avatar.icon : '🪙';
-    if (titleEl) titleEl.innerText = profile && profile.title ? profile.title.name : 'VIP 自動稱號';
-    if (avatarNameEl) avatarNameEl.innerText = profile && profile.avatar ? profile.avatar.name : '經典籌碼';
-
-    if (descEl) {
-        var desc = '';
-        if (profile && profile.title && profile.title.description) {
-            desc = profile.title.description;
-        } else if (profile && profile.avatar && profile.avatar.description) {
-            desc = profile.avatar.description;
-        }
-        descEl.innerText = desc || '';
-        descEl.style.display = desc ? 'block' : 'none';
-    }
-}
-
 function parseRewardDateMs(value, fallback) {
     if (!value) return fallback;
     var ts = Date.parse(String(value || ''));

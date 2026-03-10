@@ -155,6 +155,18 @@
 
     <script src="../js/common.js"></script>
     <script>
+        function rarityLabel(rarity) {
+            var map = {
+                common: '普通',
+                rare: '稀有',
+                super_rare: '超稀有',
+                epic: '史詩',
+                mythic: '神話',
+                legendary: '傳奇'
+            };
+            return map[String(rarity || '').toLowerCase()] || String(rarity || '普通');
+        }
+
         function rarityClass(rarity) {
             var r = String(rarity || '').toLowerCase();
             if (r === 'epic' || r === 'mythic' || r === 'legendary') return 'rarity-' + r;

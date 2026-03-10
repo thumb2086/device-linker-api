@@ -231,9 +231,9 @@ class SlotMachine {
         var tripleCount = Number(result.tripleCount || 0);
         var doubleCount = Number(result.doubleCount || 0);
         var lineSummary = this.buildLineSummary(result.lineWins);
-        var statusText = "💀 本局未中，等待鏈上確認扣款";
-        var resultLabel = "待結算";
-        var resultCopy = "結果已經產生，正在等待鏈上確認。";
+        var statusText = "💀 本局未中，結果已揭曉";
+        var resultLabel = "已開獎";
+        var resultCopy = "結果已揭曉，鏈上正在背景同步。";
         var resultTone = "is-pending";
 
         if (totalMultiplier > 0) {
@@ -242,13 +242,13 @@ class SlotMachine {
                 if (doubleCount > 0) {
                     statusText += "，外加 " + doubleCount + " 條雙連";
                 }
-                statusText += "，派彩待入帳";
-                resultLabel = tripleCount > 1 || doubleCount > 0 ? "組合派彩待入帳" : "三連待入帳";
-                resultCopy = "本局共命中三連 " + tripleCount + " 條、雙連 " + doubleCount + " 條，總倍率 " + totalMultiplier + "x，正在等待鏈上入帳。";
+                statusText += "，派彩已先顯示";
+                resultLabel = tripleCount > 1 || doubleCount > 0 ? "組合派彩已開獎" : "三連已開獎";
+                resultCopy = "本局共命中三連 " + tripleCount + " 條、雙連 " + doubleCount + " 條，總倍率 " + totalMultiplier + "x；畫面已先顯示結果，鏈上正在背景入帳。";
             } else {
-                statusText = "⭐ 命中 " + doubleCount + " 條雙連，返還待入帳";
-                resultLabel = doubleCount > 1 ? "多線雙連待入帳" : "雙連待入帳";
-                resultCopy = "雙連依條數累加，本局共命中 " + doubleCount + " 條雙連，總返還 " + totalMultiplier + "x，正在等待鏈上入帳。";
+                statusText = "⭐ 命中 " + doubleCount + " 條雙連，返還已先顯示";
+                resultLabel = doubleCount > 1 ? "多線雙連已開獎" : "雙連已開獎";
+                resultCopy = "雙連依條數累加，本局共命中 " + doubleCount + " 條雙連，總返還 " + totalMultiplier + "x；畫面已先顯示結果，鏈上正在背景入帳。";
             }
         }
 
@@ -304,7 +304,7 @@ class SlotMachine {
         if (result.settlementStatus === "pending" || result.settlementStatus === "settling") {
             activeSlotsSettlement = {
                 spinId: spinId,
-                displayBalance: context.pendingBalance
+                displayBalance: context.finalBalance
             };
             this.setSettlementPendingState();
             this.setSettlingState(true);
@@ -392,10 +392,12 @@ class SlotMachine {
             var effectivePendingBalance = result.betTransferred
                 ? currentBalance
                 : Math.max(0, currentBalance - effectiveBetAmount);
+            var effectiveFinalBalance = effectivePendingBalance + (effectiveBetAmount * Number(result.totalMultiplier || result.multiplier || 0));
             this.showPendingResult(result, {
                 betAmount: effectiveBetAmount,
                 originalBalance: currentBalance,
-                pendingBalance: effectivePendingBalance
+                pendingBalance: effectivePendingBalance,
+                finalBalance: effectiveFinalBalance
             });
         } catch (error) {
             clearInterval(spinInterval);
@@ -432,14 +434,16 @@ class SlotMachine {
             var pendingBalance = result.betTransferred
                 ? currentBalance
                 : Math.max(0, currentBalance - effectiveBetAmount);
+            var finalBalance = pendingBalance + (effectiveBetAmount * Number(result.totalMultiplier || result.multiplier || 0));
 
             this.renderBoard(result.columns, false);
             this.drawPaylines(result.winLines || []);
-            this.updateDisplayedBalance(pendingBalance);
+            this.updateDisplayedBalance(finalBalance);
             this.showPendingResult(result, {
                 betAmount: effectiveBetAmount,
                 originalBalance: currentBalance,
-                pendingBalance: pendingBalance
+                pendingBalance: pendingBalance,
+                finalBalance: finalBalance
             });
         } catch (_) {
             // ignore resume failures
@@ -454,11 +458,12 @@ class SlotMachine {
         var pendingView = this.buildPendingOutcome(result);
         this.setStatus(pendingView.statusText, false, false);
         this.setResultState(pendingView.resultLabel, pendingView.resultCopy, pendingView.resultTone);
-        this.updateTxLog("", pendingView.lineSummary || "開獎已完成，等待鏈上結算");
+        this.updateDisplayedBalance(context.finalBalance);
+        this.updateTxLog("", pendingView.lineSummary || "開獎已完成，鏈上正在背景同步");
 
         activeSlotsSettlement = {
             spinId: result.spinId,
-            displayBalance: context.pendingBalance
+            displayBalance: context.finalBalance
         };
         this.pollSettlement(result.spinId, context);
     }

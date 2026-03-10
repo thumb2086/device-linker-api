@@ -329,7 +329,11 @@ function refreshTxHealthDashboard() {
             if (!data || !data.success) throw new Error((data && data.error) || '載入交易看板失敗');
             renderTxHealthDashboard(data.dashboard || {});
             txHealthLoaded = true;
-            setTxHealthStatus('交易看板已更新', false);
+            if (data.dashboard && data.dashboard.truncated) {
+                setTxHealthStatus('交易看板已更新（部分資料）', false);
+            } else {
+                setTxHealthStatus('交易看板已更新', false);
+            }
         });
     }).catch(function (error) {
         setTxHealthStatus('錯誤: ' + error.message, true);

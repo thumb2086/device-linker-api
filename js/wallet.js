@@ -22,6 +22,13 @@ function setWalletStatus(text, isError) {
     el.style.color = isError ? '#ff6666' : '#ffd36a';
 }
 
+function notifyWallet(text, isError) {
+    setWalletStatus(text, isError);
+    if (typeof showUserToast === 'function') {
+        showUserToast(text, isError);
+    }
+}
+
 function setWalletTx(txHash) {
     var txEl = document.getElementById('tx-log');
     if (!txEl) return;
@@ -267,10 +274,10 @@ function copyWalletAddress() {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(currentWalletAddress)
             .then(function () {
-                setWalletStatus('已複製錢包地址', false);
+                notifyWallet('已複製錢包地址', false);
             })
             .catch(function () {
-                setWalletStatus('複製失敗，請手動複製地址', true);
+                notifyWallet('複製失敗，請手動複製地址', true);
             });
         return;
     }
@@ -281,7 +288,7 @@ function copyWalletAddress() {
     tmp.select();
     document.execCommand('copy');
     document.body.removeChild(tmp);
-    setWalletStatus('已複製錢包地址', false);
+    notifyWallet('已複製錢包地址', false);
 }
 
 function refreshWalletSummary(silent) {
@@ -306,12 +313,12 @@ function exportFunds() {
     withWalletBusy(function () {
         return callWallet('export', { to: to, amount: amount }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '匯出失敗');
-            setWalletStatus('匯出成功：-' + formatDisplayNumber(amount, 2) + ' 子熙幣', false);
+            notifyWallet('匯出成功：-' + formatDisplayNumber(amount, 2) + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
             return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
         });
     }).catch(function (e) {
-        setWalletStatus('錯誤: ' + e.message, true);
+        notifyWallet('錯誤: ' + e.message, true);
     });
 }
 
@@ -323,12 +330,12 @@ function withdrawToTreasury() {
     withWalletBusy(function () {
         return callWallet('withdraw', { amount: amount }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '匯回失敗');
-            setWalletStatus('匯回成功：-' + formatDisplayNumber(amount, 2) + ' 子熙幣', false);
+            notifyWallet('匯回成功：-' + formatDisplayNumber(amount, 2) + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
             return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
         });
     }).catch(function (e) {
-        setWalletStatus('錯誤: ' + e.message, true);
+        notifyWallet('錯誤: ' + e.message, true);
     });
 }
 
@@ -350,12 +357,12 @@ function claimAirdrop() {
             .then(function (res) { return res.json(); })
             .then(function (data) {
                 if (!data || !data.success) throw new Error((data && data.error) || '空投領取失敗');
-                setWalletStatus('空投成功：+' + fmtToken(data.reward) + ' 子熙幣', false);
+                notifyWallet('空投成功：+' + fmtToken(data.reward) + ' 子熙幣', false);
                 setWalletTx(data.txHash || '');
                 return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
             });
     }).catch(function (e) {
-        setWalletStatus('錯誤: ' + e.message, true);
+        notifyWallet('錯誤: ' + e.message, true);
     });
 }
 

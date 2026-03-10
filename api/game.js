@@ -7,7 +7,7 @@ import dragonHandler from "../lib/game-handlers/dragon.js";
 import sicboHandler from "../lib/game-handlers/sicbo.js";
 import bingoHandler from "../lib/game-handlers/bingo.js";
 import crashHandler from "../lib/game-handlers/crash.js";
-import poolDuelHandler from "../lib/game-handlers/pool-duel.js";
+import duelHandler from "../lib/game-handlers/duel.js";
 
 const GAME_HANDLERS = {
     coinflip: coinflipHandler,
@@ -19,7 +19,7 @@ const GAME_HANDLERS = {
     sicbo: sicboHandler,
     bingo: bingoHandler,
     crash: crashHandler,
-    poolduel: poolDuelHandler
+    duel: duelHandler
 };
 
 function resolveGame(req) {

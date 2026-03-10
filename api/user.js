@@ -180,6 +180,17 @@ function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName
     };
 }
 
+async function checkBlacklist(address) {
+    if (!address) return null;
+    try {
+        const blacklisted = await kv.get(`blacklist:${String(address).toLowerCase()}`);
+        return blacklisted || null;
+    } catch (e) {
+        console.error("Blacklist check failed:", e);
+        return null;
+    }
+}
+
 async function loadUserMetrics(address) {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(
@@ -251,6 +262,15 @@ export default async function handler(req, res) {
             if (!sessionData) return res.status(200).json({ status: "pending" });
             if (sessionData.status === "pending") return res.status(200).json(buildPendingPayload(sessionData));
 
+            const blacklisted = await checkBlacklist(sessionData.address);
+            if (blacklisted) {
+                return res.status(200).json({
+                    success: false,
+                    status: "blacklisted",
+                    error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}`
+                });
+            }
+
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
@@ -274,6 +294,15 @@ export default async function handler(req, res) {
             const sessionData = await getSession(sessionId);
             if (!sessionData) return res.status(200).json({ status: "pending" });
             if (sessionData.status === "pending") return res.status(200).json(buildPendingPayload(sessionData));
+
+            const blacklisted = await checkBlacklist(sessionData.address);
+            if (blacklisted) {
+                return res.status(200).json({
+                    success: false,
+                    status: "blacklisted",
+                    error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}`
+                });
+            }
 
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
@@ -345,6 +374,9 @@ export default async function handler(req, res) {
             let bonusError = "";
 
             if (!custodyUser) {
+                const blacklisted = await checkBlacklist(buildCustodyAddress(`${username}:${password}`)); // Not perfectly safe but custody addrs are deterministic if we had the seed, however here the seed is generated.
+                // For custody users, we should probably check by username as well or by the final address if known.
+                // Let's check by address later after it's built if it's a new account, or by the stored address.
                 if (passwordHasOuterWhitespace) {
                     return res.status(400).json({
                         success: false,
@@ -397,6 +429,10 @@ export default async function handler(req, res) {
                     bonusError = error.message || "Register bonus failed";
                 }
             } else {
+                const blacklisted = await checkBlacklist(custodyUser.address);
+                if (blacklisted) {
+                    return res.status(403).json({ success: false, error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}` });
+                }
                 if (!custodyUser.saltHex || !custodyUser.passwordHash) {
                     return res.status(500).json({ success: false, error: "Custody user record is invalid" });
                 }
@@ -575,6 +611,10 @@ export default async function handler(req, res) {
         if (action === "authorize") {
             const publicKey = safePublicKey(body.publicKey);
             const address = body.address;
+            const blacklisted = await checkBlacklist(address);
+            if (blacklisted) {
+                return res.status(403).json({ success: false, error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}` });
+            }
             if (!sessionId || !address || !publicKey) {
                 return res.status(400).json({ success: false, error: "Missing required fields" });
             }

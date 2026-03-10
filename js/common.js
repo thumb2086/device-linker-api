@@ -3,6 +3,8 @@
 var user = { address: '', publicKey: '', sessionId: '', displayName: '', balance: 0, chainBalance: 0, totalBet: 0, vipLevel: '', maxBet: 0 };
 var userToastTimerSeq = 0;
 var BALANCE_OVERRIDE_KEY = 'zixi_balance_override';
+var balanceRefreshIntervalId = null;
+var balanceAuthoritativeSyncIntervalId = null;
 
 function getNumberDisplayMode() {
     try {
@@ -612,9 +614,18 @@ function refreshBalance() {
         });
 }
 
+function syncAuthoritativeChainBalance() {
+    if (!user.address) return;
+    clearDisplayedBalanceOverride();
+    refreshBalance();
+}
+
 function startBalanceRefresh() {
+    if (balanceRefreshIntervalId) clearInterval(balanceRefreshIntervalId);
+    if (balanceAuthoritativeSyncIntervalId) clearInterval(balanceAuthoritativeSyncIntervalId);
     setTimeout(refreshBalance, 800);
-    setInterval(refreshBalance, 30000);
+    balanceRefreshIntervalId = setInterval(refreshBalance, 30000);
+    balanceAuthoritativeSyncIntervalId = setInterval(syncAuthoritativeChainBalance, 15 * 60 * 1000);
 }
 
 function txLinkHTML(txHash) {

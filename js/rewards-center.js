@@ -319,8 +319,12 @@ function renderTitleShop(items) {
     var listEl = document.getElementById('title-shop-list');
     var filterEl = document.getElementById('title-shop-filter');
     if (!listEl) return;
+    var ownedTitleMap = {};
+    (((rewardsState || {}).profile || {}).titles || []).forEach(function (item) {
+        if (item && item.id) ownedTitleMap[item.id] = true;
+    });
     var sellableTitles = (items || []).filter(function (item) {
-        return !!item && item.shopEnabled === true && Number(item.shopPrice || 0) > 0;
+        return !!item && item.shopEnabled === true && Number(item.shopPrice || 0) > 0 && !ownedTitleMap[item.id];
     });
 
     var categories = [{ value: 'all', label: '全部' }];
@@ -546,8 +550,12 @@ function closeRewardResultModal() {
     if (modalEl) modalEl.classList.add('hidden');
 }
 
-function showRewardResultModal(title, bundle) {
-    renderRewardResultEntries(title, rewardItemSummary(bundle));
+function showRewardResultModal(title, bundle, extraEntries) {
+    var entries = rewardItemSummary(bundle);
+    if (Array.isArray(extraEntries) && extraEntries.length) {
+        entries = entries.concat(extraEntries);
+    }
+    renderRewardResultEntries(title, entries);
 }
 
 function showPurchaseModal(item) {
@@ -649,7 +657,7 @@ function openRewardChest(itemId) {
             applyRewardsState(rewardsState);
             refreshBalance();
             switchRewardsTab('inventory');
-            showRewardResultModal(data.chestName || '獎勵已取得', data.rewards);
+            showRewardResultModal(data.chestName || '獎勵已取得', data.rewards, data.rewardNotices || []);
             setRewardsStatus('獎勵已開啟', false);
             showRewardsToast('獎勵已開啟', false);
         })

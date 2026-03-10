@@ -27,12 +27,29 @@ body.rewards-body {
 
 .rewards-identity-card {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 18px;
     padding: 18px;
     border-radius: 20px;
     background: linear-gradient(180deg, rgba(255, 209, 102, 0.18), rgba(255, 149, 0, 0.08));
     border: 1px solid rgba(255, 209, 102, 0.18);
+}
+
+.identity-info-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.identity-desc-area {
+    margin-top: 10px;
+    font-size: 0.82rem;
+    color: #ffd36a;
+    background: rgba(255, 211, 106, 0.08);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border-left: 2px solid #ffd36a;
+    line-height: 1.4;
 }
 
 .identity-avatar {
@@ -303,13 +320,26 @@ body.rewards-body {
 }
 
 .reward-card-meta.desc {
-    color: #96a8bb;
+    color: #afc2d6;
     font-size: 0.88rem;
-    line-height: 1.45;
-    background: rgba(255, 255, 255, 0.03);
-    padding: 10px 12px;
-    border-radius: 12px;
-    margin: 4px 0;
+    line-height: 1.5;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px 14px;
+    border-left: 3px solid #ffd36a;
+    border-radius: 4px 12px 12px 4px;
+    margin: 10px 0;
+    position: relative;
+}
+
+.reward-card-meta.desc::before {
+    content: "說明";
+    display: block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: #ffd36a;
+    margin-bottom: 4px;
+    font-weight: 800;
+    opacity: 0.8;
 }
 
 .reward-card-price {

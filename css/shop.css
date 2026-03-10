@@ -50,6 +50,30 @@
     margin-top: 10px;
 }
 
+.reward-card-meta.desc {
+    color: #afc2d6;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px 14px;
+    border-left: 3px solid #ffd36a;
+    border-radius: 4px 12px 12px 4px;
+    margin: 10px 0;
+    position: relative;
+    text-align: left;
+}
+
+.reward-card-meta.desc::before {
+    content: "說明";
+    display: block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: #ffd36a;
+    margin-bottom: 4px;
+    font-weight: 800;
+    opacity: 0.8;
+}
+
 @media (max-width: 768px) {
     .shop-header {
         flex-direction: column;

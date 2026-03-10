@@ -17,12 +17,18 @@
 
 .inventory-identity-card {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 20px;
     padding: 24px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 24px;
+}
+
+.identity-info-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .identity-avatar {
@@ -58,6 +64,17 @@
     font-size: 0.9rem;
     color: #999;
     margin-top: 4px;
+}
+
+.identity-desc-area {
+    margin-top: 10px;
+    font-size: 0.82rem;
+    color: #ffd36a;
+    background: rgba(255, 211, 106, 0.08);
+    padding: 6px 12px;
+    border-radius: 8px;
+    border-left: 2px solid var(--gold);
+    line-height: 1.4;
 }
 
 .inventory-status {
@@ -228,11 +245,24 @@
 .inventory-card-meta.desc {
     color: #bbb;
     font-size: 0.85rem;
-    line-height: 1.4;
-    margin: 8px 0 12px;
-    padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 8px;
+    line-height: 1.5;
+    margin: 10px 0 14px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px 12px 12px 4px;
+    position: relative;
+}
+
+.inventory-card-meta.desc::before {
+    content: "說明";
+    display: block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 4px;
+    font-weight: 800;
+    opacity: 0.8;
 }
 
 .inventory-card-actions {

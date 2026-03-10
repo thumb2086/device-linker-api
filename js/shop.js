@@ -90,6 +90,7 @@ function renderShopItems(items) {
                 '</div>' +
                 '<span class="reward-rarity">' + escapeShopHtml(rarityLabel(item.rarity)) + '</span>' +
             '</div>' +
+            '<div class="reward-card-meta desc">' + escapeShopHtml(item.description || '此道具暫無功能說明。') + '</div>' +
             '<div class="reward-card-meta">售價：' + formatCompactZh(item.price, 2) + ' 子熙幣</div>' +
             '<div class="reward-card-actions">' +
                 '<button class="btn-primary compact-btn" onclick="buyShopItem(\'' + escapeShopHtml(item.id) + '\')">購買</button>' +

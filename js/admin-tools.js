@@ -17,6 +17,8 @@ var announcementsLoaded = false;
 var announcementsExpanded = false;
 var rewardLoaded = false;
 var rewardExpanded = false;
+var txHealthLoaded = false;
+var txHealthExpanded = false;
 var issueLoaded = false;
 var issueExpanded = false;
 var opsExpanded = false;
@@ -79,6 +81,13 @@ function setRewardAdminStatus(text, isError) {
     if (!el) return;
     el.innerText = text || '';
     el.style.color = isError ? '#ff7d7d' : '#9bf1b9';
+}
+
+function setTxHealthStatus(text, isError) {
+    var el = document.getElementById('tx-health-status-msg');
+    if (!el) return;
+    el.innerText = text || '';
+    el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
 }
 
 function withAdminBusy(section, task) {
@@ -221,6 +230,100 @@ function callRewardsAdminApi(action, extraPayload) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     }).then(function (res) { return res.json(); });
+}
+
+function renderTxHealthDashboard(dashboard) {
+    var data = dashboard || {};
+    var totalEl = document.getElementById('tx-health-total');
+    var successRateEl = document.getElementById('tx-health-success-rate');
+    var failureRateEl = document.getElementById('tx-health-failure-rate');
+    var successCountEl = document.getElementById('tx-health-success-count');
+    var failureCountEl = document.getElementById('tx-health-failure-count');
+    var windowEl = document.getElementById('tx-health-window');
+    var topErrorsEl = document.getElementById('tx-health-top-errors');
+    var recentListEl = document.getElementById('tx-health-recent-list');
+
+    if (totalEl) totalEl.innerText = String(data.totalCount || 0);
+    if (successRateEl) successRateEl.innerText = String((Number(data.successRate || 0)).toFixed(2)) + '%';
+    if (failureRateEl) failureRateEl.innerText = String((Number(data.failureRate || 0)).toFixed(2)) + '%';
+    if (successCountEl) successCountEl.innerText = String(data.successCount || 0);
+    if (failureCountEl) failureCountEl.innerText = String(data.failureCount || 0);
+    if (windowEl) windowEl.innerText = String(data.hours || 24) + 'h';
+
+    if (topErrorsEl) {
+        if (!data.topErrors || !data.topErrors.length) {
+            topErrorsEl.innerHTML = '<div class="result-empty">目前沒有失敗錯誤統計</div>';
+        } else {
+            topErrorsEl.innerHTML = data.topErrors.map(function (item) {
+                return '<div class="announcement-admin-card">' +
+                    '<div class="announcement-admin-head">' +
+                        '<strong>' + escapeHtml(item.message || '未知錯誤') + '</strong>' +
+                        '<span class="state-chip warn">' + escapeHtml(String(item.count || 0)) + ' 次</span>' +
+                    '</div>' +
+                    '</div>';
+            }).join('');
+        }
+    }
+
+    if (recentListEl) {
+        if (!data.recent || !data.recent.length) {
+            recentListEl.innerHTML = '<div class="result-empty">目前沒有近期交易紀錄</div>';
+        } else {
+            recentListEl.innerHTML = data.recent.map(function (item) {
+                var statusLabel = item.status === 'success' ? '成功' : '失敗';
+                var detail = item.status === 'success'
+                    ? ('txHash: ' + (item.txHash || '-'))
+                    : (item.error || '未知錯誤');
+                return '<div class="announcement-admin-card">' +
+                    '<div class="announcement-admin-head">' +
+                        '<div>' +
+                            '<strong>' + escapeHtml(item.method || item.kind || 'unknown') + '</strong>' +
+                            '<div class="issue-report-meta">' +
+                                '<span>' + escapeHtml(formatTime(item.createdAt)) + '</span>' +
+                                '<span>' + escapeHtml(item.kind || 'unknown') + '</span>' +
+                                '<span>attempt ' + escapeHtml(String(item.attempts || 1)) + '</span>' +
+                                (item.nonce ? ('<span>nonce ' + escapeHtml(String(item.nonce)) + '</span>') : '') +
+                            '</div>' +
+                        '</div>' +
+                        '<span class="state-chip ' + (item.status === 'failure' ? 'warn' : 'ok') + '">' + escapeHtml(statusLabel) + '</span>' +
+                    '</div>' +
+                    '<div class="tx-health-detail mono">' + escapeHtml(detail) + '</div>' +
+                    '</div>';
+            }).join('');
+        }
+    }
+}
+
+function refreshTxHealthDashboard() {
+    setTxHealthStatus('同步交易看板中...', false);
+    withAdminBusy('ops', function () {
+        return callAdminApi('get_tx_health_dashboard', {
+            hours: String((document.getElementById('tx-health-hours') || {}).value || '24'),
+            limit: 25
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '載入交易看板失敗');
+            renderTxHealthDashboard(data.dashboard || {});
+            txHealthLoaded = true;
+            setTxHealthStatus('交易看板已更新', false);
+        });
+    }).catch(function (error) {
+        setTxHealthStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
+    });
+}
+
+function toggleTxHealthSection() {
+    var body = document.getElementById('tx-health-section-body');
+    var btn = document.getElementById('tx-health-toggle-btn');
+    if (!body || !btn) return;
+
+    txHealthExpanded = !txHealthExpanded;
+    body.classList.toggle('hidden', !txHealthExpanded);
+    btn.innerText = txHealthExpanded ? '收合交易看板' : '展開交易看板';
+
+    if (txHealthExpanded && !txHealthLoaded) {
+        refreshTxHealthDashboard();
+    }
 }
 
 function renderResetResult(data) {
@@ -1284,5 +1387,5 @@ function toggleOpsSection() {
 }
 
 function initAdminToolsPage() {
-    setAdminStatus('目前管理頁已啟用公告、稱號活動發放、問題回報、託管帳號與高額下注重製', false);
+    setAdminStatus('目前管理頁已啟用公告、稱號活動發放、交易失敗率看板、問題回報、託管帳號與高額下注重製', false);
 }

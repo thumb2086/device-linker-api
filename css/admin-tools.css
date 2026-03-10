@@ -407,6 +407,12 @@
     margin-bottom: 12px;
 }
 
+.tx-health-detail {
+    color: #c6d3df;
+    line-height: 1.55;
+    word-break: break-word;
+}
+
 .issue-editor-grid,
 .announcement-form-grid {
     display: grid;

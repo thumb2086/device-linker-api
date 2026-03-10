@@ -4,6 +4,7 @@ import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 import { DEFAULT_RESET_THRESHOLD, resetHighTotalBets } from "../lib/ops/reset-high-total-bets.js";
+import { buildChainTxDashboard } from "../lib/tx-monitor.js";
 import {
     createAnnouncement,
     getAnnouncement,
@@ -326,6 +327,14 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, announcement: updated });
         }
 
+        if (action === "get_tx_health_dashboard") {
+            const dashboard = await buildChainTxDashboard({
+                hours: body.hours,
+                limit: body.limit
+            });
+            return res.status(200).json({ success: true, dashboard });
+        }
+
         if (action !== "reset_total_bets") {
             return res.status(400).json({
                 success: false,
@@ -339,7 +348,8 @@ export default async function handler(req, res) {
                     "update_issue_report",
                     "list_announcements",
                     "publish_announcement",
-                    "update_announcement"
+                    "update_announcement",
+                    "get_tx_health_dashboard"
                 ]
             });
         }

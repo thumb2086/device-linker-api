@@ -527,6 +527,8 @@ function updateUI(data) {
         user.displayName = data.displayName || '';
         var nameEl = document.getElementById('display-name-val');
         if (nameEl) nameEl.innerText = data.displayName || '未設定';
+        var myNameDisplay = document.getElementById('my-display-name');
+        if (myNameDisplay) myNameDisplay.innerText = data.displayName || user.address;
     }
 
     if (data.balance !== undefined) {

@@ -192,10 +192,10 @@ export default async function handler(req, res) {
             }
 
             const tx = await withChainTxLock(async () => {
-                const sent = await sendManagedContractTx(contract, "adminTransfer", [context.address, treasuryAddress, priceWei], { gasLimit: 220000 });
+                const sent = await sendManagedContractTx(contract, "adminTransfer", [context.address, treasuryAddress, priceWei], { gasLimit: 220000, txSource: "rewards_shop_item" });
                 await purchaseShopItem(context.address, item.id);
                 return sent;
-            });
+            }, undefined, "rewards_shop_item");
 
             const summary = await buildSummaryPayload(context.address, context.totalBet);
             return res.status(200).json({
@@ -231,10 +231,10 @@ export default async function handler(req, res) {
                 if ((profile.ownedTitles || []).some((entry) => String(entry && entry.id || "") === title.id)) {
                     throw new Error("已持有此稱號");
                 }
-                const sent = await sendManagedContractTx(contract, "adminTransfer", [context.address, treasuryAddress, priceWei], { gasLimit: 220000 });
+                const sent = await sendManagedContractTx(contract, "adminTransfer", [context.address, treasuryAddress, priceWei], { gasLimit: 220000, txSource: "rewards_shop_title" });
                 await purchaseRewardTitle(context.address, title.id);
                 return sent;
-            });
+            }, undefined, "rewards_shop_title");
 
             const summary = await buildSummaryPayload(context.address, context.totalBet);
             return res.status(200).json({
@@ -285,8 +285,8 @@ export default async function handler(req, res) {
                     treasuryAddress,
                     context.address,
                     tokenWei,
-                    { gasLimit: 220000 }
-                ));
+                    { gasLimit: 220000, txSource: "rewards_open_chest" }
+                ), undefined, "rewards_open_chest");
                 txHash = tx.hash;
             }
 
@@ -327,8 +327,8 @@ export default async function handler(req, res) {
                     treasuryAddress,
                     context.address,
                     tokenWei,
-                    { gasLimit: 220000 }
-                ));
+                    { gasLimit: 220000, txSource: "rewards_claim_campaign" }
+                ), undefined, "rewards_claim_campaign");
                 txHash = tx.hash;
             }
             return res.status(200).json({
@@ -424,8 +424,8 @@ export default async function handler(req, res) {
                     treasuryAddress,
                     targetAddress,
                     amountWei,
-                    { gasLimit: 220000 }
-                ));
+                    { gasLimit: 220000, txSource: "rewards_admin_grant" }
+                ), undefined, "rewards_admin_grant");
                 txHash = tx.hash;
             }
 

@@ -19,6 +19,7 @@ var rewardLoaded = false;
 var rewardExpanded = false;
 var txHealthLoaded = false;
 var txHealthExpanded = false;
+var txHealthSourcesExpanded = false;
 var issueLoaded = false;
 var issueExpanded = false;
 var opsExpanded = false;
@@ -242,6 +243,7 @@ function renderTxHealthDashboard(dashboard) {
     var windowEl = document.getElementById('tx-health-window');
     var topErrorsEl = document.getElementById('tx-health-top-errors');
     var recentListEl = document.getElementById('tx-health-recent-list');
+    var sourceGroupsEl = document.getElementById('tx-health-source-groups');
 
     if (totalEl) totalEl.innerText = String(data.totalCount || 0);
     if (successRateEl) successRateEl.innerText = String((Number(data.successRate || 0)).toFixed(2)) + '%';
@@ -259,6 +261,28 @@ function renderTxHealthDashboard(dashboard) {
                     '<div class="announcement-admin-head">' +
                         '<strong>' + escapeHtml(item.message || '未知錯誤') + '</strong>' +
                         '<span class="state-chip warn">' + escapeHtml(String(item.count || 0)) + ' 次</span>' +
+                    '</div>' +
+                    '</div>';
+            }).join('');
+        }
+    }
+
+    if (sourceGroupsEl) {
+        if (!data.sourceGroups || !data.sourceGroups.length) {
+            sourceGroupsEl.innerHTML = '<div class="result-empty">目前沒有來源分類資料</div>';
+        } else {
+            sourceGroupsEl.innerHTML = data.sourceGroups.map(function (item) {
+                return '<div class="announcement-admin-card">' +
+                    '<div class="announcement-admin-head">' +
+                        '<div>' +
+                            '<strong>' + escapeHtml(item.source || 'unknown') + '</strong>' +
+                            '<div class="issue-report-meta">' +
+                                '<span>總數 ' + escapeHtml(String(item.totalCount || 0)) + '</span>' +
+                                '<span>成功 ' + escapeHtml(String(item.successCount || 0)) + '</span>' +
+                                '<span>失敗 ' + escapeHtml(String(item.failureCount || 0)) + '</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<span class="state-chip ' + (Number(item.failureCount || 0) > 0 ? 'warn' : 'ok') + '">' + escapeHtml(String(Number(item.failureRate || 0).toFixed(2))) + '% 失敗率</span>' +
                     '</div>' +
                     '</div>';
             }).join('');
@@ -324,6 +348,16 @@ function toggleTxHealthSection() {
     if (txHealthExpanded && !txHealthLoaded) {
         refreshTxHealthDashboard();
     }
+}
+
+function toggleTxHealthSources() {
+    var body = document.getElementById('tx-health-source-body');
+    var btn = document.getElementById('tx-health-source-toggle-btn');
+    if (!body || !btn) return;
+
+    txHealthSourcesExpanded = !txHealthSourcesExpanded;
+    body.classList.toggle('hidden', !txHealthSourcesExpanded);
+    btn.innerText = txHealthSourcesExpanded ? '收合來源分類' : '展開來源分類';
 }
 
 function renderResetResult(data) {

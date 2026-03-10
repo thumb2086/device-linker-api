@@ -431,6 +431,18 @@
                 </div>
 
                 <div class="section-block section-block-muted">
+                    <div class="section-heading-row">
+                        <h3>按來源分類</h3>
+                        <button id="tx-health-source-toggle-btn" class="btn-secondary compact-btn" onclick="toggleTxHealthSources()">展開來源分類</button>
+                    </div>
+                    <div id="tx-health-source-body" class="collapsible-body hidden">
+                        <div id="tx-health-source-groups" class="announcement-admin-list">
+                            <div class="result-empty">尚未載入來源分類</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-block section-block-muted">
                     <h3>主要錯誤原因</h3>
                     <div id="tx-health-top-errors" class="announcement-admin-list">
                         <div class="result-empty">尚未載入錯誤統計</div>

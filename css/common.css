@@ -138,6 +138,124 @@ h1 {
     color: #ffd1d1;
 }
 
+.settings-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 204, 0, 0.28);
+    background: rgba(255, 204, 0, 0.08);
+    color: var(--gold);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.settings-btn:hover {
+    background: rgba(255, 204, 0, 0.16);
+    border-color: rgba(255, 204, 0, 0.48);
+}
+
+.settings-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 140;
+}
+
+.settings-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(6px);
+}
+
+.settings-dialog {
+    position: relative;
+    width: min(520px, calc(100vw - 24px));
+    margin: 8vh auto 0;
+    padding: 22px;
+    border-radius: 24px;
+    background: rgba(10, 15, 22, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.45);
+}
+
+.settings-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.settings-kicker {
+    color: rgba(255, 204, 0, 0.72);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    margin-bottom: 6px;
+}
+
+.settings-close,
+.settings-save-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.settings-close {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: #d7e5f5;
+}
+
+.settings-save-btn {
+    border: 1px solid rgba(255, 204, 0, 0.3);
+    background: linear-gradient(180deg, rgba(255, 214, 102, 0.22), rgba(255, 175, 64, 0.16));
+    color: #ffe09a;
+}
+
+.settings-grid {
+    display: grid;
+    gap: 14px;
+}
+
+.settings-field {
+    display: grid;
+    gap: 8px;
+    text-align: left;
+    color: #d7e5f5;
+}
+
+.settings-input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: #fff;
+}
+
+.settings-note {
+    margin-top: 12px;
+    color: #9fb0c3;
+    text-align: left;
+    line-height: 1.6;
+}
+
+.settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+}
+
 /* --- 數據面板 --- */
 .user-stats {
     background: rgba(255, 255, 255, 0.03);

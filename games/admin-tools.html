@@ -287,8 +287,12 @@
                                 <input id="reward-title-sale-end-at" class="text-input" type="datetime-local">
                             </label>
                             <label class="full-span">
-                                商店說明
-                                <textarea id="reward-title-shop-description" class="text-input announcement-textarea" placeholder="例如：可直接在稱號商店購買的永久稱號"></textarea>
+                                稱號說明 (通用)
+                                <textarea id="reward-title-description" class="text-input announcement-textarea" placeholder="顯示於身分卡、排行榜工具提示的詳細說明"></textarea>
+                            </label>
+                            <label class="full-span">
+                                商店說明 (若與通用說明不同)
+                                <textarea id="reward-title-shop-description" class="text-input announcement-textarea" placeholder="留空則使用通用說明"></textarea>
                             </label>
                         </div>
                         <div class="form-row single-row">
@@ -335,6 +339,44 @@
                         </div>
                         <div class="form-row single-row">
                             <button class="btn-primary" onclick="grantRewardBundleAdmin()">送出發放</button>
+                        </div>
+                    </div>
+
+                    <div class="announcement-editor-card full-span">
+                        <h3>頭像管理 (新增/修改)</h3>
+                        <div class="announcement-form-grid">
+                            <label class="full-span">
+                                選擇現有頭像進行編輯，或留空以建立新頭像
+                                <select id="reward-avatar-selector" class="text-input" onchange="onAdminAvatarSelected(this.value)"></select>
+                            </label>
+                            <label>
+                                頭像名稱
+                                <input id="reward-avatar-name" class="text-input" type="text" maxlength="80" placeholder="例如：閃耀之星">
+                            </label>
+                            <label>
+                                頭像 ID
+                                <input id="reward-avatar-id" class="text-input" type="text" maxlength="64" placeholder="留空自動產生">
+                            </label>
+                            <label>
+                                圖示 (Emoji)
+                                <input id="reward-avatar-icon" class="text-input" type="text" maxlength="16" placeholder="例如：⭐">
+                            </label>
+                            <label>
+                                稀有度
+                                <select id="reward-avatar-rarity" class="text-input"></select>
+                            </label>
+                            <label>
+                                來源
+                                <select id="reward-avatar-source" class="text-input"></select>
+                            </label>
+                            <label class="full-span">
+                                頭像說明
+                                <textarea id="reward-avatar-description" class="text-input announcement-textarea" placeholder="顯示於身分卡、排行榜工具提示的詳細說明"></textarea>
+                            </label>
+                        </div>
+                        <div class="form-row single-row">
+                            <button class="btn-primary" onclick="publishRewardAvatar()">儲存頭像設定</button>
+                            <button class="btn-secondary" onclick="clearAdminAvatarForm()">清空表單 (建立新頭像)</button>
                         </div>
                     </div>
 

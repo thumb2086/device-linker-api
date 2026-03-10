@@ -1053,6 +1053,7 @@ function renderRewardAdminSelects() {
     renderRewardSelectOptions('campaign-item', rewardCatalog.shopItems, '不發道具');
     renderRewardSelectOptions('campaign-avatar', rewardCatalog.avatars, '不發頭像');
     renderRewardSelectOptions('campaign-title-id', rewardCatalog.titles, '不發稱號');
+    renderRewardSelectOptions('reward-avatar-selector', rewardCatalog.avatars, '建立新頭像');
     if (titleCountEl) titleCountEl.innerText = String((rewardCatalog.titles || []).length);
     var vipEl = document.getElementById('campaign-min-vip');
     if (vipEl) {
@@ -1080,6 +1081,26 @@ function renderRewardAdminSelects() {
     if (titleCategoryEl) {
         titleCategoryEl.innerHTML = buildSimpleSelectOptionsHtml(getRewardTitleCategoryOptions(), 'featured');
     }
+    var avatarRarityEl = document.getElementById('reward-avatar-rarity');
+    if (avatarRarityEl) {
+        avatarRarityEl.innerHTML = buildSimpleSelectOptionsHtml([
+            { value: 'common', label: '普通' },
+            { value: 'rare', label: '稀有' },
+            { value: 'epic', label: '史詩' },
+            { value: 'mythic', label: '神話' },
+            { value: 'legendary', label: '傳奇' }
+        ], 'common');
+    }
+    var avatarSourceEl = document.getElementById('reward-avatar-source');
+    if (avatarSourceEl) {
+        avatarSourceEl.innerHTML = buildSimpleSelectOptionsHtml([
+            { value: 'admin', label: '管理員' },
+            { value: 'campaign', label: '活動' },
+            { value: 'shop', label: '商店' },
+            { value: 'chest', label: '寶箱' },
+            { value: 'default', label: '預設' }
+        ], 'admin');
+    }
     var titleSelectorEl = document.getElementById('reward-title-selector');
     if (titleSelectorEl) {
         titleSelectorEl.innerHTML = buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.titles, '建立新稱號', '');
@@ -1098,6 +1119,14 @@ function getRewardCatalogTitle(titleId) {
     var titles = rewardCatalog && Array.isArray(rewardCatalog.titles) ? rewardCatalog.titles : [];
     for (var i = 0; i < titles.length; i += 1) {
         if (String(titles[i] && titles[i].id || '') === String(titleId || '')) return titles[i];
+    }
+    return null;
+}
+
+function getRewardCatalogAvatar(avatarId) {
+    var avatars = rewardCatalog && Array.isArray(rewardCatalog.avatars) ? rewardCatalog.avatars : [];
+    for (var i = 0; i < avatars.length; i += 1) {
+        if (String(avatars[i] && avatars[i].id || '') === String(avatarId || '')) return avatars[i];
     }
     return null;
 }
@@ -1122,6 +1151,7 @@ function onAdminTitleSelected(titleId) {
     document.getElementById('reward-title-sale-price').value = String(title.salePrice || 0);
     document.getElementById('reward-title-sale-start-at').value = toDateTimeLocalValue(title.saleStartAt || '');
     document.getElementById('reward-title-sale-end-at').value = toDateTimeLocalValue(title.saleEndAt || '');
+    document.getElementById('reward-title-description').value = title.description || '';
     document.getElementById('reward-title-shop-description').value = title.shopDescription || '';
 }
 
@@ -1139,7 +1169,34 @@ function clearAdminTitleForm() {
     document.getElementById('reward-title-sale-price').value = '0';
     document.getElementById('reward-title-sale-start-at').value = '';
     document.getElementById('reward-title-sale-end-at').value = '';
+    document.getElementById('reward-title-description').value = '';
     document.getElementById('reward-title-shop-description').value = '';
+}
+
+function onAdminAvatarSelected(avatarId) {
+    if (!avatarId) {
+        clearAdminAvatarForm();
+        return;
+    }
+    var avatar = getRewardCatalogAvatar(avatarId);
+    if (!avatar) return;
+
+    document.getElementById('reward-avatar-name').value = avatar.name || '';
+    document.getElementById('reward-avatar-id').value = avatar.id || '';
+    document.getElementById('reward-avatar-icon').value = avatar.icon || '👤';
+    document.getElementById('reward-avatar-rarity').value = avatar.rarity || 'common';
+    document.getElementById('reward-avatar-source').value = avatar.source || 'admin';
+    document.getElementById('reward-avatar-description').value = avatar.description || '';
+}
+
+function clearAdminAvatarForm() {
+    document.getElementById('reward-avatar-selector').value = '';
+    document.getElementById('reward-avatar-name').value = '';
+    document.getElementById('reward-avatar-id').value = '';
+    document.getElementById('reward-avatar-icon').value = '';
+    document.getElementById('reward-avatar-rarity').value = 'common';
+    document.getElementById('reward-avatar-source').value = 'admin';
+    document.getElementById('reward-avatar-description').value = '';
 }
 
 function onAdminCampaignSelected(campaignId) {
@@ -1307,6 +1364,7 @@ function publishRewardTitle() {
             adminGrantable: true,
             shopEnabled: !!document.getElementById('reward-title-shop-enabled').checked,
             shopPrice: String(document.getElementById('reward-title-price').value || '0'),
+            description: String(document.getElementById('reward-title-description').value || ''),
             shopDescription: String(document.getElementById('reward-title-shop-description').value || ''),
             shopCategory: String(document.getElementById('reward-title-category').value || 'featured'),
             shopPriority: String(document.getElementById('reward-title-priority').value || '0'),
@@ -1321,6 +1379,34 @@ function publishRewardTitle() {
                 if (data.title && data.title.id) {
                     document.getElementById('reward-title-selector').value = data.title.id;
                     onAdminTitleSelected(data.title.id);
+                }
+            });
+        });
+    }).catch(function (error) {
+        setRewardAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
+    });
+}
+
+function publishRewardAvatar() {
+    setRewardAdminStatus('儲存頭像設定中...', false);
+    withAdminBusy('reward', function () {
+        var avatarId = document.getElementById('reward-avatar-id').value;
+        return callRewardsAdminApi('admin_upsert_avatar', {
+            avatarName: String(document.getElementById('reward-avatar-name').value || ''),
+            avatarCatalogId: String(avatarId || ''),
+            avatarIcon: String(document.getElementById('reward-avatar-icon').value || '👤'),
+            avatarRarity: String(document.getElementById('reward-avatar-rarity').value || 'common'),
+            avatarSource: String(document.getElementById('reward-avatar-source').value || 'admin'),
+            avatarDescription: String(document.getElementById('reward-avatar-description').value || '')
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '儲存頭像失敗');
+            setRewardAdminStatus('頭像設定已儲存', false);
+            showAdminToast('頭像設定已儲存', false);
+            return loadRewardAdmin().then(function() {
+                if (data.avatar && data.avatar.id) {
+                    document.getElementById('reward-avatar-selector').value = data.avatar.id;
+                    onAdminAvatarSelected(data.avatar.id);
                 }
             });
         });

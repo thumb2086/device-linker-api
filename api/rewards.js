@@ -25,7 +25,8 @@ import {
     purchaseShopItem,
     saveRewardCampaign,
     activateInventoryItem,
-    upsertRewardTitle
+    upsertRewardTitle,
+    upsertRewardAvatar
 } from "../lib/reward-center.js";
 
 const CONTRACT_ABI = [
@@ -364,11 +365,12 @@ export default async function handler(req, res) {
                 name: trimText(body.titleName, 80),
                 rarity: trimText(body.titleRarity, 24) || "epic",
                 source: trimText(body.titleSource, 32) || "admin",
+                description: trimText(body.description || body.shopDescription, 240),
                 adminGrantable: body.adminGrantable !== false,
                 showOnLeaderboard: toBoolean(body.showOnLeaderboard),
                 shopEnabled: toBoolean(body.shopEnabled),
                 shopPrice: Number(body.shopPrice || 0),
-                shopDescription: trimText(body.shopDescription, 240),
+                shopDescription: trimText(body.shopDescription || body.description, 240),
                 shopCategory: trimText(body.shopCategory, 32),
                 shopPriority: Number(body.shopPriority || 0),
                 salePrice: Number(body.salePrice || 0),
@@ -376,6 +378,19 @@ export default async function handler(req, res) {
                 saleEndAt: trimText(body.saleEndAt, 64)
             });
             return res.status(200).json({ success: true, title });
+        }
+
+        if (action === "admin_upsert_avatar") {
+            await requireAdmin(sessionId);
+            const avatar = await upsertRewardAvatar({
+                id: trimText(body.avatarCatalogId || body.avatarId, 64),
+                name: trimText(body.avatarName, 80),
+                rarity: trimText(body.avatarRarity, 24) || "common",
+                icon: trimText(body.avatarIcon, 16) || "👤",
+                source: trimText(body.avatarSource, 32) || "admin",
+                description: trimText(body.avatarDescription || body.description, 240)
+            });
+            return res.status(200).json({ success: true, avatar });
         }
 
         if (action === "admin_list_campaigns") {

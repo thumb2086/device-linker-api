@@ -158,20 +158,35 @@ function renderIdentity(profile) {
     var titleEl = document.getElementById('identity-title');
     var avatarNameEl = document.getElementById('identity-avatar-name');
     var descEl = document.getElementById('identity-desc');
+    var titleDescEl = document.getElementById('identity-title-desc');
+    var avatarDescEl = document.getElementById('identity-avatar-desc');
 
     if (avatarEl) avatarEl.innerText = profile && profile.avatar ? profile.avatar.icon : '🪙';
     if (titleEl) titleEl.innerText = profile && profile.title ? profile.title.name : 'VIP 自動稱號';
     if (avatarNameEl) avatarNameEl.innerText = profile && profile.avatar ? profile.avatar.name : '經典籌碼';
 
+    // 舊版單一說明區域相容性
     if (descEl) {
         var desc = '';
-        if (profile && profile.title && profile.title.description) {
-            desc = profile.title.description;
+        if (profile && profile.title && (profile.title.description || profile.title.shopDescription)) {
+            desc = profile.title.description || profile.title.shopDescription;
         } else if (profile && profile.avatar && profile.avatar.description) {
             desc = profile.avatar.description;
         }
         descEl.innerText = desc || '';
         descEl.style.display = desc ? 'block' : 'none';
+    }
+
+    // 新版分開說明區域
+    if (titleDescEl) {
+        var tDesc = profile && profile.title ? (profile.title.description || profile.title.shopDescription) : '';
+        titleDescEl.innerText = tDesc || '';
+        titleDescEl.style.display = tDesc ? 'block' : 'none';
+    }
+    if (avatarDescEl) {
+        var aDesc = profile && profile.avatar ? profile.avatar.description : '';
+        avatarDescEl.innerText = aDesc || '';
+        avatarDescEl.style.display = aDesc ? 'block' : 'none';
     }
 }
 

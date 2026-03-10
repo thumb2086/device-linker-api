@@ -202,6 +202,11 @@ body.rewards-body {
     font-weight: 700;
 }
 
+.reward-rarity-muted {
+    background: rgba(148, 163, 184, 0.16);
+    color: #b8c4d1;
+}
+
 .reward-card-copy,
 .reward-card-meta {
     color: #d7e5f5;

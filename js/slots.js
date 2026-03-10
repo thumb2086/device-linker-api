@@ -353,7 +353,7 @@ class SlotMachine {
         var lineSummary = this.buildLineSummary(result.lineWins);
         var statusText = "💀 本局未中，結果已揭曉";
         var resultLabel = "已開獎";
-        var resultCopy = "結果已揭曉，鏈上正在背景同步。";
+        var resultCopy = "結果已揭曉。";
         var resultTone = "is-pending";
 
         if (totalMultiplier > 0) {
@@ -364,11 +364,11 @@ class SlotMachine {
                 }
                 statusText += "，派彩已先顯示";
                 resultLabel = tripleCount > 1 || doubleCount > 0 ? "組合派彩已開獎" : "三連已開獎";
-                resultCopy = "本局共命中三連 " + tripleCount + " 條、雙連 " + doubleCount + " 條，總倍率 " + totalMultiplier + "x；畫面已先顯示結果，鏈上正在背景入帳。";
+                resultCopy = "本局共命中三連 " + tripleCount + " 條、雙連 " + doubleCount + " 條，總倍率 " + totalMultiplier + "x；畫面已先顯示結果。";
             } else {
                 statusText = "⭐ 命中 " + doubleCount + " 條雙連，返還已先顯示";
                 resultLabel = doubleCount > 1 ? "多線雙連已開獎" : "雙連已開獎";
-                resultCopy = "雙連依條數累加，本局共命中 " + doubleCount + " 條雙連，總返還 " + totalMultiplier + "x；畫面已先顯示結果，鏈上正在背景入帳。";
+                resultCopy = "雙連依條數累加，本局共命中 " + doubleCount + " 條雙連，總返還 " + totalMultiplier + "x；畫面已先顯示結果。";
             }
         }
 
@@ -542,7 +542,7 @@ class SlotMachine {
         this.setSettlingState(false);
         this.updateTxLog("", "");
         this.setStatus("<span class=\"loader\"></span> 旋轉中...", false, true);
-        this.setResultState("旋轉中", "正在與後端同步盤面與鏈上結算。", "");
+        this.setResultState("旋轉中", "正在生成盤面與結果。", "");
 
         this.updateDisplayedBalance(Math.max(0, displayedBalanceBeforeSpin - betAmount), 5000, "slots-pre-spin");
 
@@ -652,12 +652,12 @@ class SlotMachine {
         this.setSettlingState(true);
         this.setSettlementPendingState();
         var pendingView = this.buildPendingOutcome(result);
-        this.setStatus(pendingView.statusText + "，鏈上背景同步中，可直接再轉。", false, false);
+        this.setStatus(pendingView.statusText + "，可直接再轉。", false, false);
         this.setResultState(pendingView.resultLabel, pendingView.resultCopy, pendingView.resultTone);
         if (!currentOptions.preserveDisplayedBalance) {
             this.refreshPendingBalanceView("slots-pending");
         }
-        this.updateTxLog("", pendingView.lineSummary || "開獎已完成，鏈上正在背景同步");
+        this.updateTxLog("", pendingView.lineSummary || "開獎已完成");
         if (!currentOptions.skipPollingKickoff) {
             this.scheduleSettlementPolling(250);
         }

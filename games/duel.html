@@ -22,6 +22,7 @@
         <p class="subtitle">建立或加入對局，勝者全拿 (1.8x - 2.0x 視平台手續費而定，目前 2.0x 無手續費)</p>
 
         <div class="user-stats">
+            <div class="stat-row">我的名稱: <span id="my-display-name">-</span></div>
             <div class="stat-row">我的地址: <span id="my-address">-</span></div>
             <div class="stat-row">目前餘額: <span id="balance-val">0.00</span></div>
         </div>
@@ -51,6 +52,7 @@
             checkGameAuth(function (data) {
                 updateUI(data);
                 document.getElementById('my-address').innerText = data.address;
+                document.getElementById('my-display-name').innerText = data.displayName || data.address;
                 startBalanceRefresh();
                 refreshDuels();
             });

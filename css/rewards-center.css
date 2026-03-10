@@ -112,6 +112,29 @@ body.rewards-body {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.guide-promo-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 24px 32px;
+    border-radius: 24px;
+    background: linear-gradient(90deg, rgba(255, 204, 0, 0.12), rgba(255, 204, 0, 0.04));
+    border: 1px solid rgba(255, 204, 0, 0.18);
+    text-align: left;
+}
+
+.guide-promo-content h3 {
+    margin: 0 0 8px;
+    color: #ffd36a;
+}
+
+.guide-promo-content p {
+    margin: 0;
+    color: #afc2d6;
+    font-size: 0.94rem;
+}
+
 .guide-grid-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -277,6 +300,16 @@ body.rewards-body {
 .reward-card-copy,
 .reward-card-meta {
     color: #d7e5f5;
+}
+
+.reward-card-meta.desc {
+    color: #96a8bb;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 12px;
+    border-radius: 12px;
+    margin: 4px 0;
 }
 
 .reward-card-price {

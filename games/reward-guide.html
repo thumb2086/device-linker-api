@@ -9,61 +9,98 @@
     <link rel="stylesheet" href="../css/guides.css">
     <style>
         .guide-section-head {
-            margin: 40px 0 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 48px 0 24px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid rgba(255, 204, 0, 0.18);
             color: #ffd36a;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         .reward-guide-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
         }
 
         .reward-guide-card {
-            background: rgba(255, 255, 255, 0.04);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 16px;
+            border-radius: 22px;
+            padding: 22px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .reward-guide-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255, 204, 0, 0.25);
         }
 
         .reward-guide-card strong {
             display: block;
-            font-size: 1.1rem;
-            margin-bottom: 8px;
+            font-size: 1.25rem;
+            margin-bottom: 10px;
             color: #fff;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
         }
 
         .reward-guide-type {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             color: #ffd36a;
+            background: rgba(255, 204, 0, 0.12);
+            padding: 4px 12px;
+            border-radius: 999px;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 10px;
+            letter-spacing: 0.08em;
+            margin-bottom: 14px;
+            display: inline-block;
+            font-weight: 700;
         }
 
         .reward-guide-desc {
-            font-size: 0.9rem;
-            color: #96a8bb;
-            line-height: 1.5;
+            font-size: 0.94rem;
+            color: #afc2d6;
+            line-height: 1.6;
+            margin-bottom: 14px;
         }
 
         .reward-guide-details {
-            margin-top: 12px;
-            padding-top: 10px;
-            border-top: 1px dashed rgba(255, 255, 255, 0.1);
-            font-size: 0.85rem;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.88rem;
         }
 
         .detail-item {
-            margin-bottom: 4px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
         }
 
         .detail-label {
-            color: #666;
-            margin-right: 6px;
+            color: #5c6c7d;
+            font-weight: 700;
+            white-space: nowrap;
         }
+
+        .detail-value {
+            color: #d7e5f5;
+        }
+
+        .rarity-chip {
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .rarity-epic { background: rgba(163, 53, 238, 0.2); color: #d8b4fe; border: 1px solid rgba(163, 53, 238, 0.3); }
+        .rarity-mythic { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .rarity-legendary { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
     </style>
 </head>
 
@@ -96,6 +133,12 @@
 
     <script src="../js/common.js"></script>
     <script>
+        function rarityClass(rarity) {
+            var r = String(rarity || '').toLowerCase();
+            if (r === 'epic' || r === 'mythic' || r === 'legendary') return 'rarity-' + r;
+            return '';
+        }
+
         function renderGuide(data) {
             var catalog = data.catalog;
             if (!catalog) return;
@@ -110,6 +153,9 @@
                     '<div class="reward-guide-type">' + (item.type === 'buff' ? '增益道具' : '寶箱道具') + '</div>' +
                     '<strong>' + item.name + '</strong>' +
                     '<div class="reward-guide-desc">' + (item.description || '暫無說明') + '</div>' +
+                    '<div class="reward-guide-details">' +
+                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + (item.rarity || '普通') + '</span></div>' +
+                    '</div>' +
                     '</div>';
 
                 if (item.type === 'buff') buffsHtml += html;
@@ -118,18 +164,24 @@
 
             (catalog.titles || []).forEach(function (item) {
                 titlesHtml += '<div class="reward-guide-card">' +
-                    '<div class="reward-guide-type">' + (item.rarity || '普通') + ' 稱號</div>' +
+                    '<div class="reward-guide-type">成就稱號</div>' +
                     '<strong>' + item.name + '</strong>' +
-                    '<div class="reward-guide-desc">' + (item.shopDescription || item.description || '永久稱號') + '</div>' +
-                    '<div class="reward-guide-details"><div class="detail-item"><span class="detail-label">取得途徑:</span>' + (item.source || '商店購買') + '</div></div>' +
+                    '<div class="reward-guide-desc">' + (item.shopDescription || item.description || '更換個人顯示稱號') + '</div>' +
+                    '<div class="reward-guide-details">' +
+                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + (item.rarity || '普通') + '</span></div>' +
+                        '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + (item.source || '商店購買') + '</span></div>' +
+                    '</div>' +
                     '</div>';
             });
 
             (catalog.avatars || []).forEach(function (item) {
                 avatarsHtml += '<div class="reward-guide-card">' +
                     '<div class="reward-guide-type">頭像外觀</div>' +
-                    '<strong>' + item.icon + ' ' + item.name + '</strong>' +
+                    '<strong>' + (item.icon || '👤') + ' ' + item.name + '</strong>' +
                     '<div class="reward-guide-desc">' + (item.description || '更換你的個人頭像顯示') + '</div>' +
+                    '<div class="reward-guide-details">' +
+                        '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + (item.source || '活動或寶箱') + '</span></div>' +
+                    '</div>' +
                     '</div>';
             });
 

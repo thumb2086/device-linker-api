@@ -41,9 +41,10 @@ function renderDuelList(duels) {
 
     listEl.innerHTML = duels.map(function (d) {
         var isMine = d.creator.toLowerCase() === user.address.toLowerCase();
+        var creatorDisplayName = d.creatorDisplayName || d.creatorName || d.creator;
         return '<div class="duel-item">' +
             '<div class="duel-info">' +
-                '<span class="creator-name">' + escapeHtml(d.creatorName) + ' 的對局</span>' +
+                '<span class="creator-name">' + escapeHtml(creatorDisplayName) + ' 的對局</span>' +
                 '<span class="duel-meta">' + d.amount.toLocaleString() + ' 子熙幣</span>' +
             '</div>' +
             '<div class="duel-actions">' +

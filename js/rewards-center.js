@@ -315,8 +315,6 @@ function renderShop(items) {
                 '</div>' +
                 '<span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span>' +
             '</div>' +
-            '<div class="reward-card-copy">' + escapeRewardsHtml(item.description || '') + '</div>' +
-            renderRewardItemDetailsHtml(item) +
             '<div class="reward-card-meta">售價：' + formatCompactZh(item.price, 2) + ' 子熙幣</div>' +
             '<div class="reward-card-actions">' +
                 '<button class="btn-primary compact-btn" onclick="buyRewardItem(\'' + escapeRewardsHtml(item.id) + '\')">購買</button>' +
@@ -397,8 +395,6 @@ function renderTitleShop(items) {
                 '</div>' +
                 '<span class="reward-rarity">' + escapeRewardsHtml(item.saleActive ? '限時折扣' : (item.showOnLeaderboard ? '榜單可顯示' : '個人收藏')) + '</span>' +
             '</div>' +
-            '<div class="reward-card-copy">' + escapeRewardsHtml(item.shopDescription || item.description || '永久稱號，購買後會直接加入稱號收藏。') + '</div>' +
-            '<div class="reward-card-meta">分類：' + escapeRewardsHtml(rewardTitleCategoryLabel(item.shopCategory || 'featured')) + ' / 來源：' + escapeRewardsHtml(item.source || 'shop') + '</div>' +
             saleMeta +
             saleWindow +
             '<div class="reward-card-actions">' +
@@ -422,7 +418,6 @@ function renderInventoryGroup(listId, items, emptyText) {
     }
 
     listEl.innerHTML = items.map(function (item) {
-        var catalogItem = rewardCatalogMap('shopItems')[item.itemId] || item;
         var actionBtn = '';
         if (item.type === 'buff') {
             actionBtn = '<button class="btn-primary compact-btn" onclick="useRewardItem(\'' + escapeRewardsHtml(item.itemId) + '\')">啟用</button>';
@@ -431,8 +426,6 @@ function renderInventoryGroup(listId, items, emptyText) {
         }
         return '<div class="reward-card">' +
             '<div class="reward-card-head"><strong>' + escapeRewardsHtml(item.name) + '</strong><span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span></div>' +
-            '<div class="reward-card-copy">' + escapeRewardsHtml(item.description || '') + '</div>' +
-            renderRewardItemDetailsHtml(catalogItem) +
             '<div class="reward-card-meta">持有數量：' + formatDisplayNumber(item.qty, 0) + '</div>' +
             '<div class="reward-card-actions">' + actionBtn + '</div>' +
             '</div>';
@@ -494,7 +487,6 @@ function renderTitles(items, profile) {
         return '<div class="reward-card">' +
             '<div class="reward-card-head"><strong>' + escapeRewardsHtml(item.name) + '</strong><span class="reward-rarity">' + escapeRewardsHtml(rarityLabel(item.rarity)) + '</span></div>' +
             '<div class="reward-card-meta">來源：' + escapeRewardsHtml(item.source || 'unknown') + ' / ' + escapeRewardsHtml(expireText) + '</div>' +
-            (item.shopDescription ? '<div class="reward-card-copy">' + escapeRewardsHtml(item.shopDescription) + '</div>' : '') +
             '<div class="reward-card-actions">' +
                 '<button class="' + (isSelected ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipRewardTitle(\'' + escapeRewardsHtml(item.id) + '\')">' + (isSelected ? '使用中' : '裝備') + '</button>' +
             '</div>' +
@@ -578,7 +570,6 @@ function applyRewardsState(data) {
     if (!data || !data.profile) return;
     renderIdentity(data.profile);
     renderCampaigns(data.campaigns || []);
-    renderItemGuide(data.catalog);
     renderShop(data.catalog && data.catalog.shopItems ? data.catalog.shopItems : []);
     renderTitleShop(data.catalog && data.catalog.titles ? data.catalog.titles : []);
     switchRewardsTab(rewardsTab);

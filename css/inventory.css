@@ -225,6 +225,16 @@
     margin-bottom: 4px;
 }
 
+.inventory-card-meta.desc {
+    color: #bbb;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin: 8px 0 12px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+
 .inventory-card-actions {
     margin-top: 14px;
     display: flex;

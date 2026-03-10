@@ -168,7 +168,6 @@ function renderInventoryGroup(listId, items, emptyText) {
         }
         return '<div class="inventory-card">' +
             '<div class="inventory-card-head"><strong>' + escapeInventoryHtml(item.name) + '</strong><span class="inventory-rarity">' + escapeInventoryHtml(rarityLabel(item.rarity)) + '</span></div>' +
-            '<div class="inventory-card-copy">' + escapeInventoryHtml(item.description || '') + '</div>' +
             '<div class="inventory-card-meta">持有數量：' + formatDisplayNumber(item.qty, 0) + '</div>' +
             '<div class="inventory-card-actions">' + actionBtn + '</div>' +
             '</div>';
@@ -203,6 +202,7 @@ function renderAvatars(items, profile) {
         var isSelected = profile && profile.selectedAvatarId === item.id;
         return '<div class="inventory-card">' +
             '<div class="inventory-card-head"><div class="inventory-card-title"><span class="inventory-icon">' + escapeInventoryHtml(item.icon) + '</span><strong>' + escapeInventoryHtml(item.name) + '</strong></div><span class="inventory-rarity">' + escapeInventoryHtml(rarityLabel(item.rarity)) + '</span></div>' +
+            '<div class="inventory-card-meta desc">' + escapeInventoryHtml(item.description || '更換你的個人頭像顯示。') + '</div>' +
             '<div class="inventory-card-meta">來源：' + escapeInventoryHtml(item.source || 'unknown') + '</div>' +
             '<div class="inventory-card-actions">' +
                 '<button class="' + (isSelected ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipInventoryAvatar(\'' + escapeInventoryHtml(item.id) + '\')">' + (isSelected ? '使用中' : '裝備') + '</button>' +
@@ -217,6 +217,7 @@ function renderTitles(items, profile) {
     var titleCards = [];
     titleCards.push('<div class="inventory-card">' +
         '<div class="inventory-card-head"><strong>VIP 自動稱號</strong><span class="inventory-rarity">預設</span></div>' +
+        '<div class="inventory-card-meta desc">系統根據您當前的 VIP 等級自動分配的榮譽稱號。</div>' +
         '<div class="inventory-card-meta">卸下目前稱號後，會回到依 VIP 等級自動顯示的稱號。</div>' +
         '<div class="inventory-card-actions">' +
             '<button class="' + (!profile || !profile.selectedTitleId ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipInventoryTitle(\'\')">' + (!profile || !profile.selectedTitleId ? '目前使用中' : '卸下稱號') + '</button>' +
@@ -229,8 +230,8 @@ function renderTitles(items, profile) {
             var expireText = item.expiresAt ? ('到期：' + item.expiresAt) : '永久稱號';
             return '<div class="inventory-card">' +
                 '<div class="inventory-card-head"><strong>' + escapeInventoryHtml(item.name) + '</strong><span class="inventory-rarity">' + escapeInventoryHtml(rarityLabel(item.rarity)) + '</span></div>' +
+                '<div class="inventory-card-meta desc">' + escapeInventoryHtml(item.description || '成就與榮譽的象徵。') + '</div>' +
                 '<div class="inventory-card-meta">來源：' + escapeInventoryHtml(item.source || 'unknown') + ' / ' + escapeInventoryHtml(expireText) + '</div>' +
-                (item.shopDescription ? '<div class="inventory-card-copy">' + escapeInventoryHtml(item.shopDescription) + '</div>' : '') +
                 '<div class="inventory-card-actions">' +
                     '<button class="' + (isSelected ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipInventoryTitle(\'' + escapeInventoryHtml(item.id) + '\')">' + (isSelected ? '使用中' : '裝備') + '</button>' +
                 '</div>' +
@@ -277,7 +278,6 @@ function applyInventoryState(data) {
     renderAvatars(data.profile.avatars || [], data.profile);
     renderTitles(data.profile.titles || [], data.profile);
     renderBuffs(data.profile.activeBuffs || []);
-    renderInventoryGuide(data.catalog);
 }
 
 function refreshInventory() {

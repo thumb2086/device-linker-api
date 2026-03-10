@@ -90,7 +90,6 @@ function renderShopItems(items) {
                 '</div>' +
                 '<span class="reward-rarity">' + escapeShopHtml(rarityLabel(item.rarity)) + '</span>' +
             '</div>' +
-            '<div class="reward-card-copy">' + escapeShopHtml(item.description || '') + '</div>' +
             '<div class="reward-card-meta">售價：' + formatCompactZh(item.price, 2) + ' 子熙幣</div>' +
             '<div class="reward-card-actions">' +
                 '<button class="btn-primary compact-btn" onclick="buyShopItem(\'' + escapeShopHtml(item.id) + '\')">購買</button>' +
@@ -141,7 +140,7 @@ function renderTitleShop(items) {
                 '<div class="reward-card-title"><span class="reward-icon">🏷️</span><strong>' + escapeShopHtml(item.name) + '</strong></div>' +
                 '<span class="reward-rarity">' + escapeShopHtml(rarityLabel(item.rarity)) + '</span>' +
             '</div>' +
-            '<div class="reward-card-copy">' + escapeShopHtml(item.shopDescription || item.description || '') + '</div>' +
+            '<div class="reward-card-meta desc">' + escapeShopHtml(item.shopDescription || item.description || '成就與榮譽的象徵。') + '</div>' +
             priceHtml +
             '<div class="reward-card-actions"><button class="btn-primary compact-btn" onclick="buyShopTitle(\'' + escapeShopHtml(item.id) + '\')">購買稱號</button></div>' +
             '</div>';
@@ -178,7 +177,6 @@ function refreshShop() {
             shopState = data;
             renderShopItems(data.catalog.shopItems);
             renderTitleShop(data.catalog.titles);
-            renderShopGuide(data.catalog);
             setShopStatus('商店已更新', false);
         })
         .catch(function (e) { setShopStatus('錯誤: ' + e.message, true); })

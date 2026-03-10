@@ -158,7 +158,7 @@ function startGame() {
     var statusMsg = document.getElementById('status-msg');
     var startBtn = document.getElementById('start-btn');
     var cashoutBtn = document.getElementById('cashout-btn');
-    var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+    var currentBalance = getCurrentUserBalance();
 
     if (!Number.isFinite(amount) || amount <= 0) {
         statusMsg.innerText = '請輸入有效的下注金額';
@@ -211,11 +211,7 @@ function startGame() {
             }
 
             var tempBalance = currentBalance - amount;
-            document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            var headerBalance = document.getElementById('header-balance');
-            if (headerBalance) {
-                headerBalance.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
+            setDisplayedBalance(tempBalance);
 
             animateFlight();
         })

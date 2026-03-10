@@ -175,11 +175,9 @@ function playDragon() {
     txLog.innerHTML = '';
     resetTable();
 
-    var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+    var currentBalance = getCurrentUserBalance();
     var tempBalance = currentBalance - amount;
-    document.getElementById('balance-val').innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-    var hBal = document.getElementById('header-balance');
-    if (hBal) hBal.innerText = tempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    setDisplayedBalance(tempBalance);
 
     fetch('/api/game?game=dragon', {
         method: 'POST',
@@ -209,14 +207,12 @@ function playDragon() {
 
             if (result.resultType === 'win') {
                 var newBalance = tempBalance + (amount * result.multiplier);
-                document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-                if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+                setDisplayedBalance(newBalance);
                 statusMsg.innerHTML = '🏆 命中龍門！<span class="result-multiplier" style="display:inline;">' + result.multiplier + 'x</span>';
                 statusMsg.style.color = '#00ff88';
             } else if (result.resultType === 'pillar') {
                 var pillarBalance = tempBalance - amount; // 再扣一注，總共雙倍
-                document.getElementById('balance-val').innerText = pillarBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-                if (hBal) hBal.innerText = pillarBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+                setDisplayedBalance(pillarBalance);
                 statusMsg.innerText = '💥 撞柱！雙倍扣注';
                 statusMsg.style.color = '#ff4444';
             } else {
@@ -239,8 +235,7 @@ function playDragon() {
         resetDragonSideGuess();
         shootBtn.innerText = '發門';
         shootBtn.disabled = false;
-        document.getElementById('balance-val').innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        if (hBal) hBal.innerText = currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        setDisplayedBalance(currentBalance);
     });
 }
 

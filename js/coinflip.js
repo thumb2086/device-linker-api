@@ -251,11 +251,9 @@ function play(choice) {
     status.innerHTML = '<span class="loader"></span> 下注交易中...';
     status.style.color = '#ffcc00';
 
-    var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+    var currentBalance = getCurrentUserBalance();
     var tempBalance = currentBalance - amount;
-    document.getElementById('balance-val').innerText = formatDisplayNumber(tempBalance, 2);
-    var hBal = document.getElementById('header-balance');
-    if (hBal) hBal.innerText = formatDisplayNumber(tempBalance, 2);
+    setDisplayedBalance(tempBalance);
 
     fetch('/api/game?game=coinflip', {
         method: 'POST',
@@ -289,8 +287,7 @@ function play(choice) {
         .catch(function (e) {
             status.innerText = '錯誤: ' + e.message;
             status.style.color = 'red';
-            document.getElementById('balance-val').innerText = formatDisplayNumber(currentBalance, 2);
-            if (hBal) hBal.innerText = formatDisplayNumber(currentBalance, 2);
+            setDisplayedBalance(currentBalance);
             syncCoinflipClock(true);
         })
         .finally(function () {

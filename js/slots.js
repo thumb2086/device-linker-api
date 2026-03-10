@@ -178,7 +178,7 @@ class SlotMachine {
     }
 
     updateDisplayedBalance(nextBalance) {
-        updateUI({ balance: nextBalance });
+        setDisplayedBalance(nextBalance);
     }
 
     updateTxLog(txHash, details) {
@@ -202,8 +202,7 @@ class SlotMachine {
             return;
         }
 
-        var balanceEl = document.getElementById("balance-val");
-        var currentBalance = parseFloat(String(balanceEl && balanceEl.innerText || "0").replace(/,/g, ""));
+        var currentBalance = getCurrentUserBalance();
         if (currentBalance < betAmount) {
             this.setStatus("❌ 餘額不足", true);
             this.setResultState("餘額不足", "目前餘額不足以支付這一筆旋轉。", "is-error");

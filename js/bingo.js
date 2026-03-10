@@ -262,8 +262,7 @@ function placeBingoBet() {
         return;
     }
 
-    var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
-    var headerBalance = document.getElementById('header-balance');
+    var currentBalance = getCurrentUserBalance();
     if (currentBalance < amount) {
         if (status) {
             status.innerText = '餘額不足';
@@ -278,8 +277,7 @@ function placeBingoBet() {
     }
 
     var tempBalance = currentBalance - amount;
-    document.getElementById('balance-val').innerText = formatDisplayNumber(tempBalance, 2);
-    if (headerBalance) headerBalance.innerText = formatDisplayNumber(tempBalance, 2);
+    setDisplayedBalance(tempBalance);
 
     fetch('/api/game', {
         method: 'POST',
@@ -310,8 +308,7 @@ function placeBingoBet() {
             updateUI({ totalBet: data.totalBet, vipLevel: data.vipLevel, maxBet: data.maxBet });
         })
         .catch(function (err) {
-            document.getElementById('balance-val').innerText = formatDisplayNumber(currentBalance, 2);
-            if (headerBalance) headerBalance.innerText = formatDisplayNumber(currentBalance, 2);
+            setDisplayedBalance(currentBalance);
             if (status) {
                 status.innerText = '錯誤: ' + err.message;
                 status.style.color = '#ff6666';

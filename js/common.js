@@ -1,6 +1,6 @@
 ﻿/* === 子熙賭場 - 共用 UI 工具 === */
 
-var user = { address: '', publicKey: '', sessionId: '', displayName: '' };
+var user = { address: '', publicKey: '', sessionId: '', displayName: '', balance: 0, totalBet: 0, vipLevel: '', maxBet: 0 };
 var userToastTimerSeq = 0;
 
 function getNumberDisplayMode() {
@@ -69,6 +69,17 @@ function formatCompactZh(value, digits) {
     return getNumberDisplayMode() === 'full'
         ? formatFullNumberValue(num, fractionDigits)
         : formatCompactNumberValue(num, fractionDigits);
+}
+
+function getCurrentUserBalance() {
+    return toSafeNumber(user.balance, 0);
+}
+
+function setDisplayedBalance(value) {
+    var nextBalance = toSafeNumber(value, 0);
+    user.balance = nextBalance;
+    updateUI({ balance: nextBalance });
+    return nextBalance;
 }
 
 function renderMaxBetNote(maxBet) {
@@ -400,6 +411,7 @@ function updateUI(data) {
 
     if (data.balance !== undefined) {
         var balanceNum = toSafeNumber(data.balance, 0);
+        user.balance = balanceNum;
         var balanceText = formatDisplayNumber(balanceNum, 2);
 
         var balEl = document.getElementById('balance-val');
@@ -411,13 +423,16 @@ function updateUI(data) {
 
     if (data.totalBet !== undefined) {
         var totalBetNum = toSafeNumber(data.totalBet, 0);
+        user.totalBet = totalBetNum;
         var totalBetEl = document.getElementById('total-bet-val');
         if (totalBetEl) totalBetEl.innerText = formatDisplayNumber(totalBetNum, 2);
     }
 
     if (data.vipLevel) {
+        user.vipLevel = data.vipLevel;
         var vipText = data.vipLevel;
         if (data.maxBet !== undefined) {
+            user.maxBet = toSafeNumber(data.maxBet, 0);
             vipText += ' | 單注上限 ' + formatDisplayNumber(data.maxBet, 2) + ' 子熙幣';
         }
 
@@ -438,6 +453,7 @@ function updateUI(data) {
     }
 
     if (data.maxBet !== undefined) {
+        user.maxBet = toSafeNumber(data.maxBet, 0);
         renderMaxBetNote(data.maxBet);
     }
 

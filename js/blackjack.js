@@ -83,13 +83,11 @@ function startBlackjack() {
     txLog.innerHTML = '';
     resetBoard();
 
-    blackjackCurrentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+    blackjackCurrentBalance = getCurrentUserBalance();
     blackjackBetAmount = amount;
     blackjackTempBalance = blackjackCurrentBalance - amount;
 
-    document.getElementById('balance-val').innerText = blackjackTempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-    var hBal = document.getElementById('header-balance');
-    if (hBal) hBal.innerText = blackjackTempBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    setDisplayedBalance(blackjackTempBalance);
 
     fetch('/api/game?game=blackjack', {
         method: 'POST',
@@ -204,15 +202,13 @@ function finalizeBlackjack(result) {
 
     if (result.isPush) {
         var pushBalance = blackjackTempBalance + blackjackBetAmount;
-        document.getElementById('balance-val').innerText = pushBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        if (hBal) hBal.innerText = pushBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        setDisplayedBalance(pushBalance);
         statusMsg.innerText = '🤝 平手：退回本金';
         statusMsg.style.color = '#ffcc00';
     } else if (result.isWin) {
         var profit = blackjackBetAmount * result.multiplier;
         var newBalance = blackjackTempBalance + blackjackBetAmount + profit;
-        document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        setDisplayedBalance(newBalance);
         statusMsg.innerHTML = '🏆 你贏了！<span class="result-multiplier" style="display:inline;">' + result.multiplier + 'x</span>（' + result.reason + '）';
         statusMsg.style.color = '#00ff88';
     } else {
@@ -225,7 +221,5 @@ function finalizeBlackjack(result) {
 }
 
 function restoreOptimisticBalance() {
-    document.getElementById('balance-val').innerText = blackjackCurrentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
-    var hBal = document.getElementById('header-balance');
-    if (hBal) hBal.innerText = blackjackCurrentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    setDisplayedBalance(blackjackCurrentBalance);
 }

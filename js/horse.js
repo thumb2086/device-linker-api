@@ -13,8 +13,7 @@ function calcDisplayBalance(realBalance) {
     // 賽馬不需要特殊處理，因為 API 會扣掉餘額，我們手動更新 UI
     // 但為了防止 refreshBalance 把我們「樂觀更新」的餘額蓋掉，我們在有 pendingBets 時不更新 UI
     if (pendingBets.length > 0) {
-        var currentUI = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
-        return currentUI;
+        return getCurrentUserBalance();
     }
     return realBalance;
 }
@@ -477,11 +476,9 @@ function runRace() {
     statusMsg.innerHTML = '<span class="loader"></span> 下注交易中...';
     statusMsg.style.color = '#ffcc00';
 
-    var currentBalance = parseFloat(document.getElementById('balance-val').innerText.replace(/,/g, ''));
+    var currentBalance = getCurrentUserBalance();
     var tempBalance = currentBalance - amount;
-    document.getElementById('balance-val').innerText = formatDisplayNumber(tempBalance, 2);
-    var hBal = document.getElementById('header-balance');
-    if (hBal) hBal.innerText = formatDisplayNumber(tempBalance, 2);
+    setDisplayedBalance(tempBalance);
 
     fetch('/api/game?game=horse', {
         method: 'POST',
@@ -513,8 +510,7 @@ function runRace() {
     .catch(function (e) {
         statusMsg.innerText = '❌ 錯誤: ' + e.message;
         statusMsg.style.color = 'red';
-        document.getElementById('balance-val').innerText = formatDisplayNumber(currentBalance, 2);
-        if (hBal) hBal.innerText = formatDisplayNumber(currentBalance, 2);
+        setDisplayedBalance(currentBalance);
     })
     .finally(function() {
         isSubmitting = false;

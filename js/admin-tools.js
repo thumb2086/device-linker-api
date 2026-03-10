@@ -31,6 +31,7 @@ var issueLoaded = false;
 var issueExpanded = false;
 var blacklistExpanded = false;
 var blacklistLoaded = false;
+var winBiasExpanded = false;
 var opsExpanded = false;
 var adminToastTimerSeq = 0;
 
@@ -1083,6 +1084,14 @@ function renderRewardAdminSelects() {
     if (titleSelectorEl) {
         titleSelectorEl.innerHTML = buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.titles, '建立新稱號', '');
     }
+    var campaignSelectorEl = document.getElementById('reward-campaign-selector');
+    if (campaignSelectorEl) {
+        campaignSelectorEl.innerHTML = buildRewardSelectOptionsHtml(rewardCampaigns.map(function(c) { return { id: c.id, name: c.title }; }), '建立新活動', '');
+    }
+    var campaignCountEl = document.getElementById('reward-campaign-count');
+    if (campaignCountEl) {
+        campaignCountEl.innerText = String(rewardCampaigns.length);
+    }
 }
 
 function getRewardCatalogTitle(titleId) {
@@ -1133,67 +1142,56 @@ function clearAdminTitleForm() {
     document.getElementById('reward-title-shop-description').value = '';
 }
 
-function renderRewardCampaigns() {
-    var listEl = document.getElementById('reward-campaign-list');
-    var countEl = document.getElementById('reward-campaign-count');
-    if (countEl) countEl.innerText = String(rewardCampaigns.length);
-    if (!listEl) return;
-
-    if (!rewardCampaigns.length) {
-        listEl.innerHTML = '<div class="result-empty">目前沒有活動</div>';
+function onAdminCampaignSelected(campaignId) {
+    if (!campaignId) {
+        clearAdminCampaignForm();
         return;
     }
+    var campaign = null;
+    for (var i = 0; i < rewardCampaigns.length; i += 1) {
+        if (String(rewardCampaigns[i].id) === String(campaignId)) {
+            campaign = rewardCampaigns[i];
+            break;
+        }
+    }
+    if (!campaign) return;
 
-    var html = '';
-    rewardCampaigns.forEach(function (item) {
-        var titleId = getCampaignFieldId(item.id, 'title');
-        var descId = getCampaignFieldId(item.id, 'description');
-        var startId = getCampaignFieldId(item.id, 'start');
-        var endId = getCampaignFieldId(item.id, 'end');
-        var activeId = getCampaignFieldId(item.id, 'active');
-        var claimLimitId = getCampaignFieldId(item.id, 'claim_limit');
-        var minVipId = getCampaignFieldId(item.id, 'min_vip');
-        var itemId = getCampaignFieldId(item.id, 'item');
-        var itemQtyId = getCampaignFieldId(item.id, 'item_qty');
-        var avatarId = getCampaignFieldId(item.id, 'avatar');
-        var rewardTitleId = getCampaignFieldId(item.id, 'reward_title');
-        var titleExpiresId = getCampaignFieldId(item.id, 'title_expires_at');
-        var tokenAmountId = getCampaignFieldId(item.id, 'token_amount');
-        var rewardItem = getPrimaryRewardItem(item.rewards);
-        var rewardAvatar = getPrimaryRewardAvatar(item.rewards);
-        var rewardTitle = getPrimaryRewardTitle(item.rewards);
-        html += '<div class="announcement-admin-card">' +
-            '<div class="announcement-admin-head">' +
-                '<div>' +
-                    '<strong>' + escapeHtml(item.title || '未命名活動') + '</strong>' +
-                    '<div class="issue-report-meta">' +
-                        '<span>' + escapeHtml(item.isActive ? '啟用中' : '已停用') + '</span>' +
-                        '<span>每人可領 ' + escapeHtml(String(item.claimLimitPerUser || 1)) + ' 次</span>' +
-                        '<span>' + escapeHtml(summarizeRewardBundle(item.rewards)) + '</span>' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
-            '<div class="announcement-form-grid">' +
-                '<label><span>標題</span><input id="' + escapeHtml(titleId) + '" class="text-input" type="text" value="' + escapeHtml(item.title || '') + '"></label>' +
-                '<label><span>每人可領次數</span><input id="' + escapeHtml(claimLimitId) + '" class="text-input" type="number" min="1" step="1" value="' + escapeHtml(String(item.claimLimitPerUser || 1)) + '"></label>' +
-                '<label><span>開始時間</span><input id="' + escapeHtml(startId) + '" class="text-input" type="datetime-local" value="' + escapeHtml(toDateTimeLocalValue(item.startAt || '')) + '"></label>' +
-                '<label><span>結束時間</span><input id="' + escapeHtml(endId) + '" class="text-input" type="datetime-local" value="' + escapeHtml(toDateTimeLocalValue(item.endAt || '')) + '"></label>' +
-                '<label><span>最低 VIP</span><select id="' + escapeHtml(minVipId) + '" class="text-input">' + buildVipSelectOptionsHtml(rewardCatalog && rewardCatalog.vipLevels, item.minVipLevel || '') + '</select></label>' +
-                '<label class="toggle-field"><input id="' + escapeHtml(activeId) + '" type="checkbox"' + (item.isActive ? ' checked' : '') + '><span>啟用活動</span></label>' +
-                '<label class="full-span"><span>描述</span><textarea id="' + escapeHtml(descId) + '" class="text-input announcement-textarea">' + escapeHtml(item.description || '') + '</textarea></label>' +
-                '<label><span>活動道具</span><select id="' + escapeHtml(itemId) + '" class="text-input">' + buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.shopItems, '不發道具', rewardItem && rewardItem.id) + '</select></label>' +
-                '<label><span>道具數量</span><input id="' + escapeHtml(itemQtyId) + '" class="text-input" type="number" min="1" step="1" value="' + escapeHtml(String(rewardItem && rewardItem.qty || 1)) + '"></label>' +
-                '<label><span>活動頭像</span><select id="' + escapeHtml(avatarId) + '" class="text-input">' + buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.avatars, '不發頭像', rewardAvatar) + '</select></label>' +
-                '<label><span>活動稱號</span><select id="' + escapeHtml(rewardTitleId) + '" class="text-input">' + buildRewardSelectOptionsHtml(rewardCatalog && rewardCatalog.titles, '不發稱號', rewardTitle && rewardTitle.id) + '</select></label>' +
-                '<label><span>稱號到期時間</span><input id="' + escapeHtml(titleExpiresId) + '" class="text-input" type="datetime-local" value="' + escapeHtml(toDateTimeLocalValue(rewardTitle && rewardTitle.expiresAt || '')) + '"></label>' +
-                '<label><span>額外子熙幣</span><input id="' + escapeHtml(tokenAmountId) + '" class="text-input" type="number" min="0" step="1" value="' + escapeHtml(String(item.rewards && item.rewards.tokens || 0)) + '"></label>' +
-            '</div>' +
-            '<div class="issue-card-actions">' +
-                '<button class="btn-primary compact-btn" data-campaign-id="' + escapeHtml(item.id) + '" onclick="saveRewardCampaign(this.dataset.campaignId)">儲存活動</button>' +
-            '</div>' +
-            '</div>';
-    });
-    listEl.innerHTML = html;
+    var rewardItem = getPrimaryRewardItem(campaign.rewards);
+    var rewardAvatar = getPrimaryRewardAvatar(campaign.rewards);
+    var rewardTitle = getPrimaryRewardTitle(campaign.rewards);
+
+    document.getElementById('campaign-id-hidden').value = campaign.id || '';
+    document.getElementById('campaign-title').value = campaign.title || '';
+    document.getElementById('campaign-description').value = campaign.description || '';
+    document.getElementById('campaign-start-at').value = toDateTimeLocalValue(campaign.startAt || '');
+    document.getElementById('campaign-end-at').value = toDateTimeLocalValue(campaign.endAt || '');
+    document.getElementById('campaign-claim-limit').value = String(campaign.claimLimitPerUser || 1);
+    document.getElementById('campaign-min-vip').value = campaign.minVipLevel || '';
+    document.getElementById('campaign-active').checked = !!campaign.isActive;
+    document.getElementById('campaign-item').value = rewardItem ? rewardItem.id : '';
+    document.getElementById('campaign-item-qty').value = rewardItem ? String(rewardItem.qty) : '1';
+    document.getElementById('campaign-avatar').value = rewardAvatar || '';
+    document.getElementById('campaign-title-id').value = rewardTitle ? rewardTitle.id : '';
+    document.getElementById('campaign-title-expires-at').value = toDateTimeLocalValue(rewardTitle && rewardTitle.expiresAt || '');
+    document.getElementById('campaign-token-amount').value = String(campaign.rewards && campaign.rewards.tokens || 0);
+}
+
+function clearAdminCampaignForm() {
+    document.getElementById('reward-campaign-selector').value = '';
+    document.getElementById('campaign-id-hidden').value = '';
+    document.getElementById('campaign-title').value = '';
+    document.getElementById('campaign-description').value = '';
+    document.getElementById('campaign-start-at').value = '';
+    document.getElementById('campaign-end-at').value = '';
+    document.getElementById('campaign-claim-limit').value = '1';
+    document.getElementById('campaign-min-vip').value = '';
+    document.getElementById('campaign-active').checked = true;
+    document.getElementById('campaign-item').value = '';
+    document.getElementById('campaign-item-qty').value = '1';
+    document.getElementById('campaign-avatar').value = '';
+    document.getElementById('campaign-title-id').value = '';
+    document.getElementById('campaign-title-expires-at').value = '';
+    document.getElementById('campaign-token-amount').value = '0';
 }
 
 function renderRewardGrantLogs() {
@@ -1234,7 +1232,6 @@ function loadRewardAdmin() {
         rewardCampaigns = Array.isArray(campaignData.campaigns) ? campaignData.campaigns : [];
         rewardGrantLogs = Array.isArray(logData.logs) ? logData.logs : [];
         renderRewardAdminSelects();
-        renderRewardCampaigns();
         renderRewardGrantLogs();
         setRewardAdminStatus('稱號與活動資料已同步', false);
     });
@@ -1334,9 +1331,11 @@ function publishRewardTitle() {
 }
 
 function publishRewardCampaign() {
-    setRewardAdminStatus('建立活動中...', false);
+    setRewardAdminStatus('儲存活動設定中...', false);
     withAdminBusy('reward', function () {
+        var campaignId = document.getElementById('campaign-id-hidden').value;
         return callRewardsAdminApi('admin_upsert_campaign', {
+            campaignId: campaignId || undefined,
             title: String(document.getElementById('campaign-title').value || ''),
             description: String(document.getElementById('campaign-description').value || ''),
             startAt: getIsoDateTimeValue('campaign-start-at'),
@@ -1351,53 +1350,15 @@ function publishRewardCampaign() {
             titleExpiresAt: getIsoDateTimeValue('campaign-title-expires-at'),
             tokenAmount: String(document.getElementById('campaign-token-amount').value || '0')
         }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '建立活動失敗');
-            document.getElementById('campaign-title').value = '';
-            document.getElementById('campaign-description').value = '';
-            document.getElementById('campaign-start-at').value = '';
-            document.getElementById('campaign-end-at').value = '';
-            document.getElementById('campaign-claim-limit').value = '1';
-            document.getElementById('campaign-min-vip').value = '';
-            document.getElementById('campaign-active').checked = true;
-            document.getElementById('campaign-item').value = '';
-            document.getElementById('campaign-item-qty').value = '1';
-            document.getElementById('campaign-avatar').value = '';
-            document.getElementById('campaign-title-id').value = '';
-            document.getElementById('campaign-title-expires-at').value = '';
-            document.getElementById('campaign-token-amount').value = '0';
-            setRewardAdminStatus('活動已建立', false);
-            showAdminToast('限時活動已建立', false);
-            return loadRewardAdmin();
-        });
-    }).catch(function (error) {
-        setRewardAdminStatus('錯誤: ' + error.message, true);
-        showAdminToast(error.message, true);
-    });
-}
-
-function saveRewardCampaign(campaignId) {
-    setRewardAdminStatus('更新活動中...', false);
-    withAdminBusy('reward', function () {
-        return callRewardsAdminApi('admin_upsert_campaign', {
-            campaignId: campaignId,
-            title: String(document.getElementById(getCampaignFieldId(campaignId, 'title')).value || ''),
-            description: String(document.getElementById(getCampaignFieldId(campaignId, 'description')).value || ''),
-            startAt: getIsoDateTimeValue(getCampaignFieldId(campaignId, 'start')),
-            endAt: getIsoDateTimeValue(getCampaignFieldId(campaignId, 'end')),
-            claimLimitPerUser: String(document.getElementById(getCampaignFieldId(campaignId, 'claim_limit')).value || '1'),
-            minVipLevel: String(document.getElementById(getCampaignFieldId(campaignId, 'min_vip')).value || ''),
-            isActive: !!document.getElementById(getCampaignFieldId(campaignId, 'active')).checked,
-            itemId: String(document.getElementById(getCampaignFieldId(campaignId, 'item')).value || ''),
-            itemQty: String(document.getElementById(getCampaignFieldId(campaignId, 'item_qty')).value || '1'),
-            avatarId: String(document.getElementById(getCampaignFieldId(campaignId, 'avatar')).value || ''),
-            titleId: String(document.getElementById(getCampaignFieldId(campaignId, 'reward_title')).value || ''),
-            titleExpiresAt: getIsoDateTimeValue(getCampaignFieldId(campaignId, 'title_expires_at')),
-            tokenAmount: String(document.getElementById(getCampaignFieldId(campaignId, 'token_amount')).value || '0')
-        }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '更新活動失敗');
-            setRewardAdminStatus('活動已更新', false);
-            showAdminToast('活動已更新', false);
-            return loadRewardAdmin();
+            if (!data || !data.success) throw new Error((data && data.error) || '儲存活動失敗');
+            setRewardAdminStatus('活動已儲存', false);
+            showAdminToast('限時活動已儲存', false);
+            return loadRewardAdmin().then(function() {
+                if (data.campaign && data.campaign.id) {
+                    document.getElementById('reward-campaign-selector').value = data.campaign.id;
+                    onAdminCampaignSelected(data.campaign.id);
+                }
+            });
         });
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);
@@ -1521,6 +1482,16 @@ function removeFromBlacklist(address) {
     });
 }
 
+function toggleWinBiasSection() {
+    var body = document.getElementById('win-bias-section-body');
+    var btn = document.getElementById('win-bias-toggle-btn');
+    if (!body || !btn) return;
+
+    winBiasExpanded = !winBiasExpanded;
+    body.classList.toggle('hidden', !winBiasExpanded);
+    btn.innerText = winBiasExpanded ? '收合勝率干預' : '展開勝率干預';
+}
+
 function queryWinBias() {
     var address = String(document.getElementById('win-bias-address').value || '').trim();
     if (!address) {
@@ -1535,7 +1506,7 @@ function queryWinBias() {
                 if (!data || !data.success) throw new Error((data && data.error) || '查詢失敗');
                 var val = data.bias !== null ? data.bias : 0.08;
                 document.getElementById('win-bias-value').value = String(val);
-                document.getElementById('win-bias-status-msg').innerText = '目前設定：' + (data.bias !== null ? val : '預設 (0.08)');
+                document.getElementById('win-bias-status-msg').innerText = '目前設定：' + (data.bias !== null ? val : '系統預設 (0.08)');
                 setAdminStatus('查詢完成', false);
             });
     }).catch(function (error) {
@@ -1557,9 +1528,32 @@ function saveWinBias() {
         return callAdminApi('set_user_win_bias', { address: address, bias: bias })
             .then(function (data) {
                 if (!data || !data.success) throw new Error((data && data.error) || '儲存失敗');
-                document.getElementById('win-bias-status-msg').innerText = '設定已儲存：' + bias;
+                document.getElementById('win-bias-status-msg').innerText = '強制干預設定已儲存：' + bias;
                 setAdminStatus('儲存完成', false);
                 showAdminToast('勝率設定已更新', false);
+            });
+    }).catch(function (error) {
+        setAdminStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
+    });
+}
+
+function resetWinBias() {
+    var address = String(document.getElementById('win-bias-address').value || '').trim();
+    if (!address) {
+        showAdminToast('請輸入地址', true);
+        return;
+    }
+
+    setAdminStatus('正在恢復預設勝率...', false);
+    withAdminBusy('winBias', function () {
+        return callAdminApi('set_user_win_bias', { address: address, bias: null })
+            .then(function (data) {
+                if (!data || !data.success) throw new Error((data && data.error) || '恢復失敗');
+                document.getElementById('win-bias-value').value = '0.08';
+                document.getElementById('win-bias-status-msg').innerText = '已恢復系統預設';
+                setAdminStatus('恢復完成', false);
+                showAdminToast('已取消對該地址的勝率干預', false);
             });
     }).catch(function (error) {
         setAdminStatus('錯誤: ' + error.message, true);

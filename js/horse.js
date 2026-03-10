@@ -152,6 +152,7 @@ function startRaceDraw(roundId) {
                 if (totalWon > 0) {
                     statusMsg.innerHTML = '🏆 第 ' + roundId + ' 局結算：贏得 ' + formatDisplayNumber(totalWon, 2) + ' 子熙幣！';
                     statusMsg.style.color = '#00ff88';
+                    if (window.audioManager) window.audioManager.play('win_big');
                 } else {
                     statusMsg.innerText = '💀 第 ' + roundId + ' 局結算：未中獎，再接再厲';
                     statusMsg.style.color = '#ff4444';
@@ -475,6 +476,7 @@ function runRace() {
     raceBtn.disabled = true;
     statusMsg.innerHTML = '<span class="loader"></span> 下注交易中...';
     statusMsg.style.color = '#ffcc00';
+    if (window.audioManager) window.audioManager.play('bet');
 
     var currentBalance = getCurrentUserBalance();
     var tempBalance = currentBalance - amount;

@@ -215,6 +215,10 @@ export default async function handler(req, res) {
         if (action === "set_user_win_bias") {
             const targetAddress = normalizeAddress(body.address);
             if (!targetAddress) return res.status(400).json({ success: false, error: "Invalid address" });
+            if (body.bias === null || body.bias === undefined || body.bias === "") {
+                await kv.del(`user_win_bias:${targetAddress}`);
+                return res.status(200).json({ success: true, address: targetAddress, bias: null });
+            }
             const bias = Number(body.bias);
             if (isNaN(bias) || bias < 0 || bias > 1) {
                 return res.status(400).json({ success: false, error: "Bias must be between 0 and 1" });

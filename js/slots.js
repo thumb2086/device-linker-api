@@ -523,6 +523,7 @@ class SlotMachine {
         this.setSettlingState(false);
         this.updateTxLog("", "");
         this.setStatus("<span class=\"loader\"></span> 旋轉中...", false, true);
+        if (window.audioManager) window.audioManager.play('bet');
         this.setResultState("旋轉中", "正在生成盤面與結果。", "");
 
         this.updateDisplayedBalance(displayedBalanceBeforeSpin, 5000, "slots-pre-spin");
@@ -530,6 +531,7 @@ class SlotMachine {
         var self = this;
         var minSpinMs = 550;
         var startedAt = Date.now();
+        var spinSoundId = window.audioManager ? window.audioManager.play('slot_reel', { loop: true }) : null;
         var spinInterval = setInterval(function () {
             for (var index = 0; index < self.cells.length; index += 1) {
                 self.renderSymbol(self.cells[index], self.symbolKeys[Math.floor(Math.random() * self.symbolKeys.length)], true);
@@ -555,6 +557,8 @@ class SlotMachine {
                 });
             }
             clearInterval(spinInterval);
+            if (window.audioManager && spinSoundId) window.audioManager.stop('slot_reel', spinSoundId);
+            if (window.audioManager) window.audioManager.play('slot_stop');
 
             if (!result || result.error) {
                 throw new Error((result && (result.details ? (result.error + "：" + result.details) : result.error)) || "老虎機交易失敗");
@@ -671,6 +675,7 @@ class SlotMachine {
                 resultLabel = tripleCount > 1 || doubleCount > 0 ? "組合派彩" : "三連中獎";
                 resultCopy = "本局共命中三連 " + tripleCount + " 條、雙連 " + doubleCount + " 條，總倍率 " + totalMultiplier + "x，鏈上已完成入帳。";
                 resultTone = "is-win";
+            if (window.audioManager) window.audioManager.play(totalMultiplier >= 10 ? 'win_big' : 'win_small');
             } else {
                 statusText = "⭐ 命中 " + doubleCount + " 條雙連，總返還 " + totalMultiplier + "x 已入帳";
                 resultLabel = doubleCount > 1 ? "多線雙連" : "雙連退還";

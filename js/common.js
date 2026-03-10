@@ -1,7 +1,8 @@
 ﻿/* === 子熙賭場 - 共用 UI 工具 === */
 
-var user = { address: '', publicKey: '', sessionId: '', displayName: '', balance: 0, totalBet: 0, vipLevel: '', maxBet: 0 };
+var user = { address: '', publicKey: '', sessionId: '', displayName: '', balance: 0, chainBalance: 0, totalBet: 0, vipLevel: '', maxBet: 0 };
 var userToastTimerSeq = 0;
+var BALANCE_OVERRIDE_KEY = 'zixi_balance_override';
 
 function getNumberDisplayMode() {
     try {
@@ -75,10 +76,111 @@ function getCurrentUserBalance() {
     return toSafeNumber(user.balance, 0);
 }
 
-function setDisplayedBalance(value) {
+function getBalanceStorage() {
+    try {
+        return window.sessionStorage;
+    } catch (error) {
+        return null;
+    }
+}
+
+function readBalanceDisplayOverride() {
+    var storage = getBalanceStorage();
+    if (!storage) return null;
+
+    try {
+        var raw = storage.getItem(BALANCE_OVERRIDE_KEY);
+        if (!raw) return null;
+        var parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return null;
+        var expiresAt = Number(parsed.expiresAt || 0);
+        if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+            storage.removeItem(BALANCE_OVERRIDE_KEY);
+            return null;
+        }
+        return {
+            address: String(parsed.address || '').toLowerCase(),
+            value: toSafeNumber(parsed.value, 0),
+            expiresAt: expiresAt,
+            source: String(parsed.source || '')
+        };
+    } catch (error) {
+        return null;
+    }
+}
+
+function clearDisplayedBalanceOverride() {
+    var storage = getBalanceStorage();
+    if (!storage) return;
+    try {
+        storage.removeItem(BALANCE_OVERRIDE_KEY);
+    } catch (error) {
+        console.log('Failed to clear balance override');
+    }
+}
+
+function setDisplayedBalanceOverride(value, ttlMs, source) {
+    var storage = getBalanceStorage();
     var nextBalance = toSafeNumber(value, 0);
+    if (!storage) return nextBalance;
+
+    try {
+        storage.setItem(BALANCE_OVERRIDE_KEY, JSON.stringify({
+            address: String(user.address || '').toLowerCase(),
+            value: nextBalance,
+            expiresAt: Date.now() + Math.max(1000, Number(ttlMs || 30000)),
+            source: String(source || '')
+        }));
+    } catch (error) {
+        console.log('Failed to persist balance override');
+    }
+    return nextBalance;
+}
+
+function getActiveDisplayedBalanceOverride() {
+    var override = readBalanceDisplayOverride();
+    if (!override) return null;
+
+    var currentAddress = String(user.address || '').toLowerCase();
+    if (override.address && currentAddress && override.address !== currentAddress) {
+        clearDisplayedBalanceOverride();
+        return null;
+    }
+    return override;
+}
+
+function renderBalanceValue(value) {
+    var nextBalance = toSafeNumber(value, 0);
+    var balanceText = formatDisplayNumber(nextBalance, 2);
+
+    var balEl = document.getElementById('balance-val');
+    if (balEl) balEl.innerText = balanceText;
+
+    var headerBalance = document.getElementById('header-balance');
+    if (headerBalance) headerBalance.innerText = balanceText;
+}
+
+function resolveDisplayedBalanceValue(realBalance) {
+    var nextBalance = toSafeNumber(realBalance, 0);
+    if (typeof calcDisplayBalance === 'function') {
+        nextBalance = toSafeNumber(calcDisplayBalance(nextBalance), nextBalance);
+    }
+
+    var override = getActiveDisplayedBalanceOverride();
+    if (!override) return nextBalance;
+
+    if (Math.abs(toSafeNumber(realBalance, 0) - override.value) < 0.000001) {
+        clearDisplayedBalanceOverride();
+        return nextBalance;
+    }
+
+    return override.value;
+}
+
+function setDisplayedBalance(value, ttlMs, source) {
+    var nextBalance = setDisplayedBalanceOverride(value, ttlMs, source);
     user.balance = nextBalance;
-    updateUI({ balance: nextBalance });
+    renderBalanceValue(nextBalance);
     return nextBalance;
 }
 
@@ -411,14 +513,9 @@ function updateUI(data) {
 
     if (data.balance !== undefined) {
         var balanceNum = toSafeNumber(data.balance, 0);
-        user.balance = balanceNum;
-        var balanceText = formatDisplayNumber(balanceNum, 2);
-
-        var balEl = document.getElementById('balance-val');
-        if (balEl) balEl.innerText = balanceText;
-
-        var headerBalance = document.getElementById('header-balance');
-        if (headerBalance) headerBalance.innerText = balanceText;
+        user.chainBalance = balanceNum;
+        user.balance = resolveDisplayedBalanceValue(balanceNum);
+        renderBalanceValue(user.balance);
     }
 
     if (data.totalBet !== undefined) {
@@ -508,11 +605,7 @@ function refreshBalance() {
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (!data || !data.success) return;
-            if (typeof calcDisplayBalance === 'function') {
-                updateUI({ balance: calcDisplayBalance(data.balance) });
-            } else {
-                updateUI({ balance: data.balance });
-            }
+            updateUI({ balance: data.balance });
         })
         .catch(function () {
             console.log('Balance refresh failed');

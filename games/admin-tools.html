@@ -49,6 +49,11 @@
                 <strong>高額下注重製</strong>
                 <p>先預覽，再正式執行一次性維運操作。</p>
             </a>
+            <a href="#tx-health-section" class="admin-overview-card">
+                <span>鏈上監控</span>
+                <strong>交易失敗率看板</strong>
+                <p>查看近期鏈上成功率、失敗率與主要錯誤原因。</p>
+            </a>
             <a href="#issues-section" class="admin-overview-card">
                 <span>客服處理</span>
                 <strong>問題回報</strong>
@@ -369,6 +374,73 @@
                     <h3>近期發放紀錄</h3>
                     <div id="reward-grant-log-list" class="result-list">
                         <div class="result-empty">尚未載入發放紀錄</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tx-health-section" class="section-block section-block-muted">
+            <div class="section-heading-row">
+                <div>
+                    <h2>交易失敗率看板</h2>
+                    <p class="tool-note">預設收合，需要時再展開。看板會顯示近期鏈上交易成功率、失敗率與近期錯誤清單。</p>
+                </div>
+                <button id="tx-health-toggle-btn" class="btn-secondary compact-btn" onclick="toggleTxHealthSection()">展開交易看板</button>
+            </div>
+
+            <div id="tx-health-section-body" class="collapsible-body hidden">
+                <div class="toolbar-grid">
+                    <select id="tx-health-hours" class="text-input" onchange="refreshTxHealthDashboard()">
+                        <option value="1">近 1 小時</option>
+                        <option value="6">近 6 小時</option>
+                        <option value="24" selected>近 24 小時</option>
+                        <option value="72">近 72 小時</option>
+                    </select>
+                    <button class="btn-secondary compact-btn" onclick="refreshTxHealthDashboard()">重新整理</button>
+                </div>
+                <p id="tx-health-status-msg">尚未載入交易看板</p>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>總交易數</span>
+                        <strong id="tx-health-total">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>成功率</span>
+                        <strong id="tx-health-success-rate">0%</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>失敗率</span>
+                        <strong id="tx-health-failure-rate">0%</strong>
+                    </div>
+                </div>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>成功筆數</span>
+                        <strong id="tx-health-success-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>失敗筆數</span>
+                        <strong id="tx-health-failure-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>統計區間</span>
+                        <strong id="tx-health-window">24h</strong>
+                    </div>
+                </div>
+
+                <div class="section-block section-block-muted">
+                    <h3>主要錯誤原因</h3>
+                    <div id="tx-health-top-errors" class="announcement-admin-list">
+                        <div class="result-empty">尚未載入錯誤統計</div>
+                    </div>
+                </div>
+
+                <div class="section-block section-block-muted">
+                    <h3>近期交易紀錄</h3>
+                    <div id="tx-health-recent-list" class="announcement-admin-list">
+                        <div class="result-empty">尚未載入近期交易</div>
                     </div>
                 </div>
             </div>

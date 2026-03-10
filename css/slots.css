@@ -81,6 +81,23 @@ body.slots-body {
     overflow: hidden;
 }
 
+.slots-board.is-settling::after {
+    content: "鏈上結算中";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(9, 8, 5, 0.42);
+    color: #ffe08d;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 12px rgba(255, 204, 0, 0.36);
+    backdrop-filter: blur(1.5px);
+    z-index: 4;
+    pointer-events: none;
+}
+
 .reels-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -227,6 +244,11 @@ body.slots-body {
 .slots-result-chip.is-error {
     background: rgba(255, 82, 82, 0.16);
     color: #ff9c9c;
+}
+
+.slots-result-chip.is-pending {
+    background: rgba(255, 217, 113, 0.16);
+    color: #ffe08d;
 }
 
 .slots-result-copy {

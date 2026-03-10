@@ -272,7 +272,13 @@ function submitStock(action) {
     var symbol = document.getElementById('stock-symbol').value;
     var quantity = Number(document.getElementById('stock-qty').value || 0);
 
-    setStatus('送出股票交易中...', false);
+    if (quantity <= 0) return;
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    var oldText = btn ? btn.innerText : '';
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
+    setStatus('股票交易中...', false);
     withBusy(function () {
         return callMarket(action, {
             symbol: symbol,
@@ -281,9 +287,13 @@ function submitStock(action) {
             if (!data || !data.success) throw new Error((data && data.error) || '交易失敗');
             renderOverview(data);
             setStatus('股票交易完成', false);
+            showUserToast('交易成功');
         });
     }).catch(function (e) {
         setStatus('錯誤: ' + e.message, true);
+        showUserToast(e.message, true);
+    }).finally(function() {
+        if (btn) { btn.disabled = false; btn.innerText = oldText; }
     });
 }
 
@@ -293,7 +303,12 @@ function openFuturesPosition() {
     var margin = Number(document.getElementById('futures-margin').value || 0);
     var leverage = Number(document.getElementById('futures-leverage').value || 1);
 
-    setStatus('期貨開倉中...', false);
+    if (margin <= 0) return;
+
+    var btn = document.querySelector('button[onclick="openFuturesPosition()"]');
+    if (btn) { btn.disabled = true; btn.innerText = '處理中...'; }
+
+    setStatus('期貨開倉中 (等待鏈上鎖定)...', false);
     withBusy(function () {
         return callMarket('open_futures', {
             symbol: symbol,
@@ -304,9 +319,13 @@ function openFuturesPosition() {
             if (!data || !data.success) throw new Error((data && data.error) || '開倉失敗');
             renderOverview(data);
             setStatus('期貨開倉成功', false);
+            showUserToast('期貨開倉成功');
         });
     }).catch(function (e) {
         setStatus('錯誤: ' + e.message, true);
+        showUserToast(e.message, true);
+    }).finally(function() {
+        if (btn) { btn.disabled = false; btn.innerText = '開倉'; }
     });
 }
 
@@ -314,19 +333,31 @@ function closeFuturesPosition(positionId) {
     if (!positionId) return;
     setStatus('期貨平倉中...', false);
 
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     withBusy(function () {
         return callMarket('close_futures', { positionId: positionId }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '平倉失敗');
             renderOverview(data);
             setStatus('期貨平倉完成', false);
+            showUserToast('期貨平倉完成');
         });
     }).catch(function (e) {
         setStatus('錯誤: ' + e.message, true);
+        showUserToast(e.message, true);
+        if (btn) { btn.disabled = false; btn.innerText = '平倉'; }
     });
 }
 
 function submitBank(action) {
     var amount = String(document.getElementById('bank-amount').value || '').trim();
+    if (!amount || Number(amount) <= 0) return;
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    var oldText = btn ? btn.innerText : '';
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     setStatus(action === 'bank_deposit' ? '存款中...' : '提款中...', false);
 
     withBusy(function () {
@@ -337,11 +368,19 @@ function submitBank(action) {
         });
     }).catch(function (e) {
         setStatus('錯誤: ' + e.message, true);
+    }).finally(function() {
+        if (btn) { btn.disabled = false; btn.innerText = oldText; }
     });
 }
 
 function submitLoan(action) {
     var amount = String(document.getElementById('loan-amount').value || '').trim();
+    if (!amount || Number(amount) <= 0) return;
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    var oldText = btn ? btn.innerText : '';
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     setStatus(action === 'borrow' ? '借款中...' : '還款中...', false);
 
     withBusy(function () {
@@ -352,6 +391,8 @@ function submitLoan(action) {
         });
     }).catch(function (e) {
         setStatus('錯誤: ' + e.message, true);
+    }).finally(function() {
+        if (btn) { btn.disabled = false; btn.innerText = oldText; }
     });
 }
 

@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { getRoundInfo } from "../lib/auto-round.js";
 import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
-import { withChainTxLock } from "../lib/tx-lock.js";
+import { withQueuedChainTxLock } from "../lib/tx-lock.js";
 import { buildVipStatus } from "../lib/vip.js";
 import { getSession, saveSession } from "../lib/session-store.js";
 import { ensureDisplayName, getDisplayName, setDisplayName } from "../lib/user-profile.js";
@@ -420,7 +420,7 @@ export default async function handler(req, res) {
 
                         const decimals = await contract.decimals();
                         const bonusWei = ethers.parseUnits(CUSTODY_REGISTER_BONUS, decimals);
-                        const bonusTx = await withChainTxLock(() => transferFromTreasuryWithAutoTopup(
+                        const bonusTx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
                             contract,
                             treasuryAddress,
                             custodyUser.address,

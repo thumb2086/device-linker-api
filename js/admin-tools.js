@@ -516,6 +516,8 @@ function renderResetResult(data) {
 }
 
 function previewReset() {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     setAdminStatus('正在預覽受影響名單...', false);
     withAdminBusy('ops', function () {
         return callAdminApi('reset_total_bets', { dryRun: true }).then(function (data) {
@@ -531,6 +533,8 @@ function previewReset() {
 }
 
 function executeReset() {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     setAdminStatus('正在執行重製...', false);
     withAdminBusy('ops', function () {
         return callAdminApi('reset_total_bets', { dryRun: false }).then(function (data) {
@@ -635,6 +639,8 @@ function toggleCustodySection() {
 }
 
 function resetCustodyPassword(username) {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     var input = document.getElementById(getPasswordInputId(username));
     var newPassword = String(input && input.value || '');
     if (newPassword.length < 6) {
@@ -779,6 +785,8 @@ function toggleIssueSection() {
 }
 
 function updateIssueReport(reportId) {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     var statusEl = document.getElementById(getIssueStatusId(reportId));
     var updateEl = document.getElementById(getIssueUpdateId(reportId));
     var status = String(statusEl && statusEl.value || 'open');
@@ -899,6 +907,8 @@ function toggleAnnouncementSection() {
 }
 
 function publishAnnouncement() {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     var titleEl = document.getElementById('announcement-title');
     var contentEl = document.getElementById('announcement-content');
     var pinnedEl = document.getElementById('announcement-pinned');
@@ -929,6 +939,8 @@ function publishAnnouncement() {
 }
 
 function updateAnnouncement(announcementId) {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     var titleEl = document.getElementById(getAnnouncementTitleId(announcementId));
     var contentEl = document.getElementById(getAnnouncementContentId(announcementId));
     var activeEl = document.getElementById(getAnnouncementActiveId(announcementId));
@@ -1320,6 +1332,8 @@ function toggleRewardSection() {
 }
 
 function grantRewardBundleAdmin() {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     setRewardAdminStatus('發放獎勵中...', false);
     withAdminBusy('reward', function () {
         return callRewardsAdminApi('admin_grant_rewards', {
@@ -1352,6 +1366,8 @@ function grantRewardBundleAdmin() {
 }
 
 function publishRewardTitle() {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     setRewardAdminStatus('儲存稱號設定中...', false);
     withAdminBusy('reward', function () {
         var titleId = document.getElementById('reward-title-id').value;
@@ -1389,6 +1405,8 @@ function publishRewardTitle() {
 }
 
 function publishRewardAvatar() {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     setRewardAdminStatus('儲存頭像設定中...', false);
     withAdminBusy('reward', function () {
         var avatarId = document.getElementById('reward-avatar-id').value;
@@ -1417,6 +1435,8 @@ function publishRewardAvatar() {
 }
 
 function publishRewardCampaign() {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     setRewardAdminStatus('儲存活動設定中...', false);
     withAdminBusy('reward', function () {
         var campaignId = document.getElementById('campaign-id-hidden').value;
@@ -1520,6 +1540,8 @@ function toggleBlacklistSection() {
 }
 
 function addToBlacklist() {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     var addressEl = document.getElementById('blacklist-address');
     var reasonEl = document.getElementById('blacklist-reason');
     var address = String(addressEl && addressEl.value || '').trim();
@@ -1551,6 +1573,9 @@ function addToBlacklist() {
 
 function removeFromBlacklist(address) {
     if (!confirm('確定要將 ' + address + ' 從黑名單移除嗎？')) return;
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
 
     setBlacklistStatus('正在移除黑名單...', false);
     withAdminBusy('blacklist', function () {
@@ -1602,6 +1627,8 @@ function queryWinBias() {
 }
 
 function saveWinBias() {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     var address = String(document.getElementById('win-bias-address').value || '').trim();
     var bias = Number(document.getElementById('win-bias-value').value);
     if (!address) {
@@ -1625,6 +1652,8 @@ function saveWinBias() {
 }
 
 function resetWinBias() {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     var address = String(document.getElementById('win-bias-address').value || '').trim();
     if (!address) {
         showAdminToast('請輸入地址', true);

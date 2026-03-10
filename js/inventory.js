@@ -300,6 +300,10 @@ function refreshInventory() {
 
 function useInventoryItem(itemId) {
     setInventoryStatus('啟用道具中...', false);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     inventoryApi('use_item', { itemId: itemId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '啟用失敗');
@@ -317,6 +321,10 @@ function useInventoryItem(itemId) {
 
 function openInventoryChest(itemId) {
     setInventoryStatus('開啟獎勵箱中...', false);
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     inventoryApi('open_chest', { chestItemId: itemId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '開啟失敗');
@@ -335,6 +343,9 @@ function openInventoryChest(itemId) {
 }
 
 function equipInventoryAvatar(avatarId) {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     inventoryApi('equip_avatar', { avatarId: avatarId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '裝備頭像失敗');
@@ -350,6 +361,9 @@ function equipInventoryAvatar(avatarId) {
 }
 
 function equipInventoryTitle(titleId) {
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+
     inventoryApi('equip_title', { titleId: titleId })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '裝備稱號失敗');

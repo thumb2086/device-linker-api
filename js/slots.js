@@ -15,32 +15,6 @@ function normalizeSlotsSpinId(value) {
     return String(value || "").trim();
 }
 
-function computeSlotsPendingDelta(spin) {
-    if (!spin) return 0;
-    var settlementStatus = String(spin.settlementStatus || spin.status || "").trim().toLowerCase();
-    if (settlementStatus !== "pending" && settlementStatus !== "settling") {
-        return 0;
-    }
-
-    var amount = Number(spin.amount || 0);
-    var payoutAmount = Number(spin.payoutAmount || 0);
-    if (!Number.isFinite(amount)) amount = 0;
-    if (!Number.isFinite(payoutAmount)) payoutAmount = 0;
-
-    return Boolean(spin.betTransferred) ? payoutAmount : (payoutAmount - amount);
-}
-
-function computeSlotsPendingBetDelta(spin) {
-    if (!spin) return 0;
-    var settlementStatus = String(spin.settlementStatus || spin.status || "").trim().toLowerCase();
-    if (settlementStatus !== "pending" && settlementStatus !== "settling") {
-        return 0;
-    }
-    var amount = Number(spin.amount || 0);
-    if (!Number.isFinite(amount)) amount = 0;
-    return amount;
-}
-
 function getSlotsPendingSpin(spinId) {
     var normalizedId = normalizeSlotsSpinId(spinId);
     if (!normalizedId) return null;
@@ -140,31 +114,7 @@ function getNewestPendingSlotsSpin() {
 
 function calcDisplayBalance(realBalance) {
     var baseBalance = Number(realBalance || 0);
-    var pendingSpinIds = Object.keys(pendingSlotsSettlements);
-    for (var index = 0; index < pendingSpinIds.length; index += 1) {
-        baseBalance += computeSlotsPendingDelta(pendingSlotsSettlements[pendingSpinIds[index]]);
-    }
     return baseBalance;
-}
-
-function calcDisplayTotalBet(realTotalBet) {
-    var baseTotalBet = Number(realTotalBet || 0);
-    var pendingSpinIds = Object.keys(pendingSlotsSettlements);
-    for (var index = 0; index < pendingSpinIds.length; index += 1) {
-        baseTotalBet += computeSlotsPendingBetDelta(pendingSlotsSettlements[pendingSpinIds[index]]);
-    }
-    return baseTotalBet;
-}
-
-function setDisplayedTotalBet(nextTotalBet) {
-    var totalBetEl = document.getElementById("total-bet-val");
-    if (!totalBetEl) return;
-    totalBetEl.innerText = formatDisplayNumber(Number(nextTotalBet || 0), 2);
-}
-
-function refreshPendingTotalBetView() {
-    if (user.totalBet === undefined) return;
-    setDisplayedTotalBet(calcDisplayTotalBet(user.totalBet));
 }
 
 class SlotMachine {
@@ -439,14 +389,12 @@ class SlotMachine {
         var settlementStatus = String(result.settlementStatus || "").trim().toLowerCase();
         if (settlementStatus === "pending" || settlementStatus === "settling") {
             upsertPendingSlotsSpin(result, { localOnly: false });
-            refreshPendingTotalBetView();
             return;
         }
 
         var wasPresented = this.presentedSpinId === result.spinId;
         var currentDisplayedBalance = getCurrentUserBalance();
         removePendingSlotsSpin(result.spinId);
-        refreshPendingTotalBetView();
 
         if (settlementStatus === "settled") {
             this.updateDisplayedBalance(currentDisplayedBalance, 45000, "slots-settled");
@@ -524,7 +472,6 @@ class SlotMachine {
 
         var pendingSpins = Array.isArray(result.spins) ? result.spins : [];
         syncPendingSlotsFromServer(pendingSpins);
-        refreshPendingTotalBetView();
 
         if (pendingSpins.length > 0) {
             var presentedPendingSpin = getSlotsPendingSpin(this.presentedSpinId);
@@ -578,17 +525,7 @@ class SlotMachine {
         this.setStatus("<span class=\"loader\"></span> 旋轉中...", false, true);
         this.setResultState("旋轉中", "正在生成盤面與結果。", "");
 
-        this.updateDisplayedBalance(Math.max(0, displayedBalanceBeforeSpin - betAmount), 5000, "slots-pre-spin");
-        var optimisticSpinId = "local-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
-        upsertPendingSlotsSpin({
-            spinId: optimisticSpinId,
-            status: "pending",
-            amount: betAmount,
-            payoutAmount: 0,
-            betTransferred: false,
-            createdAt: new Date().toISOString()
-        }, { localOnly: true, registeredAt: Date.now() });
-        refreshPendingTotalBetView();
+        this.updateDisplayedBalance(displayedBalanceBeforeSpin, 5000, "slots-pre-spin");
 
         var self = this;
         var minSpinMs = 550;
@@ -623,15 +560,11 @@ class SlotMachine {
                 throw new Error((result && (result.details ? (result.error + "：" + result.details) : result.error)) || "老虎機交易失敗");
             }
 
-            removePendingSlotsSpin(optimisticSpinId);
-            refreshPendingTotalBetView();
             this.setSpinningState(false);
             this.showPendingResult(result);
         } catch (error) {
             clearInterval(spinInterval);
             console.error("Slots spin failed:", error);
-            removePendingSlotsSpin(optimisticSpinId);
-            refreshPendingTotalBetView();
             this.setSettlingState(false);
             this.setSpinningState(false);
             this.renderBoard(null, false);
@@ -639,6 +572,7 @@ class SlotMachine {
             this.setStatus("❌ " + error.message, true, false);
             this.setResultState("交易失敗", "這筆旋轉沒有完成結算，餘額已回復。", "is-error");
             this.updateTxLog("", error.message);
+            syncAuthoritativeChainBalance();
         }
     }
 
@@ -693,7 +627,6 @@ class SlotMachine {
                 registeredAt: Date.now()
             });
         }
-        refreshPendingTotalBetView();
 
         this.presentedSpinId = result.spinId || this.presentedSpinId;
         this.renderBoard(result.columns, false);
@@ -701,7 +634,7 @@ class SlotMachine {
         this.setSettlingState(true);
         this.setSettlementPendingState();
         var pendingView = this.buildPendingOutcome(result);
-        this.setStatus(pendingView.statusText + "，可直接再轉。", false, false);
+        this.setStatus(pendingView.statusText + "，可直接再轉。餘額以鏈上為準。", false, false);
         this.setResultState(pendingView.resultLabel, pendingView.resultCopy, pendingView.resultTone);
         if (!currentOptions.preserveDisplayedBalance) {
             this.refreshPendingBalanceView("slots-pending");
@@ -727,7 +660,6 @@ class SlotMachine {
             vipLevel: result.vipLevel,
             maxBet: result.maxBet
         });
-        refreshPendingTotalBetView();
 
         if (totalMultiplier > 0) {
             if (tripleCount > 0) {

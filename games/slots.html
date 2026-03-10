@@ -110,6 +110,7 @@
                 startBalanceRefresh();
                 const slotMachine = new SlotMachine(document.getElementById('reels-grid'), document.getElementById('payline-svg'));
                 document.getElementById('spin-btn').onclick = () => slotMachine.spin();
+                slotMachine.resumePendingSettlement();
                 hidePageTransition();
             });
         };

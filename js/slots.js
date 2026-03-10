@@ -21,6 +21,7 @@ class SlotMachine {
         this.symbolMap = buildSlotsSymbolMap();
         this.symbolKeys = Object.keys(this.symbolMap);
         this.isSpinning = false;
+        this.isSettling = false;
         this.cells = [];
         this.lastWinLines = [];
 
@@ -61,12 +62,28 @@ class SlotMachine {
 
     renderSymbol(cell, symbolKey, isSpinning) {
         var symbol = this.symbolMap[symbolKey] || this.symbolMap.cherry;
+        cell.setAttribute("data-symbol-key", symbolKey);
         cell.innerHTML = "";
 
         var glyph = document.createElement("span");
         glyph.className = "reel-symbol " + symbol.className + (isSpinning ? " is-spinning" : "");
         glyph.textContent = symbol.emoji;
         cell.appendChild(glyph);
+    }
+
+    freezeCurrentBoard() {
+        for (var index = 0; index < this.cells.length; index += 1) {
+            var cell = this.cells[index];
+            var symbolKey = cell && cell.getAttribute("data-symbol-key");
+            this.renderSymbol(cell, symbolKey || this.symbolKeys[index % this.symbolKeys.length], false);
+        }
+    }
+
+    setSettlingState(isSettling) {
+        this.isSettling = Boolean(isSettling);
+        if (this.boardEl) {
+            this.boardEl.classList.toggle("is-settling", this.isSettling);
+        }
     }
 
     renderBoard(columns, isSpinning) {
@@ -211,6 +228,7 @@ class SlotMachine {
 
         this.setSpinningState(true);
         this.clearPaylines();
+        this.setSettlingState(false);
         this.updateTxLog("", "");
         this.setStatus("<span class=\"loader\"></span> 旋轉中...", false, true);
         this.setResultState("旋轉中", "正在與後端同步盤面與鏈上結算。", "");
@@ -219,11 +237,24 @@ class SlotMachine {
         this.updateDisplayedBalance(tempBalance);
 
         var self = this;
+        var minSpinMs = 650;
+        var maxActiveSpinMs = 1200;
+        var startedAt = Date.now();
         var spinInterval = setInterval(function () {
             for (var index = 0; index < self.cells.length; index += 1) {
                 self.renderSymbol(self.cells[index], self.symbolKeys[Math.floor(Math.random() * self.symbolKeys.length)], true);
             }
         }, 90);
+        var hasStoppedActiveSpin = false;
+        var settlingTimer = setTimeout(function () {
+            if (hasStoppedActiveSpin) return;
+            hasStoppedActiveSpin = true;
+            clearInterval(spinInterval);
+            self.freezeCurrentBoard();
+            self.setSettlingState(true);
+            self.setStatus("<span class=\"loader\"></span> 鏈上結算中...", false, true);
+            self.setResultState("結算中", "盤面結果已經準備完成，正在等待鏈上交易確認。", "is-pending");
+        }, maxActiveSpinMs);
 
         try {
             var response = await fetch("/api/game?game=slots", {
@@ -236,16 +267,29 @@ class SlotMachine {
                 })
             });
             var result = await response.json();
-            clearInterval(spinInterval);
+            var elapsedMs = Date.now() - startedAt;
+            if (elapsedMs < minSpinMs) {
+                await new Promise(function (resolve) {
+                    setTimeout(resolve, minSpinMs - elapsedMs);
+                });
+            }
+            clearTimeout(settlingTimer);
+            if (!hasStoppedActiveSpin) {
+                hasStoppedActiveSpin = true;
+                clearInterval(spinInterval);
+            }
 
             if (!result || result.error) {
                 throw new Error((result && (result.details ? (result.error + "：" + result.details) : result.error)) || "老虎機交易失敗");
             }
 
+            this.setSettlingState(false);
             this.showResult(result, betAmount, tempBalance);
         } catch (error) {
             clearInterval(spinInterval);
+            clearTimeout(settlingTimer);
             console.error("Slots spin failed:", error);
+            this.setSettlingState(false);
             this.renderBoard(null, false);
             this.updateDisplayedBalance(currentBalance);
             this.setStatus("❌ " + error.message, true, false);

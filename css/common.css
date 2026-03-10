@@ -242,6 +242,11 @@ h1 {
     color: #fff;
 }
 
+.settings-range {
+    padding: 0;
+    accent-color: var(--gold);
+}
+
 .settings-note {
     margin-top: 12px;
     color: #9fb0c3;

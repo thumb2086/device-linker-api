@@ -126,6 +126,78 @@ function ensureSupportShortcut() {
     document.body.appendChild(link);
 }
 
+function getAudioEnabled() {
+    try {
+        return localStorage.getItem('casino_muted') !== 'true';
+    } catch (error) {
+        return true;
+    }
+}
+
+function getAudioVolume() {
+    try {
+        var raw = parseFloat(localStorage.getItem('casino_volume') || '0.5');
+        if (!Number.isFinite(raw)) return 0.5;
+        return Math.min(1, Math.max(0, raw));
+    } catch (error) {
+        return 0.5;
+    }
+}
+
+function ensureAudioManagerScript() {
+    if (window.audioManager || document.getElementById('shared-audio-manager-script')) return;
+    var script = document.createElement('script');
+    script.id = 'shared-audio-manager-script';
+    script.src = '/js/audio-manager.js';
+    document.head.appendChild(script);
+}
+
+function playFallbackClickTone() {
+    if (!getAudioEnabled()) return;
+    var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) return;
+    if (!window.__zixiClickAudioCtx) {
+        window.__zixiClickAudioCtx = new AudioContextCtor();
+    }
+    var ctx = window.__zixiClickAudioCtx;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = 720;
+    gain.gain.value = Math.max(0.01, getAudioVolume() * 0.05);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    var now = ctx.currentTime;
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+    osc.start(now);
+    osc.stop(now + 0.08);
+}
+
+function playUiClickSound() {
+    if (!getAudioEnabled()) return;
+    if (window.audioManager && typeof window.audioManager.play === 'function') {
+        if (!window.audioManager.initialized) window.audioManager.init();
+        var played = window.audioManager.play('click', { volume: Math.max(0.2, getAudioVolume()) });
+        if (played) return;
+    }
+    playFallbackClickTone();
+}
+
+function ensureGlobalAudioBindings() {
+    if (window.__zixiGlobalAudioBound) return;
+    window.__zixiGlobalAudioBound = true;
+
+    document.addEventListener('click', function (event) {
+        var target = event.target && event.target.closest
+            ? event.target.closest('button, a, [role="button"], .btn-primary, .btn-secondary, .logout-btn, .settings-btn')
+            : null;
+        if (!target) return;
+        if (target.classList && target.classList.contains('settings-backdrop')) return;
+        playUiClickSound();
+    }, true);
+}
+
 function ensureSettingsModal() {
     var existing = document.getElementById('user-settings-modal');
     if (existing) return existing;
@@ -149,14 +221,25 @@ function ensureSettingsModal() {
         '<input id="settings-display-name" class="settings-input" type="text" maxlength="24" placeholder="輸入顯示名稱">',
         '</label>',
         '<label class="settings-field">',
-        '<span>數字顯示</span>',
+        '<span>金額顯示</span>',
         '<select id="settings-number-mode" class="settings-input">',
-        '<option value="compact">簡寫</option>',
-        '<option value="full">完整數字</option>',
+        '<option value="compact">金額簡寫</option>',
+        '<option value="full">完整金額</option>',
         '</select>',
         '</label>',
+        '<label class="settings-field">',
+        '<span>音效</span>',
+        '<select id="settings-audio-enabled" class="settings-input">',
+        '<option value="on">開啟</option>',
+        '<option value="off">關閉</option>',
+        '</select>',
+        '</label>',
+        '<label class="settings-field">',
+        '<span>音量</span>',
+        '<input id="settings-audio-volume" class="settings-input settings-range" type="range" min="0" max="100" step="5">',
+        '</label>',
         '</div>',
-        '<p class="settings-note">簡寫會顯示成萬 / 億 / 兆，完整數字則會顯示完整位數。</p>',
+        '<p class="settings-note">金額簡寫會顯示成萬 / 億 / 兆；音效開啟後，全站按鈕會有點擊音。</p>',
         '<div class="settings-actions">',
         '<button class="back-btn" type="button" onclick="closeUserSettings()">取消</button>',
         '<button class="btn-primary settings-save-btn" type="button" onclick="saveUserSettings()">儲存設定</button>',
@@ -191,8 +274,12 @@ function openUserSettings() {
     var modal = ensureSettingsModal();
     var nameInput = document.getElementById('settings-display-name');
     var numberModeInput = document.getElementById('settings-number-mode');
+    var audioEnabledInput = document.getElementById('settings-audio-enabled');
+    var audioVolumeInput = document.getElementById('settings-audio-volume');
     if (nameInput) nameInput.value = user.displayName || '';
     if (numberModeInput) numberModeInput.value = getNumberDisplayMode();
+    if (audioEnabledInput) audioEnabledInput.value = getAudioEnabled() ? 'on' : 'off';
+    if (audioVolumeInput) audioVolumeInput.value = String(Math.round(getAudioVolume() * 100));
     modal.classList.remove('hidden');
 }
 
@@ -206,8 +293,12 @@ function saveUserSettings() {
 
     var nameInput = document.getElementById('settings-display-name');
     var modeInput = document.getElementById('settings-number-mode');
+    var audioEnabledInput = document.getElementById('settings-audio-enabled');
+    var audioVolumeInput = document.getElementById('settings-audio-volume');
     var nextDisplayName = String(nameInput && nameInput.value || '').trim();
     var nextMode = modeInput ? modeInput.value : getNumberDisplayMode();
+    var nextAudioEnabled = !audioEnabledInput || audioEnabledInput.value !== 'off';
+    var nextAudioVolume = Math.min(1, Math.max(0, toSafeNumber(audioVolumeInput && audioVolumeInput.value, 50) / 100));
     var currentDisplayName = String(user.displayName || '').trim();
     var previousMode = getNumberDisplayMode();
 
@@ -233,6 +324,18 @@ function saveUserSettings() {
     savePromise
         .then(function () {
             var normalizedMode = setNumberDisplayMode(nextMode);
+            try {
+                localStorage.setItem('casino_muted', nextAudioEnabled ? 'false' : 'true');
+                localStorage.setItem('casino_volume', String(nextAudioVolume));
+            } catch (error) {
+                console.log('Failed to persist audio settings');
+            }
+            ensureAudioManagerScript();
+            if (window.audioManager) {
+                window.audioManager.setMute(!nextAudioEnabled);
+                window.audioManager.setVolume(nextAudioVolume);
+                if (nextAudioEnabled && !window.audioManager.initialized) window.audioManager.init();
+            }
             closeUserSettings();
             if (previousMode !== normalizedMode) {
                 window.location.reload();
@@ -298,6 +401,8 @@ function updateUI(data) {
     }
 
     ensureSupportShortcut();
+    ensureAudioManagerScript();
+    ensureGlobalAudioBindings();
     ensureSettingsButton();
 }
 

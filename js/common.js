@@ -1,6 +1,7 @@
 ﻿/* === 子熙賭場 - 共用 UI 工具 === */
 
 var user = { address: '', publicKey: '', sessionId: '', displayName: '' };
+var userToastTimerSeq = 0;
 
 function getNumberDisplayMode() {
     try {
@@ -107,6 +108,46 @@ function ensureSupportShortcutStyle() {
         '@media (max-width: 640px) { .support-shortcut-link { left: 12px; right: 12px; justify-content: center; bottom: 12px; } }'
     ].join('');
     document.head.appendChild(style);
+}
+
+function ensureUserToastStack() {
+    var existing = document.getElementById('user-toast-stack');
+    if (existing) return existing;
+
+    var stack = document.createElement('div');
+    stack.id = 'user-toast-stack';
+    stack.className = 'user-toast-stack';
+    stack.setAttribute('aria-live', 'polite');
+    stack.setAttribute('aria-atomic', 'true');
+    document.body.appendChild(stack);
+    return stack;
+}
+
+function showUserToast(text, isError) {
+    var safeText = String(text || '').trim();
+    if (!safeText) return;
+
+    var stackEl = ensureUserToastStack();
+    userToastTimerSeq += 1;
+
+    var toastEl = document.createElement('div');
+    toastEl.className = 'user-toast ' + (isError ? 'error' : 'success');
+    toastEl.innerHTML =
+        '<strong class="user-toast-title">' + (isError ? '操作失敗' : '操作成功') + '</strong>' +
+        '<div class="user-toast-copy"></div>';
+    toastEl.querySelector('.user-toast-copy').innerText = safeText;
+
+    stackEl.appendChild(toastEl);
+    requestAnimationFrame(function () {
+        toastEl.classList.add('visible');
+    });
+
+    window.setTimeout(function () {
+        toastEl.classList.remove('visible');
+        window.setTimeout(function () {
+            if (toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+        }, 220);
+    }, isError ? 4200 : 2600);
 }
 
 function ensureSupportShortcut() {

@@ -144,6 +144,12 @@
 
             <h2 class="guide-section-head">🖼️ 頭像外觀</h2>
             <div id="guide-avatars" class="reward-guide-grid"></div>
+
+            <h2 class="guide-section-head">📜 VIP 等級獎勵稱號</h2>
+            <div id="guide-vip-titles" class="reward-guide-grid"></div>
+
+            <h2 class="guide-section-head">🎲 隨機獎勵機率說明</h2>
+            <div id="guide-rules" class="reward-guide-grid"></div>
         </div>
     </div>
 
@@ -155,6 +161,49 @@
             return '';
         }
 
+        function typeLabel(type) {
+            var map = {
+                'buff': '增益道具',
+                'chest': '寶箱',
+                'key': '補給箱',
+                'title': '成就稱號',
+                'avatar': '頭像外觀'
+            };
+            return map[type] || '物品';
+        }
+
+        function sourceLabel(source) {
+            var map = {
+                'shop': '商店購買',
+                'chest': '寶箱隨機獲得',
+                'campaign': '限時活動領取',
+                'admin': '官方特別授予',
+                'system': '系統成就達成',
+                'default': '預設擁有',
+                'vip': 'VIP 專屬'
+            };
+            return map[source] || source || '多種途徑';
+        }
+
+        function renderBundleSummary(bundle, itemMap, avatarMap, titleMap) {
+            var parts = [];
+            if (bundle.tokens) parts.push(bundle.tokens.toLocaleString() + ' 子熙幣');
+            if (bundle.items) bundle.items.forEach(function(it) {
+                var name = itemMap[it.id] ? itemMap[it.id].name : it.id;
+                parts.push(name + ' x' + it.qty);
+            });
+            if (bundle.avatars) bundle.avatars.forEach(function(id) {
+                var name = avatarMap[id] ? avatarMap[id].name : id;
+                parts.push('頭像:' + name);
+            });
+            if (bundle.titles) bundle.titles.forEach(function(it) {
+                var id = typeof it === 'string' ? it : it.id;
+                var name = titleMap[id] ? titleMap[id].name : id;
+                parts.push('稱號:' + name);
+            });
+            return parts.join(' + ');
+        }
+
         function renderGuide(data) {
             var catalog = data.catalog;
             if (!catalog) return;
@@ -163,14 +212,22 @@
             var chestsHtml = '';
             var titlesHtml = '';
             var avatarsHtml = '';
+            var vipTitlesHtml = '';
+            var rulesHtml = '';
 
+            var itemMap = {}; (catalog.shopItems || []).forEach(function(it) { itemMap[it.id] = it; });
+            var avatarMap = {}; (catalog.avatars || []).forEach(function(it) { avatarMap[it.id] = it; });
+            var titleMap = {}; (catalog.titles || []).forEach(function(it) { titleMap[it.id] = it; });
+
+            // 道具 (Buff, Chest, Key)
             (catalog.shopItems || []).forEach(function (item) {
                 var html = '<div class="reward-guide-card">' +
-                    '<div class="reward-guide-type">' + (item.type === 'buff' ? '增益道具' : '寶箱道具') + '</div>' +
+                    '<div class="reward-guide-type">' + typeLabel(item.type) + '</div>' +
                     '<strong>' + item.name + '</strong>' +
                     '<div class="reward-guide-desc">' + (item.description || '暫無說明') + '</div>' +
                     '<div class="reward-guide-details">' +
                         '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + (item.rarity || '普通') + '</span></div>' +
+                        (item.price ? '<div class="detail-item"><span class="detail-label">商店售價:</span><span class="detail-value">' + item.price.toLocaleString() + ' 子熙幣</span></div>' : '') +
                     '</div>' +
                     '</div>';
 
@@ -178,6 +235,7 @@
                 else chestsHtml += html;
             });
 
+            // 稱號
             (catalog.titles || []).forEach(function (item) {
                 titlesHtml += '<div class="reward-guide-card">' +
                     '<div class="reward-guide-type">成就稱號</div>' +
@@ -185,26 +243,68 @@
                     '<div class="reward-guide-desc">' + (item.shopDescription || item.description || '更換個人顯示稱號') + '</div>' +
                     '<div class="reward-guide-details">' +
                         '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + (item.rarity || '普通') + '</span></div>' +
-                        '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + (item.source || '商店購買') + '</span></div>' +
+                        '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + sourceLabel(item.source) + '</span></div>' +
+                        (item.shopEnabled && item.effectiveShopPrice ? '<div class="detail-item"><span class="detail-label">商店售價:</span><span class="detail-value">' + item.effectiveShopPrice.toLocaleString() + ' 子熙幣</span></div>' : '') +
                     '</div>' +
                     '</div>';
             });
 
+            // 頭像
             (catalog.avatars || []).forEach(function (item) {
                 avatarsHtml += '<div class="reward-guide-card">' +
                     '<div class="reward-guide-type">頭像外觀</div>' +
                     '<strong>' + (item.icon || '👤') + ' ' + item.name + '</strong>' +
                     '<div class="reward-guide-desc">' + (item.description || '更換你的個人頭像顯示') + '</div>' +
                     '<div class="reward-guide-details">' +
-                        '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + (item.source || '活動或寶箱') + '</span></div>' +
+                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + (item.rarity || '普通') + '</span></div>' +
+                        '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + sourceLabel(item.source) + '</span></div>' +
                     '</div>' +
                     '</div>';
             });
+
+            // VIP 稱號 (虛擬)
+            (catalog.vipLevels || []).forEach(function (tier) {
+                if (tier.label === '普通會員') return;
+                vipTitlesHtml += '<div class="reward-guide-card">' +
+                    '<div class="reward-guide-type">VIP 稱號</div>' +
+                    '<strong>' + tier.label + '</strong>' +
+                    '<div class="reward-guide-desc">當前累計押注額達標後自動獲得的身份象徵。</div>' +
+                    '<div class="reward-guide-details">' +
+                        '<div class="detail-item"><span class="detail-label">達成條件:</span><span class="detail-value">累積押注 ' + tier.threshold.toLocaleString() + ' 子熙幣</span></div>' +
+                        '<div class="detail-item"><span class="detail-label">下注上限:</span><span class="detail-value">' + tier.maxBet.toLocaleString() + ' 子熙幣</span></div>' +
+                    '</div>' +
+                    '</div>';
+            });
+
+            // 隨機機率
+            if (catalog.rules) {
+                var allRules = Object.assign({}, catalog.rules.chests, catalog.rules.keys);
+                Object.keys(allRules).forEach(function(id) {
+                    var rule = allRules[id];
+                    var item = itemMap[id];
+                    if (!item) return;
+
+                    var totalWeight = rule.rewards.reduce(function(sum, r) { return sum + r.weight; }, 0);
+                    var rows = rule.rewards.map(function(r) {
+                        var chance = ((r.weight / totalWeight) * 100).toFixed(1) + '%';
+                        return '<div class="detail-item"><span class="detail-label">[' + chance + '] ' + rarityLabel(r.rarity) + ':</span><span class="detail-value">' + renderBundleSummary(r.rewards, itemMap, avatarMap, titleMap) + '</span></div>';
+                    }).join('');
+
+                    rulesHtml += '<div class="reward-guide-card">' +
+                        '<div class="reward-guide-type">隨機獎勵池</div>' +
+                        '<strong>' + item.name + '</strong>' +
+                        '<div class="reward-guide-desc">開啟後隨機獲得以下內容之一。使用幸運增幅卡可提升高品質獎勵權重。</div>' +
+                        '<div class="reward-guide-details">' + rows + '</div>' +
+                        '</div>';
+                });
+            }
 
             document.getElementById('guide-buffs').innerHTML = buffsHtml || '<div class="reward-empty">暫無資料</div>';
             document.getElementById('guide-chests').innerHTML = chestsHtml || '<div class="reward-empty">暫無資料</div>';
             document.getElementById('guide-titles').innerHTML = titlesHtml || '<div class="reward-empty">暫無資料</div>';
             document.getElementById('guide-avatars').innerHTML = avatarsHtml || '<div class="reward-empty">暫無資料</div>';
+            document.getElementById('guide-vip-titles').innerHTML = vipTitlesHtml || '<div class="reward-empty">暫無資料</div>';
+            document.getElementById('guide-rules').innerHTML = rulesHtml || '<div class="reward-empty">暫無資料</div>';
         }
 
         window.onload = function () {

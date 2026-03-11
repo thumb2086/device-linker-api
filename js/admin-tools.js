@@ -125,6 +125,17 @@ function setMaintenanceStatus(text, isError) {
     el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
 }
 
+function setActionBusy(btn, busyText) {
+    if (!btn) return function () { };
+    var originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = busyText || '處理中';
+    return function () {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    };
+}
+
 function withAdminBusy(section, task) {
     if (adminBusyState[section]) return Promise.reject(new Error('請稍候，上一筆管理操作仍在處理'));
     adminBusyState[section] = true;
@@ -1699,11 +1710,12 @@ function queryWinBias() {
 
 function saveWinBias() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     var address = String(document.getElementById('win-bias-address').value || '').trim();
     var bias = Number(document.getElementById('win-bias-value').value);
     if (!address) {
         showAdminToast('請輸入地址', true);
+        restoreBtn();
         return;
     }
 
@@ -1719,15 +1731,16 @@ function saveWinBias() {
     }).catch(function (error) {
         setAdminStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function resetWinBias() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     var address = String(document.getElementById('win-bias-address').value || '').trim();
     if (!address) {
         showAdminToast('請輸入地址', true);
+        restoreBtn();
         return;
     }
 
@@ -1744,7 +1757,7 @@ function resetWinBias() {
     }).catch(function (error) {
         setAdminStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function toggleOpsSection() {

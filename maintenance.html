@@ -31,10 +31,19 @@
       </div>
       <div class="cta">
         <a class="btn ghost" href="/games/support.html">意見回饋</a>
+        <button class="btn danger" type="button" onclick="maintenanceLogout()">登出</button>
         <span class="hint">登入仍可使用，但功能維護中</span>
       </div>
     </section>
     <footer class="foot">Device-Linker</footer>
   </main>
+  <script>
+    function maintenanceLogout() {
+      try {
+        localStorage.removeItem('casino_auth');
+      } catch (e) {}
+      window.location.href = '/?login=1';
+    }
+  </script>
 </body>
 </html>

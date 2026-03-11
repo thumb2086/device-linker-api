@@ -19,7 +19,7 @@ import {
     createDefaultMarketAccount
 } from "../lib/market-sim.js";
 import { buildVipStatus } from "../lib/vip.js";
-import { settlementService } from "../settlement-service.js";
+import { settlementService } from "../lib/settlement-service.js";
 
 const CORS_METHODS = 'POST, OPTIONS';
 const MARKET_SIM_TX_SOURCE = "market_sim";

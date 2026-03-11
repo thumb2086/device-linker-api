@@ -11,6 +11,7 @@ import duelHandler from "../lib/game-handlers/duel.js";
 import { kv } from "@vercel/kv";
 import { getSession } from "../lib/session-store.js";
 import { randomUUID } from "crypto";
+import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 
 const GAME_HANDLERS = {
     coinflip: coinflipHandler,
@@ -24,6 +25,10 @@ const GAME_HANDLERS = {
     crash: crashHandler,
     duel: duelHandler
 };
+
+const MAINTENANCE_MODE = ["1", "true", "yes", "on"].includes(String(process.env.MAINTENANCE_MODE || "").trim().toLowerCase());
+const MAINTENANCE_TITLE = String(process.env.MAINTENANCE_TITLE || "系統維護中").trim();
+const MAINTENANCE_MESSAGE = String(process.env.MAINTENANCE_MESSAGE || "目前暫停登入與遊戲，請稍後再試。").trim();
 
 function getSearchParam(req, name) {
     try {
@@ -51,6 +56,31 @@ async function checkBlacklist(address) {
     }
 }
 
+function isAdminAddress(address) {
+    if (!address) return false;
+    return String(address).trim().toLowerCase() === String(ADMIN_WALLET_ADDRESS || "").trim().toLowerCase();
+}
+
+async function loadMaintenanceStatus() {
+    try {
+        const record = await kv.get("maintenance:status");
+        if (record && typeof record === "object") {
+            return {
+                enabled: !!record.enabled,
+                title: record.title || MAINTENANCE_TITLE,
+                message: record.message || MAINTENANCE_MESSAGE
+            };
+        }
+    } catch (error) {
+        console.error("Maintenance status load failed:", error?.message || error);
+    }
+    return {
+        enabled: MAINTENANCE_MODE,
+        title: MAINTENANCE_TITLE,
+        message: MAINTENANCE_MESSAGE
+    };
+}
+
 export default async function handler(req, res) {
     const requestId = String(req.headers["x-request-id"] || "").trim() || `req_${randomUUID()}`;
     res.setHeader("x-request-id", requestId);
@@ -75,10 +105,20 @@ export default async function handler(req, res) {
 
     // 全域黑名單檢查：防止已登入但被封鎖的使用者繼續操作
     const sessionId = (req.body && req.body.sessionId) || getSearchParam(req, "sessionId");
+    const maintenance = await loadMaintenanceStatus();
+    let session = null;
     if (sessionId) {
         try {
-            const session = await getSession(sessionId);
+            session = await getSession(sessionId);
             if (session && session.address) {
+                if (maintenance.enabled && !isAdminAddress(session.address)) {
+                    return res.status(503).json({
+                        success: false,
+                        status: "maintenance",
+                        error: maintenance.title,
+                        message: maintenance.message
+                    });
+                }
                 const blacklisted = await checkBlacklist(session.address);
                 if (blacklisted) {
                     return res.status(403).json({
@@ -91,6 +131,14 @@ export default async function handler(req, res) {
         } catch (e) {
             console.error("Session/Blacklist check error in game API:", e);
         }
+    }
+    if (maintenance.enabled && (!session || !session.address || !isAdminAddress(session.address))) {
+        return res.status(503).json({
+            success: false,
+            status: "maintenance",
+            error: maintenance.title,
+            message: maintenance.message
+        });
     }
 
     try {

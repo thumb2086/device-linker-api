@@ -9,6 +9,22 @@
     <link rel="stylesheet" href="css/lobby.css">
     <link rel="stylesheet" href="css/announcements.css">
     <script async src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+    <script>
+        (function () {
+            try {
+                var params = new URLSearchParams(window.location.search || '');
+                if (params.get('login') === '1') return;
+                fetch('/api/user?action=get_maintenance')
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        if (data && data.enabled) {
+                            window.location.replace('/maintenance.html');
+                        }
+                    })
+                    .catch(function () { });
+            } catch (e) { }
+        })();
+    </script>
 </head>
 
 <body class="lobby-body">

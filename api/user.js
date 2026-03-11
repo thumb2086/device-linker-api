@@ -32,11 +32,6 @@ const MAINTENANCE_MODE = ["1", "true", "yes", "on"].includes(String(process.env.
 const MAINTENANCE_TITLE = String(process.env.MAINTENANCE_TITLE || "系統維護中").trim();
 const MAINTENANCE_MESSAGE = String(process.env.MAINTENANCE_MESSAGE || "目前暫停登入與遊戲，請稍後再試。").trim();
 
-function isAdminAddress(address) {
-    if (!address) return false;
-    return String(address).trim().toLowerCase() === String(ADMIN_WALLET_ADDRESS || "").trim().toLowerCase();
-}
-
 async function loadMaintenanceStatus() {
     try {
         const record = await kv.get("maintenance:status");
@@ -269,20 +264,7 @@ export default async function handler(req, res) {
         const sessionId = normalizeSessionId(query.sessionId || body.sessionId);
         const action = normalizeText(body.action || query.action, req.method === "GET" ? "get_status" : "authorize");
         const clockOnly = String(query.clock || "") === "1";
-        const requestAddress = typeof body.address === "string" ? body.address : "";
-        const isAdminRequest = isAdminAddress(requestAddress);
-        const maintenance = await loadMaintenanceStatus();
-
-        if (maintenance.enabled && ((action === "authorize" && !isAdminRequest) || action === "custody_login")) {
-            return res.status(503).json({
-                success: false,
-                status: "maintenance",
-                error: maintenance.title,
-                message: maintenance.message,
-                allowAdmin: true,
-                adminOnly: true
-            });
-        }
+        // 維護公告不阻擋登入
 
         if (action === "get_maintenance") {
             const maintenanceSnapshot = await loadMaintenanceStatus();

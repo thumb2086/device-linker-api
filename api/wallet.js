@@ -10,10 +10,9 @@ import {
     normalizeAirdropDistributedWei
 } from "../lib/airdrop-policy.js";
 import { listGameHistory } from "../lib/game-history.js";
-import { withQueuedChainTxLock } from "../lib/tx-lock.js";
 import { sendManagedContractTx } from "../lib/admin-chain.js";
 
-const MAX_TRANSFER_AMOUNT = 100000000;
+const provider = new ethers.JsonRpcProvider(RPC_URL);
 const CONTRACT_ABI = [
     "function mint(address to, uint256 amount) public",
     "function adminTransfer(address from, address to, uint256 amount) public",
@@ -22,11 +21,24 @@ const CONTRACT_ABI = [
     "function totalSupply() view returns (uint256)"
 ];
 
+let _cachedDecimals = null;
+async function getDecimals(contract) {
+    if (_cachedDecimals !== null) return _cachedDecimals;
+    try {
+        _cachedDecimals = await contract.decimals();
+        return _cachedDecimals;
+    } catch (error) {
+        console.error("Failed to fetch decimals:", error);
+        return 18n;
+    }
+}
+
+const MAX_TRANSFER_AMOUNT = 100000000;
+
 function getSafeBody(req) {
     if (!req || typeof req !== "object") return {};
     const rawBody = req.body;
     if (!rawBody) return {};
-
     if (typeof rawBody === "string") {
         try {
             const parsed = JSON.parse(rawBody);
@@ -35,7 +47,6 @@ function getSafeBody(req) {
             return {};
         }
     }
-
     return typeof rawBody === "object" ? rawBody : {};
 }
 
@@ -56,7 +67,6 @@ function normalizeAmount(rawAmount) {
     if (!/^\d+(\.\d+)?$/.test(normalized)) {
         throw new Error("amount format is invalid");
     }
-
     const numericValue = Number(normalized);
     if (!Number.isFinite(numericValue) || numericValue <= 0) {
         throw new Error("amount must be greater than 0");
@@ -64,7 +74,6 @@ function normalizeAmount(rawAmount) {
     if (numericValue > MAX_TRANSFER_AMOUNT) {
         throw new Error(`amount is too large; max ${MAX_TRANSFER_AMOUNT}`);
     }
-
     return normalized;
 }
 
@@ -88,7 +97,6 @@ function toPemFromBase64(base64PublicKey) {
 function deriveAddressFromPublicKey(base64PublicKey) {
     const spkiBytes = Buffer.from(base64PublicKey, "base64");
     if (!spkiBytes.length) return null;
-
     let uncompressed = null;
     if (spkiBytes.length === 65 && spkiBytes[0] === 0x04) {
         uncompressed = spkiBytes;
@@ -103,7 +111,6 @@ function deriveAddressFromPublicKey(base64PublicKey) {
             uncompressed = tail;
         }
     }
-
     if (!uncompressed) return null;
     return ethers.computeAddress(`0x${uncompressed.toString("hex")}`).toLowerCase();
 }
@@ -149,10 +156,9 @@ export default async function handler(req, res) {
         const action = normalizeAction(body.action);
         const sessionId = String(body.sessionId || "").trim();
 
-        const provider = new ethers.JsonRpcProvider(RPC_URL);
         const contractAddress = normalizeAddress(CONTRACT_ADDRESS, "CONTRACT_ADDRESS");
         const readContract = new ethers.Contract(contractAddress, CONTRACT_ABI, provider);
-        const decimals = await readContract.decimals();
+        const decimals = await getDecimals(readContract);
 
         if (action === "get_balance") {
             const address = normalizeAddress(body.address, "address");
@@ -171,30 +177,26 @@ export default async function handler(req, res) {
         if (!privateKey.startsWith("0x")) privateKey = `0x${privateKey}`;
 
         const adminWallet = new ethers.Wallet(privateKey, provider);
-        const adminWalletAddress = normalizeAddress(process.env.ADMIN_WALLET_ADDRESS || adminWallet.address, "ADMIN_WALLET_ADDRESS");
         const treasuryAddress = normalizeAddress(process.env.LOSS_POOL_ADDRESS || adminWallet.address, "LOSS_POOL_ADDRESS");
         const contract = new ethers.Contract(contractAddress, CONTRACT_ABI, adminWallet);
 
         if (action === "airdrop") {
             const sessionInfo = sessionId ? await resolveSessionAddress(sessionId) : { session: null, address: "" };
             const targetAddress = sessionInfo.address || normalizeAddress(body.address, "address");
-            let policy = null;
-            let newDistributedWei = 0n;
-            const tx = await withQueuedChainTxLock(async () => {
-                const trackedDistributedWei = await getTrackedAirdropDistributedWei();
-                policy = calculateAirdropRewardWei(decimals, trackedDistributedWei);
+            
+            const trackedDistributedWei = await getTrackedAirdropDistributedWei();
+            const policy = calculateAirdropRewardWei(decimals, trackedDistributedWei);
 
-                const sentTx = await transferFromTreasuryWithAutoTopup(
-                    contract,
-                    treasuryAddress,
-                    targetAddress,
-                    policy.rewardWei,
-                    { gasLimit: 220000, txSource: "wallet_airdrop" }
-                );
-                newDistributedWei = policy.distributedWei + policy.rewardWei;
-                await kv.set(AIRDROP_DISTRIBUTED_TOTAL_KEY, newDistributedWei.toString());
-                return sentTx;
-            }, undefined, "wallet_airdrop");
+            const tx = await transferFromTreasuryWithAutoTopup(
+                contract,
+                treasuryAddress,
+                targetAddress,
+                policy.rewardWei,
+                { gasLimit: 220000, txSource: "wallet_airdrop" }
+            );
+            
+            const newDistributedWei = policy.distributedWei + policy.rewardWei;
+            await kv.set(AIRDROP_DISTRIBUTED_TOTAL_KEY, newDistributedWei.toString());
 
             return res.status(200).json({
                 success: true,
@@ -270,14 +272,13 @@ export default async function handler(req, res) {
 
         if (action === "import" || action === "deposit") {
             const userAddress = sessionAddress || normalizeAddress(body.address, "address");
-            const tx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
+            const tx = await transferFromTreasuryWithAutoTopup(
                 contract,
                 treasuryAddress,
                 userAddress,
                 amountWei,
                 { gasLimit: 220000, txSource: "wallet_import" }
-            ), undefined, "wallet_import");
-
+            );
             return res.status(200).json({
                 success: true,
                 action: "import",
@@ -294,8 +295,7 @@ export default async function handler(req, res) {
             if (userBalanceWei < amountWei) {
                 return res.status(400).json({ success: false, error: "Insufficient balance" });
             }
-
-            const tx = await withQueuedChainTxLock(() => sendManagedContractTx(contract, "adminTransfer", [userAddress, treasuryAddress, amountWei], { gasLimit: 220000, txSource: "wallet_withdraw" }), undefined, "wallet_withdraw");
+            const tx = await sendManagedContractTx(contract, "adminTransfer", [userAddress, treasuryAddress, amountWei], { gasLimit: 220000, txSource: "wallet_withdraw" });
             return res.status(200).json({
                 success: true,
                 action: "withdraw",
@@ -342,9 +342,7 @@ export default async function handler(req, res) {
                 return res.status(400).json({
                     success: false,
                     error: "Signature verification failed",
-                    debug: {
-                        generatedMessage: message
-                    }
+                    debug: { generatedMessage: message }
                 });
             }
 
@@ -358,7 +356,7 @@ export default async function handler(req, res) {
                 }
             }
 
-            const tx = await withQueuedChainTxLock(() => sendManagedContractTx(contract, "adminTransfer", [fromAddress, toAddress, transferWei], { gasLimit: 220000, txSource: "wallet_secure_transfer" }), undefined, "wallet_secure_transfer");
+            const tx = await sendManagedContractTx(contract, "adminTransfer", [fromAddress, toAddress, transferWei], { gasLimit: 220000, txSource: "wallet_secure_transfer" });
             return res.status(200).json({
                 success: true,
                 txHash: tx.hash,
@@ -380,8 +378,7 @@ export default async function handler(req, res) {
             if (userBalanceWei < amountWei) {
                 return res.status(400).json({ success: false, error: "Insufficient balance" });
             }
-
-            const tx = await withQueuedChainTxLock(() => sendManagedContractTx(contract, "adminTransfer", [userAddress, toAddress, amountWei], { gasLimit: 220000, txSource: "wallet_export" }), undefined, "wallet_export");
+            const tx = await sendManagedContractTx(contract, "adminTransfer", [userAddress, toAddress, amountWei], { gasLimit: 220000, txSource: "wallet_export" });
             return res.status(200).json({
                 success: true,
                 action: "export",
@@ -396,19 +393,9 @@ export default async function handler(req, res) {
             success: false,
             error: `Unsupported action: ${action}`,
             supportedActions: [
-                "summary",
-                "status",
-                "balance",
-                "game_history",
-                "get_balance",
-                "airdrop",
-                "import",
-                "deposit",
-                "export",
-                "transfer",
-                "secure_transfer",
-                "withdraw",
-                "cashout"
+                "summary", "status", "balance", "game_history", "get_balance",
+                "airdrop", "import", "deposit", "export", "transfer",
+                "secure_transfer", "withdraw", "cashout"
             ]
         });
     } catch (error) {

@@ -1,13 +1,13 @@
 import { kv } from "@vercel/kv";
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { ethers } from "ethers";
-import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
+import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS } from "../lib/config.js";
 import { getRoundInfo } from "../lib/auto-round.js";
-import { transferFromTreasuryWithAutoTopup } from "../lib/treasury.js";
 import { buildVipStatus } from "../lib/vip.js";
 import { getSession, saveSession } from "../lib/session-store.js";
 import { ensureDisplayName, getDisplayName, setDisplayName } from "../lib/user-profile.js";
 import { buildRewardSummary } from "../lib/reward-center.js";
+import { settlementService } from "../lib/settlement-service.js";
 import {
     createIssueReport,
     listAnnouncements,
@@ -16,40 +16,8 @@ import {
     validateIssueInput
 } from "../lib/support-center.js";
 
-// --- Optimized: Lazy Initialization ---
-let _provider = null;
-let _contract = null;
-let _cachedDecimals = null;
-
-function getContractContext() {
-    if (!_provider) {
-        _provider = new ethers.JsonRpcProvider(RPC_URL);
-    }
-    if (!_contract) {
-        _contract = new ethers.Contract(
-            CONTRACT_ADDRESS,
-            [
-                "function balanceOf(address) view returns (uint256)",
-                "function decimals() view returns (uint8)",
-                "function mint(address to, uint256 amount) public",
-                "function adminTransfer(address from, address to, uint256 amount) public"
-            ],
-            _provider
-        );
-    }
-    return { provider: _provider, contract: _contract };
-}
-
 async function getDecimals() {
-    if (_cachedDecimals !== null) return _cachedDecimals;
-    const { contract } = getContractContext();
-    try {
-        _cachedDecimals = await contract.decimals();
-        return _cachedDecimals;
-    } catch (error) {
-        console.error("Failed to fetch decimals:", error);
-        return 18n;
-    }
+    return settlementService.getDecimals();
 }
 
 const ALLOWED_PLATFORMS = new Set(["android", "ios", "web", "macos", "windows", "linux", "unknown"]);
@@ -226,7 +194,7 @@ async function checkBlacklist(address) {
 }
 
 async function loadUserMetrics(address) {
-    const { contract } = getContractContext();
+    const contract = settlementService.contract;
     const [balanceRaw, decimals, totalBetRaw, displayName] = await Promise.all([
         contract.balanceOf(address),
         getDecimals(),
@@ -395,22 +363,17 @@ export default async function handler(req, res) {
                 };
                 await kv.set(key, custodyUser);
                 try {
-                    let privateKey = process.env.ADMIN_PRIVATE_KEY;
-                    if (privateKey) {
-                        if (!privateKey.startsWith("0x")) privateKey = `0x${privateKey}`;
-                        const { provider, contract } = getContractContext();
-                        const wallet = new ethers.Wallet(privateKey, provider);
-                        const treasuryAddress = process.env.LOSS_POOL_ADDRESS || wallet.address;
-                        const adminContract = contract.connect(wallet);
-                        const decimals = await getDecimals();
-                        const bonusWei = ethers.parseUnits(CUSTODY_REGISTER_BONUS, decimals);
-                        const bonusTx = await transferFromTreasuryWithAutoTopup(adminContract, treasuryAddress, custodyUser.address, bonusWei, { gasLimit: 200000, txSource: "user_register_bonus" });
-                        if (bonusTx && bonusTx.hash) {
-                            bonusGranted = true;
-                            bonusTxHash = bonusTx.hash;
-                        }
-                    } else {
-                        bonusError = "ADMIN_PRIVATE_KEY is not configured";
+                    const decimals = await getDecimals();
+                    const bonusWei = ethers.parseUnits(CUSTODY_REGISTER_BONUS, decimals);
+                    const results = await settlementService.settle({
+                        userAddress: custodyUser.address,
+                        betWei: 0n,
+                        payoutWei: bonusWei,
+                        source: "user_register_bonus"
+                    });
+                    if (results && results.payoutTxHash) {
+                        bonusGranted = true;
+                        bonusTxHash = results.payoutTxHash;
                     }
                 } catch (error) {
                     bonusError = error.message || "Register bonus failed";

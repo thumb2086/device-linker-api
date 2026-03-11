@@ -284,6 +284,16 @@ export default async function handler(req, res) {
             });
         }
 
+        if (action === "get_maintenance") {
+            const maintenanceSnapshot = await loadMaintenanceStatus();
+            return res.status(200).json({
+                success: true,
+                enabled: maintenanceSnapshot.enabled,
+                title: maintenanceSnapshot.title,
+                message: maintenanceSnapshot.message
+            });
+        }
+
         if (req.method === "GET") {
             if (clockOnly) {
                 const game = typeof query.game === "string" ? query.game : "roulette";

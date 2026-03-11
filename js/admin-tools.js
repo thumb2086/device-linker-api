@@ -21,7 +21,9 @@ var custodyExpanded = false;
 var announcementsLoaded = false;
 var announcementsExpanded = false;
 var rewardLoaded = false;
-var rewardExpanded = false;
+var rewardTitlesExpanded = false;
+var rewardAvatarsExpanded = false;
+var rewardCampaignsExpanded = false;
 var txHealthLoaded = false;
 var txHealthExpanded = false;
 var txHealthSourcesExpanded = false;
@@ -1122,6 +1124,7 @@ function getPrimaryRewardTitle(bundle) {
 function renderRewardAdminSelects() {
     if (!rewardCatalog) return;
     var titleCountEl = document.getElementById('reward-title-count');
+    var avatarCountEl = document.getElementById('reward-avatar-count');
     renderRewardSelectOptions('reward-grant-item', rewardCatalog.shopItems, '不發道具');
     renderRewardSelectOptions('reward-grant-avatar', rewardCatalog.avatars, '不發頭像');
     renderRewardSelectOptions('reward-grant-title', rewardCatalog.titles, '不發稱號');
@@ -1130,6 +1133,7 @@ function renderRewardAdminSelects() {
     renderRewardSelectOptions('campaign-title-id', rewardCatalog.titles, '不發稱號');
     renderRewardSelectOptions('reward-avatar-selector', rewardCatalog.avatars, '建立新頭像');
     if (titleCountEl) titleCountEl.innerText = String((rewardCatalog.titles || []).length);
+    if (avatarCountEl) avatarCountEl.innerText = String((rewardCatalog.avatars || []).length);
     var vipEl = document.getElementById('campaign-min-vip');
     if (vipEl) {
         vipEl.innerHTML = buildVipSelectOptionsHtml(rewardCatalog.vipLevels, '');
@@ -1380,17 +1384,50 @@ function refreshRewardAdmin() {
     });
 }
 
-function toggleRewardSection() {
-    var body = document.getElementById('rewards-section-body');
-    var btn = document.getElementById('reward-toggle-btn');
+function ensureRewardAdminLoaded() {
+    if (rewardLoaded) return Promise.resolve();
+    return refreshRewardAdmin();
+}
+
+function toggleRewardTitleSection() {
+    var body = document.getElementById('reward-titles-section-body');
+    var btn = document.getElementById('reward-title-toggle-btn');
     if (!body || !btn) return;
 
-    rewardExpanded = !rewardExpanded;
-    body.classList.toggle('hidden', !rewardExpanded);
-    btn.innerText = rewardExpanded ? '收合稱號活動管理' : '展開稱號活動管理';
+    rewardTitlesExpanded = !rewardTitlesExpanded;
+    body.classList.toggle('hidden', !rewardTitlesExpanded);
+    btn.innerText = rewardTitlesExpanded ? '收合稱號管理' : '展開稱號管理';
 
-    if (rewardExpanded && !rewardLoaded) {
-        refreshRewardAdmin();
+    if (rewardTitlesExpanded && !rewardLoaded) {
+        ensureRewardAdminLoaded();
+    }
+}
+
+function toggleRewardAvatarSection() {
+    var body = document.getElementById('reward-avatars-section-body');
+    var btn = document.getElementById('reward-avatar-toggle-btn');
+    if (!body || !btn) return;
+
+    rewardAvatarsExpanded = !rewardAvatarsExpanded;
+    body.classList.toggle('hidden', !rewardAvatarsExpanded);
+    btn.innerText = rewardAvatarsExpanded ? '收合頭像管理' : '展開頭像管理';
+
+    if (rewardAvatarsExpanded && !rewardLoaded) {
+        ensureRewardAdminLoaded();
+    }
+}
+
+function toggleRewardCampaignSection() {
+    var body = document.getElementById('reward-campaigns-section-body');
+    var btn = document.getElementById('reward-campaign-toggle-btn');
+    if (!body || !btn) return;
+
+    rewardCampaignsExpanded = !rewardCampaignsExpanded;
+    body.classList.toggle('hidden', !rewardCampaignsExpanded);
+    btn.innerText = rewardCampaignsExpanded ? '收合限時領取管理' : '展開限時領取管理';
+
+    if (rewardCampaignsExpanded && !rewardLoaded) {
+        ensureRewardAdminLoaded();
     }
 }
 

@@ -95,8 +95,10 @@ function sanitizeAdminUpdate(value) {
 
 async function listCustodyUsers(limit) {
     const keys = [];
+    const scanStartedAt = Date.now();
     for await (const key of kv.scanIterator({ match: "custody_user:*", count: 1000 })) {
         keys.push(key);
+        if (keys.length >= 1000 || (Date.now() - scanStartedAt) > 2000) break;
     }
 
     const users = [];
@@ -204,9 +206,11 @@ export default async function handler(req, res) {
 
         if (action === "list_blacklist") {
             const blacklist = [];
+            const scanStartedAt = Date.now();
             for await (const key of kv.scanIterator({ match: "blacklist:*", count: 1000 })) {
                 const record = await kv.get(key);
                 if (record) blacklist.push(record);
+                if (blacklist.length >= 1000 || (Date.now() - scanStartedAt) > 2000) break;
             }
             blacklist.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             return res.status(200).json({ success: true, blacklist });
@@ -408,8 +412,11 @@ export default async function handler(req, res) {
 
             // Also find and delete all ticket metadata keys
             const ticketKeys = [];
+            const scanStartedAt = Date.now();
             for await (const key of kv.scanIterator({ match: "chain_tx_queue_ticket:*", count: 1000 })) {
                 ticketKeys.push(key);
+                // Limit scan to 2000 keys or 2 seconds
+                if (ticketKeys.length >= 2000 || (Date.now() - scanStartedAt) > 2000) break;
             }
             
             if (dryRun) {

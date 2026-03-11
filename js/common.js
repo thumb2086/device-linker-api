@@ -331,7 +331,7 @@ function ensureSupportShortcut() {
     link.id = 'support-shortcut-link';
     link.className = 'support-shortcut-link';
     link.href = '/games/support.html';
-    link.innerText = '問題回報';
+    link.innerText = '意見回饋';
     document.body.appendChild(link);
 }
 

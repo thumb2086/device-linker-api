@@ -39,9 +39,9 @@
                 <strong>公告中心</strong>
                 <p>發布、置頂、停用與維護所有正式公告。</p>
             </a>
-            <a href="#rewards-section" class="admin-overview-card">
+            <a href="#reward-titles-section" class="admin-overview-card">
                 <span>獎勵系統</span>
-                <strong>稱號與限時領取</strong>
+                <strong>稱號 / 頭像 / 限時領取</strong>
                 <p>管理稱號發放時間、活動領取期間與發放紀錄。</p>
             </a>
             <a href="#ops-section" class="admin-overview-card">
@@ -245,25 +245,17 @@
             </div>
         </div>
 
-        <div id="rewards-section" class="section-block reward-admin-section">
+        <div id="reward-titles-section" class="section-block reward-admin-section">
             <div class="section-heading-row">
                 <div>
-                    <h2>稱號 / 頭像 / 限時領取管理</h2>
-                    <p class="tool-note">平常可保持收合，需要發放或調整活動時再展開，避免管理頁過長。</p>
+                    <h2>稱號管理</h2>
+                    <p class="tool-note">平常可保持收合，需要新增或修改稱號時再展開。</p>
                 </div>
-                <button id="reward-toggle-btn" class="btn-secondary compact-btn" onclick="toggleRewardSection()">展開稱號活動管理</button>
+                <button id="reward-title-toggle-btn" class="btn-secondary compact-btn" onclick="toggleRewardTitleSection()">展開稱號管理</button>
             </div>
 
-            <div id="rewards-section-body" class="collapsible-body hidden">
+            <div id="reward-titles-section-body" class="collapsible-body hidden">
                 <div class="summary-grid">
-                    <div class="summary-card">
-                        <span>活動總數</span>
-                        <strong id="reward-campaign-count">0</strong>
-                    </div>
-                    <div class="summary-card">
-                        <span>近期發放紀錄</span>
-                        <strong id="reward-grant-count">0</strong>
-                    </div>
                     <div class="summary-card">
                         <span>稱號總數</span>
                         <strong id="reward-title-count">0</strong>
@@ -340,7 +332,91 @@
                             <button class="btn-secondary" onclick="clearAdminTitleForm()">清空表單 (建立新稱號)</button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
 
+        <div id="reward-avatars-section" class="section-block reward-admin-section">
+            <div class="section-heading-row">
+                <div>
+                    <h2>頭像管理</h2>
+                    <p class="tool-note">平常可保持收合，需要新增或修改頭像時再展開。</p>
+                </div>
+                <button id="reward-avatar-toggle-btn" class="btn-secondary compact-btn" onclick="toggleRewardAvatarSection()">展開頭像管理</button>
+            </div>
+
+            <div id="reward-avatars-section-body" class="collapsible-body hidden">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>頭像總數</span>
+                        <strong id="reward-avatar-count">0</strong>
+                    </div>
+                </div>
+
+                <div class="toolbar-grid reward-admin-grid">
+                    <div class="announcement-editor-card full-span">
+                        <h3>頭像管理 (新增/修改)</h3>
+                        <div class="announcement-form-grid">
+                            <label class="full-span">
+                                選擇現有頭像進行編輯，或留空以建立新頭像
+                                <select id="reward-avatar-selector" class="text-input" onchange="onAdminAvatarSelected(this.value)"></select>
+                            </label>
+                            <label>
+                                頭像名稱
+                                <input id="reward-avatar-name" class="text-input" type="text" maxlength="80" placeholder="例如：閃耀之星">
+                            </label>
+                            <label>
+                                頭像 ID
+                                <input id="reward-avatar-id" class="text-input" type="text" maxlength="64" placeholder="留空自動產生">
+                            </label>
+                            <label>
+                                圖示 (Emoji)
+                                <input id="reward-avatar-icon" class="text-input" type="text" maxlength="16" placeholder="例如：⭐">
+                            </label>
+                            <label>
+                                稀有度
+                                <select id="reward-avatar-rarity" class="text-input"></select>
+                            </label>
+                            <label>
+                                來源
+                                <select id="reward-avatar-source" class="text-input"></select>
+                            </label>
+                            <label class="full-span">
+                                頭像說明
+                                <textarea id="reward-avatar-description" class="text-input announcement-textarea" placeholder="顯示於身分卡、排行榜工具提示的詳細說明"></textarea>
+                            </label>
+                        </div>
+                        <div class="form-row single-row">
+                            <button class="btn-primary" onclick="publishRewardAvatar()">儲存頭像設定</button>
+                            <button class="btn-secondary" onclick="clearAdminAvatarForm()">清空表單 (建立新頭像)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reward-campaigns-section" class="section-block reward-admin-section">
+            <div class="section-heading-row">
+                <div>
+                    <h2>限時領取管理</h2>
+                    <p class="tool-note">平常可保持收合，需要發放或調整活動時再展開。</p>
+                </div>
+                <button id="reward-campaign-toggle-btn" class="btn-secondary compact-btn" onclick="toggleRewardCampaignSection()">展開限時領取管理</button>
+            </div>
+
+            <div id="reward-campaigns-section-body" class="collapsible-body hidden">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>活動總數</span>
+                        <strong id="reward-campaign-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>近期發放紀錄</span>
+                        <strong id="reward-grant-count">0</strong>
+                    </div>
+                </div>
+
+                <div class="toolbar-grid reward-admin-grid">
                     <div class="announcement-editor-card">
                         <h3>管理員直接發放</h3>
                         <div class="announcement-form-grid">
@@ -379,44 +455,6 @@
                         </div>
                         <div class="form-row single-row">
                             <button class="btn-primary" onclick="grantRewardBundleAdmin()">送出發放</button>
-                        </div>
-                    </div>
-
-                    <div class="announcement-editor-card full-span">
-                        <h3>頭像管理 (新增/修改)</h3>
-                        <div class="announcement-form-grid">
-                            <label class="full-span">
-                                選擇現有頭像進行編輯，或留空以建立新頭像
-                                <select id="reward-avatar-selector" class="text-input" onchange="onAdminAvatarSelected(this.value)"></select>
-                            </label>
-                            <label>
-                                頭像名稱
-                                <input id="reward-avatar-name" class="text-input" type="text" maxlength="80" placeholder="例如：閃耀之星">
-                            </label>
-                            <label>
-                                頭像 ID
-                                <input id="reward-avatar-id" class="text-input" type="text" maxlength="64" placeholder="留空自動產生">
-                            </label>
-                            <label>
-                                圖示 (Emoji)
-                                <input id="reward-avatar-icon" class="text-input" type="text" maxlength="16" placeholder="例如：⭐">
-                            </label>
-                            <label>
-                                稀有度
-                                <select id="reward-avatar-rarity" class="text-input"></select>
-                            </label>
-                            <label>
-                                來源
-                                <select id="reward-avatar-source" class="text-input"></select>
-                            </label>
-                            <label class="full-span">
-                                頭像說明
-                                <textarea id="reward-avatar-description" class="text-input announcement-textarea" placeholder="顯示於身分卡、排行榜工具提示的詳細說明"></textarea>
-                            </label>
-                        </div>
-                        <div class="form-row single-row">
-                            <button class="btn-primary" onclick="publishRewardAvatar()">儲存頭像設定</button>
-                            <button class="btn-secondary" onclick="clearAdminAvatarForm()">清空表單 (建立新頭像)</button>
                         </div>
                     </div>
 
@@ -493,8 +531,6 @@
 
                 <p id="reward-admin-status-msg">尚未載入稱號活動資料</p>
 
-
-
                 <div class="section-block section-block-muted">
                     <h3>近期發放紀錄</h3>
                     <div id="reward-grant-log-list" class="result-list">
@@ -504,7 +540,7 @@
             </div>
         </div>
 
-        <div id="tx-health-section" class="section-block section-block-muted">
+<div id="tx-health-section" class="section-block section-block-muted">
             <div class="section-heading-row">
                 <div>
                     <h2>交易失敗率看板</h2>

@@ -24,8 +24,17 @@ const GAME_HANDLERS = {
     duel: duelHandler
 };
 
+function getSearchParam(req, name) {
+    try {
+        const url = new URL(req.url, "http://localhost");
+        return url.searchParams.get(name) || "";
+    } catch {
+        return "";
+    }
+}
+
 function resolveGame(req) {
-    const byQuery = req.query && typeof req.query.game === "string" ? req.query.game : "";
+    const byQuery = getSearchParam(req, "game");
     const byBody = req.body && typeof req.body.game === "string" ? req.body.game : "";
     return String(byQuery || byBody || "").trim().toLowerCase();
 }
@@ -54,7 +63,7 @@ export default async function handler(req, res) {
     }
 
     // 全域黑名單檢查：防止已登入但被封鎖的使用者繼續操作
-    const { sessionId } = req.body || req.query || {};
+    const sessionId = (req.body && req.body.sessionId) || getSearchParam(req, "sessionId");
     if (sessionId) {
         try {
             const session = await getSession(sessionId);

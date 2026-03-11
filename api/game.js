@@ -82,5 +82,25 @@ export default async function handler(req, res) {
         }
     }
 
-    return gameHandler(req, res);
+    try {
+        return await gameHandler(req, res);
+    } catch (error) {
+        const details = error && typeof error === "object"
+            ? {
+                name: error.name || "",
+                message: error.message || "",
+                code: error.code || "",
+                reason: error.reason || "",
+                shortMessage: error.shortMessage || "",
+                stack: error.stack || ""
+            }
+            : { message: String(error || "") };
+        console.error("Unhandled game handler error:", details);
+        if (res.headersSent) return;
+        return res.status(500).json({
+            success: false,
+            error: "Internal server error",
+            details
+        });
+    }
 }

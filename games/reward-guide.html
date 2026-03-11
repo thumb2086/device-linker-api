@@ -182,14 +182,14 @@
         }
 
         function sourceLabel(source) {
+            if (String(source || '').toLowerCase() === 'vip') return '';
             var map = {
                 'shop': '商店購買',
                 'chest': '寶箱隨機獲得',
                 'campaign': '限時活動領取',
                 'admin': '官方特別授予',
                 'system': '系統成就達成',
-                'default': '預設擁有',
-                'vip': 'VIP 專屬'
+                'default': '預設擁有'
             };
             return map[source] || source || '多種途徑';
         }
@@ -245,13 +245,14 @@
 
             // 稱號
             (catalog.titles || []).forEach(function (item) {
+                var titleSource = sourceLabel(item.source);
                 titlesHtml += '<div class="reward-guide-card">' +
                     '<div class="reward-guide-type">成就稱號</div>' +
                     '<strong>' + item.name + '</strong>' +
                     '<div class="reward-guide-desc">' + (item.shopDescription || item.description || '更換個人顯示稱號') + '</div>' +
                     '<div class="reward-guide-details">' +
                         '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + rarityLabel(item.rarity) + '</span></div>' +
-                        '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + sourceLabel(item.source) + '</span></div>' +
+                        (titleSource ? '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + titleSource + '</span></div>' : '') +
                         (item.shopEnabled && item.effectiveShopPrice ? '<div class="detail-item"><span class="detail-label">商店售價:</span><span class="detail-value">' + item.effectiveShopPrice.toLocaleString() + ' 子熙幣</span></div>' : '') +
                     '</div>' +
                     '</div>';
@@ -259,13 +260,14 @@
 
             // 頭像
             (catalog.avatars || []).forEach(function (item) {
+                var avatarSource = sourceLabel(item.source);
                 avatarsHtml += '<div class="reward-guide-card">' +
                     '<div class="reward-guide-type">頭像外觀</div>' +
                     '<strong>' + (item.icon || '👤') + ' ' + item.name + '</strong>' +
                     '<div class="reward-guide-desc">' + (item.description || '更換你的個人頭像顯示') + '</div>' +
                     '<div class="reward-guide-details">' +
                         '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + rarityLabel(item.rarity) + '</span></div>' +
-                        '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + sourceLabel(item.source) + '</span></div>' +
+                        (avatarSource ? '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + avatarSource + '</span></div>' : '') +
                     '</div>' +
                     '</div>';
             });

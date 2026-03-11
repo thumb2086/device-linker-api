@@ -1,7 +1,7 @@
 /* === 猜硬幣遊戲邏輯 === */
 
-var COINFLIP_ROUND_MS = 10000;
-var COINFLIP_LOCK_MS = 3000;
+var COINFLIP_ROUND_MS = 15000;
+var COINFLIP_LOCK_MS = 4000;
 var coinflipPreviewToken = 0;
 var isCoinflipDrawing = false;
 var isCoinflipSubmitting = false;
@@ -10,6 +10,7 @@ var serverTimeOffsetMs = 0;
 var serverTimeSynced = false;
 var isClockSyncing = false;
 var lastClockSyncAt = 0;
+var lastObservedCoinflipRoundId = null;
 
 var pendingCoinflipBets = []; // [{amount, choice, roundId, closesAt}]
 
@@ -217,6 +218,14 @@ function updateCoinflipRoundHint() {
 
     if (btn1) btn1.disabled = !state.isBettingOpen || isCoinflipSubmitting;
     if (btn2) btn2.disabled = !state.isBettingOpen || isCoinflipSubmitting;
+
+    if (lastObservedCoinflipRoundId !== null && lastObservedCoinflipRoundId !== state.roundId) {
+        var drawRoundId = lastObservedCoinflipRoundId;
+        lastObservedCoinflipRoundId = state.roundId;
+        startCoinflipDraw(drawRoundId);
+    } else if (lastObservedCoinflipRoundId === null) {
+        lastObservedCoinflipRoundId = state.roundId;
+    }
 
     maybeDrawCoinflip();
 

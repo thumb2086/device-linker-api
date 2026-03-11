@@ -692,7 +692,7 @@ function buildIssueSelectOptions(reports, selectedId) {
     var selector = document.getElementById('issue-report-selector');
     if (!selector) return;
 
-    var html = '<option value="">請選擇問題回報</option>';
+    var html = '<option value="">請選擇意見回饋</option>';
     (reports || []).forEach(function (item) {
         var id = String(item.id || '');
         var label = [item.title || '未命名', item.address || '-', item.category || '-']
@@ -714,7 +714,7 @@ function renderSelectedIssueReport(reportId) {
     if (!listEl) return;
 
     if (!reportId) {
-        listEl.innerHTML = '<div class="result-empty">請先選擇問題回報</div>';
+        listEl.innerHTML = '<div class="result-empty">請先選擇意見回饋</div>';
         return;
     }
 
@@ -821,7 +821,7 @@ function toggleIssueSection() {
 
     issueExpanded = !issueExpanded;
     body.classList.toggle('hidden', !issueExpanded);
-    btn.innerText = issueExpanded ? '收合問題回報' : '展開問題回報';
+    btn.innerText = issueExpanded ? '收合意見回饋' : '展開意見回饋';
 
     if (issueExpanded && !issueLoaded) {
         refreshIssueReports();
@@ -845,7 +845,7 @@ function updateIssueReport(reportId) {
         }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '更新回報失敗');
             setIssueStatus('已更新回報狀態', false);
-            showAdminToast('問題回報狀態已更新', false);
+            showAdminToast('意見回饋狀態已更新', false);
             return loadIssueReports();
         });
     }).catch(function (error) {
@@ -1852,5 +1852,5 @@ function toggleOpsSection() {
 }
 
 function initAdminToolsPage() {
-    setAdminStatus('目前管理頁已啟用公告、稱號活動發放、交易失敗率看板、問題回報、託管帳號與帳號重製', false);
+    setAdminStatus('目前管理頁已啟用公告、稱號活動發放、交易失敗率看板、意見回饋、託管帳號與帳號重製', false);
 }

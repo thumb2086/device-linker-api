@@ -127,6 +127,12 @@ h1 {
   font-weight: 700;
 }
 
+.btn.ghost {
+  color: var(--text);
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
 .hint {
   font-size: 13px;
   color: var(--muted);

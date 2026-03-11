@@ -137,14 +137,14 @@ function submitIssueReport() {
         userAgent: navigator.userAgent || ''
     };
 
-    setSupportStatus('正在送出問題回報...', false);
+    setSupportStatus('正在送出意見回饋...', false);
     withSupportBusy(function () {
         return callSupportApi('submit_issue_report', payload).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '送出回報失敗');
+            if (!data || !data.success) throw new Error((data && data.error) || '送出回饋失敗');
             if (titleEl) titleEl.value = '';
             if (messageEl) messageEl.value = '';
             if (contactEl) contactEl.value = '';
-            setSupportStatus('問題回報已送出，管理員可在後台查看', false);
+            setSupportStatus('意見回饋已送出，管理員可在後台查看', false);
             return loadMyReports();
         });
     }).catch(function (error) {
@@ -155,6 +155,6 @@ function submitIssueReport() {
 function initSupportPage() {
     var pageEl = document.getElementById('report-page-url');
     if (pageEl) pageEl.value = window.location.href;
-    setSupportStatus('目前可提交問題回報，並查看最新處理進度', false);
+    setSupportStatus('目前可提交意見回饋，並查看最新處理進度', false);
     refreshSupportPage();
 }

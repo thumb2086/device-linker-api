@@ -420,14 +420,14 @@ export default async function handler(req, res) {
 
                         const decimals = await contract.decimals();
                         const bonusWei = ethers.parseUnits(CUSTODY_REGISTER_BONUS, decimals);
-                        const bonusTx = await withQueuedChainTxLock(() => transferFromTreasuryWithAutoTopup(
+                        const bonusTx = await transferFromTreasuryWithAutoTopup(
                             contract,
                             treasuryAddress,
                             custodyUser.address,
                             bonusWei,
                             { gasLimit: 200000, txSource: "user_register_bonus" }
-                        ), undefined, "user_register_bonus");
-                        bonusGranted = true;
+                        );
+                        if (bonusTx && bonusTx.hash) {
                         bonusTxHash = bonusTx.hash;
                     }
                 } catch (error) {

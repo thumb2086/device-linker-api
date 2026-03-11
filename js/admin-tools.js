@@ -529,7 +529,7 @@ function executeReset() {
             if (!data || !data.success) throw new Error((data && data.error) || '重製失敗');
             renderResetResult(data);
             setAdminStatus('重製完成', false);
-            showAdminToast('高額下注帳號重製完成', false);
+            showAdminToast('帳號重製完成', false);
         });
     }).catch(function (error) {
         setAdminStatus('錯誤: ' + error.message, true);
@@ -660,12 +660,13 @@ function toggleCustodySection() {
 
 function resetCustodyPassword(username) {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     var input = document.getElementById(getPasswordInputId(username));
     var newPassword = String(input && input.value || '');
     if (newPassword.length < 6) {
         setCustodyStatus('密碼至少需要 6 個字元', true);
         showAdminToast('密碼至少需要 6 個字元', true);
+        restoreBtn();
         return;
     }
 
@@ -684,7 +685,7 @@ function resetCustodyPassword(username) {
     }).catch(function (error) {
         setCustodyStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function buildIssueSelectOptions(reports, selectedId) {
@@ -829,7 +830,7 @@ function toggleIssueSection() {
 
 function updateIssueReport(reportId) {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     var statusEl = document.getElementById(getIssueStatusId(reportId));
     var updateEl = document.getElementById(getIssueUpdateId(reportId));
     var status = String(statusEl && statusEl.value || 'open');
@@ -850,7 +851,7 @@ function updateIssueReport(reportId) {
     }).catch(function (error) {
         setIssueStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function renderAnnouncements() {
@@ -952,7 +953,7 @@ function toggleAnnouncementSection() {
 
 function publishAnnouncement() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     var titleEl = document.getElementById('announcement-title');
     var contentEl = document.getElementById('announcement-content');
     var pinnedEl = document.getElementById('announcement-pinned');
@@ -979,12 +980,12 @@ function publishAnnouncement() {
     }).catch(function (error) {
         setAnnouncementAdminStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function updateAnnouncement(announcementId) {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     var titleEl = document.getElementById(getAnnouncementTitleId(announcementId));
     var contentEl = document.getElementById(getAnnouncementContentId(announcementId));
     var activeEl = document.getElementById(getAnnouncementActiveId(announcementId));
@@ -1007,7 +1008,7 @@ function updateAnnouncement(announcementId) {
     }).catch(function (error) {
         setAnnouncementAdminStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function deleteAnnouncement(announcementId) {
@@ -1433,7 +1434,7 @@ function toggleRewardCampaignSection() {
 
 function grantRewardBundleAdmin() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     setRewardAdminStatus('發放獎勵中...', false);
     withAdminBusy('reward', function () {
         return callRewardsAdminApi('admin_grant_rewards', {
@@ -1462,12 +1463,12 @@ function grantRewardBundleAdmin() {
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function publishRewardTitle() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     setRewardAdminStatus('儲存稱號設定中...', false);
     withAdminBusy('reward', function () {
         var titleId = document.getElementById('reward-title-id').value;
@@ -1501,12 +1502,12 @@ function publishRewardTitle() {
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function publishRewardAvatar() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     setRewardAdminStatus('儲存頭像設定中...', false);
     withAdminBusy('reward', function () {
         var avatarId = document.getElementById('reward-avatar-id').value;
@@ -1531,12 +1532,12 @@ function publishRewardAvatar() {
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function publishRewardCampaign() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     setRewardAdminStatus('儲存活動設定中...', false);
     withAdminBusy('reward', function () {
         var campaignId = document.getElementById('campaign-id-hidden').value;
@@ -1569,7 +1570,7 @@ function publishRewardCampaign() {
     }).catch(function (error) {
         setRewardAdminStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function renderBlacklist() {
@@ -1702,7 +1703,7 @@ function toggleBlacklistSection() {
 
 function addToBlacklist() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     var addressEl = document.getElementById('blacklist-address');
     var reasonEl = document.getElementById('blacklist-reason');
     var address = String(addressEl && addressEl.value || '').trim();
@@ -1710,6 +1711,7 @@ function addToBlacklist() {
 
     if (!address) {
         setBlacklistStatus('請輸入要加入黑名單的地址', true);
+        restoreBtn();
         return;
     }
 
@@ -1729,14 +1731,14 @@ function addToBlacklist() {
     }).catch(function (error) {
         setBlacklistStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function removeFromBlacklist(address) {
     if (!confirm('確定要將 ' + address + ' 從黑名單移除嗎？')) return;
 
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
 
     setBlacklistStatus('正在移除黑名單...', false);
     withAdminBusy('blacklist', function () {
@@ -1751,7 +1753,7 @@ function removeFromBlacklist(address) {
     }).catch(function (error) {
         setBlacklistStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function toggleWinBiasSection() {
@@ -1846,9 +1848,9 @@ function toggleOpsSection() {
 
     opsExpanded = !opsExpanded;
     body.classList.toggle('hidden', !opsExpanded);
-    btn.innerText = opsExpanded ? '收合高額下注重製' : '展開高額下注重製';
+    btn.innerText = opsExpanded ? '收合帳號重製' : '展開帳號重製';
 }
 
 function initAdminToolsPage() {
-    setAdminStatus('目前管理頁已啟用公告、稱號活動發放、交易失敗率看板、問題回報、託管帳號與高額下注重製', false);
+    setAdminStatus('目前管理頁已啟用公告、稱號活動發放、交易失敗率看板、問題回報、託管帳號與帳號重製', false);
 }

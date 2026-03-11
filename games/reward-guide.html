@@ -145,9 +145,6 @@
             <h2 class="guide-section-head">🖼️ 頭像外觀</h2>
             <div id="guide-avatars" class="reward-guide-grid"></div>
 
-            <h2 class="guide-section-head">📜 VIP 等級獎勵稱號</h2>
-            <div id="guide-vip-titles" class="reward-guide-grid"></div>
-
             <h2 class="guide-section-head">🎲 隨機獎勵機率說明</h2>
             <div id="guide-rules" class="reward-guide-grid"></div>
         </div>
@@ -224,7 +221,6 @@
             var chestsHtml = '';
             var titlesHtml = '';
             var avatarsHtml = '';
-            var vipTitlesHtml = '';
             var rulesHtml = '';
 
             var itemMap = {}; (catalog.shopItems || []).forEach(function(it) { itemMap[it.id] = it; });
@@ -274,20 +270,6 @@
                     '</div>';
             });
 
-            // VIP 稱號 (虛擬)
-            (catalog.vipLevels || []).forEach(function (tier) {
-                if (tier.label === '普通會員') return;
-                vipTitlesHtml += '<div class="reward-guide-card">' +
-                    '<div class="reward-guide-type">VIP 稱號</div>' +
-                    '<strong>' + tier.label + '</strong>' +
-                    '<div class="reward-guide-desc">當前累計押注額達標後自動獲得的身份象徵。</div>' +
-                    '<div class="reward-guide-details">' +
-                        '<div class="detail-item"><span class="detail-label">達成條件:</span><span class="detail-value">累積押注 ' + tier.threshold.toLocaleString() + ' 子熙幣</span></div>' +
-                        '<div class="detail-item"><span class="detail-label">下注上限:</span><span class="detail-value">' + tier.maxBet.toLocaleString() + ' 子熙幣</span></div>' +
-                    '</div>' +
-                    '</div>';
-            });
-
             // 隨機機率
             if (catalog.rules) {
                 var allRules = Object.assign({}, catalog.rules.chests, catalog.rules.keys);
@@ -315,7 +297,6 @@
             document.getElementById('guide-chests').innerHTML = chestsHtml || '<div class="reward-empty">暫無資料</div>';
             document.getElementById('guide-titles').innerHTML = titlesHtml || '<div class="reward-empty">暫無資料</div>';
             document.getElementById('guide-avatars').innerHTML = avatarsHtml || '<div class="reward-empty">暫無資料</div>';
-            document.getElementById('guide-vip-titles').innerHTML = vipTitlesHtml || '<div class="reward-empty">暫無資料</div>';
             document.getElementById('guide-rules').innerHTML = rulesHtml || '<div class="reward-empty">暫無資料</div>';
         }
 

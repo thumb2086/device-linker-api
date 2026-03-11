@@ -627,16 +627,105 @@ function resetCustodyPassword(username) {
     });
 }
 
-function renderIssueReports() {
+function buildIssueSelectOptions(reports, selectedId) {
+    var selector = document.getElementById('issue-report-selector');
+    if (!selector) return;
+
+    var html = '<option value="">請選擇問題回報</option>';
+    (reports || []).forEach(function (item) {
+        var id = String(item.id || '');
+        var label = [item.title || '未命名', item.address || '-', item.category || '-']
+            .filter(Boolean)
+            .join(' | ');
+        html += '<option value="' + escapeHtml(id) + '">' + escapeHtml(label) + '</option>';
+    });
+
+    selector.innerHTML = html;
+    if (selectedId && reports.some(function (item) { return String(item.id || '') === String(selectedId || ''); })) {
+        selector.value = selectedId;
+    } else {
+        selector.value = '';
+    }
+}
+
+function renderSelectedIssueReport(reportId) {
     var listEl = document.getElementById('issue-report-list');
+    if (!listEl) return;
+
+    if (!reportId) {
+        listEl.innerHTML = '<div class="result-empty">請先選擇問題回報</div>';
+        return;
+    }
+
+    var selected = issueReports.find(function (item) {
+        return String(item.id || '') === String(reportId);
+    });
+
+    if (!selected) {
+        listEl.innerHTML = '<div class="result-empty">找不到指定回報</div>';
+        return;
+    }
+
+    var reportIdStr = String(selected.id || '');
+    var updateId = getIssueUpdateId(reportIdStr);
+    var statusId = getIssueStatusId(reportIdStr);
+    var statusLabel = reportStatusLabel(selected.status);
+    var statusClass = reportStatusClass(selected.status);
+    var contact = selected.contact ? String(selected.contact) : '';
+    var address = selected.address ? String(selected.address) : '';
+    var pageUrl = selected.pageUrl ? String(selected.pageUrl) : '';
+    var tags = [];
+    if (selected.category) tags.push(String(selected.category));
+    if (selected.mode) tags.push(String(selected.mode));
+    if (selected.clientType) tags.push(String(selected.clientType));
+
+    listEl.innerHTML =
+        '<div class="issue-report-card">' +
+            '<div class="issue-report-head">' +
+                '<div>' +
+                    '<strong>' + escapeHtml(selected.title || '未命名問題') + '</strong>' +
+                    '<div class="issue-report-meta">' +
+                        '<span>' + escapeHtml(formatTime(selected.updatedAt || selected.createdAt)) + '</span>' +
+                        '<span class="state-chip ' + statusClass + '">' + escapeHtml(statusLabel) + '</span>' +
+                        (address ? ('<span class="mono">' + escapeHtml(maskAdminAddress(address)) + '</span>') : '') +
+                    '</div>' +
+                '</div>' +
+                '<div class="issue-report-tags">' +
+                    tags.map(function (tag) { return '<span class="state-chip info">' + escapeHtml(tag) + '</span>'; }).join('') +
+                '</div>' +
+            '</div>' +
+            '<div class="issue-report-message">' + escapeHtml(selected.message || '') + '</div>' +
+            '<div class="issue-report-meta">' +
+                (contact ? ('<span>聯絡方式：' + escapeHtml(contact) + '</span>') : '') +
+                (pageUrl ? ('<span>頁面：' + escapeHtml(pageUrl) + '</span>') : '') +
+            '</div>' +
+            '<div class="issue-report-actions">' +
+                '<label>狀態' +
+                    '<select id="' + escapeHtml(statusId) + '" class="text-input">' +
+                        '<option value="open"' + (selected.status === 'open' ? ' selected' : '') + '>待處理</option>' +
+                        '<option value="in_progress"' + (selected.status === 'in_progress' ? ' selected' : '') + '>處理中</option>' +
+                        '<option value="resolved"' + (selected.status === 'resolved' ? ' selected' : '') + '>已處理</option>' +
+                    '</select>' +
+                '</label>' +
+                '<label>處理紀錄' +
+                    '<textarea id="' + escapeHtml(updateId) + '" class="text-input issue-update-input" placeholder="紀錄處理內容或回覆">' + escapeHtml(selected.adminUpdate || '') + '</textarea>' +
+                '</label>' +
+                '<div class="issue-card-actions">' +
+                    '<button class="btn-primary compact-btn" data-report-id="' + escapeHtml(reportIdStr) + '" onclick="updateIssueReport(this.dataset.reportId)">儲存回報</button>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+}
+
+function renderIssueReports() {
     var totalEl = document.getElementById('issue-total-count');
     var visibleEl = document.getElementById('issue-visible-count');
     var openEl = document.getElementById('issue-open-count');
     var progressEl = document.getElementById('issue-progress-count');
-    var filterEl = document.getElementById('issue-filter-input');
     var statusEl = document.getElementById('issue-status-filter');
-    var keyword = String(filterEl && filterEl.value || '').trim().toLowerCase();
     var statusFilter = String(statusEl && statusEl.value || '').trim().toLowerCase();
+    var selectorEl = document.getElementById('issue-report-selector');
+    var selectedId = selectorEl ? selectorEl.value : '';
 
     if (totalEl) totalEl.innerText = String(issueReports.length);
     if (openEl) {
@@ -645,89 +734,23 @@ function renderIssueReports() {
     if (progressEl) {
         progressEl.innerText = String(issueReports.filter(function (item) { return item.status === 'in_progress'; }).length);
     }
-    if (!listEl) return;
 
     var filtered = issueReports.filter(function (item) {
         if (statusFilter && item.status !== statusFilter) return false;
-        if (!keyword) return true;
-        return [item.title, item.message, item.address, item.displayName, item.category, item.contact, item.adminUpdate]
-            .join('\n')
-            .toLowerCase()
-            .indexOf(keyword) >= 0;
+        return true;
     });
 
-    if (visibleEl) visibleEl.innerText = String(filtered.length);
+    buildIssueSelectOptions(filtered, selectedId);
+    selectedId = selectorEl ? selectorEl.value : '';
+    renderSelectedIssueReport(selectedId);
 
-    if (filtered.length === 0) {
-        listEl.innerHTML = '<div class="result-empty">沒有符合條件的問題回報</div>';
-        return;
-    }
-
-    var html = '';
-    filtered.forEach(function (item) {
-        var reportId = String(item.id || '');
-        var updateId = getIssueUpdateId(reportId);
-        var statusId = getIssueStatusId(reportId);
-        html += '<div class="issue-report-card">' +
-            '<div class="issue-report-head">' +
-                '<div>' +
-                    '<strong>' + escapeHtml(item.title || '未命名問題') + '</strong>' +
-                    '<div class="issue-report-meta">' +
-                        '<span>' + escapeHtml(item.category || 'general') + '</span>' +
-                        '<span>' + escapeHtml(formatTime(item.createdAt)) + '</span>' +
-                        '<span class="mono">' + escapeHtml(maskAdminAddress(item.address || '-')) + '</span>' +
-                        '<span>' + escapeHtml(item.displayName || '未設定名稱') + '</span>' +
-                    '</div>' +
-                '</div>' +
-                '<span class="state-chip ' + reportStatusClass(item.status) + '">' + reportStatusLabel(item.status) + '</span>' +
-            '</div>' +
-            '<div class="issue-report-message">' + escapeHtml(item.message || '').replace(/\n/g, '<br>') + '</div>' +
-            '<div class="issue-report-extra">' +
-                '<span>聯絡方式：' + escapeHtml(item.contact || '未提供') + '</span>' +
-                '<span>模式：' + escapeHtml(item.mode || 'live') + '</span>' +
-                '<span>版本：' + escapeHtml(item.appVersion || '-') + '</span>' +
-            '</div>' +
-            '<div class="issue-editor-grid">' +
-                '<label>' +
-                    '<span>處理狀態</span>' +
-                    '<select id="' + escapeHtml(statusId) + '" class="text-input">' +
-                        '<option value="open"' + (item.status === 'open' ? ' selected' : '') + '>待處理</option>' +
-                        '<option value="in_progress"' + (item.status === 'in_progress' ? ' selected' : '') + '>處理中</option>' +
-                        '<option value="resolved"' + (item.status === 'resolved' ? ' selected' : '') + '>已處理</option>' +
-                    '</select>' +
-                '</label>' +
-                '<label class="full-span">' +
-                    '<span>最新處理更新</span>' +
-                    '<textarea id="' + escapeHtml(updateId) + '" class="text-input issue-update-textarea" placeholder="例如：已確認問題，預計今晚修正">' + escapeHtml(item.adminUpdate || '') + '</textarea>' +
-                '</label>' +
-            '</div>' +
-            '<div class="issue-card-actions">' +
-                '<button class="btn-primary compact-btn" data-report-id="' + escapeHtml(reportId) + '" onclick="updateIssueReport(this.dataset.reportId)">儲存更新</button>' +
-            '</div>' +
-            '</div>';
-    });
-
-    listEl.innerHTML = html;
+    if (visibleEl) visibleEl.innerText = selectedId ? '1' : '0';
 }
 
-function loadIssueReports() {
-    return callAdminApi('list_issue_reports', { limit: 200 }).then(function (data) {
-        if (!data || !data.success) throw new Error((data && data.error) || '載入問題回報失敗');
-        issueReports = Array.isArray(data.reports) ? data.reports : [];
-        renderIssueReports();
-        setIssueStatus('已載入 ' + issueReports.length + ' 筆問題回報', false);
-    });
-}
-
-function refreshIssueReports() {
-    setIssueStatus('正在讀取問題回報...', false);
-    withAdminBusy('issue', function () {
-        return loadIssueReports().then(function () {
-            issueLoaded = true;
-        });
-    }).catch(function (error) {
-        setIssueStatus('錯誤: ' + error.message, true);
-    });
+function onIssueReportSelected(reportId) {
+    renderSelectedIssueReport(reportId);
+    var visibleEl = document.getElementById('issue-visible-count');
+    if (visibleEl) visibleEl.innerText = reportId ? '1' : '0';
 }
 
 function toggleIssueSection() {

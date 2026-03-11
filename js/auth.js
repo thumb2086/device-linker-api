@@ -111,7 +111,11 @@ function updateAppQuickLoginUI() {
  * @param {Function} onAuthorized - 認證成功後的回調
  */
 function initLobbyAuth(onAuthorized) {
-    lobbyAuthReadyCallback = onAuthorized;
+    lobbyAuthReadyCallback = function (data) {
+        guardMaintenance(data, function () {
+            if (onAuthorized) onAuthorized(data);
+        });
+    };
     updateCustodyQuickLoginUI();
     updateAppQuickLoginUI();
     refreshMaintenanceBanner();
@@ -125,11 +129,7 @@ function initLobbyAuth(onAuthorized) {
                 user.address = stored.address;
                 user.publicKey = stored.publicKey;
                 user.sessionId = stored.sessionId;
-                if (onAuthorized) {
-                    guardMaintenance(data, function () {
-                        onAuthorized(data);
-                    });
-                }
+                if (lobbyAuthReadyCallback) lobbyAuthReadyCallback(data);
             } else {
                 clearAuth();
                 showQRAuth(onAuthorized);
@@ -305,11 +305,7 @@ function startAuthPolling(sessionId, onAuthorized) {
 
                 storeAuth(sessionId, data.address, data.publicKey);
 
-                if (onAuthorized) {
-                    guardMaintenance(data, function () {
-                        onAuthorized(data);
-                    });
-                }
+                if (lobbyAuthReadyCallback) lobbyAuthReadyCallback(data);
             })
             .catch(function(err) { console.error('Auth polling error:', err); });
     }, 1500);

@@ -399,28 +399,67 @@ export default async function handler(req, res) {
         }
 
         if (action === "reset_tx_queue") {
-            if (dryRun) {
-                return res.status(200).json({
-                    success: true,
-                    dryRun: true,
-                    message: "Would have deleted KV keys for transaction queue reset.",
-                    keys: [CHAIN_TX_LOCK_KEY, CHAIN_TX_LOCK_META_KEY, CHAIN_TX_QUEUE_NEXT_KEY, CHAIN_TX_QUEUE_SERVE_KEY]
-                });
-            }
-
             const keysToDelete = [
                 CHAIN_TX_LOCK_KEY,
                 CHAIN_TX_LOCK_META_KEY,
                 CHAIN_TX_QUEUE_NEXT_KEY,
                 CHAIN_TX_QUEUE_SERVE_KEY,
             ];
-            const result = await kv.del(...keysToDelete);
+
+            // Also find and delete all ticket metadata keys
+            const ticketKeys = [];
+            for await (const key of kv.scanIterator({ match: "chain_tx_queue_ticket:*", count: 1000 })) {
+                ticketKeys.push(key);
+            }
+            
+            if (dryRun) {
+                return res.status(200).json({
+                    success: true,
+                    dryRun: true,
+                    message: `Would have deleted ${keysToDelete.length + ticketKeys.length} KV keys.`,
+                    systemKeys: keysToDelete,
+                    ticketKeysCount: ticketKeys.length
+                });
+            }
+
+            const allKeys = [...keysToDelete, ...ticketKeys];
+            let deletedCount = 0;
+            if (allKeys.length > 0) {
+                // Delete in chunks of 100
+                for (let i = 0; i < allKeys.length; i += 100) {
+                    const chunk = allKeys.slice(i, i + 100);
+                    deletedCount += await kv.del(...chunk);
+                }
+            }
 
             return res.status(200).json({
                 success: true,
-                message: `Transaction queue reset. ${result} keys deleted.`,
-                keys: keysToDelete,
-                deletedCount: result,
+                message: `Transaction queue reset. ${deletedCount} keys deleted.`,
+                systemKeys: keysToDelete,
+                ticketKeysDeleted: ticketKeys.length,
+                totalDeleted: deletedCount
+            });
+        }
+
+        if (action === "flush_tx_queue") {
+            const next = Number(await kv.get(CHAIN_TX_QUEUE_NEXT_KEY) || 0);
+            const currentServing = Number(await kv.get(CHAIN_TX_QUEUE_SERVE_KEY) || 0);
+            
+            if (dryRun) {
+                return res.status(200).json({
+                    success: true,
+                    dryRun: true,
+                    message: `Would have flushed queue. Current: ${currentServing}, Next: ${next}.`,
+                    next
+                });
+            }
+
+            await kv.set(CHAIN_TX_QUEUE_SERVE_KEY, next);
+            return res.status(200).json({
+                success: true,
+                message: `Transaction queue flushed. Serving index moved from ${currentServing} to ${next}.`,
+                previousServing: currentServing,
+                newServing: next
             });
         }
 
@@ -469,6 +508,8 @@ export default async function handler(req, res) {
                     "get_tx_health_dashboard",
                 "get_tx_queue_status",
                 "skip_tx_queue_range",
+                "reset_tx_queue",
+                "flush_tx_queue",
                 "add_to_blacklist",
                 "remove_from_blacklist",
                 "list_blacklist",

@@ -28,6 +28,14 @@ const CUSTODY_PASSWORD_MIN = 6;
 const CUSTODY_PASSWORD_MAX = 128;
 const CUSTODY_REGISTER_BONUS = "100000";
 const AUTH_API_BUILD = "2026-03-11-user-opt-v3";
+const MAINTENANCE_MODE = ["1", "true", "yes", "on"].includes(String(process.env.MAINTENANCE_MODE || "").trim().toLowerCase());
+const MAINTENANCE_TITLE = String(process.env.MAINTENANCE_TITLE || "系統維護中").trim();
+const MAINTENANCE_MESSAGE = String(process.env.MAINTENANCE_MESSAGE || "目前暫停登入與遊戲，請稍後再試。").trim();
+
+function isAdminAddress(address) {
+    if (!address) return false;
+    return String(address).trim().toLowerCase() === String(ADMIN_WALLET_ADDRESS || "").trim().toLowerCase();
+}
 
 function normalizeText(value, fallback = "unknown", maxLength = 64) {
     if (typeof value !== "string") return fallback;
@@ -241,6 +249,19 @@ export default async function handler(req, res) {
         const sessionId = normalizeSessionId(query.sessionId || body.sessionId);
         const action = normalizeText(body.action || query.action, req.method === "GET" ? "get_status" : "authorize");
         const clockOnly = String(query.clock || "") === "1";
+        const requestAddress = typeof body.address === "string" ? body.address : "";
+        const isAdminRequest = isAdminAddress(requestAddress);
+
+        if (MAINTENANCE_MODE && ((action === "authorize" && !isAdminRequest) || action === "custody_login")) {
+            return res.status(503).json({
+                success: false,
+                status: "maintenance",
+                error: MAINTENANCE_TITLE,
+                message: MAINTENANCE_MESSAGE,
+                allowAdmin: true,
+                adminOnly: true
+            });
+        }
 
         if (req.method === "GET") {
             if (clockOnly) {

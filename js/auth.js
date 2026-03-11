@@ -69,6 +69,7 @@ function clearCustodyCredentials() {
 function updateCustodyQuickLoginUI() {
     var btn = document.getElementById('custody-quick-btn');
     var meta = document.getElementById('custody-quick-meta');
+    var clearBtn = document.getElementById('custody-clear-btn');
     var creds = getStoredCustodyCredentials();
     if (!btn || !meta) return;
 
@@ -76,16 +77,19 @@ function updateCustodyQuickLoginUI() {
         btn.classList.remove('hidden');
         meta.classList.remove('hidden');
         meta.innerText = '已記住帳號：' + creds.username;
+        if (clearBtn) clearBtn.classList.remove('hidden');
         return;
     }
 
     btn.classList.add('hidden');
     meta.classList.add('hidden');
+    if (clearBtn) clearBtn.classList.add('hidden');
 }
 
 function updateAppQuickLoginUI() {
     var btn = document.getElementById('app-quick-btn');
     var meta = document.getElementById('app-quick-meta');
+    var clearBtn = document.getElementById('app-clear-btn');
     var stored = getStoredAuth();
     if (!btn || !meta) return;
 
@@ -93,11 +97,13 @@ function updateAppQuickLoginUI() {
         btn.classList.remove('hidden');
         meta.classList.remove('hidden');
         meta.innerText = '已記住錢包：' + maskAuthAddress(stored.address);
+        if (clearBtn) clearBtn.classList.remove('hidden');
         return;
     }
 
     btn.classList.add('hidden');
     meta.classList.add('hidden');
+    if (clearBtn) clearBtn.classList.add('hidden');
 }
 
 /**
@@ -413,6 +419,12 @@ function quickAppAuth() {
     });
 }
 
+function clearAppQuickAuth() {
+    clearAuth();
+    updateAppQuickLoginUI();
+    updateAuthMessage('已清除 App 快速登入資料');
+}
+
 function copyAuthCode() {
     if (!user.sessionId) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -569,6 +581,12 @@ function quickCustodyAuth() {
         });
 }
 
+function clearCustodyQuickAuth() {
+    clearCustodyCredentials();
+    updateCustodyQuickLoginUI();
+    updateAuthMessage('已清除託管快速登入資料');
+}
+
 /**
  * 驗證 session 是否仍有效
  */
@@ -648,3 +666,4 @@ function logoutUser() {
 }
 
 updateCustodyQuickLoginUI();
+updateAppQuickLoginUI();

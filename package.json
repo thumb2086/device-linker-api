@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "main": "api/airdrop.js",
+  "engines": {
+    "node": "24.x"
+  },
   "dependencies": {
     "@vercel/kv": "^1.0.1",
     "ethers": "^6.11.1"

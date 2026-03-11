@@ -125,7 +125,11 @@ function initLobbyAuth(onAuthorized) {
                 user.address = stored.address;
                 user.publicKey = stored.publicKey;
                 user.sessionId = stored.sessionId;
-                if (onAuthorized) onAuthorized(data);
+                if (onAuthorized) {
+                    guardMaintenance(data, function () {
+                        onAuthorized(data);
+                    });
+                }
             } else {
                 clearAuth();
                 showQRAuth(onAuthorized);
@@ -155,6 +159,26 @@ function refreshMaintenanceBanner() {
         })
         .catch(function () {
             banner.classList.add('hidden');
+        });
+}
+
+function guardMaintenance(authData, onAllowed) {
+    var path = window.location.pathname || '';
+    if (path.indexOf('/maintenance.html') >= 0 || path.indexOf('/games/support.html') >= 0) {
+        if (onAllowed) onAllowed();
+        return;
+    }
+    fetch('/api/user?action=get_maintenance')
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (data && data.enabled && !(authData && authData.isAdmin)) {
+                window.location.href = '/maintenance.html';
+                return;
+            }
+            if (onAllowed) onAllowed();
+        })
+        .catch(function () {
+            if (onAllowed) onAllowed();
         });
 }
 
@@ -281,7 +305,11 @@ function startAuthPolling(sessionId, onAuthorized) {
 
                 storeAuth(sessionId, data.address, data.publicKey);
 
-                if (onAuthorized) onAuthorized(data);
+                if (onAuthorized) {
+                    guardMaintenance(data, function () {
+                        onAuthorized(data);
+                    });
+                }
             })
             .catch(function(err) { console.error('Auth polling error:', err); });
     }, 1500);
@@ -624,10 +652,12 @@ function checkGameAuth(onReady) {
             window.location.href = '/';
             return;
         }
-        if (onReady) onReady(data);
-        if (typeof hidePageTransition === 'function') {
-            hidePageTransition();
-        }
+        guardMaintenance(data, function () {
+            if (onReady) onReady(data);
+            if (typeof hidePageTransition === 'function') {
+                hidePageTransition();
+            }
+        });
     });
 }
 
@@ -642,13 +672,15 @@ function navigateToGameWithAuth(targetUrl) {
         showPageTransition('進入遊戲中...');
     }
 
-    verifySession(stored.sessionId, function(valid) {
+    verifySession(stored.sessionId, function(valid, data) {
         if (!valid) {
             clearAuth();
             window.location.href = '/';
             return;
         }
-        window.location.href = targetUrl;
+        guardMaintenance(data || {}, function () {
+            window.location.href = targetUrl;
+        });
     });
 }
 

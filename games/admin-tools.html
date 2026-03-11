@@ -634,7 +634,7 @@
 
             <div id="issues-section-body" class="collapsible-body hidden">
                 <div class="toolbar-grid">
-                    <input id="issue-filter-input" class="text-input" type="text" placeholder="搜尋標題 / 地址 / 類別" oninput="renderIssueReports()">
+                    <select id="issue-report-selector" class="text-input" onchange="onIssueReportSelected(this.value)"></select>
                     <button class="btn-secondary compact-btn" onclick="refreshIssueReports()">重新整理</button>
                 </div>
                 <div class="toolbar-grid">
@@ -667,7 +667,7 @@
                 </div>
 
                 <div id="issue-report-list" class="issue-report-list">
-                    <div class="result-empty">尚未載入問題回報</div>
+                    <div class="result-empty">請先選擇問題回報</div>
                 </div>
             </div>
         </div>

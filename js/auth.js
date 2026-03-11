@@ -83,6 +83,7 @@ function updateCustodyQuickLoginUI() {
 function initLobbyAuth(onAuthorized) {
     lobbyAuthReadyCallback = onAuthorized;
     updateCustodyQuickLoginUI();
+    refreshMaintenanceBanner();
 
     // 先檢查是否已有有效 session
     const stored = getStoredAuth();
@@ -102,6 +103,28 @@ function initLobbyAuth(onAuthorized) {
         return;
     }
     showQRAuth(onAuthorized);
+}
+
+function refreshMaintenanceBanner() {
+    var banner = document.getElementById('maintenance-banner');
+    var titleEl = banner ? banner.querySelector('.maintenance-title') : null;
+    var messageEl = banner ? banner.querySelector('.maintenance-message') : null;
+    if (!banner) return;
+
+    fetch('/api/user?action=get_maintenance')
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || !data.enabled) {
+                banner.classList.add('hidden');
+                return;
+            }
+            banner.classList.remove('hidden');
+            if (titleEl) titleEl.innerText = data.title || '系統維護中';
+            if (messageEl) messageEl.innerText = data.message || '目前暫停登入與遊戲，請稍後再試。';
+        })
+        .catch(function () {
+            banner.classList.add('hidden');
+        });
 }
 
 function detectClientPlatform() {

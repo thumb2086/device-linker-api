@@ -93,6 +93,13 @@ function sanitizeAdminUpdate(value) {
     return value.replace(/\r\n/g, "\n").replace(/\u0000/g, "").trim().slice(0, 4000);
 }
 
+function normalizeMaintenancePayload(body) {
+    const enabled = toBoolean(body.enabled);
+    const title = sanitizeAdminUpdate(body.title || "");
+    const message = sanitizeAdminUpdate(body.message || "");
+    return { enabled, title, message };
+}
+
 async function listCustodyUsers(limit) {
     const keys = [];
     const scanStartedAt = Date.now();
@@ -214,6 +221,32 @@ export default async function handler(req, res) {
             }
             blacklist.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             return res.status(200).json({ success: true, blacklist });
+        }
+
+        if (action === "get_maintenance") {
+            const record = await kv.get("maintenance:status");
+            const enabled = !!(record && record.enabled);
+            return res.status(200).json({
+                success: true,
+                enabled,
+                title: record && record.title ? record.title : "",
+                message: record && record.message ? record.message : "",
+                updatedAt: record && record.updatedAt ? record.updatedAt : "",
+                operator: record && record.operator ? record.operator : ""
+            });
+        }
+
+        if (action === "set_maintenance") {
+            const payload = normalizeMaintenancePayload(body);
+            const record = {
+                enabled: payload.enabled,
+                title: payload.title,
+                message: payload.message,
+                updatedAt: new Date().toISOString(),
+                operator: sessionAddress
+            };
+            await kv.set("maintenance:status", record);
+            return res.status(200).json({ success: true, ...record });
         }
 
         if (action === "set_user_win_bias") {
@@ -513,15 +546,17 @@ export default async function handler(req, res) {
                     "publish_announcement",
                     "update_announcement",
                     "get_tx_health_dashboard",
-                "get_tx_queue_status",
-                "skip_tx_queue_range",
-                "reset_tx_queue",
-                "flush_tx_queue",
-                "add_to_blacklist",
-                "remove_from_blacklist",
-                "list_blacklist",
-                "set_user_win_bias",
-                "get_user_win_bias"
+                    "get_tx_queue_status",
+                    "skip_tx_queue_range",
+                    "reset_tx_queue",
+                    "flush_tx_queue",
+                    "add_to_blacklist",
+                    "remove_from_blacklist",
+                    "list_blacklist",
+                    "set_user_win_bias",
+                    "get_user_win_bias",
+                    "get_maintenance",
+                    "set_maintenance"
                 ]
             });
         }

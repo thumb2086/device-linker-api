@@ -7,7 +7,8 @@
     txHealth: false,
     txQueue: false,
     blacklist: false,
-    winBias: false
+    winBias: false,
+    maintenance: false
 };
 var custodyUsers = [];
 var issueReports = [];
@@ -33,6 +34,8 @@ var blacklistExpanded = false;
 var blacklistLoaded = false;
 var winBiasExpanded = false;
 var opsExpanded = false;
+var maintenanceExpanded = false;
+var maintenanceLoaded = false;
 var adminToastTimerSeq = 0;
 
 function showAdminToast(text, isError) {
@@ -110,6 +113,13 @@ function setTxHealthStatus(text, isError) {
 
 function setTxQueueStatus(text, isError) {
     var el = document.getElementById('tx-queue-status-msg');
+    if (!el) return;
+    el.innerText = text || '';
+    el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
+}
+
+function setMaintenanceStatus(text, isError) {
+    var el = document.getElementById('maintenance-status-msg');
     if (!el) return;
     el.innerText = text || '';
     el.style.color = isError ? '#ff7d7d' : '#9fd0ff';
@@ -1523,6 +1533,67 @@ function refreshBlacklist() {
     }).catch(function (error) {
         setBlacklistStatus('錯誤: ' + error.message, true);
     });
+}
+
+function loadMaintenance() {
+    return callAdminApi('get_maintenance').then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || '載入維護設定失敗');
+        var enabledEl = document.getElementById('maintenance-enabled');
+        var titleEl = document.getElementById('maintenance-title');
+        var messageEl = document.getElementById('maintenance-message');
+        if (enabledEl) enabledEl.checked = !!data.enabled;
+        if (titleEl) titleEl.value = data.title || '';
+        if (messageEl) messageEl.value = data.message || '';
+        setMaintenanceStatus('已載入維護設定', false);
+    });
+}
+
+function refreshMaintenance() {
+    setMaintenanceStatus('正在讀取維護設定...', false);
+    withAdminBusy('maintenance', function () {
+        return loadMaintenance().then(function () {
+            maintenanceLoaded = true;
+        });
+    }).catch(function (error) {
+        setMaintenanceStatus('錯誤: ' + error.message, true);
+    });
+}
+
+function saveMaintenance() {
+    var enabledEl = document.getElementById('maintenance-enabled');
+    var titleEl = document.getElementById('maintenance-title');
+    var messageEl = document.getElementById('maintenance-message');
+    var payload = {
+        enabled: !!(enabledEl && enabledEl.checked),
+        title: titleEl ? titleEl.value : '',
+        message: messageEl ? messageEl.value : ''
+    };
+    setMaintenanceStatus('正在儲存維護設定...', false);
+    withAdminBusy('maintenance', function () {
+        return callAdminApi('set_maintenance', payload);
+    }).then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || '儲存維護設定失敗');
+        maintenanceLoaded = true;
+        setMaintenanceStatus(data.enabled ? '維護模式已啟用' : '維護模式已關閉', false);
+        showAdminToast(data.enabled ? '維護模式已啟用' : '維護模式已關閉', false);
+    }).catch(function (error) {
+        setMaintenanceStatus('錯誤: ' + error.message, true);
+        showAdminToast(error.message, true);
+    });
+}
+
+function toggleMaintenanceSection() {
+    var body = document.getElementById('maintenance-section-body');
+    var btn = document.getElementById('maintenance-toggle-btn');
+    if (!body || !btn) return;
+
+    maintenanceExpanded = !maintenanceExpanded;
+    body.classList.toggle('hidden', !maintenanceExpanded);
+    btn.innerText = maintenanceExpanded ? '收合維護模式' : '展開維護模式';
+
+    if (maintenanceExpanded && !maintenanceLoaded) {
+        refreshMaintenance();
+    }
 }
 
 function toggleBlacklistSection() {

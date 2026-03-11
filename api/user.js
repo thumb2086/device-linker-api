@@ -37,6 +37,26 @@ function isAdminAddress(address) {
     return String(address).trim().toLowerCase() === String(ADMIN_WALLET_ADDRESS || "").trim().toLowerCase();
 }
 
+async function loadMaintenanceStatus() {
+    try {
+        const record = await kv.get("maintenance:status");
+        if (record && typeof record === "object") {
+            return {
+                enabled: !!record.enabled,
+                title: record.title || MAINTENANCE_TITLE,
+                message: record.message || MAINTENANCE_MESSAGE
+            };
+        }
+    } catch (error) {
+        console.error("Maintenance status load failed:", error?.message || error);
+    }
+    return {
+        enabled: MAINTENANCE_MODE,
+        title: MAINTENANCE_TITLE,
+        message: MAINTENANCE_MESSAGE
+    };
+}
+
 function normalizeText(value, fallback = "unknown", maxLength = 64) {
     if (typeof value !== "string") return fallback;
     const normalized = value.trim().toLowerCase();
@@ -251,13 +271,14 @@ export default async function handler(req, res) {
         const clockOnly = String(query.clock || "") === "1";
         const requestAddress = typeof body.address === "string" ? body.address : "";
         const isAdminRequest = isAdminAddress(requestAddress);
+        const maintenance = await loadMaintenanceStatus();
 
-        if (MAINTENANCE_MODE && ((action === "authorize" && !isAdminRequest) || action === "custody_login")) {
+        if (maintenance.enabled && ((action === "authorize" && !isAdminRequest) || action === "custody_login")) {
             return res.status(503).json({
                 success: false,
                 status: "maintenance",
-                error: MAINTENANCE_TITLE,
-                message: MAINTENANCE_MESSAGE,
+                error: maintenance.title,
+                message: maintenance.message,
                 allowAdmin: true,
                 adminOnly: true
             });

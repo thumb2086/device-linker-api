@@ -49,6 +49,11 @@
                 <strong>高額下注重製</strong>
                 <p>先預覽，再正式執行一次性維運操作。</p>
             </a>
+            <a href="#maintenance-section" class="admin-overview-card">
+                <span>維護模式</span>
+                <strong>登入開關</strong>
+                <p>啟用維護時，僅允許管理員登入。</p>
+            </a>
             <a href="#tx-health-section" class="admin-overview-card">
                 <span>鏈上監控</span>
                 <strong>交易失敗率看板</strong>
@@ -156,6 +161,41 @@
                         <button class="btn-secondary" onclick="resetWinBias()">恢復預設 (不干預)</button>
                     </div>
                     <p id="win-bias-status-msg" style="margin-top: 10px; color: var(--gold);"></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="maintenance-section" class="section-block section-block-primary">
+            <div class="section-heading-row">
+                <div>
+                    <h2>維護模式</h2>
+                    <p class="tool-note">啟用後僅允許管理員登入，一般使用者會收到維護訊息。</p>
+                </div>
+                <button id="maintenance-toggle-btn" class="btn-secondary compact-btn" onclick="toggleMaintenanceSection()">展開維護模式</button>
+            </div>
+
+            <div id="maintenance-section-body" class="collapsible-body hidden">
+                <div class="announcement-editor-card">
+                    <h3>維護設定</h3>
+                    <div class="announcement-form-grid">
+                        <label class="toggle-field">
+                            <input id="maintenance-enabled" type="checkbox">
+                            <span>啟用維護模式</span>
+                        </label>
+                        <label>
+                            標題
+                            <input id="maintenance-title" class="text-input" type="text" maxlength="120" placeholder="例如：系統維護中">
+                        </label>
+                        <label class="full-span">
+                            訊息
+                            <textarea id="maintenance-message" class="text-input announcement-textarea" placeholder="例如：目前暫停登入與遊戲，請稍後再試。"></textarea>
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="saveMaintenance()">儲存維護設定</button>
+                        <button class="btn-secondary" onclick="refreshMaintenance()">重新載入</button>
+                    </div>
+                    <p id="maintenance-status-msg">尚未載入維護設定</p>
                 </div>
             </div>
         </div>

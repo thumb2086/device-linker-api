@@ -5,7 +5,7 @@ import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 import { DEFAULT_RESET_THRESHOLD, resetHighTotalBets } from "../lib/ops/reset-high-total-bets.js";
 import { buildChainTxDashboard } from "../lib/tx-monitor.js";
-import { getChainTxQueueSnapshot } from "../lib/tx-lock.js";
+import { getChainTxQueueSnapshot, skipChainTxQueueRange, CHAIN_TX_LOCK_KEY, CHAIN_TX_LOCK_META_KEY, CHAIN_TX_QUEUE_NEXT_KEY, CHAIN_TX_QUEUE_SERVE_KEY } from "../lib/tx-lock.js";
 import {
     createAnnouncement,
     getAnnouncement,
@@ -398,10 +398,58 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, dashboard });
         }
 
+        if (action === "reset_tx_queue") {
+            if (dryRun) {
+                return res.status(200).json({
+                    success: true,
+                    dryRun: true,
+                    message: "Would have deleted KV keys for transaction queue reset.",
+                    keys: [CHAIN_TX_LOCK_KEY, CHAIN_TX_LOCK_META_KEY, CHAIN_TX_QUEUE_NEXT_KEY, CHAIN_TX_QUEUE_SERVE_KEY]
+                });
+            }
+
+            const keysToDelete = [
+                CHAIN_TX_LOCK_KEY,
+                CHAIN_TX_LOCK_META_KEY,
+                CHAIN_TX_QUEUE_NEXT_KEY,
+                CHAIN_TX_QUEUE_SERVE_KEY,
+            ];
+            const result = await kv.del(...keysToDelete);
+
+            return res.status(200).json({
+                success: true,
+                message: `Transaction queue reset. ${result} keys deleted.`,
+                keys: keysToDelete,
+                deletedCount: result,
+            });
+        }
+
         if (action === "get_tx_queue_status") {
             const limit = Math.max(5, Math.min(200, Number(body.limit || 50)));
             const snapshot = await getChainTxQueueSnapshot(limit);
             return res.status(200).json({ success: true, snapshot });
+        }
+
+        if (action === "skip_tx_queue_range") {
+            const start = Number(body.start);
+            const end = Number(body.end);
+            
+            if (isNaN(start) || isNaN(end) || start < 0 || end < start) {
+                return res.status(400).json({ success: false, error: "Invalid start or end ticket" });
+            }
+
+            if (dryRun) {
+                return res.status(200).json({
+                    success: true,
+                    dryRun: true,
+                    message: `Would have skipped tickets ${start} to ${end}.`,
+                    start,
+                    end
+                });
+            }
+
+            const result = await skipChainTxQueueRange(start, end);
+            return res.status(200).json(result);
         }
 
         if (action !== "reset_total_bets") {
@@ -420,6 +468,7 @@ export default async function handler(req, res) {
                     "update_announcement",
                     "get_tx_health_dashboard",
                 "get_tx_queue_status",
+                "skip_tx_queue_range",
                 "add_to_blacklist",
                 "remove_from_blacklist",
                 "list_blacklist",

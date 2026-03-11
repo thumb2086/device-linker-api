@@ -383,22 +383,27 @@ Response:
 }
 ```
 
-## 8. Coinflip
+## 9. Admin
 
-`POST /api/game?game=coinflip&sessionId=session_xxx`
+### Skip transaction queue range
+
+`POST /api/admin`
 
 ```json
 {
-  "action": "bet",
-  "address": "0x1234...",
-  "amount": "10",
+  "action": "skip_tx_queue_range",
   "sessionId": "session_xxx",
-  "choice": "heads",
-  "gameId": "coinflip",
-  "signature": "<base64-der-signature>",
-  "publicKey": "<base64-spki>"
+  "start": 100,
+  "end": 105,
+  "dryRun": false
 }
 ```
+
+This will:
+1. Delete metadata for tickets 100 to 105.
+2. Update the queue `serving` index to 105 if the current index is lower.
+
+---
 
 ## Device-Linker app mapping
 

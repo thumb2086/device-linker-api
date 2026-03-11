@@ -1,4 +1,5 @@
 ﻿import { randomBytes, scryptSync } from "crypto";
+import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";

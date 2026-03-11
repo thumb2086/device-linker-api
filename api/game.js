@@ -10,6 +10,7 @@ import crashHandler from "../lib/game-handlers/crash.js";
 import duelHandler from "../lib/game-handlers/duel.js";
 import { kv } from "@vercel/kv";
 import { getSession } from "../lib/session-store.js";
+import { randomUUID } from "crypto";
 
 const GAME_HANDLERS = {
     coinflip: coinflipHandler,
@@ -51,6 +52,16 @@ async function checkBlacklist(address) {
 }
 
 export default async function handler(req, res) {
+    const requestId = String(req.headers["x-request-id"] || "").trim() || `req_${randomUUID()}`;
+    res.setHeader("x-request-id", requestId);
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+        if (body && typeof body === "object" && !Array.isArray(body)) {
+            return originalJson({ ...body, requestId });
+        }
+        return originalJson(body);
+    };
+
     const game = resolveGame(req);
     const gameHandler = GAME_HANDLERS[game];
 
@@ -95,7 +106,7 @@ export default async function handler(req, res) {
                 stack: error.stack || ""
             }
             : { message: String(error || "") };
-        console.error("Unhandled game handler error:", details);
+        console.error("Unhandled game handler error:", { requestId, ...details });
         if (res.headersSent) return;
         return res.status(500).json({
             success: false,

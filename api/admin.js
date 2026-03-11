@@ -1,13 +1,12 @@
 ﻿import { randomBytes, scryptSync } from "crypto";
-import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 import { DEFAULT_RESET_THRESHOLD, resetHighTotalBets } from "../lib/ops/reset-high-total-bets.js";
 import { buildChainTxDashboard } from "../lib/tx-monitor.js";
-import { getChainTxQueueSnapshot, skipChainTxQueueRange, CHAIN_TX_LOCK_KEY, CHAIN_TX_LOCK_META_KEY, CHAIN_TX_QUEUE_NEXT_KEY, CHAIN_TX_QUEUE_SERVE_KEY } from "../lib/tx-lock.js";
 import {
     createAnnouncement,
+    deleteAnnouncement,
     getAnnouncement,
     getIssueReport,
     listAnnouncements,
@@ -421,6 +420,17 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, announcement: updated });
         }
 
+        if (action === "delete_announcement") {
+            const announcementId = String(body.announcementId || "").trim();
+            const announcement = await getAnnouncement(announcementId);
+            if (!announcement) {
+                return res.status(404).json({ success: false, error: "Announcement not found" });
+            }
+
+            await deleteAnnouncement(announcementId);
+            return res.status(200).json({ success: true, announcementId });
+        }
+
         if (action === "get_tx_health_dashboard") {
             const timeoutMs = Math.max(500, Math.min(8000, Number(body.timeoutMs || 4000)));
             const dashboard = await Promise.race([
@@ -433,102 +443,6 @@ export default async function handler(req, res) {
                 new Promise((_, reject) => setTimeout(() => reject(new Error("交易看板載入逾時")), timeoutMs))
             ]);
             return res.status(200).json({ success: true, dashboard });
-        }
-
-        if (action === "reset_tx_queue") {
-            const keysToDelete = [
-                CHAIN_TX_LOCK_KEY,
-                CHAIN_TX_LOCK_META_KEY,
-                CHAIN_TX_QUEUE_NEXT_KEY,
-                CHAIN_TX_QUEUE_SERVE_KEY,
-            ];
-
-            // Also find and delete all ticket metadata keys
-            const ticketKeys = [];
-            const scanStartedAt = Date.now();
-            for await (const key of kv.scanIterator({ match: "chain_tx_queue_ticket:*", count: 1000 })) {
-                ticketKeys.push(key);
-                // Limit scan to 2000 keys or 2 seconds
-                if (ticketKeys.length >= 2000 || (Date.now() - scanStartedAt) > 2000) break;
-            }
-            
-            if (dryRun) {
-                return res.status(200).json({
-                    success: true,
-                    dryRun: true,
-                    message: `Would have deleted ${keysToDelete.length + ticketKeys.length} KV keys.`,
-                    systemKeys: keysToDelete,
-                    ticketKeysCount: ticketKeys.length
-                });
-            }
-
-            const allKeys = [...keysToDelete, ...ticketKeys];
-            let deletedCount = 0;
-            if (allKeys.length > 0) {
-                // Delete in chunks of 100
-                for (let i = 0; i < allKeys.length; i += 100) {
-                    const chunk = allKeys.slice(i, i + 100);
-                    deletedCount += await kv.del(...chunk);
-                }
-            }
-
-            return res.status(200).json({
-                success: true,
-                message: `Transaction queue reset. ${deletedCount} keys deleted.`,
-                systemKeys: keysToDelete,
-                ticketKeysDeleted: ticketKeys.length,
-                totalDeleted: deletedCount
-            });
-        }
-
-        if (action === "flush_tx_queue") {
-            const next = Number(await kv.get(CHAIN_TX_QUEUE_NEXT_KEY) || 0);
-            const currentServing = Number(await kv.get(CHAIN_TX_QUEUE_SERVE_KEY) || 0);
-            
-            if (dryRun) {
-                return res.status(200).json({
-                    success: true,
-                    dryRun: true,
-                    message: `Would have flushed queue. Current: ${currentServing}, Next: ${next}.`,
-                    next
-                });
-            }
-
-            await kv.set(CHAIN_TX_QUEUE_SERVE_KEY, next);
-            return res.status(200).json({
-                success: true,
-                message: `Transaction queue flushed. Serving index moved from ${currentServing} to ${next}.`,
-                previousServing: currentServing,
-                newServing: next
-            });
-        }
-
-        if (action === "get_tx_queue_status") {
-            const limit = Math.max(5, Math.min(200, Number(body.limit || 50)));
-            const snapshot = await getChainTxQueueSnapshot(limit);
-            return res.status(200).json({ success: true, snapshot });
-        }
-
-        if (action === "skip_tx_queue_range") {
-            const start = Number(body.start);
-            const end = Number(body.end);
-            
-            if (isNaN(start) || isNaN(end) || start < 0 || end < start) {
-                return res.status(400).json({ success: false, error: "Invalid start or end ticket" });
-            }
-
-            if (dryRun) {
-                return res.status(200).json({
-                    success: true,
-                    dryRun: true,
-                    message: `Would have skipped tickets ${start} to ${end}.`,
-                    start,
-                    end
-                });
-            }
-
-            const result = await skipChainTxQueueRange(start, end);
-            return res.status(200).json(result);
         }
 
         if (action !== "reset_total_bets") {
@@ -545,11 +459,8 @@ export default async function handler(req, res) {
                     "list_announcements",
                     "publish_announcement",
                     "update_announcement",
+                    "delete_announcement",
                     "get_tx_health_dashboard",
-                    "get_tx_queue_status",
-                    "skip_tx_queue_range",
-                    "reset_tx_queue",
-                    "flush_tx_queue",
                     "add_to_blacklist",
                     "remove_from_blacklist",
                     "list_blacklist",

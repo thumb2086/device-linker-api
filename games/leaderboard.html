@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>累積押注排行榜 | 子熙模擬器</title>
+    <title>排行榜 | 子熙模擬器</title>
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/leaderboard.css">
 </head>
@@ -20,7 +20,15 @@
     </div>
 
     <div class="casino-card" id="main-card">
-        <h1>🏆 累積押注排行榜</h1>
+        <h1 id="leaderboard-title">🏆 累積押注排行榜</h1>
+
+        <div class="leaderboard-scope" id="leaderboard-scope">
+            <button class="scope-btn is-active" data-scope="total">累積榜</button>
+            <button class="scope-btn" data-scope="weekly">周榜</button>
+            <button class="scope-btn" data-scope="monthly">月榜</button>
+            <button class="scope-btn" data-scope="season">賽季榜</button>
+        </div>
+        <div class="leaderboard-period" id="leaderboard-period">-</div>
 
         <div class="user-stats">
             <span id="vip-badge">普通會員</span>
@@ -34,7 +42,7 @@
                 <strong id="my-rank">-</strong>
             </div>
             <div class="overview-card">
-                <span>累積押注</span>
+                <span id="my-bet-label">累積押注</span>
                 <strong id="my-total-bet">-</strong>
             </div>
             <div class="overview-card">

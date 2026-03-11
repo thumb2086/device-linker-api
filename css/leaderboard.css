@@ -8,6 +8,42 @@ body.leaderboard-body {
     margin-bottom: 24px;
 }
 
+.leaderboard-scope {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 12px 0 6px;
+}
+
+.scope-btn {
+    border-radius: 999px;
+    padding: 6px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.04);
+    color: #ddd;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.scope-btn:hover {
+    border-color: rgba(255, 204, 0, 0.4);
+    color: #ffd36a;
+}
+
+.scope-btn.is-active {
+    background: rgba(255, 204, 0, 0.12);
+    border-color: rgba(255, 204, 0, 0.5);
+    color: #ffd36a;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.leaderboard-period {
+    color: #9c9c9c;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
 .leaderboard-overview {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

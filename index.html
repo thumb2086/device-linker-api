@@ -14,14 +14,6 @@
             try {
                 var params = new URLSearchParams(window.location.search || '');
                 if (params.get('login') === '1') return;
-                fetch('/api/user?action=get_maintenance')
-                    .then(function (res) { return res.json(); })
-                    .then(function (data) {
-                        if (data && data.enabled) {
-                            window.location.replace('/maintenance.html');
-                        }
-                    })
-                    .catch(function () { });
             } catch (e) { }
         })();
     </script>

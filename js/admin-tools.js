@@ -477,59 +477,91 @@ function executeReset() {
     });
 }
 
-function renderCustodyUsers() {
-    var listEl = document.getElementById('custody-user-list');
-    var totalEl = document.getElementById('custody-total-count');
-    var visibleEl = document.getElementById('custody-visible-count');
-    var filterEl = document.getElementById('custody-filter-input');
-    var keyword = String(filterEl && filterEl.value || '').trim().toLowerCase();
+function buildCustodySelectOptions(users, selectedUsername) {
+    var selector = document.getElementById('custody-user-selector');
+    if (!selector) return;
 
-    if (totalEl) totalEl.innerText = String(custodyUsers.length);
-    if (!listEl) return;
-
-    var filtered = custodyUsers.filter(function (item) {
-        if (!keyword) return true;
-        return String(item.username || '').toLowerCase().indexOf(keyword) >= 0 ||
-            String(item.address || '').toLowerCase().indexOf(keyword) >= 0;
+    var html = '<option value="">請選擇帳號</option>';
+    (users || []).forEach(function (item) {
+        var username = String(item.username || '');
+        html += '<option value="' + escapeHtml(username) + '">' + escapeHtml(username) + '</option>';
     });
 
-    if (visibleEl) visibleEl.innerText = String(filtered.length);
+    selector.innerHTML = html;
+    if (selectedUsername && users.some(function (item) {
+        return String(item.username || '') === String(selectedUsername || '');
+    })) {
+        selector.value = selectedUsername;
+    } else {
+        selector.value = '';
+    }
+}
 
-    if (filtered.length === 0) {
-        listEl.innerHTML = '<div class="result-empty">沒有符合條件的託管帳號</div>';
+function renderSelectedCustodyUser(username) {
+    var listEl = document.getElementById('custody-user-list');
+    if (!listEl) return;
+
+    if (!username) {
+        listEl.innerHTML = '<div class="result-empty">請先選擇帳號</div>';
         return;
     }
 
-    var html = '<div class="custody-user-row custody-user-head">' +
-        '<span>帳號</span>' +
-        '<span>地址</span>' +
-        '<span>建立或更新時間</span>' +
-        '<span>狀態</span>' +
-        '<span>重設密碼</span>' +
-        '</div>';
+    var selected = custodyUsers.find(function (item) {
+        return String(item.username || '') === String(username);
+    });
 
-    filtered.forEach(function (item) {
-        var username = String(item.username || '');
-        var passwordInputId = getPasswordInputId(username);
-        var statusParts = [];
-        if (item.hasPasswordHash) statusParts.push('<span class="state-chip ok">has hash</span>');
-        else statusParts.push('<span class="state-chip warn">missing hash</span>');
-        if (item.hasPublicKey) statusParts.push('<span class="state-chip ok">has publicKey</span>');
-        else statusParts.push('<span class="state-chip warn">missing publicKey</span>');
+    if (!selected) {
+        listEl.innerHTML = '<div class="result-empty">找不到指定帳號</div>';
+        return;
+    }
 
-        html += '<div class="custody-user-row">' +
-            '<span class="mono">' + escapeHtml(username) + '</span>' +
-            '<span class="mono" title="' + escapeHtml(item.address || '-') + '">' + escapeHtml(maskAdminAddress(item.address || '-')) + '</span>' +
-            '<span>' + escapeHtml(formatTime(item.updatedAt || item.createdAt)) + '</span>' +
+    var selectedUsername = String(selected.username || '');
+    var passwordInputId = getPasswordInputId(selectedUsername);
+    var statusParts = [];
+    if (selected.hasPasswordHash) statusParts.push('<span class="state-chip ok">has hash</span>');
+    else statusParts.push('<span class="state-chip warn">missing hash</span>');
+    if (selected.hasPublicKey) statusParts.push('<span class="state-chip ok">has publicKey</span>');
+    else statusParts.push('<span class="state-chip warn">missing publicKey</span>');
+
+    listEl.innerHTML =
+        '<div class="custody-user-row custody-user-head">' +
+            '<span>帳號</span>' +
+            '<span>地址</span>' +
+            '<span>建立或更新時間</span>' +
+            '<span>狀態</span>' +
+            '<span>重設密碼</span>' +
+        '</div>' +
+        '<div class="custody-user-row">' +
+            '<span class="mono">' + escapeHtml(selectedUsername) + '</span>' +
+            '<span class="mono" title="' + escapeHtml(selected.address || '-') + '">' + escapeHtml(maskAdminAddress(selected.address || '-')) + '</span>' +
+            '<span>' + escapeHtml(formatTime(selected.updatedAt || selected.createdAt)) + '</span>' +
             '<span class="state-chip-group">' + statusParts.join('') + '</span>' +
             '<span class="custody-action-cell">' +
                 '<input id="' + escapeHtml(passwordInputId) + '" class="text-input password-input" type="text" placeholder="輸入新密碼">' +
-                '<button class="btn-primary compact-btn" data-username="' + escapeHtml(username) + '" onclick="resetCustodyPassword(this.dataset.username)">重設</button>' +
+                '<button class="btn-primary compact-btn" data-username="' + escapeHtml(selectedUsername) + '" onclick="resetCustodyPassword(this.dataset.username)">重設</button>' +
             '</span>' +
-            '</div>';
-    });
+        '</div>';
+}
 
-    listEl.innerHTML = html;
+function renderCustodyUsers() {
+    var totalEl = document.getElementById('custody-total-count');
+    var visibleEl = document.getElementById('custody-visible-count');
+    var selectorEl = document.getElementById('custody-user-selector');
+    var selected = selectorEl ? selectorEl.value : '';
+
+    if (totalEl) totalEl.innerText = String(custodyUsers.length);
+    buildCustodySelectOptions(custodyUsers, selected);
+
+    selected = selectorEl ? selectorEl.value : '';
+    renderSelectedCustodyUser(selected);
+
+    if (visibleEl) visibleEl.innerText = selected ? '1' : '0';
+}
+
+function onCustodyUserSelected(username) {
+    renderSelectedCustodyUser(username);
+    var visibleEl = document.getElementById('custody-visible-count');
+    if (visibleEl) visibleEl.innerText = username ? '1' : '0';
 }
 
 function loadCustodyUsers() {

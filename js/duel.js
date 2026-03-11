@@ -10,6 +10,15 @@ function duelApi(action, payload) {
     }).then(function (res) { return res.json(); });
 }
 
+function escapeHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function setDuelStatus(text, isError) {
     var el = document.getElementById('status-msg');
     if (!el) return;

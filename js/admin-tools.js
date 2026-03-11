@@ -491,10 +491,10 @@ function getOpsFilters() {
 
 function previewReset() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     var payload = getOpsFilters();
     if (!payload) {
-        if (btn) { btn.disabled = false; btn.innerText = '預覽名單'; }
+        restoreBtn();
         return;
     }
     setAdminStatus('正在預覽受影響名單...', false);
@@ -508,19 +508,19 @@ function previewReset() {
     }).catch(function (error) {
         setAdminStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function executeReset() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var restoreBtn = setActionBusy(btn);
     var payload = getOpsFilters();
     if (!payload) {
-        if (btn) { btn.disabled = false; btn.innerText = '正式重製'; }
+        restoreBtn();
         return;
     }
     if (payload.resetBalance && !confirm('確認要歸零餘額嗎？此操作會發送鏈上交易，且無法復原。')) {
-        if (btn) { btn.disabled = false; btn.innerText = '正式重製'; }
+        restoreBtn();
         return;
     }
     setAdminStatus('正在執行重製...', false);
@@ -534,7 +534,7 @@ function executeReset() {
     }).catch(function (error) {
         setAdminStatus('錯誤: ' + error.message, true);
         showAdminToast(error.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function buildCustodySelectOptions(users, selectedUsername) {

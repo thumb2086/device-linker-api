@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 import { buildVipStatus, getVipTierOptions } from "../lib/vip.js";
-import { settlementService } from "../settlement-service.js";
+import { settlementService } from "../lib/settlement-service.js";
 import {
     buildRewardSummary,
     buildRewardSummaryFromProfile,

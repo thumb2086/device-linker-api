@@ -12,7 +12,15 @@ import {
 import { listGameHistory } from "../lib/game-history.js";
 import { sendManagedContractTx } from "../lib/admin-chain.js";
 
-const provider = new ethers.JsonRpcProvider(RPC_URL);
+// --- Optimized: Lazy Initialization ---
+let _provider = null;
+let _cachedDecimals = null;
+
+function getProvider() {
+    if (!_provider) _provider = new ethers.JsonRpcProvider(RPC_URL);
+    return _provider;
+}
+
 const CONTRACT_ABI = [
     "function mint(address to, uint256 amount) public",
     "function adminTransfer(address from, address to, uint256 amount) public",
@@ -21,14 +29,12 @@ const CONTRACT_ABI = [
     "function totalSupply() view returns (uint256)"
 ];
 
-let _cachedDecimals = null;
 async function getDecimals(contract) {
     if (_cachedDecimals !== null) return _cachedDecimals;
     try {
         _cachedDecimals = await contract.decimals();
         return _cachedDecimals;
     } catch (error) {
-        console.error("Failed to fetch decimals:", error);
         return 18n;
     }
 }
@@ -64,16 +70,10 @@ function normalizeAddress(rawAddress, fieldName = "address") {
 
 function normalizeAmount(rawAmount) {
     const normalized = String(rawAmount ?? "").replace(/,/g, "").trim();
-    if (!/^\d+(\.\d+)?$/.test(normalized)) {
-        throw new Error("amount format is invalid");
-    }
+    if (!/^\d+(\.\d+)?$/.test(normalized)) throw new Error("amount format is invalid");
     const numericValue = Number(normalized);
-    if (!Number.isFinite(numericValue) || numericValue <= 0) {
-        throw new Error("amount must be greater than 0");
-    }
-    if (numericValue > MAX_TRANSFER_AMOUNT) {
-        throw new Error(`amount is too large; max ${MAX_TRANSFER_AMOUNT}`);
-    }
+    if (!Number.isFinite(numericValue) || numericValue <= 0) throw new Error("amount must be greater than 0");
+    if (numericValue > MAX_TRANSFER_AMOUNT) throw new Error(`amount is too large; max ${MAX_TRANSFER_AMOUNT}`);
     return normalized;
 }
 
@@ -81,10 +81,7 @@ function normalizeBase64PublicKey(rawPublicKey) {
     const raw = String(rawPublicKey || "").trim();
     if (!raw) return "";
     if (raw.includes("BEGIN PUBLIC KEY")) {
-        return raw
-            .replace(/-----BEGIN PUBLIC KEY-----/g, "")
-            .replace(/-----END PUBLIC KEY-----/g, "")
-            .replace(/\s+/g, "");
+        return raw.replace(/-----BEGIN PUBLIC KEY-----/g, "").replace(/-----END PUBLIC KEY-----/g, "").replace(/\s+/g, "");
     }
     return raw.replace(/\s+/g, "");
 }
@@ -102,14 +99,10 @@ function deriveAddressFromPublicKey(base64PublicKey) {
         uncompressed = spkiBytes;
     } else if (spkiBytes.length > 26 && spkiBytes[26] === 0x04) {
         const sliced = spkiBytes.slice(26);
-        if (sliced.length >= 65 && sliced[0] === 0x04) {
-            uncompressed = sliced.slice(0, 65);
-        }
+        if (sliced.length >= 65 && sliced[0] === 0x04) uncompressed = sliced.slice(0, 65);
     } else if (spkiBytes.length > 65) {
         const tail = spkiBytes.slice(-65);
-        if (tail[0] === 0x04) {
-            uncompressed = tail;
-        }
+        if (tail[0] === 0x04) uncompressed = tail;
     }
     if (!uncompressed) return null;
     return ethers.computeAddress(`0x${uncompressed.toString("hex")}`).toLowerCase();
@@ -134,178 +127,76 @@ function jsonError(res, statusCode, error) {
 async function resolveSessionAddress(sessionId) {
     if (!sessionId) return { session: null, address: "" };
     const session = await getSession(String(sessionId || "").trim());
-    if (!session || !session.address) {
-        throw new Error("Session expired");
-    }
-    return {
-        session,
-        address: normalizeAddress(session.address, "session address")
-    };
+    if (!session || !session.address) throw new Error("Session expired");
+    return { session, address: normalizeAddress(session.address, "session address") };
 }
 
 export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") return res.status(405).json({ success: false, error: "Method Not Allowed" });
-
     try {
         const body = getSafeBody(req);
         const action = normalizeAction(body.action);
         const sessionId = String(body.sessionId || "").trim();
-
+        const provider = getProvider();
         const contractAddress = normalizeAddress(CONTRACT_ADDRESS, "CONTRACT_ADDRESS");
         const readContract = new ethers.Contract(contractAddress, CONTRACT_ABI, provider);
         const decimals = await getDecimals(readContract);
-
         if (action === "get_balance") {
             const address = normalizeAddress(body.address, "address");
             const balanceRaw = await readContract.balanceOf(address);
-            return res.status(200).json({
-                success: true,
-                balance: ethers.formatUnits(balanceRaw, decimals),
-                decimals: decimals.toString()
-            });
+            return res.status(200).json({ success: true, balance: ethers.formatUnits(balanceRaw, decimals), decimals: decimals.toString() });
         }
-
         let privateKey = process.env.ADMIN_PRIVATE_KEY;
-        if (!privateKey) {
-            return res.status(500).json({ success: false, error: "ADMIN_PRIVATE_KEY is not configured" });
-        }
+        if (!privateKey) return res.status(500).json({ success: false, error: "ADMIN_PRIVATE_KEY is not configured" });
         if (!privateKey.startsWith("0x")) privateKey = `0x${privateKey}`;
-
         const adminWallet = new ethers.Wallet(privateKey, provider);
         const treasuryAddress = normalizeAddress(process.env.LOSS_POOL_ADDRESS || adminWallet.address, "LOSS_POOL_ADDRESS");
         const contract = new ethers.Contract(contractAddress, CONTRACT_ABI, adminWallet);
-
         if (action === "airdrop") {
             const sessionInfo = sessionId ? await resolveSessionAddress(sessionId) : { session: null, address: "" };
             const targetAddress = sessionInfo.address || normalizeAddress(body.address, "address");
-            
             const trackedDistributedWei = await getTrackedAirdropDistributedWei();
             const policy = calculateAirdropRewardWei(decimals, trackedDistributedWei);
-
-            const tx = await transferFromTreasuryWithAutoTopup(
-                contract,
-                treasuryAddress,
-                targetAddress,
-                policy.rewardWei,
-                { gasLimit: 220000, txSource: "wallet_airdrop" }
-            );
-            
+            const tx = await transferFromTreasuryWithAutoTopup(contract, treasuryAddress, targetAddress, policy.rewardWei, { gasLimit: 220000, txSource: "wallet_airdrop" });
             const newDistributedWei = policy.distributedWei + policy.rewardWei;
             await kv.set(AIRDROP_DISTRIBUTED_TOTAL_KEY, newDistributedWei.toString());
-
-            return res.status(200).json({
-                success: true,
-                txHash: tx.hash,
-                reward: ethers.formatUnits(policy.rewardWei, decimals),
-                halvingCount: policy.halvingCount,
-                distributed: ethers.formatUnits(newDistributedWei, decimals),
-                distributedExcludingAdmin: ethers.formatUnits(newDistributedWei, decimals),
-                cap: null,
-                remaining: null,
-                adminWalletAddress: normalizeAddress(adminWallet.address, "adminWalletAddress")
-            });
+            return res.status(200).json({ success: true, txHash: tx.hash, reward: ethers.formatUnits(policy.rewardWei, decimals), halvingCount: policy.halvingCount, distributed: ethers.formatUnits(newDistributedWei, decimals), distributedExcludingAdmin: ethers.formatUnits(newDistributedWei, decimals), cap: null, remaining: null, adminWalletAddress: normalizeAddress(adminWallet.address, "adminWalletAddress") });
         }
-
         const sessionInfo = sessionId ? await resolveSessionAddress(sessionId) : { session: null, address: "" };
         const sessionAddress = sessionInfo.address;
-
         if (action === "game_history") {
             const historyAddress = sessionAddress || normalizeAddress(body.address, "address");
             const result = await listGameHistory(historyAddress, { limit: body.limit });
-            return res.status(200).json({
-                success: true,
-                action: "game_history",
-                address: historyAddress,
-                total: result.total,
-                items: result.items
-            });
+            return res.status(200).json({ success: true, action: "game_history", address: historyAddress, total: result.total, items: result.items });
         }
-
         if (action === "summary" || action === "status" || action === "balance") {
             const userAddress = sessionAddress || normalizeAddress(body.address, "address");
-            const [userBalanceWei, treasuryBalanceWei, trackedAirdropDistributedWei] = await Promise.all([
-                contract.balanceOf(userAddress),
-                contract.balanceOf(treasuryAddress),
-                getTrackedAirdropDistributedWei()
-            ]);
+            const [userBalanceWei, treasuryBalanceWei, trackedAirdropDistributedWei] = await Promise.all([contract.balanceOf(userAddress), contract.balanceOf(treasuryAddress), getTrackedAirdropDistributedWei()]);
             const airdropPolicy = calculateAirdropRewardWei(decimals, trackedAirdropDistributedWei);
             const halvingStepWei = ethers.parseUnits(AIRDROP_HALVING_STEP, decimals);
-            const nextHalvingAtWei = halvingStepWei > 0n
-                ? halvingStepWei * BigInt(airdropPolicy.halvingCount + 1)
-                : 0n;
-
-            return res.status(200).json({
-                success: true,
-                action: "summary",
-                address: userAddress,
-                treasuryAddress,
-                decimals: String(decimals),
-                userBalance: ethers.formatUnits(userBalanceWei, decimals),
-                treasuryBalance: ethers.formatUnits(treasuryBalanceWei, decimals),
-                airdrop: {
-                    distributed: ethers.formatUnits(airdropPolicy.distributedWei, decimals),
-                    distributedExcludingAdmin: ethers.formatUnits(airdropPolicy.distributedWei, decimals),
-                    cap: null,
-                    remaining: null,
-                    reward: ethers.formatUnits(airdropPolicy.rewardWei, decimals),
-                    halvingCount: airdropPolicy.halvingCount,
-                    nextHalvingAt: ethers.formatUnits(nextHalvingAtWei, decimals)
-                }
-            });
+            const nextHalvingAtWei = halvingStepWei > 0n ? halvingStepWei * BigInt(airdropPolicy.halvingCount + 1) : 0n;
+            return res.status(200).json({ success: true, action: "summary", address: userAddress, treasuryAddress, decimals: String(decimals), userBalance: ethers.formatUnits(userBalanceWei, decimals), treasuryBalance: ethers.formatUnits(treasuryBalanceWei, decimals), airdrop: { distributed: ethers.formatUnits(airdropPolicy.distributedWei, decimals), distributedExcludingAdmin: ethers.formatUnits(airdropPolicy.distributedWei, decimals), cap: null, remaining: null, reward: ethers.formatUnits(airdropPolicy.rewardWei, decimals), halvingCount: airdropPolicy.halvingCount, nextHalvingAt: ethers.formatUnits(nextHalvingAtWei, decimals) } });
         }
-
         const amountText = normalizeAmount(body.amount);
         let amountWei;
-        try {
-            amountWei = ethers.parseUnits(amountText, decimals);
-        } catch {
-            return res.status(400).json({ success: false, error: "amount exceeds token precision" });
-        }
-        if (amountWei <= 0n) {
-            return res.status(400).json({ success: false, error: "amount must be greater than 0" });
-        }
-
+        try { amountWei = ethers.parseUnits(amountText, decimals); } catch { return res.status(400).json({ success: false, error: "amount exceeds token precision" }); }
+        if (amountWei <= 0n) return res.status(400).json({ success: false, error: "amount must be greater than 0" });
         if (action === "import" || action === "deposit") {
             const userAddress = sessionAddress || normalizeAddress(body.address, "address");
-            const tx = await transferFromTreasuryWithAutoTopup(
-                contract,
-                treasuryAddress,
-                userAddress,
-                amountWei,
-                { gasLimit: 220000, txSource: "wallet_import" }
-            );
-            return res.status(200).json({
-                success: true,
-                action: "import",
-                from: treasuryAddress,
-                to: userAddress,
-                amount: amountText,
-                txHash: tx.hash
-            });
+            const tx = await transferFromTreasuryWithAutoTopup(contract, treasuryAddress, userAddress, amountWei, { gasLimit: 220000, txSource: "wallet_import" });
+            return res.status(200).json({ success: true, action: "import", from: treasuryAddress, to: userAddress, amount: amountText, txHash: tx.hash });
         }
-
         if (action === "withdraw" || action === "cashout") {
             const userAddress = sessionAddress || normalizeAddress(body.address, "address");
             const userBalanceWei = await contract.balanceOf(userAddress);
-            if (userBalanceWei < amountWei) {
-                return res.status(400).json({ success: false, error: "Insufficient balance" });
-            }
+            if (userBalanceWei < amountWei) return res.status(400).json({ success: false, error: "Insufficient balance" });
             const tx = await sendManagedContractTx(contract, "adminTransfer", [userAddress, treasuryAddress, amountWei], { gasLimit: 220000, txSource: "wallet_withdraw" });
-            return res.status(200).json({
-                success: true,
-                action: "withdraw",
-                from: userAddress,
-                to: treasuryAddress,
-                amount: amountText,
-                txHash: tx.hash
-            });
+            return res.status(200).json({ success: true, action: "withdraw", from: userAddress, to: treasuryAddress, amount: amountText, txHash: tx.hash });
         }
-
         if (action === "secure_transfer") {
             const fromAddress = sessionAddress || normalizeAddress(body.from, "from");
             const toAddress = normalizeAddress(body.to || body.toAddress, "to");
@@ -313,91 +204,33 @@ export default async function handler(req, res) {
             const normalizedPublicKey = normalizeBase64PublicKey(body.publicKey);
             const signature = String(body.signature || "").trim();
             const payoutMode = toBooleanFlag(body.isPayout);
-
-            if (!signature || !normalizedPublicKey) {
-                return res.status(400).json({ success: false, error: "Missing signature or publicKey" });
-            }
-
+            if (!signature || !normalizedPublicKey) return res.status(400).json({ success: false, error: "Missing signature or publicKey" });
             const cleanTo = toAddress.replace(/^0x/, "");
             const message = `transfer:${cleanTo}:${cleanAmount}`;
             const publicKeyPem = toPemFromBase64(normalizedPublicKey);
             const derivedAddress = deriveAddressFromPublicKey(normalizedPublicKey);
-
-            if (derivedAddress && derivedAddress !== fromAddress) {
-                return res.status(403).json({
-                    success: false,
-                    error: "Address mismatch",
-                    expectedAddress: derivedAddress,
-                    receivedFrom: fromAddress
-                });
-            }
-
-            const isVerified = verify(
-                "sha256",
-                Buffer.from(message, "utf-8"),
-                { key: publicKeyPem, padding: undefined },
-                Buffer.from(signature, "base64")
-            );
-            if (!isVerified) {
-                return res.status(400).json({
-                    success: false,
-                    error: "Signature verification failed",
-                    debug: { generatedMessage: message }
-                });
-            }
-
+            if (derivedAddress && derivedAddress !== fromAddress) return res.status(403).json({ success: false, error: "Address mismatch", expectedAddress: derivedAddress, receivedFrom: fromAddress });
+            const isVerified = verify("sha256", Buffer.from(message, "utf-8"), { key: publicKeyPem, padding: undefined }, Buffer.from(signature, "base64"));
+            if (!isVerified) return res.status(400).json({ success: false, error: "Signature verification failed", debug: { generatedMessage: message } });
             let transferWei = amountWei;
             let feeWei = 0n;
             if (payoutMode) {
                 feeWei = (amountWei * 5n) / 100n;
                 transferWei = amountWei - feeWei;
-                if (transferWei <= 0n) {
-                    return res.status(400).json({ success: false, error: "Amount is too small after fee" });
-                }
+                if (transferWei <= 0n) return res.status(400).json({ success: false, error: "Amount is too small after fee" });
             }
-
             const tx = await sendManagedContractTx(contract, "adminTransfer", [fromAddress, toAddress, transferWei], { gasLimit: 220000, txSource: "wallet_secure_transfer" });
-            return res.status(200).json({
-                success: true,
-                txHash: tx.hash,
-                from: fromAddress,
-                to: toAddress,
-                amount: amountText,
-                isPayout: payoutMode,
-                requestedAmount: cleanAmount,
-                transferredAmount: ethers.formatUnits(transferWei, decimals),
-                feeAmount: ethers.formatUnits(feeWei, decimals),
-                feeRate: payoutMode ? "0.05" : "0.00"
-            });
+            return res.status(200).json({ success: true, txHash: tx.hash, from: fromAddress, to: toAddress, amount: amountText, isPayout: payoutMode, requestedAmount: cleanAmount, transferredAmount: ethers.formatUnits(transferWei, decimals), feeAmount: ethers.formatUnits(feeWei, decimals), feeRate: payoutMode ? "0.05" : "0.00" });
         }
-
         if (action === "export" || action === "transfer") {
             const userAddress = sessionAddress || normalizeAddress(body.from, "from");
             const toAddress = normalizeAddress(body.to || body.toAddress, "to");
             const userBalanceWei = await contract.balanceOf(userAddress);
-            if (userBalanceWei < amountWei) {
-                return res.status(400).json({ success: false, error: "Insufficient balance" });
-            }
+            if (userBalanceWei < amountWei) return res.status(400).json({ success: false, error: "Insufficient balance" });
             const tx = await sendManagedContractTx(contract, "adminTransfer", [userAddress, toAddress, amountWei], { gasLimit: 220000, txSource: "wallet_export" });
-            return res.status(200).json({
-                success: true,
-                action: "export",
-                from: userAddress,
-                to: toAddress,
-                amount: amountText,
-                txHash: tx.hash
-            });
+            return res.status(200).json({ success: true, action: "export", from: userAddress, to: toAddress, amount: amountText, txHash: tx.hash });
         }
-
-        return res.status(400).json({
-            success: false,
-            error: `Unsupported action: ${action}`,
-            supportedActions: [
-                "summary", "status", "balance", "game_history", "get_balance",
-                "airdrop", "import", "deposit", "export", "transfer",
-                "secure_transfer", "withdraw", "cashout"
-            ]
-        });
+        return res.status(400).json({ success: false, error: `Unsupported action: ${action}`, supportedActions: ["summary", "status", "balance", "game_history", "get_balance", "airdrop", "import", "deposit", "export", "transfer", "secure_transfer", "withdraw", "cashout"] });
     } catch (error) {
         return jsonError(res, 500, error);
     }

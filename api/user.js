@@ -16,21 +16,33 @@ import {
     validateIssueInput
 } from "../lib/support-center.js";
 
-const provider = new ethers.JsonRpcProvider(RPC_URL);
-const contract = new ethers.Contract(
-    CONTRACT_ADDRESS,
-    [
-        "function balanceOf(address) view returns (uint256)",
-        "function decimals() view returns (uint8)",
-        "function mint(address to, uint256 amount) public",
-        "function adminTransfer(address from, address to, uint256 amount) public"
-    ],
-    provider
-);
-
+// --- Optimized: Lazy Initialization ---
+let _provider = null;
+let _contract = null;
 let _cachedDecimals = null;
+
+function getContractContext() {
+    if (!_provider) {
+        _provider = new ethers.JsonRpcProvider(RPC_URL);
+    }
+    if (!_contract) {
+        _contract = new ethers.Contract(
+            CONTRACT_ADDRESS,
+            [
+                "function balanceOf(address) view returns (uint256)",
+                "function decimals() view returns (uint8)",
+                "function mint(address to, uint256 amount) public",
+                "function adminTransfer(address from, address to, uint256 amount) public"
+            ],
+            _provider
+        );
+    }
+    return { provider: _provider, contract: _contract };
+}
+
 async function getDecimals() {
     if (_cachedDecimals !== null) return _cachedDecimals;
+    const { contract } = getContractContext();
     try {
         _cachedDecimals = await contract.decimals();
         return _cachedDecimals;
@@ -47,7 +59,7 @@ const CUSTODY_USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
 const CUSTODY_PASSWORD_MIN = 6;
 const CUSTODY_PASSWORD_MAX = 128;
 const CUSTODY_REGISTER_BONUS = "100000";
-const AUTH_API_BUILD = "2026-03-11-user-opt-v2";
+const AUTH_API_BUILD = "2026-03-11-user-opt-v3";
 
 function normalizeText(value, fallback = "unknown", maxLength = 64) {
     if (typeof value !== "string") return fallback;
@@ -214,6 +226,7 @@ async function checkBlacklist(address) {
 }
 
 async function loadUserMetrics(address) {
+    const { contract } = getContractContext();
     const [balanceRaw, decimals, totalBetRaw, displayName] = await Promise.all([
         contract.balanceOf(address),
         getDecimals(),
@@ -385,6 +398,7 @@ export default async function handler(req, res) {
                     let privateKey = process.env.ADMIN_PRIVATE_KEY;
                     if (privateKey) {
                         if (!privateKey.startsWith("0x")) privateKey = `0x${privateKey}`;
+                        const { provider, contract } = getContractContext();
                         const wallet = new ethers.Wallet(privateKey, provider);
                         const treasuryAddress = process.env.LOSS_POOL_ADDRESS || wallet.address;
                         const adminContract = contract.connect(wallet);
@@ -475,6 +489,9 @@ export default async function handler(req, res) {
             const page = Number(body.page || 1);
             const limit = Number(body.limit || 20);
             if (!address) return res.status(400).json({ success: false, error: "Missing address" });
+            
+            // Note: global fetch is available in Node 18+. 
+            // If this fails, it means the environment is too old.
             const apiKey = process.env.ETHERSCAN_API_KEY || "";
             const url = `https://api.etherscan.io/v2/api?chainid=11155111&module=account&action=tokentx&contractaddress=${CONTRACT_ADDRESS}&address=${address}&page=${page}&offset=${limit}&sort=desc&apikey=${apiKey}`;
             const response = await fetch(url);

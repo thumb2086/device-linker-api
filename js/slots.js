@@ -316,13 +316,25 @@ class SlotMachine {
         setDisplayedBalance(nextBalance, ttlMs, source);
     }
 
-    updateTxLog(txHash, details) {
+    updateTxLog(txHash, lineSummary, description) {
         var txLog = document.getElementById("tx-log");
         if (!txLog) return;
 
-        var html = txHash ? txLinkHTML(txHash) : "";
-        if (details) {
-            html += (html ? "<br>" : "") + "<span style=\"color:#a8a8a8; font-size:0.85rem;\">" + details.replace(/</g, "&lt;").replace(/>/g, "&gt;") + "</span>";
+        var html = "";
+        if (txHash) {
+            html += txLinkHTML(txHash);
+        }
+        if (lineSummary) {
+            html += (html ? "<br>" : "") +
+                "<span style=\"color:#c8c8c8; font-size:0.9rem;\">" +
+                lineSummary.replace(/</g, "&lt;").replace(/>/g, "&gt;") +
+                "</span>";
+        }
+        if (description) {
+            html += (html ? "<br>" : "") +
+                "<span style=\"color:#8a8a8a; font-size:0.85rem;\">" +
+                description.replace(/</g, "&lt;").replace(/>/g, "&gt;") +
+                "</span>";
         }
         txLog.innerHTML = html;
     }
@@ -380,7 +392,7 @@ class SlotMachine {
         this.setSettlingState(hasPendingSlotsSettlements());
         this.setStatus("❌ " + (result.error || "老虎機結算失敗"), true, false);
         this.setResultState("結算失敗", "鏈上結算沒有完成，餘額已自動回補。", "is-error");
-        this.updateTxLog("", result.error || "老虎機結算失敗");
+        this.updateTxLog("", "", result.error || "老虎機結算失敗");
     }
 
     applySettlementUpdate(result) {
@@ -521,7 +533,7 @@ class SlotMachine {
         this.setSpinningState(true);
         this.clearPaylines();
         this.setSettlingState(false);
-        this.updateTxLog("", "");
+        this.updateTxLog("", "", "");
         this.setStatus("<span class=\"loader\"></span> 旋轉中...", false, true);
         if (window.audioManager) window.audioManager.play('bet');
         this.setResultState("旋轉中", "正在生成盤面與結果。", "");
@@ -575,7 +587,7 @@ class SlotMachine {
             this.updateDisplayedBalance(displayedBalanceBeforeSpin, 12000, "slots-spin-error");
             this.setStatus("❌ " + error.message, true, false);
             this.setResultState("交易失敗", "這筆旋轉沒有完成結算，餘額已回復。", "is-error");
-            this.updateTxLog("", error.message);
+            this.updateTxLog("", "", error.message);
             syncAuthoritativeChainBalance();
         }
     }
@@ -643,7 +655,7 @@ class SlotMachine {
         if (!currentOptions.preserveDisplayedBalance) {
             this.refreshPendingBalanceView("slots-pending");
         }
-        this.updateTxLog("", pendingView.lineSummary || "開獎已完成");
+        this.updateTxLog("", pendingView.lineSummary || "", pendingView.resultCopy || "開獎已完成");
         if (!currentOptions.skipPollingKickoff) {
             this.scheduleSettlementPolling(250);
         }
@@ -687,7 +699,11 @@ class SlotMachine {
         this.setSettlingState(hasPendingSlotsSettlements());
         this.setStatus(statusText, false, false);
         this.setResultState(resultLabel, resultCopy, resultTone);
-        this.updateTxLog(result.txHash, lineSummary || (result.winLines && result.winLines.length ? ("中獎線: " + result.winLines.join(", ")) : ""));
+        this.updateTxLog(
+            result.txHash,
+            lineSummary || (result.winLines && result.winLines.length ? ("中獎線: " + result.winLines.join(", ")) : ""),
+            resultCopy
+        );
         setTimeout(refreshBalance, 6000);
     }
 }

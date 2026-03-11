@@ -593,6 +593,36 @@
             </div>
 
             <div id="ops-section-body" class="collapsible-body hidden">
+                <div class="announcement-form-grid">
+                    <label>
+                        最低累計下注
+                        <input id="ops-min-total-bet" class="text-input" type="number" min="0" step="1" value="2000000000">
+                    </label>
+                    <label>
+                        最低餘額
+                        <input id="ops-min-balance" class="text-input" type="number" min="0" step="0.01" placeholder="可留空">
+                    </label>
+                    <label>
+                        最高餘額
+                        <input id="ops-max-balance" class="text-input" type="number" min="0" step="0.01" placeholder="可留空">
+                    </label>
+                    <label>
+                        地址包含
+                        <input id="ops-address-keyword" class="text-input" type="text" placeholder="可留空">
+                    </label>
+                    <label>
+                        最多處理數
+                        <input id="ops-max-targets" class="text-input" type="number" min="1" step="1" value="200">
+                    </label>
+                    <label class="toggle-field">
+                        <input id="ops-reset-total-bet" type="checkbox" checked>
+                        <span>歸零累計下注</span>
+                    </label>
+                    <label class="toggle-field">
+                        <input id="ops-reset-balance" type="checkbox">
+                        <span>歸零餘額（鏈上轉帳）</span>
+                    </label>
+                </div>
                 <div class="form-row">
                     <button class="btn-primary" onclick="previewReset()">預覽名單</button>
                     <button class="btn-secondary" onclick="executeReset()">正式重製</button>

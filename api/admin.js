@@ -3,8 +3,10 @@ import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
-import { DEFAULT_RESET_THRESHOLD, resetHighTotalBets } from "../lib/ops/reset-high-total-bets.js";
+import { DEFAULT_RESET_THRESHOLD, collectHighTotalBetTargets } from "../lib/ops/reset-high-total-bets.js";
 import { buildChainTxDashboard } from "../lib/tx-monitor.js";
+import { sendManagedContractTx } from "../lib/admin-chain.js";
+import { settlementService } from "../lib/settlement-service.js";
 import {
     createAnnouncement,
     deleteAnnouncement,
@@ -24,6 +26,7 @@ const CUSTODY_USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
 const CUSTODY_PASSWORD_MIN = 6;
 const CUSTODY_PASSWORD_MAX = 128;
 const MAX_CUSTODY_LIST_LIMIT = 500;
+const MAX_OPS_TARGET_LIMIT = 500;
 
 function normalizeSessionId(rawValue) {
     return String(rawValue || "").trim();
@@ -73,6 +76,26 @@ function normalizeListLimit(rawValue) {
     const parsed = Number(rawValue);
     if (!Number.isFinite(parsed) || parsed <= 0) return 200;
     return Math.min(MAX_CUSTODY_LIST_LIMIT, Math.floor(parsed));
+}
+
+function normalizeOpsLimit(rawValue) {
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 200;
+    return Math.min(MAX_OPS_TARGET_LIMIT, Math.floor(parsed));
+}
+
+function normalizeNumberInput(rawValue) {
+    if (rawValue === undefined || rawValue === null || rawValue === "") return null;
+    const normalized = String(rawValue).replace(/,/g, "").trim();
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeDecimalInput(rawValue) {
+    if (rawValue === undefined || rawValue === null || rawValue === "") return null;
+    const normalized = String(rawValue).replace(/,/g, "").trim();
+    return normalized ? normalized : null;
 }
 
 function custodyUserKey(username) {
@@ -446,6 +469,102 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, dashboard });
         }
 
+        if (action === "reset_total_bets") {
+            const minTotalBetInput = normalizeNumberInput(body.minTotalBet);
+            const threshold = Number.isFinite(minTotalBetInput) ? minTotalBetInput : DEFAULT_RESET_THRESHOLD;
+            const addressKeyword = normalizeText(body.addressKeyword, 64);
+            const limit = normalizeOpsLimit(body.limit || body.maxTargets);
+            const resetTotalBet = body.resetTotalBet === undefined ? true : toBoolean(body.resetTotalBet);
+            const resetBalance = toBoolean(body.resetBalance);
+            const minBalanceText = normalizeDecimalInput(body.minBalance);
+            const maxBalanceText = normalizeDecimalInput(body.maxBalance);
+
+            const needsBalance = Boolean(resetBalance || minBalanceText || maxBalanceText);
+            let minBalanceWei = null;
+            let maxBalanceWei = null;
+            let decimals = null;
+
+            if (needsBalance) {
+                decimals = await settlementService.getDecimals();
+                try {
+                    if (minBalanceText) minBalanceWei = ethers.parseUnits(minBalanceText, decimals);
+                    if (maxBalanceText) maxBalanceWei = ethers.parseUnits(maxBalanceText, decimals);
+                } catch (error) {
+                    return res.status(400).json({ success: false, error: "Invalid balance filter" });
+                }
+                if (minBalanceWei !== null && maxBalanceWei !== null && minBalanceWei > maxBalanceWei) {
+                    return res.status(400).json({ success: false, error: "Min balance cannot exceed max balance" });
+                }
+            }
+
+            if (!resetTotalBet && !resetBalance) {
+                return res.status(400).json({ success: false, error: "No reset action selected" });
+            }
+
+            const rawTargets = await collectHighTotalBetTargets({
+                threshold,
+                addressKeyword,
+                limit
+            });
+
+            const filteredTargets = [];
+            for (const target of rawTargets) {
+                let balanceWei = null;
+                if (needsBalance) {
+                    balanceWei = await settlementService.contract.balanceOf(target.address);
+                    if (minBalanceWei !== null && balanceWei < minBalanceWei) continue;
+                    if (maxBalanceWei !== null && balanceWei > maxBalanceWei) continue;
+                }
+                filteredTargets.push({ ...target, balanceWei });
+            }
+
+            if (!dryRun) {
+                if (resetTotalBet) {
+                    for (const target of filteredTargets) {
+                        await kv.set(target.key, "0");
+                    }
+                }
+                if (resetBalance) {
+                    const lossPoolAddress = settlementService.lossPoolAddress;
+                    const writeContract = settlementService.writeContract;
+                    for (const target of filteredTargets) {
+                        const balanceWei = target.balanceWei ?? 0n;
+                        if (balanceWei <= 0n) continue;
+                        await sendManagedContractTx(writeContract, "adminTransfer", [target.address, lossPoolAddress, balanceWei], {
+                            gasLimit: 220000,
+                            txSource: "ops_reset_balance",
+                            txMeta: { address: target.address }
+                        });
+                    }
+                }
+            }
+
+            return res.status(200).json({
+                success: true,
+                dryRun,
+                threshold,
+                filters: {
+                    minTotalBet: threshold,
+                    addressKeyword: addressKeyword || null,
+                    minBalance: minBalanceText,
+                    maxBalance: maxBalanceText,
+                    limit
+                },
+                actions: {
+                    resetTotalBet,
+                    resetBalance
+                },
+                affected: filteredTargets.length,
+                targets: filteredTargets.map((target) => ({
+                    address: target.address,
+                    totalBet: target.value,
+                    balance: needsBalance && target.balanceWei !== null
+                        ? ethers.formatUnits(target.balanceWei, decimals)
+                        : null
+                }))
+            });
+        }
+
         if (action !== "reset_total_bets") {
             return res.status(400).json({
                 success: false,
@@ -472,12 +591,6 @@ export default async function handler(req, res) {
                 ]
             });
         }
-
-        const result = await resetHighTotalBets({
-            threshold: DEFAULT_RESET_THRESHOLD,
-            dryRun
-        });
-        return res.status(200).json(result);
     } catch (error) {
         console.error("Admin API Error:", error);
         return res.status(500).json({

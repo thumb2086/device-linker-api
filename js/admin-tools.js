@@ -428,27 +428,76 @@ function renderResetResult(data) {
 
     if (!listEl) return;
     if (!data.targets || data.targets.length === 0) {
-        listEl.innerHTML = '<div class="result-empty">沒有超過 20 億 total_bet 的帳號</div>';
+        listEl.innerHTML = '<div class="result-empty">沒有符合條件的帳號</div>';
         return;
     }
 
-    var html = '<div class="result-row result-head"><span>地址</span><span>下注總額</span></div>';
+    var showBalance = data.targets.some(function (item) {
+        return item.balance !== null && item.balance !== undefined && item.balance !== '';
+    });
+
+    var html = '<div class="result-row result-head"><span>地址</span><span>下注總額</span>' +
+        (showBalance ? '<span>餘額</span>' : '') +
+        '</div>';
     data.targets.forEach(function (item) {
-        var address = String(item.key || '').replace(/^total_bet:/, '');
+        var address = String(item.address || '').trim();
+        var totalBet = Number(item.totalBet || 0);
         html += '<div class="result-row">' +
             '<span title="' + escapeHtml(address) + '">' + escapeHtml(maskAdminAddress(address)) + '</span>' +
-            '<span>' + escapeHtml(formatCompactZh(item.value, 2)) + ' DLINK</span>' +
+            '<span>' + escapeHtml(formatCompactZh(totalBet, 2)) + ' DLINK</span>' +
+            (showBalance ? ('<span>' + escapeHtml(String(item.balance || '0')) + ' DLINK</span>') : '') +
             '</div>';
     });
     listEl.innerHTML = html;
 }
 
+function getOpsFilters() {
+    var minTotalBetEl = document.getElementById('ops-min-total-bet');
+    var minBalanceEl = document.getElementById('ops-min-balance');
+    var maxBalanceEl = document.getElementById('ops-max-balance');
+    var addressKeywordEl = document.getElementById('ops-address-keyword');
+    var limitEl = document.getElementById('ops-max-targets');
+    var resetTotalBetEl = document.getElementById('ops-reset-total-bet');
+    var resetBalanceEl = document.getElementById('ops-reset-balance');
+
+    var minTotalBet = Number(minTotalBetEl && minTotalBetEl.value || '');
+    var minBalance = String(minBalanceEl && minBalanceEl.value || '').trim();
+    var maxBalance = String(maxBalanceEl && maxBalanceEl.value || '').trim();
+    var addressKeyword = String(addressKeywordEl && addressKeywordEl.value || '').trim();
+    var limit = Number(limitEl && limitEl.value || '');
+    var resetTotalBet = !!(resetTotalBetEl && resetTotalBetEl.checked);
+    var resetBalance = !!(resetBalanceEl && resetBalanceEl.checked);
+
+    if (!resetTotalBet && !resetBalance) {
+        showAdminToast('請至少選擇一個重製項目', true);
+        return null;
+    }
+
+    var payload = {
+        resetTotalBet: resetTotalBet,
+        resetBalance: resetBalance
+    };
+
+    if (Number.isFinite(minTotalBet)) payload.minTotalBet = minTotalBet;
+    if (minBalance) payload.minBalance = minBalance;
+    if (maxBalance) payload.maxBalance = maxBalance;
+    if (addressKeyword) payload.addressKeyword = addressKeyword;
+    if (Number.isFinite(limit) && limit > 0) payload.limit = limit;
+
+    return payload;
+}
+
 function previewReset() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
     if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var payload = getOpsFilters();
+    if (!payload) {
+        if (btn) { btn.disabled = false; btn.innerText = '預覽名單'; }
+        return;
+    }
     setAdminStatus('正在預覽受影響名單...', false);
     withAdminBusy('ops', function () {
-        return callAdminApi('reset_total_bets', { dryRun: true }).then(function (data) {
+        return callAdminApi('reset_total_bets', Object.assign({ dryRun: true }, payload)).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '預覽失敗');
             renderResetResult(data);
             setAdminStatus('預覽完成，確認後可正式重製', false);
@@ -463,9 +512,18 @@ function previewReset() {
 function executeReset() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
     if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    var payload = getOpsFilters();
+    if (!payload) {
+        if (btn) { btn.disabled = false; btn.innerText = '正式重製'; }
+        return;
+    }
+    if (payload.resetBalance && !confirm('確認要歸零餘額嗎？此操作會發送鏈上交易，且無法復原。')) {
+        if (btn) { btn.disabled = false; btn.innerText = '正式重製'; }
+        return;
+    }
     setAdminStatus('正在執行重製...', false);
     withAdminBusy('ops', function () {
-        return callAdminApi('reset_total_bets', { dryRun: false }).then(function (data) {
+        return callAdminApi('reset_total_bets', Object.assign({ dryRun: false }, payload)).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '重製失敗');
             renderResetResult(data);
             setAdminStatus('重製完成', false);

@@ -174,6 +174,14 @@ export default async function handler(req, res) {
                 await setCachedLeaderboard("total_bet_v1", cached, LEADERBOARD_CACHE_TTL_SECONDS);
             }
             const entries = cached.entries.map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
+            if (entries.length > 0) {
+                const topAddress = entries[0].address;
+                await Promise.all([
+                    kv.set("system_title:weekly_champion", topAddress),
+                    kv.set("system_title:monthly_champion", topAddress),
+                    kv.set("system_title:season_king", topAddress)
+                ]);
+            }
             const displayNameMap = await buildDisplayNameMap(entries.map((entry) => entry.address));
             const rewardDisplayMap = await buildRewardDisplayMap(entries.map((entry) => entry.address), (address) => { const entry = entries.find((item) => item.address === address); return entry ? entry.totalBet : 0; });
             const leaderboard = entries.slice(0, limit).map((entry, index) => {

@@ -9,6 +9,16 @@
     gap: 15px;
 }
 
+.duel-body .stat-row.stat-row-stack {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.duel-body #my-display-name {
+    word-break: break-word;
+}
+
 .input-group {
     display: flex;
     gap: 10px;
@@ -53,6 +63,7 @@
     font-size: 1.1rem;
     font-weight: 700;
     color: #fff;
+    word-break: break-word;
 }
 
 .duel-meta {

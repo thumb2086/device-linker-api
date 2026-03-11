@@ -238,7 +238,7 @@
                     '<strong>' + item.name + '</strong>' +
                     '<div class="reward-guide-desc">' + (item.description || '暫無說明') + '</div>' +
                     '<div class="reward-guide-details">' +
-                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + (item.rarity || '普通') + '</span></div>' +
+                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + rarityLabel(item.rarity) + '</span></div>' +
                         (item.price ? '<div class="detail-item"><span class="detail-label">商店售價:</span><span class="detail-value">' + item.price.toLocaleString() + ' 子熙幣</span></div>' : '') +
                     '</div>' +
                     '</div>';
@@ -254,7 +254,7 @@
                     '<strong>' + item.name + '</strong>' +
                     '<div class="reward-guide-desc">' + (item.shopDescription || item.description || '更換個人顯示稱號') + '</div>' +
                     '<div class="reward-guide-details">' +
-                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + (item.rarity || '普通') + '</span></div>' +
+                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + rarityLabel(item.rarity) + '</span></div>' +
                         '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + sourceLabel(item.source) + '</span></div>' +
                         (item.shopEnabled && item.effectiveShopPrice ? '<div class="detail-item"><span class="detail-label">商店售價:</span><span class="detail-value">' + item.effectiveShopPrice.toLocaleString() + ' 子熙幣</span></div>' : '') +
                     '</div>' +
@@ -268,7 +268,7 @@
                     '<strong>' + (item.icon || '👤') + ' ' + item.name + '</strong>' +
                     '<div class="reward-guide-desc">' + (item.description || '更換你的個人頭像顯示') + '</div>' +
                     '<div class="reward-guide-details">' +
-                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + (item.rarity || '普通') + '</span></div>' +
+                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + rarityLabel(item.rarity) + '</span></div>' +
                         '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + sourceLabel(item.source) + '</span></div>' +
                     '</div>' +
                     '</div>';

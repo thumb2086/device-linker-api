@@ -1,9 +1,10 @@
-var BINGO_ROUND_MS = 25000;
-var BINGO_LOCK_MS = 3000;
+var BINGO_ROUND_MS = 30000;
+var BINGO_LOCK_MS = 5000;
 var serverTimeOffsetMs = 0;
 var serverTimeSynced = false;
 var isClockSyncing = false;
 var lastClockSyncAt = 0;
+var lastObservedBingoRoundId = null;
 var pendingBingoBets = [];
 var isBingoDrawing = false;
 var selectedNumbers = [];
@@ -69,6 +70,15 @@ function updateRoundHint() {
     hint.innerText = state.isBettingOpen
         ? ('固定開獎：' + state.secLeft + ' 秒後截止下注')
         : '封盤中：等待開獎';
+
+    if (lastObservedBingoRoundId !== null && lastObservedBingoRoundId !== state.roundId) {
+        var drawRoundId = lastObservedBingoRoundId;
+        lastObservedBingoRoundId = state.roundId;
+        startBingoDraw(drawRoundId);
+    } else if (lastObservedBingoRoundId === null) {
+        lastObservedBingoRoundId = state.roundId;
+    }
+
     maybeDrawBingo();
 }
 

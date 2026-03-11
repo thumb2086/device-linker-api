@@ -1,9 +1,10 @@
-﻿var SICBO_ROUND_MS = 15000;
-var SICBO_LOCK_MS = 2000;
+var SICBO_ROUND_MS = 20000;
+var SICBO_LOCK_MS = 4000;
 var serverTimeOffsetMs = 0;
 var serverTimeSynced = false;
 var isClockSyncing = false;
 var lastClockSyncAt = 0;
+var lastObservedSicboRoundId = null;
 var pendingSicboBets = [];
 var isSicboDrawing = false;
 var selectedBetType = 'big';
@@ -112,6 +113,14 @@ function updateRoundHint() {
     hint.innerText = state.isBettingOpen
         ? ('本局倒數 ' + state.secLeft + ' 秒，仍可下注')
         : '本局已封盤，等待開獎';
+
+    if (lastObservedSicboRoundId !== null && lastObservedSicboRoundId !== state.roundId) {
+        var drawRoundId = lastObservedSicboRoundId;
+        lastObservedSicboRoundId = state.roundId;
+        startSicboDraw(drawRoundId);
+    } else if (lastObservedSicboRoundId === null) {
+        lastObservedSicboRoundId = state.roundId;
+    }
 
     maybeDrawSicbo();
 }

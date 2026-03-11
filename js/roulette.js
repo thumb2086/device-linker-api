@@ -1,7 +1,7 @@
 /* === 輪盤遊戲邏輯 === */
 
-var ROULETTE_ROUND_MS = 15000;
-var ROULETTE_LOCK_MS = 2000;
+var ROULETTE_ROUND_MS = 20000;
+var ROULETTE_LOCK_MS = 4000;
 var roulettePreviewToken = 0;
 var currentRotation = 0;
 var isRouletteDrawing = false;
@@ -11,6 +11,7 @@ var serverTimeOffsetMs = 0;
 var serverTimeSynced = false;
 var isClockSyncing = false;
 var lastClockSyncAt = 0;
+var lastObservedRouletteRoundId = null;
 
 var pendingRouletteBets = []; // [{amount, betType, betValue, roundId, closesAt}]
 var EUROPEAN_LAYOUT = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
@@ -328,6 +329,14 @@ function updateRouletteRoundHint() {
 
     if (spinBtn) {
         spinBtn.disabled = !state.isBettingOpen || isRouletteSubmitting;
+    }
+
+    if (lastObservedRouletteRoundId !== null && lastObservedRouletteRoundId !== state.roundId) {
+        var drawRoundId = lastObservedRouletteRoundId;
+        lastObservedRouletteRoundId = state.roundId;
+        startRouletteDraw(drawRoundId);
+    } else if (lastObservedRouletteRoundId === null) {
+        lastObservedRouletteRoundId = state.roundId;
     }
 
     maybeDrawRoulette();

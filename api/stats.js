@@ -1,10 +1,10 @@
 import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
-import { CONTRACT_ADDRESS, RPC_URL } from "../lib/config.js";
 import { buildVipStatus } from "../lib/vip.js";
 import { buildDisplayNameMap } from "../lib/user-profile.js";
 import { buildRewardDisplayMap } from "../lib/reward-center.js";
+import { settlementService } from "../lib/settlement-service.js";
 import {
     buildAccountSummary,
     buildMarketSnapshot,
@@ -22,30 +22,8 @@ const TOTAL_BET_PREFIX = "total_bet:";
 const MARKET_SIM_PREFIX = "market_sim:";
 const MAX_LIMIT = 100;
 
-let _provider = null;
-let _contract = null;
-let _cachedDecimals = null;
-
-function getContractContext() {
-    if (!_provider) _provider = new ethers.JsonRpcProvider(RPC_URL);
-    if (!_contract) {
-        _contract = new ethers.Contract(CONTRACT_ADDRESS, [
-            "function balanceOf(address owner) view returns (uint256)",
-            "function decimals() view returns (uint8)"
-        ], _provider);
-    }
-    return { provider: _provider, contract: _contract };
-}
-
 async function getDecimals() {
-    if (_cachedDecimals !== null) return _cachedDecimals;
-    const { contract } = getContractContext();
-    try {
-        _cachedDecimals = Number(await contract.decimals());
-        return _cachedDecimals;
-    } catch {
-        return 18;
-    }
+    return settlementService.getDecimals();
 }
 
 function getSafeBody(req) {
@@ -141,7 +119,7 @@ async function loadBalanceEntries(addresses, totalBetMap) {
     const nowTs = Date.now();
     const market = buildMarketSnapshot(nowTs);
     const decimals = await getDecimals();
-    const { contract } = getContractContext();
+    const contract = settlementService.contract;
     const entries = [];
     const chunkSize = 20;
     for (let index = 0; index < addresses.length; index += chunkSize) {

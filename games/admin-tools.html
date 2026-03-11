@@ -683,7 +683,7 @@
 
             <div id="custody-section-body" class="collapsible-body hidden">
                 <div class="custody-toolbar">
-                    <input id="custody-filter-input" class="text-input" type="text" placeholder="搜尋帳號" oninput="renderCustodyUsers()">
+                    <select id="custody-user-selector" class="text-input" onchange="onCustodyUserSelected(this.value)"></select>
                     <button class="btn-secondary compact-btn" onclick="refreshCustodyUsers()">重新整理</button>
                 </div>
                 <p id="custody-status-msg">尚未載入託管帳號</p>
@@ -704,7 +704,7 @@
                 </div>
 
                 <div id="custody-user-list" class="custody-user-list">
-                    <div class="result-empty">尚未載入託管帳號</div>
+                    <div class="result-empty">請先選擇帳號</div>
                 </div>
             </div>
         </div>

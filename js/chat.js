@@ -1,4 +1,5 @@
 var chatPollTimer = null;
+var chatAutoStartTimer = null;
 var chatLastRenderKey = '';
 var chatWidgetCollapsed = false;
 var chatSeenMessageIds = {};
@@ -11,6 +12,7 @@ var BARRAGE_LANE_GAP = 42;
 var BARRAGE_MIN_DURATION = 7;
 var BARRAGE_MAX_DURATION = 14;
 var barrageLaneNextReadyAt = new Array(BARRAGE_LANE_COUNT).fill(0);
+var chatStarted = false;
 
 function escapeChatHtml(text) {
     return String(text || '')
@@ -42,6 +44,40 @@ function formatChatTime(iso) {
 
 function getGlobalBarrageLayer() {
     return document.getElementById('global-barrage-layer');
+}
+
+function ensureGlobalChatUi() {
+    if (!document || !document.body) return;
+
+    if (!document.getElementById('global-barrage-layer')) {
+        var barrageLayer = document.createElement('div');
+        barrageLayer.id = 'global-barrage-layer';
+        barrageLayer.className = 'global-barrage-layer hidden';
+        document.body.appendChild(barrageLayer);
+    }
+
+    if (document.getElementById('lobby-chat-widget')) return;
+
+    var wrapper = document.createElement('section');
+    wrapper.className = 'global-chat-widget';
+    wrapper.id = 'lobby-chat-widget';
+    wrapper.innerHTML = [
+        '<div class="lobby-chat-header">',
+        '<div><h2>全服聊天室</h2></div>',
+        '<div class="chat-header-actions">',
+        '<div id="chat-status" class="chat-status">聊天室連線中...</div>',
+        '<button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="true">收合</button>',
+        '</div>',
+        '</div>',
+        '<div id="chat-widget-body">',
+        '<div id="chat-message-list" class="chat-message-list"></div>',
+        '<div class="chat-input-row">',
+        '<input id="chat-input" class="text-input chat-input" maxlength="160" placeholder="輸入留言，所有玩家都看得到...">',
+        '<button class="btn-primary" onclick="sendChatMessage(\'chat\')">送出</button>',
+        '</div>',
+        '</div>'
+    ].join('');
+    document.body.appendChild(wrapper);
 }
 
 function setGlobalBarrageEnabled(enabled) {
@@ -126,12 +162,13 @@ function renderBarrageItem(item, laneIndex) {
     var layer = getGlobalBarrageLayer();
     if (!layer) return;
 
-    var text = '💬 ' + getChatDisplayName(item) + '：' + String(item && item.message || '');
+    var isWinner = item && item.type === 'winner';
+    var text = (isWinner ? '🏆 中獎播報 ' : '💬 ') + getChatDisplayName(item) + '：' + String(item && item.message || '');
     var textLen = text.length;
     var duration = Math.min(BARRAGE_MAX_DURATION, Math.max(BARRAGE_MIN_DURATION, 5 + textLen * 0.08));
 
     var node = document.createElement('div');
-    node.className = 'global-barrage-item';
+    node.className = 'global-barrage-item' + (isWinner ? ' winner' : '');
     node.style.top = (BARRAGE_LANE_BASE_TOP + laneIndex * BARRAGE_LANE_GAP) + 'px';
     node.style.animationDuration = duration + 's';
     node.textContent = text;
@@ -225,6 +262,9 @@ function sendChatMessage(type) {
 }
 
 function startLobbyChat() {
+    if (chatStarted) return;
+    chatStarted = true;
+    ensureGlobalChatUi();
     stopLobbyChat();
     chatWidgetCollapsed = false;
     chatLastRenderKey = '';
@@ -247,4 +287,29 @@ function stopLobbyChat() {
         clearTimeout(chatBarrageFlushTimer);
         chatBarrageFlushTimer = null;
     }
+}
+
+function maybeStartGlobalChat() {
+    var hasSession = !!(window.user && user.sessionId);
+    if (!hasSession) return;
+    ensureGlobalChatUi();
+    startLobbyChat();
+    if (chatAutoStartTimer) {
+        clearInterval(chatAutoStartTimer);
+        chatAutoStartTimer = null;
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+        ensureGlobalChatUi();
+        maybeStartGlobalChat();
+    });
+} else {
+    ensureGlobalChatUi();
+    maybeStartGlobalChat();
+}
+
+if (!chatAutoStartTimer) {
+    chatAutoStartTimer = setInterval(maybeStartGlobalChat, 1000);
 }

@@ -1,4 +1,4 @@
-var adminBusyState = {
+﻿var adminBusyState = {
     ops: false,
     custody: false,
     issue: false,
@@ -760,7 +760,7 @@ function renderSelectedIssueReport(reportId) {
                 (contact ? ('<span>聯絡方式：' + escapeHtml(contact) + '</span>') : '') +
                 (pageUrl ? ('<span>頁面：' + escapeHtml(pageUrl) + '</span>') : '') +
             '</div>' +
-            '<div class="form-grid issue-form-grid">' + // Using a grid for the form
+            '<div class="issue-report-actions">' +
                 '<label>狀態' +
                     '<select id="' + escapeHtml(statusId) + '" class="text-input">' +
                         '<option value="open"' + (selected.status === 'open' ? ' selected' : '') + '>待處理</option>' +
@@ -768,10 +768,10 @@ function renderSelectedIssueReport(reportId) {
                         '<option value="resolved"' + (selected.status === 'resolved' ? ' selected' : '') + '>已處理</option>' +
                     '</select>' +
                 '</label>' +
-                '<label class="full-span">處理紀錄' +
+                '<label>處理紀錄' +
                     '<textarea id="' + escapeHtml(updateId) + '" class="text-input issue-update-input" placeholder="紀錄處理內容或回覆">' + escapeHtml(selected.adminUpdate || '') + '</textarea>' +
                 '</label>' +
-                '<div class="form-row single-row">' +
+                '<div class="issue-card-actions">' +
                     '<button class="btn-primary compact-btn" data-report-id="' + escapeHtml(reportIdStr) + '" onclick="updateIssueReport(this.dataset.reportId)">儲存回報</button>' +
                 '</div>' +
             '</div>' +
@@ -814,21 +814,6 @@ function onIssueReportSelected(reportId) {
     if (visibleEl) visibleEl.innerText = reportId ? '1' : '0';
 }
 
-function refreshIssueReports() {
-    setIssueStatus('正在同步回報...', false);
-    withAdminBusy('issue', function () {
-        return callAdminApi('list_issue_reports').then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '載入回報失敗');
-            issueReports = Array.isArray(data.reports) ? data.reports : [];
-            renderIssueReports();
-            issueLoaded = true;
-            setIssueStatus('已同步 ' + issueReports.length + ' 筆回報', false);
-        });
-    }).catch(function (error) {
-        setIssueStatus('錯誤: ' + error.message, true);
-    });
-}
-
 function toggleIssueSection() {
     var body = document.getElementById('issues-section-body');
     var btn = document.getElementById('issue-toggle-btn');
@@ -861,7 +846,7 @@ function updateIssueReport(reportId) {
             if (!data || !data.success) throw new Error((data && data.error) || '更新回報失敗');
             setIssueStatus('已更新回報狀態', false);
             showAdminToast('意見回饋狀態已更新', false);
-            return refreshIssueReports();
+            return loadIssueReports();
         });
     }).catch(function (error) {
         setIssueStatus('錯誤: ' + error.message, true);

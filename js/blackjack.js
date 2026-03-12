@@ -191,11 +191,13 @@ function finalizeBlackjack(result) {
         statusMsg.style.color = '#ffcc00';
     } else if (result.isWin) {
         var profit = blackjackBetAmount * result.multiplier;
+        var payout = blackjackBetAmount + profit;
         var newBalance = blackjackTempBalance + blackjackBetAmount + profit;
         document.getElementById('balance-val').innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
         statusMsg.innerHTML = '🏆 你贏了！<span class="result-multiplier" style="display:inline;">' + result.multiplier + 'x</span>（' + result.reason + '）';
         statusMsg.style.color = '#00ff88';
+        emitWinBarrage({ game: '二十一點', amount: blackjackBetAmount, payout: payout, multiplier: result.multiplier });
     } else {
         statusMsg.innerText = '💀 你輸了：' + result.reason;
         statusMsg.style.color = '#ff4444';

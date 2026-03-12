@@ -287,7 +287,9 @@ function startRouletteDraw(roundId) {
 
         if (roundBets.length > 0) {
             var totalPayout = 0;
+            var totalBetAmount = 0;
             roundBets.forEach(function (b) {
+                totalBetAmount += b.amount;
                 var mult = evaluateRouletteBet(winningNumber, b.betType, b.betValue);
                 if (mult > 0 || (winningNumber === Number(b.betValue) && b.betType === 'number')) {
                     totalPayout += b.amount + (b.amount * mult);
@@ -298,6 +300,7 @@ function startRouletteDraw(roundId) {
                 if (totalPayout > 0) {
                     status.innerText = '中獎，派彩 ' + totalPayout.toFixed(2) + ' ZXC';
                     status.style.color = '#00ff88';
+                    emitWinBarrage({ game: '輪盤', amount: totalBetAmount, payout: totalPayout });
                 } else {
                     status.innerText = '未中獎';
                     status.style.color = '#ff4444';

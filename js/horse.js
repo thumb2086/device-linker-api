@@ -149,6 +149,7 @@ function startRaceDraw(roundId) {
                 if (totalWon > 0) {
                     statusMsg.innerHTML = '🏆 第 ' + roundId + ' 局結算：贏得 ' + totalWon.toFixed(2) + ' ZXC！';
                     statusMsg.style.color = '#00ff88';
+                    emitWinBarrage({ game: '賽馬', amount: totalBetAmount, payout: totalWon });
                 } else {
                     statusMsg.innerText = '💀 第 ' + roundId + ' 局結算：未中獎，再接再厲';
                     statusMsg.style.color = '#ff4444';

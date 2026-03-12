@@ -161,6 +161,7 @@ function playDragon() {
                 if (hBal) hBal.innerText = newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
                 statusMsg.innerHTML = '🏆 命中龍門！<span class="result-multiplier" style="display:inline;">' + result.multiplier + 'x</span>';
                 statusMsg.style.color = '#00ff88';
+                emitWinBarrage({ game: '射龍門', amount: amount, payout: amount + profit, multiplier: result.multiplier });
             } else if (result.resultType === 'pillar') {
                 var pillarBalance = tempBalance - amount; // 再扣一注，總共雙倍
                 document.getElementById('balance-val').innerText = pillarBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });

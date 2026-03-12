@@ -221,6 +221,7 @@ function showResult(result, betAmount, tempBalance) {
         statusMsg.innerHTML = '🏆 三連線！' +
             ' <span class="result-multiplier" style="display:inline;">' + displayMultiplier + '</span>';
         statusMsg.style.color = '#00ff88';
+        emitWinBarrage({ game: '老虎機', amount: betAmount, payout: betAmount + profitAmount, multiplier: result.multiplier });
 
         // 贏了：本金還在 + 利潤
         var newBalance = tempBalance + betAmount + profitAmount;
@@ -230,6 +231,7 @@ function showResult(result, betAmount, tempBalance) {
         payline.classList.add('win');
         statusMsg.innerHTML = '⭐ 兩連線，返還 <span class="result-multiplier" style="display:inline;">0.5x</span>';
         statusMsg.style.color = '#ffcc00';
+        emitWinBarrage({ game: '老虎機', amount: betAmount, payout: betAmount * 0.5, multiplier: 0.5 });
 
         // 下注已先扣，兩連只返還半注
         var halfBackBalance = tempBalance + (betAmount * 0.5);

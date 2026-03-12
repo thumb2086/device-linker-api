@@ -184,6 +184,11 @@ function startCoinflipDraw(roundId) {
             if (totalWon > 0) {
                 status.innerText = '中獎，派彩 ' + totalWon.toFixed(2) + ' ZXC';
                 status.style.color = '#00ff88';
+                emitWinBarrage({
+                    game: '猜硬幣',
+                    amount: roundBets.reduce(function (sum, b) { return sum + b.amount; }, 0),
+                    payout: totalWon
+                });
             } else {
                 status.innerText = '未中獎';
                 status.style.color = '#ff4444';

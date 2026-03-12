@@ -716,3 +716,31 @@ function hidePageTransition() {
     if (!overlay) return;
     overlay.classList.remove('show');
 }
+
+function ensureGlobalChatScriptLoaded() {
+    if (window.__globalChatScriptLoading) return;
+    if (window.startLobbyChat && typeof window.startLobbyChat === 'function') return;
+
+    var existing = document.querySelector('script[data-global-chat-script="1"]');
+    if (existing) return;
+
+    window.__globalChatScriptLoading = true;
+    var script = document.createElement('script');
+    script.src = '/js/chat.js';
+    script.defer = true;
+    script.setAttribute('data-global-chat-script', '1');
+    script.onload = function () {
+        window.__globalChatScriptLoading = false;
+    };
+    script.onerror = function () {
+        window.__globalChatScriptLoading = false;
+        console.log('Global chat script failed to load');
+    };
+    document.head.appendChild(script);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureGlobalChatScriptLoaded);
+} else {
+    ensureGlobalChatScriptLoaded();
+}

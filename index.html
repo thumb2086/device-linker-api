@@ -189,8 +189,30 @@
             </a>
         </div>
 
+        <section class="lobby-chat-panel" id="lobby-chat-widget">
+            <div class="lobby-chat-header">
+                <div>
+                    <p class="section-kicker">Community</p>
+                    <h2>全服聊天室</h2>
+                </div>
+                <div class="chat-header-actions">
+                    <div id="chat-status" class="chat-status">聊天室連線中...</div>
+                    <button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="true">收合</button>
+                </div>
+            </div>
+            <div id="chat-widget-body">
+                <div id="chat-message-list" class="chat-message-list"></div>
+                <div class="chat-input-row">
+                    <input id="chat-input" class="text-input chat-input" maxlength="160" placeholder="輸入留言，所有玩家都看得到...">
+                    <button class="btn-primary" onclick="sendChatMessage('chat')">送出</button>
+                </div>
+            </div>
+        </section>
+
         <div class="lobby-footer">POWERED BY BLOCKCHAIN</div>
     </div>
+
+    <div id="global-barrage-layer" class="global-barrage-layer hidden"></div>
 
     <script src="js/common.js"></script>
     <script src="js/announcements.js"></script>
@@ -312,6 +334,7 @@
                 updateUI(data);
                 startBalanceRefresh();
                 loadLobbyRewards();
+                startLobbyChat();
                 hidePageTransition();
 
                 // 只有管理員才顯示維運工具

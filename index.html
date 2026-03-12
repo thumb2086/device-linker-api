@@ -33,6 +33,7 @@
         <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
         <div class="mobile-auth-actions">
             <button class="btn-primary auth-action-btn" onclick="openAppAuth()">在手機 App 授權</button>
+            <button class="btn-secondary auth-action-btn" onclick="startAppCredentialAuth()">App 免跳轉快速登入</button>
             <button class="btn-secondary auth-action-btn hidden" id="app-quick-btn" onclick="quickAppAuth()">App 快速登入</button>
             <div class="auth-code-line hidden" id="app-quick-meta">已記住錢包</div>
             <button class="btn-secondary auth-action-btn hidden" id="app-clear-btn" onclick="clearAppQuickAuth()">清除 App 快速登入</button>
@@ -189,12 +190,34 @@
             </a>
         </div>
 
+        <section class="lobby-chat-panel" id="lobby-chat-widget">
+            <div class="lobby-chat-header">
+                <div>
+                    <p class="section-kicker">Community</p>
+                    <h2>全服聊天室</h2>
+                </div>
+                <div class="chat-header-actions">
+                    <div id="chat-status" class="chat-status">聊天室連線中...</div>
+                    <button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()">－</button>
+                </div>
+            </div>
+            <div id="chat-widget-body">
+                <div id="chat-barrage-lane" class="chat-barrage-lane"></div>
+                <div id="chat-message-list" class="chat-message-list"></div>
+                <div class="chat-input-row">
+                    <input id="chat-input" class="text-input chat-input" maxlength="160" placeholder="輸入留言，所有玩家都看得到...">
+                    <button class="btn-primary" onclick="sendChatMessage('chat')">送出</button>
+                </div>
+            </div>
+        </section>
+
         <div class="lobby-footer">POWERED BY BLOCKCHAIN</div>
     </div>
 
     <script src="js/common.js"></script>
     <script src="js/announcements.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/chat.js"></script>
 
     <!-- Deep Link sessionId handler -->
     <script>
@@ -312,6 +335,7 @@
                 updateUI(data);
                 startBalanceRefresh();
                 loadLobbyRewards();
+                startLobbyChat();
                 hidePageTransition();
 
                 // 只有管理員才顯示維運工具

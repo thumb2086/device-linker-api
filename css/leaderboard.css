@@ -8,6 +8,46 @@ body.leaderboard-body {
     margin-bottom: 24px;
 }
 
+.leaderboard-type-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 20px;
+}
+
+.type-btn {
+    border-radius: 8px;
+    padding: 8px 18px;
+    border: none;
+    background: transparent;
+    color: #999;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.type-btn:hover {
+    color: #fff;
+}
+
+.type-btn.is-active {
+    color: #fff;
+}
+
+.type-btn.is-active::after {
+    content: '';
+    position: absolute;
+    bottom: -21px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gold);
+    border-radius: 3px;
+}
+
 .leaderboard-scope {
     display: flex;
     flex-wrap: wrap;

@@ -4,39 +4,23 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>系統維護中</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/maintenance.css" />
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/lobby.css">
 </head>
-<body>
-  <div class="bg"></div>
-  <main class="wrap">
-    <section class="card">
-      <div class="badge">Maintenance</div>
-      <h1>維護公告</h1>
-      <p class="lead">
-        目前進行例行調整，登入服務維持開放。
-        若有功能異常，請透過意見回饋告訴我們。
-      </p>
-      <div class="meta">
-        <div class="meta-item">
-          <span class="label">狀態</span>
-          <span class="value">維護公告中</span>
-        </div>
-        <div class="meta-item">
-          <span class="label">影響</span>
-          <span class="value">部分功能調整中</span>
-        </div>
-      </div>
-      <div class="cta">
-        <a class="btn ghost" href="/games/support.html">意見回饋</a>
-        <button class="btn danger" type="button" onclick="maintenanceLogout()">登出</button>
-        <span class="hint">登入仍可使用，但功能維護中</span>
-      </div>
-    </section>
-    <footer class="foot">Device-Linker</footer>
-  </main>
+<body class="lobby-body">
+  <div class="casino-card auth-card">
+    <h1>⚡ 子熙模擬器</h1>
+    <p class="subtitle">子熙幣</p>
+    <div class="maintenance-banner">
+        <div class="maintenance-title">系統維護中</div>
+        <div class="maintenance-message">目前進行例行調整，登入服務維持開放。若有功能異常，請透過意見回饋告訴我們。</div>
+    </div>
+    <div class="auth-public-links" style="margin-top: 24px;">
+        <a href="/games/support.html" class="auth-inline-link">意見回饋</a>
+        <a href="#" onclick="maintenanceLogout()" class="auth-inline-link">登出</a>
+    </div>
+    <div class="lobby-footer" style="position: absolute; bottom: 1.5rem;">POWERED BY BLOCKCHAIN</div>
+  </div>
   <script>
     function maintenanceLogout() {
       try {

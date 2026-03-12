@@ -646,16 +646,14 @@
 
             <div id="issues-section-body" class="collapsible-body hidden">
                 <div class="toolbar-grid">
-                    <select id="issue-report-selector" class="text-input" onchange="onIssueReportSelected(this.value)"></select>
-                    <button class="btn-secondary compact-btn" onclick="refreshIssueReports()">重新整理</button>
-                </div>
-                <div class="toolbar-grid">
                     <select id="issue-status-filter" class="text-input" onchange="renderIssueReports()">
                         <option value="">全部狀態</option>
                         <option value="in_progress">處理中</option>
                         <option value="open">待處理</option>
                         <option value="resolved">已處理</option>
                     </select>
+                    <select id="issue-report-selector" class="text-input" onchange="onIssueReportSelected(this.value)"></select>
+                    <button class="btn-secondary compact-btn" onclick="refreshIssueReports()">重新整理</button>
                 </div>
                 <p id="issue-status-msg">尚未載入意見回饋</p>
 

@@ -2,6 +2,7 @@ var chatPollTimer = null;
 var chatLastRenderKey = '';
 var chatWidgetCollapsed = false;
 var chatSeenMessageIds = {};
+var chatHasBootstrappedMessages = false;
 var chatBarrageQueue = [];
 var chatBarrageFlushTimer = null;
 var BARRAGE_LANE_COUNT = 8;
@@ -74,7 +75,7 @@ function toggleLobbyChatWidget() {
     applyLobbyChatWidgetState();
 }
 
-function renderChatMessages(messages) {
+function renderChatMessages(messages, shouldQueueBarrage) {
     var list = document.getElementById('chat-message-list');
     if (!list) return;
     var rows = Array.isArray(messages) ? messages : [];
@@ -93,7 +94,7 @@ function renderChatMessages(messages) {
     }).join('');
 
     list.scrollTop = list.scrollHeight;
-    queueBarrageMessages(rows);
+    if (shouldQueueBarrage) queueBarrageMessages(rows);
 }
 
 function queueBarrageMessages(rows) {
@@ -170,7 +171,17 @@ function loadChatMessages() {
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '聊天室載入失敗');
-            renderChatMessages(data.messages || []);
+            var rows = data.messages || [];
+            var shouldQueueBarrage = chatHasBootstrappedMessages;
+            renderChatMessages(rows, shouldQueueBarrage);
+            if (!chatHasBootstrappedMessages) {
+                var initialItems = Array.isArray(rows) ? rows : [];
+                for (var i = 0; i < initialItems.length; i += 1) {
+                    var initialId = String((initialItems[i] || {}).id || '');
+                    if (initialId) chatSeenMessageIds[initialId] = true;
+                }
+                chatHasBootstrappedMessages = true;
+            }
             var status = document.getElementById('chat-status');
             if (status) status.innerText = '全服同步中 · ' + String(data.returned || 0) + ' 則';
         })
@@ -216,6 +227,11 @@ function sendChatMessage(type) {
 function startLobbyChat() {
     stopLobbyChat();
     chatWidgetCollapsed = false;
+    chatLastRenderKey = '';
+    chatSeenMessageIds = {};
+    chatHasBootstrappedMessages = false;
+    chatBarrageQueue = [];
+    barrageLaneNextReadyAt = new Array(BARRAGE_LANE_COUNT).fill(0);
     applyLobbyChatWidgetState();
     setGlobalBarrageEnabled(true);
     loadChatMessages();
@@ -226,5 +242,9 @@ function stopLobbyChat() {
     if (chatPollTimer) {
         clearInterval(chatPollTimer);
         chatPollTimer = null;
+    }
+    if (chatBarrageFlushTimer) {
+        clearTimeout(chatBarrageFlushTimer);
+        chatBarrageFlushTimer = null;
     }
 }

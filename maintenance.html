@@ -40,8 +40,8 @@
   <script>
     function maintenanceLogout() {
       try {
+        // 只清除當前的 session，保留快速登入憑證
         localStorage.removeItem('casino_auth');
-        localStorage.removeItem('casino_custody_credentials');
       } catch (e) {
           console.error('Logout failed', e);
       }

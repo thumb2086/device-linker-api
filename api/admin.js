@@ -1,4 +1,4 @@
-﻿import { randomBytes, scryptSync } from "crypto";
+import { randomBytes, scryptSync } from "crypto";
 import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
@@ -353,7 +353,8 @@ export default async function handler(req, res) {
 
         if (action === "list_issue_reports") {
             const result = await listIssueReports({
-                limit: body.limit,
+                limit: body.limit, // Already supports limit, will now add cursor
+                cursor: body.cursor,
                 status: body.status,
                 keyword: body.keyword
             });
@@ -361,6 +362,7 @@ export default async function handler(req, res) {
                 success: true,
                 reports: result.reports,
                 total: result.total,
+                nextCursor: result.nextCursor, // Pass the nextCursor to the client
                 returned: result.reports.length
             });
         }

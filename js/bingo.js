@@ -5,8 +5,9 @@ var serverTimeSynced = false;
 var isClockSyncing = false;
 var lastClockSyncAt = 0;
 var lastObservedBingoRoundId = null;
-var pendingBingoBets = [];
+var pendingBingoBets = []; // { amount, numbers, roundId, closesAt, tempId? }
 var isBingoDrawing = false;
+var isBingoSubmitting = false;
 var selectedNumbers = [];
 
 function hash32(input) {
@@ -65,11 +66,13 @@ function getCurrentBingoState() {
 
 function updateRoundHint() {
     var hint = document.getElementById('round-hint');
+    var btn = document.getElementById('place-bingo-bet-btn');
     if (!hint) return;
     var state = getCurrentBingoState();
     hint.innerText = state.isBettingOpen
         ? ('固定開獎：' + state.secLeft + ' 秒後截止下注')
         : '封盤中：等待開獎';
+    if(btn) btn.disabled = !state.isBettingOpen || isBingoSubmitting;
 
     if (lastObservedBingoRoundId !== null && lastObservedBingoRoundId !== state.roundId) {
         var drawRoundId = lastObservedBingoRoundId;
@@ -86,17 +89,17 @@ function parseNumbers(input) {
     return String(input || '')
         .split(/[,\s]+/)
         .map(function (v) { return Number(v); })
-        .filter(function (n) { return Number.isInteger(n); });
+        .filter(function (n) { return Number.isInteger(n) && n >= 1 && n <= 75; });
 }
 
 function renderPickSummary() {
     var summary = document.getElementById('pick-summary');
     if (!summary) return;
     if (selectedNumbers.length === 0) {
-        summary.innerText = '尚未選號';
+        summary.innerText = '尚未選號 (請選 8 個)';
         return;
     }
-    summary.innerText = selectedNumbers.join(', ');
+    summary.innerText = '已選: ' + selectedNumbers.join(', ');
 }
 
 function renderNumberPad() {
@@ -112,24 +115,28 @@ function renderNumberPad() {
 }
 
 function setSelectedNumbers(numbers) {
-    selectedNumbers = numbers.slice().sort(function (a, b) { return a - b; });
+    selectedNumbers = numbers.slice(0, 8).sort(function (a, b) { return a - b; });
     renderNumberPad();
 }
 
 function toggleNumber(number) {
+    if (isBingoSubmitting) return;
     var index = selectedNumbers.indexOf(number);
     if (index >= 0) {
         selectedNumbers.splice(index, 1);
-        renderNumberPad();
-        return;
+    } else {
+        if (selectedNumbers.length >= 8) {
+            showUserToast('最多只能選擇 8 個號碼。', true);
+            return;
+        }
+        selectedNumbers.push(number);
     }
-    if (selectedNumbers.length >= 8) return;
-    selectedNumbers.push(number);
     selectedNumbers.sort(function (a, b) { return a - b; });
     renderNumberPad();
 }
 
 function randomPick() {
+    if (isBingoSubmitting) return;
     var pool = [];
     for (var i = 1; i <= 75; i += 1) pool.push(i);
     for (var j = pool.length - 1; j > 0; j -= 1) {
@@ -138,11 +145,11 @@ function randomPick() {
         pool[j] = pool[k];
         pool[k] = tmp;
     }
-    var pick = pool.slice(0, 8).sort(function (a, b) { return a - b; });
-    setSelectedNumbers(pick);
+    setSelectedNumbers(pool.slice(0, 8));
 }
 
 function clearPick() {
+    if (isBingoSubmitting) return;
     selectedNumbers = [];
     renderNumberPad();
 }
@@ -175,8 +182,8 @@ function renderDrawn(numbers) {
         grid.innerHTML = '';
         return;
     }
-    grid.innerHTML = numbers.map(function (n) {
-        return '<span class="bingo-ball">' + n + '</span>';
+    grid.innerHTML = numbers.map(function (n, i) {
+        return '<span class="bingo-ball" style="animation-delay: ' + (i * 50) + 'ms;">' + n + '</span>';
     }).join('');
 }
 
@@ -189,7 +196,7 @@ function updatePendingBingoBetsUI() {
     }
     var html = '<div style="font-size: 0.9em; color: #aaa; margin-top: 10px;">待開獎下注：<br/>';
     pendingBingoBets.forEach(function (b) {
-        html += b.numbers.join(',') + ' (' + formatDisplayNumber(b.amount, 2) + ' 子熙幣)<br/>';
+        html += '<span class="pending-bet-card">' + b.numbers.join(',') + ' (' + formatDisplayNumber(b.amount, 2) + ' 子熙幣)</span><br/>';
     });
     html += '</div>';
     txLog.innerHTML = html;
@@ -220,119 +227,145 @@ function startBingoDraw(roundId) {
         status.innerText = '開獎中...';
         status.style.color = '#ffd36a';
     }
+    if(window.audioManager) window.audioManager.play('bingo_draw');
 
     var drawn = drawNumbers(roundId);
     setTimeout(function () {
         renderDrawn(drawn);
-        var drawnSet = {};
-        drawn.forEach(function (n) { drawnSet[n] = true; });
+        var drawnSet = new Set(drawn);
 
         var roundBets = pendingBingoBets.filter(function (b) { return b.roundId === roundId; });
         pendingBingoBets = pendingBingoBets.filter(function (b) { return b.roundId !== roundId; });
         updatePendingBingoBetsUI();
 
-        var totalPayout = 0;
-        roundBets.forEach(function (b) {
-            var hits = b.numbers.filter(function (n) { return drawnSet[n]; }).length;
-            var mult = payoutForHits(hits);
-            if (mult > 0) totalPayout += b.amount * (mult + 1);
-        });
+        var totalWinnings = 0;
+        var hasBetsInRound = roundBets.length > 0;
+
+        if (hasBetsInRound) {
+            roundBets.forEach(function (b) {
+                var hits = b.numbers.filter(function (n) { return drawnSet.has(n); }).length;
+                var mult = payoutForHits(hits);
+                if (mult > 0) totalWinnings += b.amount * mult;
+            });
+        }
 
         if (status) {
-            if (totalPayout > 0) {
-                status.innerText = '開獎完成，派彩 ' + formatDisplayNumber(totalPayout, 2) + ' 子熙幣';
-                status.style.color = '#00ff88';
+            if (hasBetsInRound) {
+                if (totalWinnings > 0) {
+                    status.innerText = '開獎完成，本輪共贏得 ' + formatDisplayNumber(totalWinnings, 2) + ' 子熙幣';
+                    status.style.color = '#00ff88';
+                    if(window.audioManager) window.audioManager.play('win_small');
+                } else {
+                    status.innerText = '開獎完成，本輪未中獎';
+                    status.style.color = '#ff6666';
+                }
             } else {
-                status.innerText = '開獎完成，未中獎';
-                status.style.color = '#ff6666';
+                status.innerText = '開獎完成';
+                status.style.color = '#d9b75f';
             }
         }
-        refreshBalance();
+        if(hasBetsInRound) refreshBalance();
         isBingoDrawing = false;
         maybeDrawBingo();
-    }, 1400);
+    }, 2000);
 }
 
 function placeBingoBet() {
+    if (isBingoSubmitting) return;
     var amount = Number(document.getElementById('bet-amount').value || 0);
     var numbers = selectedNumbers.slice();
     var status = document.getElementById('status-msg');
+
     if (!amount || amount <= 0) {
-        if (status) status.innerText = '請輸入有效押注金額';
+        if (status) { status.innerText = '請輸入有效押注金額'; status.style.color = '#ff6666'; }
         return;
     }
     if (numbers.length !== 8) {
-        if (status) status.innerText = '請輸入 8 個號碼 (1-75)';
+        if (status) { status.innerText = '請選擇 8 個號碼 (1-75)'; status.style.color = '#ff6666'; }
         return;
     }
 
     var state = getCurrentBingoState();
-    if (state.now >= state.bettingClosesAt) {
-        if (status) status.innerText = '已封盤，請等下一輪';
+    if (!state.isBettingOpen) {
+        if (status) { status.innerText = '已封盤，請等下一輪'; status.style.color = '#ff6666'; }
         return;
     }
 
     var currentBalance = getCurrentUserBalance();
     if (currentBalance < amount) {
-        if (status) {
-            status.innerText = '餘額不足';
-            status.style.color = '#ff6666';
-        }
+        if (status) { status.innerText = '餘額不足'; status.style.color = '#ff6666'; }
         return;
     }
 
+    // --- Optimistic Update ---
+    isBingoSubmitting = true;
+    setDisplayedBalance(currentBalance - amount);
+    if(window.audioManager) window.audioManager.play('bet');
+
+    var tempId = 'temp_' + Date.now() + Math.random();
+    var optimisticBet = {
+        amount: amount,
+        numbers: numbers,
+        roundId: state.roundId,
+        closesAt: state.closesAt,
+        tempId: tempId
+    };
+    pendingBingoBets.push(optimisticBet);
+    updatePendingBingoBetsUI();
+
     if (status) {
-        status.innerText = '下注中...';
-        status.style.color = '#ffd36a';
+        status.innerText = '下注成功，等待開獎';
+        status.style.color = '#00ff88';
     }
+    document.getElementById('place-bingo-bet-btn').disabled = true;
 
-    var tempBalance = currentBalance - amount;
-    setDisplayedBalance(tempBalance);
-
+    // --- Background Fetch ---
     fetch('/api/game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            game: 'bingo',
-            address: user.address,
-            amount: amount,
-            sessionId: user.sessionId,
-            numbers: numbers
-        })
+        body: JSON.stringify({ game: 'bingo', address: user.address, amount: amount, sessionId: user.sessionId, numbers: numbers })
     })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            if (data.serverNowTs) updateServerTime(data.serverNowTs);
-            if (!data || data.error) throw new Error(data.error || '下注失敗');
-            pendingBingoBets.push({
-                amount: amount,
-                numbers: data.userNumbers || numbers.slice().sort(function (a, b) { return a - b; }),
-                roundId: data.roundId,
-                closesAt: data.closesAt
-            });
-            updatePendingBingoBetsUI();
-            if (status) {
-                status.innerText = '下注成功，等待開獎';
-                status.style.color = '#00ff88';
-            }
-            updateUI({ totalBet: data.totalBet, vipLevel: data.vipLevel, maxBet: data.maxBet });
-        })
-        .catch(function (err) {
-            setDisplayedBalance(currentBalance);
-            if (status) {
-                status.innerText = '錯誤: ' + err.message;
-                status.style.color = '#ff6666';
-            }
-        });
+    .then(function (res) { 
+        if (!res.ok) return res.json().then(err => { throw new Error(err.error || '下注失敗') });
+        return res.json();
+     })
+    .then(function (data) {
+        if (data.serverNowTs) updateServerTime(data.serverNowTs);
+        if (data.error) throw new Error(data.error);
+
+        var confirmedBet = pendingBingoBets.find(function(b) { return b.tempId === tempId; });
+        if (confirmedBet) {
+            confirmedBet.roundId = data.roundId;
+            confirmedBet.closesAt = data.closesAt;
+            confirmedBet.numbers = data.userNumbers || confirmedBet.numbers;
+            delete confirmedBet.tempId;
+        }
+        updateUI({ totalBet: data.totalBet, vipLevel: data.vipLevel, maxBet: data.maxBet });
+    })
+    .catch(function (err) {
+        setDisplayedBalance(currentBalance);
+        if (status) {
+            status.innerText = '錯誤: ' + err.message;
+            status.style.color = '#ff6666';
+        }
+        pendingBingoBets = pendingBingoBets.filter(function(b) { return b.tempId !== tempId; });
+        updatePendingBingoBetsUI();
+    })
+    .finally(function() {
+        isBingoSubmitting = false;
+        var btn = document.getElementById('place-bingo-bet-btn');
+        if(btn) btn.disabled = !getCurrentBingoState().isBettingOpen;
+    });
 }
 
 function initBingoPage() {
     renderNumberPad();
     randomPick();
-    setInterval(function () {
+    var ticker = setInterval(function () {
         syncBingoClock(false);
         updateRoundHint();
     }, 1000);
     syncBingoClock(true);
     updateRoundHint();
+    window.addEventListener('beforeunload', () => clearInterval(ticker));
 }

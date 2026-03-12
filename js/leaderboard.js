@@ -2,6 +2,10 @@ var leaderboardBusy = false;
 var leaderboardType = 'total-bet';
 var leaderboardScope = 'total';
 
+var leaderboardCache = {};
+var cacheTimestamps = {};
+const CACHE_DURATION_MS = 2 * 60 * 1000; // 2 minutes
+
 var config = {
     'total-bet': {
         title: '押注榜',
@@ -119,6 +123,26 @@ function renderMyRank(data) {
     }
 }
 
+function renderSkeleton() {
+    var container = document.getElementById('leaderboard-list');
+    if (!container) return;
+    var lconfig = getLeaderboardConfig();
+
+    var html = '<div class="leaderboard-row leaderboard-head">' +
+        '<span>名次</span><span>地址</span><span>' + escapeHtml(lconfig.valueLabel) + '</span><span>VIP</span>' +
+        '</div>';
+    
+    for (var i = 0; i < 10; i++) {
+        html += '<div class="leaderboard-row is-skeleton">' +
+            '<span class="rank-col"><span></span></span>' +
+            '<span class="addr-col"><span></span></span>' +
+            '<span class="bet-col"><span></span></span>' +
+            '<span class="vip-col"><span></span></span>' +
+            '</div>';
+    }
+    container.innerHTML = html;
+}
+
 function renderLeaderboardRows(items) {
     var container = document.getElementById('leaderboard-list');
     if (!container) return;
@@ -177,8 +201,24 @@ function renderPeriodInfo(period) {
 
 function loadLeaderboard(silent) {
     if (leaderboardBusy) return Promise.resolve();
+
+    var cacheKey = leaderboardType + '_' + leaderboardScope;
+    var now = Date.now();
+    if (leaderboardCache[cacheKey] && (now - cacheTimestamps[cacheKey] < CACHE_DURATION_MS)) {
+        var data = leaderboardCache[cacheKey];
+        renderMyRank(data);
+        renderLeaderboardRows(data.leaderboard);
+        renderPeriodInfo(data.period);
+        setLeaderboardStatus('排行榜已從快取載入', false);
+        return Promise.resolve();
+    }
+
     leaderboardBusy = true;
-    if (!silent) setLeaderboardStatus('同步排行榜中...', false);
+    if (!silent) {
+        setLeaderboardStatus('同步排行榜中...', false);
+        renderSkeleton();
+    }
+
     var lconfig = getLeaderboardConfig();
 
     return fetch('/api/stats', {
@@ -195,6 +235,9 @@ function loadLeaderboard(silent) {
         if (!data || !data.success) {
             throw new Error((data && data.error) || '排行榜載入失敗');
         }
+        leaderboardCache[cacheKey] = data;
+        cacheTimestamps[cacheKey] = Date.now();
+
         renderMyRank(data);
         renderLeaderboardRows(data.leaderboard);
         renderPeriodInfo(data.period);

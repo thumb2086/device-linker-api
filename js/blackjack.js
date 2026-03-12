@@ -1,35 +1,59 @@
-/* === 二十一點遊戲邏輯 === */
+/* === 二十一點遊戲邏輯（樂觀更新優化版） === */
 
 var blackjackInProgress = false;
 var blackjackBetAmount = 0;
-var blackjackTempBalance = 0;
-var blackjackCurrentBalance = 0;
+var blackjackIsSubmitting = false;
 
-function renderCardList(containerId, cards) {
+// 用於樂觀更新的前端牌組狀態
+var optimisticPlayerCards = [];
+var optimisticDealerCards = [];
+
+function renderCardList(containerId, cards, isDealing) {
     var container = document.getElementById(containerId);
     if (!container) return;
-    container.innerHTML = '';
-    cards.forEach(function (card) {
-        var div = document.createElement('div');
-        div.className = 'card';
-        if (card.hidden) {
-            div.classList.add('back');
-            div.innerText = '🂠';
-        } else {
-            if (card.suit === '♥' || card.suit === '♦') {
-                div.classList.add('red');
+    
+    var existingCards = Array.from(container.querySelectorAll('.card'));
+    var newCardElements = [];
+
+    // 更新或新增卡牌
+    cards.forEach(function(card, index) {
+        var cardEl = existingCards[index];
+        if (!cardEl) {
+            cardEl = document.createElement('div');
+            cardEl.className = 'card';
+            container.appendChild(cardEl);
+            if (isDealing) {
+                cardEl.classList.add('deal-in');
+                cardEl.style.animationDelay = (index * 100) + 'ms';
             }
-            div.innerText = card.rank + card.suit;
         }
-        container.appendChild(div);
+        newCardElements.push(cardEl);
+
+        if (card.hidden) {
+            cardEl.classList.add('back');
+            cardEl.classList.remove('red');
+            cardEl.innerText = '🂠';
+        } else {
+            cardEl.classList.remove('back');
+            cardEl.classList.toggle('red', card.suit === '♥' || card.suit === '♦');
+            cardEl.innerText = card.rank + card.suit;
+        }
     });
+
+    // 移除多餘的卡牌
+    existingCards.slice(cards.length).forEach(c => c.remove());
 }
 
 function resetBoard() {
+    blackjackInProgress = false;
+    blackjackIsSubmitting = false;
+    optimisticPlayerCards = [];
+    optimisticDealerCards = [];
     document.getElementById('dealer-cards').innerHTML = '';
     document.getElementById('player-cards').innerHTML = '';
     document.getElementById('dealer-total').innerText = '0';
     document.getElementById('player-total').innerText = '0';
+    setActionButtonsState(false);
 }
 
 function setActionButtonsState(inProgress) {
@@ -37,37 +61,36 @@ function setActionButtonsState(inProgress) {
     var hitBtn = document.getElementById('hit-btn');
     var standBtn = document.getElementById('stand-btn');
 
-    dealBtn.disabled = inProgress;
-    hitBtn.disabled = !inProgress;
-    standBtn.disabled = !inProgress;
+    if(dealBtn) dealBtn.disabled = inProgress || blackjackIsSubmitting;
+    if(hitBtn) hitBtn.disabled = !inProgress || blackjackIsSubmitting;
+    if(standBtn) standBtn.disabled = !inProgress || blackjackIsSubmitting;
 }
 
 function applyActionAvailability(data) {
+    if (!blackjackInProgress) return;
     var hitBtn = document.getElementById('hit-btn');
     var standBtn = document.getElementById('stand-btn');
     if (!hitBtn || !standBtn) return;
-    if (!blackjackInProgress) {
-        hitBtn.disabled = true;
-        standBtn.disabled = true;
-        return;
-    }
-    if (data && data.canHit === false) {
-        hitBtn.disabled = true;
-    }
-    if (data && data.mustStand === true) {
-        standBtn.disabled = false;
-    }
+
+    hitBtn.disabled = blackjackIsSubmitting || (data && data.canHit === false);
+    standBtn.disabled = blackjackIsSubmitting || (data && data.mustStand === true);
 }
 
-function updateBoard(data) {
-    renderCardList('dealer-cards', data.dealerCards || []);
-    renderCardList('player-cards', data.playerCards || []);
+function updateBoard(data, isInitialDeal) {
+    optimisticDealerCards = data.dealerCards || [];
+    optimisticPlayerCards = data.playerCards || [];
+    renderCardList('dealer-cards', optimisticDealerCards, isInitialDeal);
+    renderCardList('player-cards', optimisticPlayerCards, isInitialDeal);
     document.getElementById('dealer-total').innerText = data.dealerTotal || 0;
     document.getElementById('player-total').innerText = data.playerTotal || 0;
-    updateUI({ totalBet: data.totalBet, vipLevel: data.vipLevel });
+    if(data.totalBet) {
+        updateUI({ totalBet: data.totalBet, vipLevel: data.vipLevel });
+    }
 }
 
 function startBlackjack() {
+    if (blackjackIsSubmitting || blackjackInProgress) return;
+
     var amountInput = document.getElementById('bet-amount');
     var amount = parseFloat(amountInput.value);
     var statusMsg = document.getElementById('status-msg');
@@ -77,149 +100,182 @@ function startBlackjack() {
         statusMsg.innerText = '❌ 請輸入有效的金額';
         return;
     }
+    
+    var currentBalance = getCurrentUserBalance();
+    if (amount > currentBalance) {
+        statusMsg.innerText = '❌ 餘額不足';
+        return;
+    }
 
-    statusMsg.innerHTML = '<span class="loader"></span> 發牌中...';
+    // --- Optimistic UI Update ---
+    blackjackIsSubmitting = true;
+    blackjackBetAmount = amount;
+    setDisplayedBalance(currentBalance - amount);
+
+    statusMsg.innerText = '發牌中...';
     statusMsg.style.color = '#ffcc00';
     txLog.innerHTML = '';
-    resetBoard();
+    
+    optimisticPlayerCards = [{hidden: true}, {hidden: true}];
+    optimisticDealerCards = [{hidden: true}, {hidden: true}];
+    renderCardList('player-cards', optimisticPlayerCards, true);
+    renderCardList('dealer-cards', optimisticDealerCards, true);
+    
+    blackjackInProgress = true;
+    setActionButtonsState(true);
+    if (window.audioManager) window.audioManager.play('card_deal');
 
-    blackjackCurrentBalance = getCurrentUserBalance();
-    blackjackBetAmount = amount;
-    blackjackTempBalance = blackjackCurrentBalance - amount;
-
-    setDisplayedBalance(blackjackTempBalance);
-
+    // --- Background Fetch ---
     fetch('/api/game?game=blackjack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: 'start',
-            address: user.address,
-            amount: amount,
-            sessionId: user.sessionId
-        })
+        body: JSON.stringify({ action: 'start', address: user.address, amount: amount, sessionId: user.sessionId })
     })
-    .then(function (res) { return res.json(); })
-    .then(function (result) {
+    .then(function(res) {
+        if (!res.ok) return res.json().then(err => { throw new Error(err.error || '發牌失敗')});
+        return res.json();
+    })
+    .then(function(result) {
+        blackjackIsSubmitting = false;
         if (result.error) throw new Error(result.error);
 
-        updateBoard(result);
+        updateBoard(result, false); // Update with real cards
 
         if (result.status === 'in_progress') {
-            blackjackInProgress = true;
             setActionButtonsState(true);
             applyActionAvailability(result);
-            statusMsg.innerText = result.mustStand ? '你已拿到 21 點，請按停牌結算' : '你的回合：選擇要牌或停牌';
+            statusMsg.innerText = result.mustStand ? '你已拿到 21 點，請按停牌結算' : '輪到你：選擇加牌或停牌';
             statusMsg.style.color = '#ffcc00';
-            return;
+        } else {
+            finalizeBlackjack(result);
         }
-
-        finalizeBlackjack(result);
     })
-    .catch(function (e) {
+    .catch(function(e) {
         statusMsg.innerText = '❌ 錯誤: ' + e.message;
         statusMsg.style.color = 'red';
-        setActionButtonsState(false);
-        restoreOptimisticBalance();
+        resetBoard();
+        setDisplayedBalance(currentBalance); // Rollback balance
     });
 }
 
 function playerHit() {
-    if (!blackjackInProgress) return;
+    if (!blackjackInProgress || blackjackIsSubmitting) return;
+
+    // --- Optimistic UI Update ---
+    blackjackIsSubmitting = true;
+    setActionButtonsState(true);
     var statusMsg = document.getElementById('status-msg');
-    statusMsg.innerHTML = '<span class="loader"></span> 要牌中...';
+    statusMsg.innerText = '要牌中...';
     statusMsg.style.color = '#ffcc00';
 
+    optimisticPlayerCards.push({ hidden: true });
+    renderCardList('player-cards', optimisticPlayerCards, true);
+    if (window.audioManager) window.audioManager.play('card_flip');
+
+    // --- Background Fetch ---
     fetch('/api/game?game=blackjack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: 'hit',
-            address: user.address,
-            sessionId: user.sessionId
-        })
+        body: JSON.stringify({ action: 'hit', address: user.address, sessionId: user.sessionId })
     })
-    .then(function (res) { return res.json(); })
-    .then(function (result) {
+    .then(function(res) { 
+        if (!res.ok) return res.json().then(err => { throw new Error(err.error || '要牌失敗')});
+        return res.json(); 
+    })
+    .then(function(result) {
+        blackjackIsSubmitting = false;
         if (result.error) throw new Error(result.error);
-        updateBoard(result);
+        
+        updateBoard(result, false);
 
         if (result.status === 'in_progress') {
+            setActionButtonsState(true);
             applyActionAvailability(result);
-            statusMsg.innerText = result.mustStand ? '你已拿到 21 點，請按停牌結算' : '你的回合：選擇要牌或停牌';
-            statusMsg.style.color = '#ffcc00';
-            return;
+            statusMsg.innerText = result.mustStand ? '你已拿到 21 點，請按停牌結算' : '輪到你：選擇加牌或停牌';
+        } else {
+            finalizeBlackjack(result);
         }
-
-        finalizeBlackjack(result);
     })
-    .catch(function (e) {
+    .catch(function(e) {
         statusMsg.innerText = '❌ 錯誤: ' + e.message;
         statusMsg.style.color = 'red';
-        blackjackInProgress = false;
-        setActionButtonsState(false);
-        setTimeout(refreshBalance, 1000);
+        blackjackIsSubmitting = false;
+        // Rollback optimistic hit
+        optimisticPlayerCards.pop();
+        renderCardList('player-cards', optimisticPlayerCards, false);
+        setActionButtonsState(true); // Re-enable buttons
     });
 }
 
 function playerStand() {
-    if (!blackjackInProgress) return;
+    if (!blackjackInProgress || blackjackIsSubmitting) return;
+
+    // --- Optimistic UI Update ---
+    blackjackIsSubmitting = true;
+    setActionButtonsState(true);
     var statusMsg = document.getElementById('status-msg');
-    statusMsg.innerHTML = '<span class="loader"></span> 莊家補牌中...';
+    statusMsg.innerText = '莊家回合...';
     statusMsg.style.color = '#ffcc00';
 
+    // Optimistically reveal dealer's hole card if it exists
+    if (optimisticDealerCards[1] && optimisticDealerCards[1].hidden) {
+         if (window.audioManager) window.audioManager.play('card_flip');
+    }
+
+    // --- Background Fetch ---
     fetch('/api/game?game=blackjack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: 'stand',
-            address: user.address,
-            sessionId: user.sessionId
-        })
+        body: JSON.stringify({ action: 'stand', address: user.address, sessionId: user.sessionId })
     })
-    .then(function (res) { return res.json(); })
-    .then(function (result) {
+    .then(function(res) { 
+        if (!res.ok) return res.json().then(err => { throw new Error(err.error || '結算失敗')});
+        return res.json();
+    })
+    .then(function(result) {
+        blackjackIsSubmitting = false;
         if (result.error) throw new Error(result.error);
-        updateBoard(result);
+        
+        // The result contains the final state, so we just show it.
+        // A further enhancement could be to animate the dealer's draws.
+        updateBoard(result, false);
         finalizeBlackjack(result);
     })
-    .catch(function (e) {
+    .catch(function(e) {
         statusMsg.innerText = '❌ 錯誤: ' + e.message;
         statusMsg.style.color = 'red';
-        blackjackInProgress = false;
-        setActionButtonsState(false);
-        setTimeout(refreshBalance, 1000);
+        blackjackIsSubmitting = false;
+        setActionButtonsState(true); // Re-enable buttons for player to decide again
     });
 }
 
 function finalizeBlackjack(result) {
     var statusMsg = document.getElementById('status-msg');
     var txLog = document.getElementById('tx-log');
-    var hBal = document.getElementById('header-balance');
 
     blackjackInProgress = false;
+    blackjackIsSubmitting = false;
     setActionButtonsState(false);
 
+    var finalBalance = getCurrentUserBalance();
+    var winAmount = 0;
+
     if (result.isPush) {
-        var pushBalance = blackjackTempBalance + blackjackBetAmount;
-        setDisplayedBalance(pushBalance);
+        winAmount = blackjackBetAmount;
         statusMsg.innerText = '🤝 平手：退回本金';
         statusMsg.style.color = '#ffcc00';
     } else if (result.isWin) {
-        var profit = blackjackBetAmount * result.multiplier;
-        var newBalance = blackjackTempBalance + blackjackBetAmount + profit;
-        setDisplayedBalance(newBalance);
+        winAmount = blackjackBetAmount * (1 + result.multiplier);
         statusMsg.innerHTML = '🏆 你贏了！<span class="result-multiplier" style="display:inline;">' + result.multiplier + 'x</span>（' + result.reason + '）';
         statusMsg.style.color = '#00ff88';
+        if (window.audioManager) window.audioManager.play('win_small');
     } else {
+        winAmount = 0;
         statusMsg.innerText = '💀 你輸了：' + result.reason;
         statusMsg.style.color = '#ff4444';
     }
 
+    // We don't set the balance here optimistically, we wait for the server authoritative one.
     txLog.innerHTML = txLinkHTML(result.txHash);
-    setTimeout(refreshBalance, 6000);
-}
-
-function restoreOptimisticBalance() {
-    setDisplayedBalance(blackjackCurrentBalance);
+    setTimeout(refreshBalance, 3000); // Sync balance from server
 }

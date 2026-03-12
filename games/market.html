@@ -7,12 +7,26 @@
     <title>金融市場模擬 | 子熙幣</title>
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/market.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
 </head>
 
 <body class="market-body">
     <div class="page-header">
         <a href="/" class="back-btn">← 大廳</a>
         <div class="header-stats">
+            <div class="audio-player" id="audio-player-controls">
+                <button class="audio-player-mute-btn" id="mute-btn">🔊</button>
+                <div class="audio-player-volume-controls">
+                    <div class="audio-player-volume-slider">
+                        <span>BGM</span>
+                        <input type="range" id="bgm-volume-slider" min="0" max="1" step="0.05">
+                    </div>
+                    <div class="audio-player-volume-slider">
+                        <span>SFX</span>
+                        <input type="range" id="sfx-volume-slider" min="0" max="1" step="0.05">
+                    </div>
+                </div>
+            </div>
             <span class="vip" id="header-vip">-</span>
             <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
             <button class="logout-btn" onclick="logoutUser()">登出</button>
@@ -120,13 +134,51 @@
 
     <script src="../js/common.js"></script>
     <script src="../js/auth.js"></script>
+    <script src="../js/audio-manager.js"></script>
     <script src="../js/market.js"></script>
     <script>
+        function initAudioPlayer() {
+            const audioManager = window.audioManager;
+            const muteBtn = document.getElementById('mute-btn');
+            const bgmSlider = document.getElementById('bgm-volume-slider');
+            const sfxSlider = document.getElementById('sfx-volume-slider');
+
+            if (!audioManager || !muteBtn || !bgmSlider || !sfxSlider) return;
+
+            const updateMuteButton = () => {
+                muteBtn.textContent = audioManager.isMuted ? '🔇' : '🔊';
+            };
+
+            bgmSlider.value = audioManager.bgmVolume;
+            sfxSlider.value = audioManager.sfxVolume;
+            updateMuteButton();
+
+            muteBtn.addEventListener('click', () => {
+                audioManager.setMute(!audioManager.isMuted);
+                updateMuteButton();
+            });
+
+            bgmSlider.addEventListener('input', (e) => {
+                audioManager.setBgmVolume(parseFloat(e.target.value));
+            });
+
+            sfxSlider.addEventListener('input', (e) => {
+                audioManager.setSfxVolume(parseFloat(e.target.value));
+            });
+
+            console.log('🔊 Audio Player UI Initialized');
+        }
+
         window.onload = function () {
             checkGameAuth(function (data) {
                 updateUI(data);
                 startBalanceRefresh();
                 initMarketPage();
+                initAudioPlayer();
+
+                if (window.audioManager) {
+                    window.audioManager.playBGM('tense');
+                }
             });
         };
     </script>

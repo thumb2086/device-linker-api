@@ -1,11 +1,10 @@
-﻿import { randomBytes, scryptSync } from "crypto";
+import { randomBytes, scryptSync } from "crypto";
 import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 import { DEFAULT_RESET_THRESHOLD, collectHighTotalBetTargets } from "../lib/ops/reset-high-total-bets.js";
 import { buildChainTxDashboard } from "../lib/tx-monitor.js";
-import { sendManagedContractTx } from "../lib/admin-chain.js";
 import { settlementService } from "../lib/settlement-service.js";
 import {
     createAnnouncement,
@@ -121,6 +120,10 @@ function normalizeMaintenancePayload(body) {
     const title = sanitizeAdminUpdate(body.title || "");
     const message = sanitizeAdminUpdate(body.message || "");
     return { enabled, title, message };
+}
+
+async function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function listCustodyUsers(limit) {
@@ -525,16 +528,27 @@ export default async function handler(req, res) {
                     }
                 }
                 if (resetBalance) {
-                    const lossPoolAddress = settlementService.lossPoolAddress;
-                    const writeContract = settlementService.writeContract;
-                    for (const target of filteredTargets) {
-                        const balanceWei = target.balanceWei ?? 0n;
-                        if (balanceWei <= 0n) continue;
-                        await sendManagedContractTx(writeContract, "adminTransfer", [target.address, lossPoolAddress, balanceWei], {
-                            gasLimit: 220000,
-                            txSource: "ops_reset_balance",
-                            txMeta: { address: target.address }
-                        });
+                    const BATCH_SIZE = 10;
+                    const BATCH_DELAY_MS = 500;
+                    const targetsToReset = filteredTargets.filter(t => t.balanceWei && t.balanceWei > 0n);
+
+                    for (let i = 0; i < targetsToReset.length; i += BATCH_SIZE) {
+                        const batch = targetsToReset.slice(i, i + BATCH_SIZE);
+                        const promises = batch.map(target =>
+                            settlementService.settle({
+                                userAddress: target.address,
+                                betWei: target.balanceWei,
+                                payoutWei: 0n,
+                                source: "ops_reset_balance",
+                                meta: { operator: sessionAddress }
+                            }).catch(e => ({ address: target.address, error: e.message }))
+                        );
+                        
+                        await Promise.all(promises);
+
+                        if (i + BATCH_SIZE < targetsToReset.length) {
+                            await sleep(BATCH_DELAY_MS);
+                        }
                     }
                 }
             }

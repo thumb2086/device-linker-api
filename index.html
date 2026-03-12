@@ -195,6 +195,27 @@
     <script src="js/common.js"></script>
     <script src="js/announcements.js"></script>
     <script src="js/auth.js"></script>
+
+    <!-- Deep Link sessionId handler -->
+    <script>
+      (function() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const sessionId = params.get('sessionId');
+
+            if (sessionId) {
+                console.log('Deep Link: Found sessionId in URL.', sessionId);
+                localStorage.setItem('activeSessionId', sessionId);
+                // Clean the URL by removing query parameters.
+                window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+                console.log('Deep Link: SessionId stored and URL cleaned.');
+            }
+        } catch (e) {
+            console.error('Error processing deep link sessionId:', e);
+        }
+      })();
+    </script>
+
     <script>
         function escapeLobbyHtml(text) {
             return String(text || '')

@@ -10,6 +10,19 @@
     <link rel="stylesheet" href="../css/guides.css">
     <link rel="stylesheet" href="../css/shop.css">
     <style>
+        /* Core Tab Styles */
+        .shop-tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        .shop-tab-content.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .guide-section-head {
             margin: 48px 0 24px;
             padding-bottom: 12px;
@@ -290,8 +303,8 @@
     </div>
 
     <script src="../js/common.js"></script>
-    <script src="../js/shop.js"></script>
     <script>
+        // --- Data Loading for Reward Guide ---
         function rarityLabel(rarity) {
             var map = {
                 common: '普通',
@@ -436,30 +449,9 @@
             document.getElementById('guide-avatars').innerHTML = avatarsHtml || '<div class="reward-empty">暫無資料</div>';
             document.getElementById('guide-rules').innerHTML = rulesHtml || '<div class="reward-empty">暫無資料</div>';
         }
-        
-        function initTabs() {
-            var tabButtons = document.querySelectorAll('.shop-tab-btn');
-            var tabContents = document.querySelectorAll('.shop-tab-content');
 
-            tabButtons.forEach(function (button) {
-                button.addEventListener('click', function () {
-                    tabButtons.forEach(function (btn) { btn.classList.remove('active'); });
-                    this.classList.add('active');
-                    var tabName = this.getAttribute('data-tab');
-
-                    tabContents.forEach(function (content) {
-                        content.classList.remove('active');
-                        if (content.id === tabName + '-content') {
-                            content.classList.add('active');
-                        }
-                    });
-                });
-            });
-        }
-
-        window.onload = function () {
-            initTabs();
-            fetch('/api/rewards', {
+        function loadRewardData() {
+             fetch('/api/rewards', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'summary', sessionId: 'public' })
@@ -469,6 +461,31 @@
                     if (data && data.success) renderGuide(data);
                 })
                 .catch(function (e) { console.error('Guide load failed', e); });
+        }
+        
+        // --- Tab Switching Logic ---
+        function initTabs() {
+            var tabButtons = document.querySelectorAll('.shop-tab-btn');
+            var tabContents = document.querySelectorAll('.shop-tab-content');
+
+            tabButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    // Deactivate all buttons and content
+                    tabButtons.forEach(function (btn) { btn.classList.remove('active'); });
+                    tabContents.forEach(function (content) { content.classList.remove('active'); });
+
+                    // Activate clicked button and corresponding content
+                    this.classList.add('active');
+                    var tabName = this.getAttribute('data-tab');
+                    var activeContent = document.getElementById(tabName + '-content');
+                    if (activeContent) activeContent.classList.add('active');
+                });
+            });
+        }
+
+        window.onload = function () {
+            initTabs();
+            loadRewardData();
         };
     </script>
 </body>

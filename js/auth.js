@@ -4,6 +4,7 @@ var authDeepLink = '';
 var lobbyAuthReadyCallback = null;
 var CUSTODY_CRED_KEY = 'casino_custody_credentials';
 var APP_AUTH_KEY = 'casino_auth';
+var APP_QUICK_CRED_KEY = 'casino_app_quick_credentials';
 
 function buildDeepLink(sessionId) {
     return 'dlinker://login?sessionId=' + encodeURIComponent(sessionId);
@@ -86,11 +87,39 @@ function updateCustodyQuickLoginUI() {
     if (clearBtn) clearBtn.classList.add('hidden');
 }
 
+
+function getStoredAppQuickCredentials() {
+    try {
+        var raw = localStorage.getItem(APP_QUICK_CRED_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function storeAppQuickCredentials(address, publicKey) {
+    localStorage.setItem(APP_QUICK_CRED_KEY, JSON.stringify({
+        address: String(address || '').trim(),
+        publicKey: String(publicKey || '').trim()
+    }));
+}
+
+function clearAppQuickCredentials() {
+    localStorage.removeItem(APP_QUICK_CRED_KEY);
+}
+
 function updateAppQuickLoginUI() {
     var btn = document.getElementById('app-quick-btn');
     var meta = document.getElementById('app-quick-meta');
     var clearBtn = document.getElementById('app-clear-btn');
-    var stored = getStoredAuth();
+    var stored = getStoredAppQuickCredentials();
+    if (!stored) {
+        var fallbackAuth = getStoredAuth();
+        if (fallbackAuth && fallbackAuth.address && fallbackAuth.publicKey) {
+            storeAppQuickCredentials(fallbackAuth.address, fallbackAuth.publicKey);
+            stored = getStoredAppQuickCredentials();
+        }
+    }
     if (!btn || !meta) return;
 
     if (stored && stored.address && stored.publicKey) {
@@ -129,6 +158,7 @@ function initLobbyAuth(onAuthorized) {
                 user.address = stored.address;
                 user.publicKey = stored.publicKey;
                 user.sessionId = stored.sessionId;
+                if (stored.address && stored.publicKey) storeAppQuickCredentials(stored.address, stored.publicKey);
                 if (lobbyAuthReadyCallback) lobbyAuthReadyCallback(data);
             } else {
                 clearAuth();
@@ -225,6 +255,18 @@ function createAuthSession(callback) {
         .catch(function () { callback(null); });
 }
 
+
+function ensureQRCodeLibrary() {
+    if (typeof QRCode !== 'undefined') return;
+    var existing = document.querySelector('script[data-qrcode-lib="1"]');
+    if (existing) return;
+    var script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js';
+    script.async = true;
+    script.setAttribute('data-qrcode-lib', '1');
+    document.head.appendChild(script);
+}
+
 /**
  * 顯示 QR Code 認證畫面並開始輪詢
  */
@@ -239,6 +281,7 @@ function showQRAuth(onAuthorized) {
 
     var canvas = document.getElementById('qr-canvas');
     if (!canvas) return;
+    ensureQRCodeLibrary();
 
     function renderSession(sessionId, deepLink) {
         user.sessionId = sessionId;
@@ -304,6 +347,7 @@ function startAuthPolling(sessionId, onAuthorized) {
                 user.sessionId = sessionId;
 
                 storeAuth(sessionId, data.address, data.publicKey);
+                storeAppQuickCredentials(data.address, data.publicKey);
 
                 if (lobbyAuthReadyCallback) lobbyAuthReadyCallback(data);
             })
@@ -378,7 +422,7 @@ function openAppAuth() {
 }
 
 function quickAppAuth() {
-    var stored = getStoredAuth();
+    var stored = getStoredAppQuickCredentials();
     if (!stored || !stored.address || !stored.publicKey) {
         updateAuthMessage('目前沒有已記住的 App 授權資訊');
         updateAppQuickLoginUI();
@@ -417,6 +461,7 @@ function quickAppAuth() {
         user.publicKey = data.publicKey;
         user.sessionId = data.sessionId;
         storeAuth(data.sessionId, user.address, user.publicKey);
+        storeAppQuickCredentials(user.address, user.publicKey);
         updateAppQuickLoginUI();
 
         if (lobbyAuthReadyCallback) {
@@ -431,6 +476,7 @@ function quickAppAuth() {
 }
 
 function clearAppQuickAuth() {
+    clearAppQuickCredentials();
     clearAuth();
     updateAppQuickLoginUI();
     updateAuthMessage('已清除 App 快速登入資料');
@@ -453,6 +499,79 @@ function copyAuthCode() {
     document.body.removeChild(tmp);
 
     updateAuthMessage('✅ 已複製授權碼，請到 App 貼上登入');
+}
+
+
+function startAppCredentialAuth() {
+    var remembered = getStoredAppQuickCredentials() || getStoredAuth() || {};
+    var addressInput = window.prompt('請輸入 App 錢包地址（0x 開頭）', remembered.address || '');
+    if (addressInput === null) return;
+    var address = String(addressInput || '').trim();
+    if (!address) {
+        updateAuthMessage('請先輸入錢包地址');
+        return;
+    }
+
+    var publicKeyInput = window.prompt('請輸入 App 公鑰', remembered.publicKey || '');
+    if (publicKeyInput === null) return;
+    var publicKey = String(publicKeyInput || '').trim();
+    if (!publicKey) {
+        updateAuthMessage('請先輸入公鑰');
+        return;
+    }
+
+    var platform = detectClientPlatform();
+    var clientType = detectClientType(platform);
+    updateAuthMessage('<span class="loader"></span> App 免跳轉快速登入中...');
+
+    fetch('/api/user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'create_session',
+            isQuickAuth: true,
+            address: address,
+            publicKey: publicKey,
+            platform: platform,
+            clientType: clientType
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || !data.success || !data.sessionId || !data.address || !data.publicKey) {
+                throw new Error((data && data.error) ? data.error : 'App 免跳轉快速登入失敗');
+            }
+
+            user.address = data.address;
+            user.publicKey = data.publicKey;
+            user.sessionId = data.sessionId;
+            storeAuth(data.sessionId, data.address, data.publicKey);
+            storeAppQuickCredentials(data.address, data.publicKey);
+            updateAppQuickLoginUI();
+
+            verifySession(data.sessionId, function (valid, authData) {
+                if (valid && lobbyAuthReadyCallback) {
+                    lobbyAuthReadyCallback(authData);
+                    return;
+                }
+
+                if (lobbyAuthReadyCallback) {
+                    lobbyAuthReadyCallback({
+                        status: 'authorized',
+                        address: data.address,
+                        publicKey: data.publicKey,
+                        balance: '0.00',
+                        totalBet: '0.00',
+                        vipLevel: '普通會員'
+                    });
+                }
+            });
+
+            updateAuthMessage('✅ App 免跳轉快速登入成功');
+        })
+        .catch(function (err) {
+            updateAuthMessage('❌ App 免跳轉快速登入失敗：' + err.message);
+        });
 }
 
 function startCustodyAuth() {

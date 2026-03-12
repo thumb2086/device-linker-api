@@ -13,7 +13,7 @@ var isClockSyncing = false;
 var lastClockSyncAt = 0;
 var lastObservedRouletteRoundId = null;
 
-var pendingRouletteBets = []; // [{amount, betType, betValue, roundId, closesAt}]
+var pendingRouletteBets = []; // [{amount, betType, betValue, roundId, closesAt, tempId?}]
 var EUROPEAN_LAYOUT = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 
 var BET_OPTIONS = {
@@ -290,9 +290,12 @@ function startRouletteDraw(roundId) {
             var totalPayout = 0;
             roundBets.forEach(function (b) {
                 var mult = evaluateRouletteBet(winningNumber, b.betType, b.betValue);
-                if (mult > 0 || (winningNumber === Number(b.betValue) && b.betType === 'number')) {
-                    totalPayout += b.amount * (mult + 1);
+                // The actual win amount is amount * (mult), payout is amount * (mult + 1)
+                var payout = (mult > 0) ? b.amount * (mult + 1) : 0;
+                if(b.betType === 'number' && Number(b.betValue) === winningNumber){
+                    payout = b.amount * (mult + 1);
                 }
+                totalPayout += payout;
             });
 
             if (status) {
@@ -375,34 +378,53 @@ function onBetTypeChange() {
 function spinRoulette() {
     if (isRouletteSubmitting) return;
 
-    var amount = parseFloat(document.getElementById('bet-amount').value);
+    var amountInput = document.getElementById('bet-amount');
+    var amount = parseFloat(amountInput.value);
     var betType = document.getElementById('bet-type').value;
     var betValue = document.getElementById('bet-value').value;
     var status = document.getElementById('status-msg');
-    var spinBtn = document.getElementById('spin-btn');
-    var hBal = document.getElementById('header-balance');
 
     if (isNaN(amount) || amount <= 0) {
         status.innerText = '請輸入有效的金額';
+        status.style.color = '#ffcc00';
+        return;
+    }
+    
+    var currentBalance = getCurrentUserBalance();
+    if (amount > currentBalance) {
+        status.innerText = '餘額不足';
+        status.style.color = 'red';
         return;
     }
 
     var state = getCurrentRouletteState();
-    if (state.now >= state.bettingClosesAt) {
+    if (!state.isBettingOpen) {
         status.innerText = '已封盤，請等下一輪';
         status.style.color = '#ffd36a';
         return;
     }
 
     isRouletteSubmitting = true;
-    spinBtn.disabled = true;
-    status.innerHTML = '<span class="loader"></span> 下注交易中...';
     if (window.audioManager) window.audioManager.play('bet');
-    status.style.color = '#ffcc00';
 
-    var currentBalance = getCurrentUserBalance();
-    var tempBalance = currentBalance - amount;
-    setDisplayedBalance(tempBalance);
+    status.innerText = '下注成功，等待開獎';
+    status.style.color = '#00ff88';
+    setDisplayedBalance(currentBalance - amount);
+
+    var tempId = 'temp_' + Date.now();
+    var pendingBet = {
+        amount: amount,
+        betType: betType,
+        betValue: betValue,
+        roundId: state.roundId, 
+        closesAt: state.closesAt,
+        tempId: tempId
+    };
+    pendingRouletteBets.push(pendingBet);
+    updatePendingRouletteBetsUI();
+
+    var spinBtn = document.getElementById('spin-btn');
+    if (spinBtn) spinBtn.disabled = true;
 
     fetch('/api/game?game=roulette', {
         method: 'POST',
@@ -415,40 +437,54 @@ function spinRoulette() {
             betValue: betValue
         })
     })
-        .then(function (res) { return res.json(); })
-        .then(function (result) {
-            if (result.serverNowTs) updateServerTime(result.serverNowTs);
-            if (result.error) throw new Error(result.error);
-
-            status.innerText = '下注成功，等待開獎';
-            status.style.color = '#00ff88';
-
-            pendingRouletteBets.push({
-                amount: amount,
-                betType: betType,
-                betValue: betValue,
-                roundId: Number(result.roundId),
-                closesAt: Number(result.closesAt)
+    .then(function (res) {
+        if (!res.ok) {
+            return res.json().then(function(jsonError) {
+                 throw new Error(jsonError.error || '下注請求失敗');
+            }).catch(function() {
+                 throw new Error('伺服器錯誤: ' + res.status);
             });
-            updatePendingRouletteBetsUI();
+        }
+        return res.json();
+    })
+    .then(function (result) {
+        if (result.error) throw new Error(result.error);
+        if (result.serverNowTs) updateServerTime(result.serverNowTs);
 
-            updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
-            maybeDrawRoulette();
-        })
-        .catch(function (e) {
-            status.innerText = '錯誤: ' + e.message;
-            status.style.color = 'red';
-            setDisplayedBalance(currentBalance);
-            syncRouletteClock(true);
-        })
-        .finally(function () {
-            isRouletteSubmitting = false;
-            spinBtn.disabled = false;
+        var confirmedBet = pendingRouletteBets.find(function(b) { return b.tempId === tempId; });
+        if (confirmedBet) {
+            confirmedBet.roundId = Number(result.roundId);
+            confirmedBet.closesAt = Number(result.closesAt);
+            delete confirmedBet.tempId;
+        }
+
+        updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
+        maybeDrawRoulette();
+    })
+    .catch(function (e) {
+        status.innerText = '下注失敗: ' + e.message;
+        status.style.color = 'red';
+
+        setDisplayedBalance(currentBalance);
+
+        pendingRouletteBets = pendingRouletteBets.filter(function(b) {
+            return b.tempId !== tempId;
         });
+        updatePendingRouletteBetsUI();
+
+        syncRouletteClock(true);
+    })
+    .finally(function () {
+        isRouletteSubmitting = false;
+        var currentState = getCurrentRouletteState();
+        var spinBtn = document.getElementById('spin-btn');
+        if (spinBtn) spinBtn.disabled = !currentState.isBettingOpen;
+    });
 }
 
 window.addEventListener('load', function () {
     buildEuropeanWheelVisual();
+    onBetTypeChange();
     syncRouletteClock(true);
     updateRouletteRoundHint();
     setInterval(updateRouletteRoundHint, 1000);

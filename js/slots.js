@@ -513,7 +513,7 @@ class SlotMachine {
         setTimeout(refreshBalance, 2200);
     }
 
-    async spin() {
+    spin() {
         if (this.isSpinning) return;
 
         var betAmount = parseFloat(document.getElementById("bet-amount").value);
@@ -532,64 +532,83 @@ class SlotMachine {
 
         this.setSpinningState(true);
         this.clearPaylines();
-        this.setSettlingState(false);
+        this.setSettlingState(true); // Optimistically assume we need to settle
         this.updateTxLog("", "", "");
         this.setStatus("<span class=\"loader\"></span> 旋轉中...", false, true);
         if (window.audioManager) window.audioManager.play('bet');
         this.setResultState("旋轉中", "正在生成盤面與結果。", "");
-
-        this.updateDisplayedBalance(displayedBalanceBeforeSpin, 5000, "slots-pre-spin");
+        
+        this.updateDisplayedBalance(displayedBalanceBeforeSpin - betAmount, 5000, "slots-pre-spin");
 
         var self = this;
         var minSpinMs = 550;
         var startedAt = Date.now();
         var spinSoundId = window.audioManager ? window.audioManager.play('slot_reel', { loop: true }) : null;
+        
         var spinInterval = setInterval(function () {
             for (var index = 0; index < self.cells.length; index += 1) {
                 self.renderSymbol(self.cells[index], self.symbolKeys[Math.floor(Math.random() * self.symbolKeys.length)], true);
             }
         }, 90);
 
-        try {
-            var response = await fetch("/api/game?game=slots", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "spin",
-                    address: user.address,
-                    amount: betAmount,
-                    sessionId: user.sessionId
-                })
-            });
-            var result = await response.json();
-            var elapsedMs = Date.now() - startedAt;
-            if (elapsedMs < minSpinMs) {
-                await new Promise(function (resolve) {
-                    setTimeout(resolve, minSpinMs - elapsedMs);
+        fetch("/api/game?game=slots", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "spin",
+                address: user.address,
+                amount: betAmount,
+                sessionId: user.sessionId
+            })
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                return response.json().then(function(err) { 
+                    throw new Error((err && err.error) || "老虎機交易失敗"); 
+                }).catch(function(){
+                    throw new Error('伺服器錯誤: ' + response.status);
                 });
             }
+            return response.json();
+        })
+        .then(function(result) {
+            var elapsedMs = Date.now() - startedAt;
+            var promise = (elapsedMs < minSpinMs) 
+                ? new Promise(resolve => setTimeout(resolve, minSpinMs - elapsedMs))
+                : Promise.resolve();
+
+            promise.then(function() {
+                clearInterval(spinInterval);
+                if (window.audioManager && spinSoundId) window.audioManager.stop('slot_reel', spinSoundId);
+                if (window.audioManager) window.audioManager.play('slot_stop');
+
+                if (result.error) {
+                    throw new Error((result.details ? (result.error + "：" + result.details) : result.error) || "老虎機交易失敗");
+                }
+
+                self.setSpinningState(false);
+                self.showPendingResult(result);
+            });
+        })
+        .catch(function(error) {
             clearInterval(spinInterval);
             if (window.audioManager && spinSoundId) window.audioManager.stop('slot_reel', spinSoundId);
-            if (window.audioManager) window.audioManager.play('slot_stop');
 
-            if (!result || result.error) {
-                throw new Error((result && (result.details ? (result.error + "：" + result.details) : result.error)) || "老虎機交易失敗");
-            }
-
-            this.setSpinningState(false);
-            this.showPendingResult(result);
-        } catch (error) {
-            clearInterval(spinInterval);
             console.error("Slots spin failed:", error);
-            this.setSettlingState(false);
-            this.setSpinningState(false);
-            this.renderBoard(null, false);
-            this.updateDisplayedBalance(displayedBalanceBeforeSpin, 12000, "slots-spin-error");
-            this.setStatus("❌ " + error.message, true, false);
-            this.setResultState("交易失敗", "這筆旋轉沒有完成結算，餘額已回復。", "is-error");
-            this.updateTxLog("", "", error.message);
-            syncAuthoritativeChainBalance();
-        }
+            self.setSettlingState(false);
+            self.setSpinningState(false);
+            self.renderBoard(null, false);
+            
+            // Rollback the balance
+            self.updateDisplayedBalance(displayedBalanceBeforeSpin, 12000, "slots-spin-error");
+
+            self.setStatus("❌ " + error.message, true, false);
+            self.setResultState("交易失敗", "這筆旋轉沒有完成結算，餘額已回復。", "is-error");
+            self.updateTxLog("", "", error.message);
+            
+            // Optionally sync balance from server to be safe
+            setTimeout(syncAuthoritativeChainBalance, 1000);
+        });
     }
 
     async resumePendingSettlements() {

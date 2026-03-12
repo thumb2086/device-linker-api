@@ -12,7 +12,7 @@ var isClockSyncing = false;
 var lastClockSyncAt = 0;
 var lastObservedCoinflipRoundId = null;
 
-var pendingCoinflipBets = []; // [{amount, choice, roundId, closesAt}]
+var pendingCoinflipBets = []; // [{amount, choice, roundId, closesAt, tempId?}]
 
 function calcDisplayBalance(realBalance) {
     if (pendingCoinflipBets.length > 0) {
@@ -240,11 +240,17 @@ function play(choice) {
     var amountInput = document.getElementById('bet-amount');
     var amount = parseFloat(amountInput.value);
     var status = document.getElementById('status-msg');
-    var btn1 = document.getElementById('play-btn');
-    var btn2 = document.getElementById('play-btn-2');
 
     if (isNaN(amount) || amount <= 0) {
         status.innerText = '請輸入有效的金額';
+        status.style.color = '#ffcc00';
+        return;
+    }
+    
+    var currentBalance = getCurrentUserBalance();
+    if (amount > currentBalance) {
+        status.innerText = '餘額不足';
+        status.style.color = 'red';
         return;
     }
 
@@ -256,15 +262,27 @@ function play(choice) {
     }
 
     isCoinflipSubmitting = true;
-    btn1.disabled = true;
-    btn2.disabled = true;
     if (window.audioManager) window.audioManager.play('bet');
-    status.innerHTML = '<span class="loader"></span> 下注交易中...';
-    status.style.color = '#ffcc00';
 
-    var currentBalance = getCurrentUserBalance();
-    var tempBalance = currentBalance - amount;
-    setDisplayedBalance(tempBalance);
+    status.innerText = '下注成功，等待開獎';
+    status.style.color = '#00ff88';
+    setDisplayedBalance(currentBalance - amount);
+
+    var tempId = 'temp_' + Date.now();
+    var pendingBet = {
+        amount: amount,
+        choice: choice,
+        roundId: state.roundId,
+        closesAt: state.closesAt,
+        tempId: tempId 
+    };
+    pendingCoinflipBets.push(pendingBet);
+    updatePendingCoinflipBetsUI();
+
+    var btn1 = document.getElementById('play-btn');
+    var btn2 = document.getElementById('play-btn-2');
+    if (btn1) btn1.disabled = true;
+    if (btn2) btn2.disabled = true;
 
     fetch('/api/game?game=coinflip', {
         method: 'POST',
@@ -276,37 +294,57 @@ function play(choice) {
             sessionId: user.sessionId
         })
     })
-        .then(function (res) { return res.json(); })
-        .then(function (result) {
-            if (result.serverNowTs) updateServerTime(result.serverNowTs);
-            if (result.error) throw new Error(result.error);
-
-            status.innerText = '下注成功，等待開獎';
-            status.style.color = '#00ff88';
-
-            pendingCoinflipBets.push({
-                amount: amount,
-                choice: choice,
-                roundId: Number(result.roundId),
-                closesAt: Number(result.closesAt)
+    .then(function (res) {
+        if (!res.ok) {
+            return res.json().then(function(jsonError) {
+                 throw new Error(jsonError.error || '下注請求失敗');
+            }).catch(function() {
+                 throw new Error('伺服器錯誤: ' + res.status);
             });
-            updatePendingCoinflipBetsUI();
+        }
+        return res.json();
+    })
+    .then(function (result) {
+        if (result.error) {
+            throw new Error(result.error);
+        }
 
-            updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
-            maybeDrawCoinflip();
-        })
-        .catch(function (e) {
-            status.innerText = '錯誤: ' + e.message;
-            status.style.color = 'red';
-            setDisplayedBalance(currentBalance);
-            syncCoinflipClock(true);
-        })
-        .finally(function () {
-            isCoinflipSubmitting = false;
-            btn1.disabled = false;
-            btn2.disabled = false;
+        if (result.serverNowTs) updateServerTime(result.serverNowTs);
+
+        var confirmedBet = pendingCoinflipBets.find(function(b) { return b.tempId === tempId; });
+        if (confirmedBet) {
+            confirmedBet.roundId = Number(result.roundId);
+            confirmedBet.closesAt = Number(result.closesAt);
+            delete confirmedBet.tempId;
+        }
+
+        updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
+        maybeDrawCoinflip();
+    })
+    .catch(function (e) {
+        status.innerText = '下注失敗: ' + e.message;
+        status.style.color = 'red';
+
+        setDisplayedBalance(currentBalance);
+
+        pendingCoinflipBets = pendingCoinflipBets.filter(function(b) {
+            return b.tempId !== tempId;
         });
+        updatePendingCoinflipBetsUI();
+        
+        syncCoinflipClock(true);
+    })
+    .finally(function () {
+        isCoinflipSubmitting = false; 
+        
+        var currentState = getCurrentCoinflipState();
+        var btn1 = document.getElementById('play-btn');
+        var btn2 = document.getElementById('play-btn-2');
+        if (btn1) btn1.disabled = !currentState.isBettingOpen;
+        if (btn2) btn2.disabled = !currentState.isBettingOpen;
+    });
 }
+
 
 window.addEventListener('load', function () {
     syncCoinflipClock(true);

@@ -113,6 +113,13 @@ function updateAppQuickLoginUI() {
     var meta = document.getElementById('app-quick-meta');
     var clearBtn = document.getElementById('app-clear-btn');
     var stored = getStoredAppQuickCredentials();
+    if (!stored) {
+        var fallbackAuth = getStoredAuth();
+        if (fallbackAuth && fallbackAuth.address && fallbackAuth.publicKey) {
+            storeAppQuickCredentials(fallbackAuth.address, fallbackAuth.publicKey);
+            stored = getStoredAppQuickCredentials();
+        }
+    }
     if (!btn || !meta) return;
 
     if (stored && stored.address && stored.publicKey) {
@@ -151,6 +158,7 @@ function initLobbyAuth(onAuthorized) {
                 user.address = stored.address;
                 user.publicKey = stored.publicKey;
                 user.sessionId = stored.sessionId;
+                if (stored.address && stored.publicKey) storeAppQuickCredentials(stored.address, stored.publicKey);
                 if (lobbyAuthReadyCallback) lobbyAuthReadyCallback(data);
             } else {
                 clearAuth();
@@ -247,6 +255,18 @@ function createAuthSession(callback) {
         .catch(function () { callback(null); });
 }
 
+
+function ensureQRCodeLibrary() {
+    if (typeof QRCode !== 'undefined') return;
+    var existing = document.querySelector('script[data-qrcode-lib="1"]');
+    if (existing) return;
+    var script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js';
+    script.async = true;
+    script.setAttribute('data-qrcode-lib', '1');
+    document.head.appendChild(script);
+}
+
 /**
  * 顯示 QR Code 認證畫面並開始輪詢
  */
@@ -261,6 +281,7 @@ function showQRAuth(onAuthorized) {
 
     var canvas = document.getElementById('qr-canvas');
     if (!canvas) return;
+    ensureQRCodeLibrary();
 
     function renderSession(sessionId, deepLink) {
         user.sessionId = sessionId;
@@ -326,6 +347,7 @@ function startAuthPolling(sessionId, onAuthorized) {
                 user.sessionId = sessionId;
 
                 storeAuth(sessionId, data.address, data.publicKey);
+                storeAppQuickCredentials(data.address, data.publicKey);
 
                 if (lobbyAuthReadyCallback) lobbyAuthReadyCallback(data);
             })
@@ -481,7 +503,8 @@ function copyAuthCode() {
 
 
 function startAppCredentialAuth() {
-    var addressInput = window.prompt('請輸入 App 錢包地址（0x 開頭）');
+    var remembered = getStoredAppQuickCredentials() || getStoredAuth() || {};
+    var addressInput = window.prompt('請輸入 App 錢包地址（0x 開頭）', remembered.address || '');
     if (addressInput === null) return;
     var address = String(addressInput || '').trim();
     if (!address) {
@@ -489,7 +512,7 @@ function startAppCredentialAuth() {
         return;
     }
 
-    var publicKeyInput = window.prompt('請輸入 App 公鑰');
+    var publicKeyInput = window.prompt('請輸入 App 公鑰', remembered.publicKey || '');
     if (publicKeyInput === null) return;
     var publicKey = String(publicKeyInput || '').trim();
     if (!publicKey) {

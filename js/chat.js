@@ -1,7 +1,15 @@
 var chatPollTimer = null;
 var chatLastRenderKey = '';
-var chatBarrageTimer = null;
 var chatWidgetCollapsed = false;
+var chatSeenMessageIds = {};
+var chatBarrageQueue = [];
+var chatBarrageFlushTimer = null;
+var BARRAGE_LANE_COUNT = 8;
+var BARRAGE_LANE_BASE_TOP = 70;
+var BARRAGE_LANE_GAP = 42;
+var BARRAGE_MIN_DURATION = 7;
+var BARRAGE_MAX_DURATION = 14;
+var barrageLaneNextReadyAt = new Array(BARRAGE_LANE_COUNT).fill(0);
 
 function escapeChatHtml(text) {
     return String(text || '')
@@ -31,6 +39,17 @@ function formatChatTime(iso) {
     return hh + ':' + mm;
 }
 
+function getGlobalBarrageLayer() {
+    return document.getElementById('global-barrage-layer');
+}
+
+function setGlobalBarrageEnabled(enabled) {
+    var layer = getGlobalBarrageLayer();
+    if (!layer) return;
+    if (enabled) layer.classList.remove('hidden');
+    else layer.classList.add('hidden');
+}
+
 function applyLobbyChatWidgetState() {
     var body = document.getElementById('chat-widget-body');
     var btn = document.getElementById('chat-toggle-btn');
@@ -40,11 +59,13 @@ function applyLobbyChatWidgetState() {
     if (chatWidgetCollapsed) {
         body.classList.add('hidden');
         widget.classList.add('chat-widget-collapsed');
-        btn.innerText = '+';
+        btn.innerText = '展開';
+        btn.setAttribute('aria-expanded', 'false');
     } else {
         body.classList.remove('hidden');
         widget.classList.remove('chat-widget-collapsed');
-        btn.innerText = '－';
+        btn.innerText = '收合';
+        btn.setAttribute('aria-expanded', 'true');
     }
 }
 
@@ -72,11 +93,80 @@ function renderChatMessages(messages) {
     }).join('');
 
     list.scrollTop = list.scrollHeight;
-    renderChatBarrage(rows.slice(-10));
+    queueBarrageMessages(rows);
+}
+
+function queueBarrageMessages(rows) {
+    var items = Array.isArray(rows) ? rows : [];
+    for (var i = 0; i < items.length; i += 1) {
+        var item = items[i] || {};
+        var id = String(item.id || '');
+        if (!id || chatSeenMessageIds[id]) continue;
+        chatSeenMessageIds[id] = true;
+        chatBarrageQueue.push(item);
+    }
+    flushBarrageQueue();
+}
+
+function pickLane(nowTs) {
+    var idx = 0;
+    var best = barrageLaneNextReadyAt[0] || 0;
+    for (var i = 1; i < barrageLaneNextReadyAt.length; i += 1) {
+        if (barrageLaneNextReadyAt[i] < best) {
+            best = barrageLaneNextReadyAt[i];
+            idx = i;
+        }
+    }
+    if (best > nowTs) return -1;
+    return idx;
+}
+
+function renderBarrageItem(item, laneIndex) {
+    var layer = getGlobalBarrageLayer();
+    if (!layer) return;
+
+    var text = '💬 ' + getChatDisplayName(item) + '：' + String(item && item.message || '');
+    var textLen = text.length;
+    var duration = Math.min(BARRAGE_MAX_DURATION, Math.max(BARRAGE_MIN_DURATION, 5 + textLen * 0.08));
+
+    var node = document.createElement('div');
+    node.className = 'global-barrage-item';
+    node.style.top = (BARRAGE_LANE_BASE_TOP + laneIndex * BARRAGE_LANE_GAP) + 'px';
+    node.style.animationDuration = duration + 's';
+    node.textContent = text;
+
+    layer.appendChild(node);
+
+    var nowTs = Date.now();
+    barrageLaneNextReadyAt[laneIndex] = nowTs + Math.max(2200, duration * 380);
+
+    node.addEventListener('animationend', function () {
+        if (node && node.parentNode) node.parentNode.removeChild(node);
+    });
+}
+
+function flushBarrageQueue() {
+    if (chatBarrageFlushTimer) {
+        clearTimeout(chatBarrageFlushTimer);
+        chatBarrageFlushTimer = null;
+    }
+    if (!chatBarrageQueue.length) return;
+
+    var nowTs = Date.now();
+    var laneIndex = pickLane(nowTs);
+    if (laneIndex < 0) {
+        chatBarrageFlushTimer = setTimeout(flushBarrageQueue, 260);
+        return;
+    }
+
+    var next = chatBarrageQueue.shift();
+    renderBarrageItem(next, laneIndex);
+
+    chatBarrageFlushTimer = setTimeout(flushBarrageQueue, 200);
 }
 
 function loadChatMessages() {
-    return fetch('/api/chat?action=list&limit=40')
+    return fetch('/api/chat?action=list&limit=60')
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '聊天室載入失敗');
@@ -123,31 +213,11 @@ function sendChatMessage(type) {
         });
 }
 
-function renderChatBarrage(messages) {
-    var lane = document.getElementById('chat-barrage-lane');
-    if (!lane) return;
-
-    if (chatBarrageTimer) {
-        clearTimeout(chatBarrageTimer);
-        chatBarrageTimer = null;
-    }
-
-    lane.innerHTML = messages.map(function (item, idx) {
-        var delay = idx * 0.55;
-        return '<div class="chat-barrage-item" style="animation-delay:' + delay + 's">💬 ' +
-            escapeChatHtml(getChatDisplayName(item)) + '：' + escapeChatHtml(item.message || '') +
-            '</div>';
-    }).join('');
-
-    chatBarrageTimer = setTimeout(function () {
-        lane.innerHTML = '';
-    }, 8600);
-}
-
 function startLobbyChat() {
     stopLobbyChat();
     chatWidgetCollapsed = false;
     applyLobbyChatWidgetState();
+    setGlobalBarrageEnabled(true);
     loadChatMessages();
     chatPollTimer = setInterval(loadChatMessages, 3500);
 }

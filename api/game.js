@@ -12,6 +12,9 @@ import { getSession } from "../lib/session-store.js";
 import { randomUUID } from "crypto";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 
+const CHAT_STREAM_KEY = "chat:stream:v1";
+const CHAT_MAX_ITEMS = 120;
+
 const GAME_HANDLERS = {
     coinflip: coinflipHandler,
     roulette: rouletteHandler,
@@ -41,6 +44,59 @@ function resolveGame(req) {
     const byQuery = getSearchParam(req, "game");
     const byBody = req.body && typeof req.body.game === "string" ? req.body.game : "";
     return String(byQuery || byBody || "").trim().toLowerCase();
+}
+
+function toSafeNumber(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+}
+
+function shortAddress(address) {
+    const normalized = String(address || "").trim();
+    if (!normalized) return "匿名玩家";
+    if (normalized.length <= 12) return normalized;
+    return `${normalized.slice(0, 6)}...${normalized.slice(-4)}`;
+}
+
+function shouldEmitWinnerBarrage(body) {
+    if (!body || typeof body !== "object") return false;
+    if (body.success === false || body.error) return false;
+    if (body.isWin === true) return true;
+    return toSafeNumber(body.multiplier) > 0;
+}
+
+async function appendWinnerBarrage({ session, game, requestBody, responseBody }) {
+    if (!session || !session.address) return;
+    if (!shouldEmitWinnerBarrage(responseBody)) return;
+
+    const gameLabelMap = {
+        coinflip: "擲硬幣",
+        roulette: "輪盤",
+        horse: "賽馬",
+        slots: "拉霸",
+        blackjack: "21 點",
+        dragon: "龍虎",
+        sicbo: "骰寶",
+        bingo: "賓果",
+        crash: "暴漲"
+    };
+    const label = gameLabelMap[String(game || "")] || "遊戲";
+    const betAmount = toSafeNumber(requestBody && requestBody.amount);
+    const amountText = betAmount > 0 ? `（下注 ${betAmount}）` : "";
+
+    const payload = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        type: "winner",
+        message: `在 ${label} 中獎！${amountText}`,
+        address: String(session.address || "").toLowerCase(),
+        displayName: String(session.displayName || shortAddress(session.address)).slice(0, 32),
+        createdAt: new Date().toISOString()
+    };
+
+    const data = await kv.get(CHAT_STREAM_KEY);
+    const rows = Array.isArray(data) ? data : [];
+    rows.push(payload);
+    await kv.set(CHAT_STREAM_KEY, rows.slice(-CHAT_MAX_ITEMS));
 }
 
 async function checkBlacklist(address) {
@@ -82,8 +138,12 @@ async function loadMaintenanceStatus() {
 export default async function handler(req, res) {
     const requestId = String(req.headers["x-request-id"] || "").trim() || `req_${randomUUID()}`;
     res.setHeader("x-request-id", requestId);
+    let session = null;
     const originalJson = res.json.bind(res);
     res.json = (body) => {
+        appendWinnerBarrage({ session, game, requestBody: req.body || {}, responseBody: body }).catch((error) => {
+            console.error("appendWinnerBarrage failed:", error?.message || error);
+        });
         if (body && typeof body === "object" && !Array.isArray(body)) {
             return originalJson({ ...body, requestId });
         }
@@ -104,7 +164,6 @@ export default async function handler(req, res) {
     // 全域黑名單檢查：防止已登入但被封鎖的使用者繼續操作
     const sessionId = (req.body && req.body.sessionId) || getSearchParam(req, "sessionId");
     const maintenance = await loadMaintenanceStatus();
-    let session = null;
     if (sessionId) {
         try {
             session = await getSession(sessionId);

@@ -45,8 +45,7 @@
         </div>
         <div class="auth-public-links">
             <a href="/games/announcements.html" class="auth-inline-link">查看最新公告</a>
-            <a href="/games/vip-guide.html" class="auth-inline-link">查看 VIP 指南</a>
-            <a href="/games/odds-guide.html" class="auth-inline-link">查看機率倍率</a>
+            <a href="/games/guide.html" class="auth-inline-link">查看遊戲指南</a>
         </div>
         <div id="auth-msg"><span class="loader"></span> 等待硬體授權...</div>
     </div>
@@ -112,7 +111,7 @@
                     <h2>限時活動</h2>
                     <p class="lobby-campaigns-copy">有進行中的活動時，這裡會顯示活動卡片，點進去即可領取。</p>
                 </div>
-                <a href="games/rewards-center.html" class="btn-secondary lobby-campaigns-link" onclick="event.preventDefault(); navigateToGameWithAuth('games/rewards-center.html');">前往獎勵中心</a>
+                <a href="games/shop.html" class="btn-secondary lobby-campaigns-link" onclick="event.preventDefault(); navigateToGameWithAuth('games/shop.html');">前往活動與商店</a>
             </div>
             <div id="lobby-campaign-list" class="lobby-campaign-list"></div>
         </section>
@@ -127,17 +126,10 @@
                 <div class="game-tag ready">公開可看</div>
             </a>
 
-            <a href="games/balance-leaderboard.html" class="game-card">
-                <div class="game-icon">💰</div>
-                <div class="game-name">淨資產排行榜</div>
-                <div class="game-desc">查看全站淨資產名次與資產結構</div>
-                <div class="game-tag ready">開放中</div>
-            </a>
-
             <a href="games/leaderboard.html" class="game-card">
                 <div class="game-icon">🏆</div>
-                <div class="game-name">押注排行榜</div>
-                <div class="game-desc">查看全站累積押注額名次與 VIP 分布</div>
+                <div class="game-name">綜合排行榜</div>
+                <div class="game-desc">查看押注總額與淨資產排行</div>
                 <div class="game-tag ready">開放中</div>
             </a>
 
@@ -162,17 +154,10 @@
                 <div class="game-tag ready">開放中</div>
             </a>
 
-            <a href="games/rewards-center.html" class="game-card">
-                <div class="game-icon">🎁</div>
-                <div class="game-name">活動中心</div>
-                <div class="game-desc">限時活動與領取獎勵</div>
-                <div class="game-tag ready">開放中</div>
-            </a>
-
             <a href="games/shop.html" class="game-card">
-                <div class="game-icon">🛒</div>
-                <div class="game-name">子熙商店</div>
-                <div class="game-desc">購買道具、開運寶箱與成就稱號</div>
+                <div class="game-icon">🎁</div>
+                <div class="game-name">活動與商店</div>
+                <div class="game-desc">領取活動獎勵、購買道具與稱號</div>
                 <div class="game-tag ready">開放中</div>
             </a>
 
@@ -194,29 +179,11 @@
         <div class="section-title">快速查閱</div>
 
         <div class="guide-grid">
-            <a href="games/vip-guide.html" class="guide-card">
+            <a href="games/guide.html" class="guide-card">
                 <div>
-                    <p class="guide-kicker">會員規則</p>
-                    <h2>VIP 指南</h2>
-                    <p>完整查看升級節點、單注上限與 VIP 運作方式，不用再回首頁翻長表。</p>
-                </div>
-                <span class="guide-link">前往查看 →</span>
-            </a>
-
-            <a href="games/reward-guide.html" class="guide-card">
-                <div>
-                    <p class="guide-kicker">資產說明</p>
-                    <h2>道具與稱號指南</h2>
-                    <p>完整查看所有 Buff 效果、寶箱掉落、稱號來源與頭像清單。</p>
-                </div>
-                <span class="guide-link">前往查看 →</span>
-            </a>
-
-            <a href="games/odds-guide.html" class="guide-card">
-                <div>
-                    <p class="guide-kicker">遊戲資料</p>
-                    <h2>機率與倍率</h2>
-                    <p>集中查看各遊戲中獎規則、倍率、局速與市場利率，查資料更直覺。</p>
+                    <p class="guide-kicker">遊戲規則</p>
+                    <h2>綜合指南</h2>
+                    <p>集中查看 VIP 規則、道具效果與遊戲機率，所有資訊一次掌握。</p>
                 </div>
                 <span class="guide-link">前往查看 →</span>
             </a>
@@ -283,7 +250,7 @@
                     rewards.push(formatCompactZh(item.rewards.tokens, 2) + ' 子熙幣');
                 }
 
-                return '<button class="lobby-campaign-card" onclick="navigateToGameWithAuth(\'games/rewards-center.html\')">' +
+                return '<button class="lobby-campaign-card" onclick="navigateToGameWithAuth(\'games/shop.html\')">' +
                     '<span class="lobby-campaign-badge">限時活動</span>' +
                     '<strong>' + escapeLobbyHtml(item.title || '活動') + '</strong>' +
                     '<p>' + escapeLobbyHtml(item.description || '前往獎勵中心查看活動內容') + '</p>' +

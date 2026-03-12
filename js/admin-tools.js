@@ -198,22 +198,6 @@ function getIssueStatusId(reportId) {
     return 'issue-status-' + String(reportId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
-function getAnnouncementTitleId(announcementId) {
-    return 'announcement-title-' + String(announcementId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-}
-
-function getAnnouncementContentId(announcementId) {
-    return 'announcement-content-' + String(announcementId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-}
-
-function getAnnouncementActiveId(announcementId) {
-    return 'announcement-active-' + String(announcementId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-}
-
-function getAnnouncementPinnedId(announcementId) {
-    return 'announcement-pinned-' + String(announcementId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-}
-
 function getCampaignFieldId(campaignId, field) {
     return 'campaign-' + String(field || '').replace(/[^a-zA-Z0-9_-]/g, '_') + '-' + String(campaignId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
 }
@@ -869,17 +853,66 @@ function updateIssueReport(reportId) {
     }).finally(restoreBtn);
 }
 
+function buildAnnouncementSelectOptions(announcements, selectedId) {
+    var selector = document.getElementById('announcement-selector');
+    if (!selector) return;
+
+    var html = '<option value="">建立新公告</option>';
+    (announcements || []).forEach(function (item) {
+        var id = String(item.id || '');
+        var label = item.title || '未命名公告';
+        html += '<option value="' + escapeHtml(id) + '">' + escapeHtml(label) + '</option>';
+    });
+
+    selector.innerHTML = html;
+    if (selectedId && announcements.some(function (item) { return String(item.id || '') === String(selectedId || ''); })) {
+        selector.value = selectedId;
+    } else {
+        selector.value = '';
+    }
+}
+
+function onAdminAnnouncementSelected(announcementId) {
+    if (!announcementId) {
+        clearAdminAnnouncementForm();
+        return;
+    }
+    var announcement = announcements.find(function(item) { return String(item.id) === String(announcementId); });
+    if (!announcement) {
+        clearAdminAnnouncementForm();
+        showAdminToast('找不到指定的公告', true);
+        return;
+    }
+
+    document.getElementById('announcement-id-hidden').value = announcement.id || '';
+    document.getElementById('announcement-title').value = announcement.title || '';
+    document.getElementById('announcement-content').value = announcement.content || '';
+    document.getElementById('announcement-pinned').checked = !!announcement.pinned;
+}
+
+function clearAdminAnnouncementForm() {
+    document.getElementById('announcement-selector').value = '';
+    document.getElementById('announcement-id-hidden').value = '';
+    document.getElementById('announcement-title').value = '';
+    document.getElementById('announcement-content').value = '';
+    document.getElementById('announcement-pinned').checked = false;
+}
+
 function renderAnnouncements() {
     var listEl = document.getElementById('announcement-admin-list');
     var totalEl = document.getElementById('announcement-total-count');
     var activeEl = document.getElementById('announcement-active-count');
     var pinnedEl = document.getElementById('announcement-pinned-count');
-    if (!listEl) return;
+    var selectorEl = document.getElementById('announcement-selector');
+    var selectedId = selectorEl ? selectorEl.value : '';
 
     if (totalEl) totalEl.innerText = String(announcements.length);
     if (activeEl) activeEl.innerText = String(announcements.filter(function (item) { return item.isActive; }).length);
     if (pinnedEl) pinnedEl.innerText = String(announcements.filter(function (item) { return item.pinned; }).length);
 
+    buildAnnouncementSelectOptions(announcements, selectedId);
+
+    if (!listEl) return;
     if (!announcements.length) {
         listEl.innerHTML = '<div class="result-empty">目前尚未發布任何公告</div>';
         return;
@@ -888,10 +921,15 @@ function renderAnnouncements() {
     var html = '';
     announcements.forEach(function (item) {
         var announcementId = String(item.id || '');
-        var titleId = getAnnouncementTitleId(announcementId);
-        var contentId = getAnnouncementContentId(announcementId);
-        var activeId = getAnnouncementActiveId(announcementId);
-        var pinnedId = getAnnouncementPinnedId(announcementId);
+        var statusChips = [];
+        if (item.pinned) {
+            statusChips.push('<span class="state-chip info">置頂</span>');
+        }
+        if (item.isActive) {
+            statusChips.push('<span class="state-chip ok">啟用中</span>');
+        } else {
+            statusChips.push('<span class="state-chip warn">已停用</span>');
+        }
 
         html += '<div class="announcement-admin-card">' +
             '<div class="announcement-admin-head">' +
@@ -899,43 +937,23 @@ function renderAnnouncements() {
                     '<strong>' + escapeHtml(item.title || '未命名公告') + '</strong>' +
                     '<div class="issue-report-meta">' +
                         '<span>' + escapeHtml(formatTime(item.updatedAt || item.createdAt)) + '</span>' +
-                        '<span>' + (item.pinned ? '已置頂' : '一般排序') + '</span>' +
-                        '<span>' + (item.isActive ? '啟用中' : '已停用') + '</span>' +
                     '</div>' +
                 '</div>' +
+                '<div class="issue-report-tags">' + statusChips.join('') + '</div>' +
             '</div>' +
-            '<div class="announcement-form-grid">' +
-                '<label>' +
-                    '<span>標題</span>' +
-                    '<input id="' + escapeHtml(titleId) + '" class="text-input" type="text" value="' + escapeHtml(item.title || '') + '">' +
-                '</label>' +
-                '<label class="toggle-field">' +
-                    '<input id="' + escapeHtml(activeId) + '" type="checkbox"' + (item.isActive ? ' checked' : '') + '>' +
-                    '<span>啟用公告</span>' +
-                '</label>' +
-                '<label class="toggle-field">' +
-                    '<input id="' + escapeHtml(pinnedId) + '" type="checkbox"' + (item.pinned ? ' checked' : '') + '>' +
-                    '<span>置頂公告</span>' +
-                '</label>' +
-                '<label class="full-span">' +
-                    '<span>內容</span>' +
-                    '<textarea id="' + escapeHtml(contentId) + '" class="text-input announcement-textarea">' + escapeHtml(item.content || '') + '</textarea>' +
-                '</label>' +
-            '</div>' +
+            '<div class="issue-report-message">' + escapeHtml(item.content || '') + '</div>' +
             '<div class="issue-card-actions">' +
-                '<button class="btn-primary compact-btn" data-announcement-id="' + escapeHtml(announcementId) + '" onclick="updateAnnouncement(this.dataset.announcementId)">儲存公告</button>' +
                 '<button class="btn-secondary compact-btn" data-announcement-id="' + escapeHtml(announcementId) + '" onclick="deleteAnnouncement(this.dataset.announcementId)">刪除公告</button>' +
             '</div>' +
             '</div>';
     });
-
     listEl.innerHTML = html;
 }
 
 function loadAnnouncements() {
     return callAdminApi('list_announcements', { limit: 50, activeOnly: false }).then(function (data) {
         if (!data || !data.success) throw new Error((data && data.error) || '載入公告失敗');
-        announcements = Array.isArray(data.announcements) ? data.announcements : [];
+        announcements = Array.isArray(data.announcements) ? data.announcements.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); }) : [];
         renderAnnouncements();
         setAnnouncementAdminStatus('已載入 ' + announcements.length + ' 則公告', false);
     });
@@ -969,56 +987,45 @@ function toggleAnnouncementSection() {
 function publishAnnouncement() {
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
     var restoreBtn = setActionBusy(btn);
-    var titleEl = document.getElementById('announcement-title');
-    var contentEl = document.getElementById('announcement-content');
-    var pinnedEl = document.getElementById('announcement-pinned');
-    var title = String(titleEl && titleEl.value || '');
-    var content = String(contentEl && contentEl.value || '');
-    var pinned = !!(pinnedEl && pinnedEl.checked);
+    var id = String((document.getElementById('announcement-id-hidden') || {}).value || '').trim();
+    var title = String((document.getElementById('announcement-title') || {}).value || '');
+    var content = String((document.getElementById('announcement-content') || {}).value || '');
+    var pinned = !!(document.getElementById('announcement-pinned') || {}).checked;
 
-    setAnnouncementAdminStatus('正在發布公告...', false);
+    var isUpdate = !!id;
+    var action = isUpdate ? 'update_announcement' : 'publish_announcement';
+    var payload = {
+        title: title,
+        content: content,
+        pinned: pinned,
+    };
+
+    if (isUpdate) {
+        payload.announcementId = id;
+        var existing = announcements.find(function(a) { return String(a.id) === id; });
+        payload.isActive = existing ? existing.isActive : true;
+    } else {
+        payload.isActive = true;
+    }
+
+    var statusText = isUpdate ? '正在更新公告...' : '正在發布公告...';
+    setAnnouncementAdminStatus(statusText, false);
     withAdminBusy('announcement', function () {
-        return callAdminApi('publish_announcement', {
-            title: title,
-            content: content,
-            pinned: pinned,
-            isActive: true
-        }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '發布公告失敗');
-            if (titleEl) titleEl.value = '';
-            if (contentEl) contentEl.value = '';
-            if (pinnedEl) pinnedEl.checked = false;
-            setAnnouncementAdminStatus('公告已發布', false);
-            showAdminToast('公告已發布', false);
-            return loadAnnouncements();
-        });
-    }).catch(function (error) {
-        setAnnouncementAdminStatus('錯誤: ' + error.message, true);
-        showAdminToast(error.message, true);
-    }).finally(restoreBtn);
-}
-
-function updateAnnouncement(announcementId) {
-    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
-    var restoreBtn = setActionBusy(btn);
-    var titleEl = document.getElementById(getAnnouncementTitleId(announcementId));
-    var contentEl = document.getElementById(getAnnouncementContentId(announcementId));
-    var activeEl = document.getElementById(getAnnouncementActiveId(announcementId));
-    var pinnedEl = document.getElementById(getAnnouncementPinnedId(announcementId));
-
-    setAnnouncementAdminStatus('正在更新公告...', false);
-    withAdminBusy('announcement', function () {
-        return callAdminApi('update_announcement', {
-            announcementId: announcementId,
-            title: String(titleEl && titleEl.value || ''),
-            content: String(contentEl && contentEl.value || ''),
-            isActive: !!(activeEl && activeEl.checked),
-            pinned: !!(pinnedEl && pinnedEl.checked)
-        }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '更新公告失敗');
-            setAnnouncementAdminStatus('公告已更新', false);
-            showAdminToast('公告已更新', false);
-            return loadAnnouncements();
+        return callAdminApi(action, payload).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '儲存公告失敗');
+            var successText = isUpdate ? '公告已更新' : '公告已發布';
+            setAnnouncementAdminStatus(successText, false);
+            showAdminToast(successText, false);
+            if (!isUpdate) {
+                clearAdminAnnouncementForm();
+            }
+            return loadAnnouncements().then(function() {
+                var newId = isUpdate ? id : (data.announcement && data.announcement.id);
+                if (newId) {
+                    var selector = document.getElementById('announcement-selector');
+                    if (selector) selector.value = newId;
+                }
+            });
         });
     }).catch(function (error) {
         setAnnouncementAdminStatus('錯誤: ' + error.message, true);

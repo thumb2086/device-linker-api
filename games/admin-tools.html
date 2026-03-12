@@ -53,8 +53,13 @@
                 </div>
 
                 <div class="announcement-editor-card">
-                    <h3>發布新公告</h3>
+                    <h3>公告管理 (新增/修改)</h3>
                     <div class="announcement-form-grid">
+                        <label class="full-span">
+                            選擇現有公告進行編輯，或留空以建立新公告
+                            <select id="announcement-selector" class="text-input" onchange="onAdminAnnouncementSelected(this.value)"></select>
+                        </label>
+                        <input type="hidden" id="announcement-id-hidden">
                         <label>
                             標題
                             <input id="announcement-title" class="text-input" type="text" maxlength="120" placeholder="例如：3/8 晚上 10 點進行更新">
@@ -69,7 +74,8 @@
                         </label>
                     </div>
                     <div class="form-row single-row">
-                        <button class="btn-primary" onclick="publishAnnouncement()">發布公告</button>
+                        <button class="btn-primary" onclick="publishAnnouncement()">儲存公告設定</button>
+                        <button class="btn-secondary" onclick="clearAdminAnnouncementForm()">清空表單 (建立新公告)</button>
                     </div>
                 </div>
                 <p id="announcement-admin-status-msg">尚未載入公告</p>

@@ -386,60 +386,47 @@ function quickAppAuth() {
     }
 
     updateAuthMessage('<span class="loader"></span> App 快速登入中...');
-    createAuthSession(function (session) {
-        if (!session || !session.sessionId) {
-            updateAuthMessage('❌ 無法建立授權，請稍後再試');
-            return;
+
+    var platform = detectClientPlatform();
+    var clientType = detectClientType(platform);
+
+    fetch('/api/user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'create_session', 
+            isQuickAuth: true,
+            address: stored.address,
+            publicKey: stored.publicKey,
+            platform: platform,
+            clientType: clientType
+        })
+    })
+    .then(function (res) { 
+        if (!res.ok) {
+            return res.json().then(function (err) { throw new Error(err.error || '快速登入 API 請求失敗'); });
+        }
+        return res.json(); 
+    })
+    .then(function (data) {
+        if (!data || !data.success || !data.sessionId) {
+            throw new Error((data && data.error) || '快速登入認證失敗');
         }
 
-        var platform = detectClientPlatform();
-        var clientType = detectClientType(platform);
-        fetch('/api/user', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'authorize',
-                sessionId: session.sessionId,
-                address: stored.address,
-                publicKey: stored.publicKey,
-                platform: platform,
-                clientType: clientType
-            })
-        })
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-                if (!data || !data.success || !data.sessionId) {
-                    throw new Error((data && data.error) || '快速登入失敗');
-                }
+        user.address = data.address;
+        user.publicKey = data.publicKey;
+        user.sessionId = data.sessionId;
+        storeAuth(data.sessionId, user.address, user.publicKey);
+        updateAppQuickLoginUI();
 
-                user.address = data.address || stored.address;
-                user.publicKey = data.publicKey || stored.publicKey;
-                user.sessionId = data.sessionId;
-                storeAuth(data.sessionId, user.address, user.publicKey);
-                updateAppQuickLoginUI();
+        if (lobbyAuthReadyCallback) {
+            lobbyAuthReadyCallback(data);
+        }
 
-                verifySession(data.sessionId, function (valid, authData) {
-                    if (valid && lobbyAuthReadyCallback) {
-                        lobbyAuthReadyCallback(authData);
-                        return;
-                    }
-                    if (lobbyAuthReadyCallback) {
-                        lobbyAuthReadyCallback({
-                            status: 'authorized',
-                            address: user.address,
-                            publicKey: user.publicKey,
-                            balance: '0.00',
-                            totalBet: '0.00',
-                            vipLevel: '普通會員'
-                        });
-                    }
-                });
-
-                updateAuthMessage('✅ App 快速登入成功');
-            })
-            .catch(function (err) {
-                updateAuthMessage('❌ App 快速登入失敗：' + err.message);
-            });
+        updateAuthMessage('✅ App 快速登入成功');
+    })
+    .catch(function (err) {
+        updateAuthMessage('❌ App 快速登入失敗：' + err.message);
     });
 }
 

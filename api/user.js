@@ -336,6 +336,64 @@ export default async function handler(req, res) {
         }
 
         if (action === "create" || action === "create_session") {
+            const { address, publicKey, isQuickAuth } = body;
+            if (isQuickAuth && address && publicKey) {
+                const blacklisted = await checkBlacklist(address);
+                if (blacklisted) {
+                    return res.status(403).json({ success: false, error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}` });
+                }
+                let normalizedAddress;
+                try {
+                    normalizedAddress = ethers.getAddress(address).toLowerCase();
+                } catch {
+                    return res.status(400).json({ success: false, error: "Invalid address" });
+                }
+
+                const newSessionId = `session_${randomUUID()}`;
+                const ttlSeconds = parseSessionTTL(body.ttlSeconds) || 3600;
+                const platform = normalizePlatform(body.platform);
+                const clientType = normalizeClientType(body.clientType);
+                const deviceId = normalizeDeviceId(body.deviceId);
+                const appVersion = normalizeText(body.appVersion, "", 32);
+
+                const sessionData = {
+                    status: "authorized",
+                    address: normalizedAddress,
+                    publicKey: safePublicKey(publicKey),
+                    mode: "live",
+                    platform,
+                    clientType,
+                    deviceId,
+                    appVersion,
+                    authorizedAt: new Date().toISOString(),
+                    expiresAt: buildExpiresAt(ttlSeconds)
+                };
+
+                await saveSession(newSessionId, sessionData, ttlSeconds);
+
+                try {
+                    const metrics = await loadUserMetrics(normalizedAddress);
+                    const payload = buildAuthPayload(
+                        sessionData,
+                        metrics.balance,
+                        metrics.totalBet,
+                        metrics.vipStatus,
+                        metrics.displayName,
+                        metrics.rewardProfile
+                    );
+                    payload.sessionId = newSessionId;
+                    return res.status(200).json(payload);
+                } catch (error) {
+                    console.error("Quick login user metrics read failed:", error.message);
+                    const fallbackPayload = buildAuthPayload(
+                        sessionData,
+                        "0.00", 0, buildVipStatus(0), "", null
+                    );
+                    fallbackPayload.sessionId = newSessionId;
+                    return res.status(200).json(fallbackPayload);
+                }
+            }
+
             const requestedSessionId = normalizeSessionId(body.sessionId);
             const generatedSessionId = requestedSessionId || `session_${randomUUID()}`;
             const ttlSeconds = parseSessionTTL(body.ttlSeconds);
@@ -511,8 +569,7 @@ export default async function handler(req, res) {
             if (blacklisted) return res.status(403).json({ success: false, error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}` });
             if (!sessionId || !address || !publicKey) return res.status(400).json({ success: false, error: "Missing required fields" });
             let normalizedAddress;
-            try { normalizedAddress = ethers.getAddress(address).toLowerCase(); } catch { return res.status(400).json({ success: false, error: "Invalid address" }); }
-            const existingSession = await getSession(sessionId);
+            try { normalizedAddress = ethers.getAddress(address).toLowerCase(); } catch { return res.status(400).json({ success: false, error: "Invalid address" }); }            const existingSession = await getSession(sessionId);
             const ttlSeconds = parseSessionTTL(body.ttlSeconds);
             const platform = normalizePlatform(body.platform || (existingSession && existingSession.platform));
             const clientType = normalizeClientType(body.clientType || (existingSession && existingSession.clientType));

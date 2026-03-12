@@ -1,81 +1,746 @@
-<!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>管理工具</title>
-  <link rel="stylesheet" href="../css/common.css">
-  <link rel="stylesheet" href="../css/admin-tools.css">
-</head>
-<body class="admin-body">
-  <div class="admin-container">
-    <h1><a href="/games/lobby.html">⚡️</a> 管理工具</h1>
-    <p id="status-msg" class="status-msg"></p>
-    <div id="admin-toast-stack" class="admin-toast-stack"></div>
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
 
-    <!-- Maintenance Section -->
-    <div class="admin-section">
-      <div class="admin-section-head">
-        <h2>系統維護</h2>
-        <button id="maintenance-toggle-btn" class="btn-secondary compact-btn" onclick="toggleMaintenanceSection()">展開維護模式</button>
-      </div>
-      <div id="maintenance-section-body" class="admin-section-body hidden">
-        <p id="maintenance-status-msg" class="status-msg"></p>
-        <div class="form-grid single-col">
-          <label class="toggle-field">
-            <input id="maintenance-enabled" type="checkbox">
-            <span>啟用維護模式</span>
-          </label>
-          <label><span>標題</span><input id="maintenance-title" type="text" class="text-input"></label>
-          <label><span>訊息</span><textarea id="maintenance-message" class="text-input"></textarea></label>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理中心 | 子熙模擬器</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/admin-tools.css">
+</head>
+
+<body class="admin-tools-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">返回首頁</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
         </div>
-        <div class="admin-actions">
-          <button class="btn-primary" onclick="saveMaintenance()">儲存設定</button>
-        </div>
-      </div>
     </div>
 
-    <!-- Issues Section -->
-    <div class="admin-section">
-        <div class="admin-section-head">
-            <h2>意見回饋</h2>
-            <button id="issue-toggle-btn" class="btn-secondary compact-btn" onclick="toggleIssueSection()">展開意見回饋</button>
+    <div class="casino-card" id="main-card">
+        <div class="user-stats">
+            <span id="vip-badge">管理員</span>
+            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計下注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">顯示名稱: <span id="display-name-val">未設定</span></div>
         </div>
-        <div id="issues-section-body" class="admin-section-body hidden">
-            <p id="issue-status-msg" class="status-msg"></p>
-            <div class="admin-toolbar">
-                <label>狀態過濾: 
-                    <select id="issue-status-filter" class="text-input">
-                        <option value="">全部</option>
+
+        <div id="announcements-section" class="section-block announcement-section section-block-primary">
+            <div class="section-heading-row">
+                <div>
+                    <h2>公告中心管理</h2>
+                    <p class="tool-note">平常不需要操作時可以保持收合。需要發布或調整時再展開，避免管理頁過長。</p>
+                </div>
+                <button id="announcement-toggle-btn" class="btn-secondary compact-btn" onclick="toggleAnnouncementSection()">展開公告中心</button>
+            </div>
+
+            <div id="announcements-section-body" class="collapsible-body hidden">
+                <div class="summary-grid announcement-summary-grid">
+                    <div class="summary-card">
+                        <span>公告總數</span>
+                        <strong id="announcement-total-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>啟用中</span>
+                        <strong id="announcement-active-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>置頂中</span>
+                        <strong id="announcement-pinned-count">0</strong>
+                    </div>
+                </div>
+
+                <div class="announcement-editor-card">
+                    <h3>發布新公告</h3>
+                    <div class="announcement-form-grid">
+                        <label>
+                            標題
+                            <input id="announcement-title" class="text-input" type="text" maxlength="120" placeholder="例如：3/8 晚上 10 點進行更新">
+                        </label>
+                        <label class="toggle-field">
+                            <input id="announcement-pinned" type="checkbox">
+                            <span>置頂公告</span>
+                        </label>
+                        <label class="full-span">
+                            內容
+                            <textarea id="announcement-content" class="text-input announcement-textarea" placeholder="請填寫更新內容、影響範圍、預估時間"></textarea>
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="publishAnnouncement()">發布公告</button>
+                    </div>
+                </div>
+                <p id="announcement-admin-status-msg">尚未載入公告</p>
+
+                <div id="announcement-admin-list" class="announcement-admin-list">
+                    <div class="result-empty">尚未載入公告</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-bias-section" class="section-block win-bias-section section-block-muted">
+            <div class="section-heading-row">
+                <div>
+                    <h2>勝率干預管理</h2>
+                    <p class="tool-note">調整特定帳號的中獎機率。1.0 為 100% 中獎，0.0 為 0% 中獎（強制不中）。</p>
+                </div>
+                <button id="win-bias-toggle-btn" class="btn-secondary compact-btn" onclick="toggleWinBiasSection()">展開勝率干預</button>
+            </div>
+
+            <div id="win-bias-section-body" class="collapsible-body hidden">
+                <div class="announcement-editor-card">
+                    <div class="announcement-form-grid">
+                        <label>
+                            玩家地址
+                            <input id="win-bias-address" class="text-input" type="text" placeholder="0x...">
+                        </label>
+                        <label>
+                            中獎率 (Bias)
+                            <input id="win-bias-value" class="text-input" type="number" min="0" max="1" step="0.01" value="0.08" placeholder="預設 0.08">
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="queryWinBias()">查詢目前設定</button>
+                        <button class="btn-secondary" onclick="saveWinBias()">儲存勝率設定</button>
+                        <button class="btn-secondary" onclick="resetWinBias()">恢復預設 (不干預)</button>
+                    </div>
+                    <p id="win-bias-status-msg" style="margin-top: 10px; color: var(--gold);"></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="maintenance-section" class="section-block section-block-primary">
+            <div class="section-heading-row">
+                <div>
+                    <h2>維護模式</h2>
+                    <p class="tool-note">啟用後僅允許管理員登入，一般使用者會收到維護訊息。</p>
+                </div>
+                <button id="maintenance-toggle-btn" class="btn-secondary compact-btn" onclick="toggleMaintenanceSection()">展開維護模式</button>
+            </div>
+
+            <div id="maintenance-section-body" class="collapsible-body hidden">
+                <div class="announcement-editor-card">
+                    <h3>維護設定</h3>
+                    <div class="announcement-form-grid">
+                        <label class="toggle-field">
+                            <input id="maintenance-enabled" type="checkbox">
+                            <span>啟用維護模式</span>
+                        </label>
+                        <label>
+                            標題
+                            <input id="maintenance-title" class="text-input" type="text" maxlength="120" placeholder="例如：系統維護中">
+                        </label>
+                        <label class="full-span">
+                            訊息
+                            <textarea id="maintenance-message" class="text-input announcement-textarea" placeholder="例如：目前暫停登入與遊戲，請稍後再試。"></textarea>
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="saveMaintenance()">儲存維護設定</button>
+                        <button class="btn-secondary" onclick="refreshMaintenance()">重新載入</button>
+                    </div>
+                    <p id="maintenance-status-msg">尚未載入維護設定</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="blacklist-section" class="section-block blacklist-section section-block-muted">
+            <div class="section-heading-row">
+                <div>
+                    <h2>黑名單管理</h2>
+                    <p class="tool-note">禁止特定地址進入系統。預設收合，需要時再展開。</p>
+                </div>
+                <button id="blacklist-toggle-btn" class="btn-secondary compact-btn" onclick="toggleBlacklistSection()">展開黑名單管理</button>
+            </div>
+
+            <div id="blacklist-section-body" class="collapsible-body hidden">
+                <div class="announcement-editor-card">
+                    <h3>加入黑名單</h3>
+                    <div class="announcement-form-grid">
+                        <label>
+                            玩家地址
+                            <input id="blacklist-address" class="text-input" type="text" placeholder="0x...">
+                        </label>
+                        <label class="full-span">
+                            原因
+                            <input id="blacklist-reason" class="text-input" type="text" placeholder="例如：惡意洗幣、違反規則">
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="addToBlacklist()">加入黑名單</button>
+                    </div>
+                </div>
+
+                <div class="custody-toolbar">
+                    <button class="btn-secondary compact-btn" onclick="refreshBlacklist()">重新整理清單</button>
+                </div>
+                <p id="blacklist-status-msg">尚未載入黑名單</p>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>黑名單總數</span>
+                        <strong id="blacklist-total-count">0</strong>
+                    </div>
+                </div>
+
+                <div id="blacklist-list" class="custody-user-list">
+                    <div class="result-empty">尚未載入黑名單</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reward-titles-section" class="section-block reward-admin-section">
+            <div class="section-heading-row">
+                <div>
+                    <h2>稱號管理</h2>
+                    <p class="tool-note">平常可保持收合，需要新增或修改稱號時再展開。</p>
+                </div>
+                <button id="reward-title-toggle-btn" class="btn-secondary compact-btn" onclick="toggleRewardTitleSection()">展開稱號管理</button>
+            </div>
+
+            <div id="reward-titles-section-body" class="collapsible-body hidden">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>稱號總數</span>
+                        <strong id="reward-title-count">0</strong>
+                    </div>
+                </div>
+
+                <div class="toolbar-grid reward-admin-grid">
+                    <div class="announcement-editor-card full-span">
+                        <h3>稱號管理 (新增/修改)</h3>
+                        <div class="announcement-form-grid">
+                            <label class="full-span">
+                                選擇現有稱號進行編輯，或留空以建立新稱號
+                                <select id="reward-title-selector" class="text-input" onchange="onAdminTitleSelected(this.value)"></select>
+                            </label>
+                            <label>
+                                稱號名稱
+                                <input id="reward-title-name" class="text-input" type="text" maxlength="80" placeholder="例如：遠征先鋒">
+                            </label>
+                            <label>
+                                稱號 ID
+                                <input id="reward-title-id" class="text-input" type="text" maxlength="64" placeholder="留空自動產生">
+                            </label>
+                            <label>
+                                稀有度
+                                <select id="reward-title-rarity" class="text-input"></select>
+                            </label>
+                            <label>
+                                來源
+                                <select id="reward-title-source" class="text-input"></select>
+                            </label>
+                            <label>
+                                稱號售價
+                                <input id="reward-title-price" class="text-input" type="number" min="0" step="1" value="0" placeholder="0 = 不販售">
+                            </label>
+                            <label>
+                                商店分類
+                                <select id="reward-title-category" class="text-input"></select>
+                            </label>
+                            <label>
+                                商店排序
+                                <input id="reward-title-priority" class="text-input" type="number" min="0" step="1" value="0" placeholder="數字越高越前面">
+                            </label>
+                            <label class="toggle-field">
+                                <input id="reward-title-leaderboard" type="checkbox" checked>
+                                <span>顯示於排行榜</span>
+                            </label>
+                            <label class="toggle-field">
+                                <input id="reward-title-shop-enabled" type="checkbox">
+                                <span>上架到稱號商店</span>
+                            </label>
+                            <label>
+                                限時折扣價
+                                <input id="reward-title-sale-price" class="text-input" type="number" min="0" step="1" value="0" placeholder="0 = 不折扣">
+                            </label>
+                            <label>
+                                折扣開始時間
+                                <input id="reward-title-sale-start-at" class="text-input" type="datetime-local">
+                            </label>
+                            <label>
+                                折扣結束時間
+                                <input id="reward-title-sale-end-at" class="text-input" type="datetime-local">
+                            </label>
+                            <label class="full-span">
+                                稱號說明 (通用)
+                                <textarea id="reward-title-description" class="text-input announcement-textarea" placeholder="顯示於身分卡、排行榜工具提示的詳細說明"></textarea>
+                            </label>
+                            <label class="full-span">
+                                商店說明 (若與通用說明不同)
+                                <textarea id="reward-title-shop-description" class="text-input announcement-textarea" placeholder="留空則使用通用說明"></textarea>
+                            </label>
+                        </div>
+                        <div class="form-row single-row">
+                            <button class="btn-primary" onclick="publishRewardTitle()">儲存稱號設定</button>
+                            <button class="btn-secondary" onclick="clearAdminTitleForm()">清空表單 (建立新稱號)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reward-avatars-section" class="section-block reward-admin-section">
+            <div class="section-heading-row">
+                <div>
+                    <h2>頭像管理</h2>
+                    <p class="tool-note">平常可保持收合，需要新增或修改頭像時再展開。</p>
+                </div>
+                <button id="reward-avatar-toggle-btn" class="btn-secondary compact-btn" onclick="toggleRewardAvatarSection()">展開頭像管理</button>
+            </div>
+
+            <div id="reward-avatars-section-body" class="collapsible-body hidden">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>頭像總數</span>
+                        <strong id="reward-avatar-count">0</strong>
+                    </div>
+                </div>
+
+                <div class="toolbar-grid reward-admin-grid">
+                    <div class="announcement-editor-card full-span">
+                        <h3>頭像管理 (新增/修改)</h3>
+                        <div class="announcement-form-grid">
+                            <label class="full-span">
+                                選擇現有頭像進行編輯，或留空以建立新頭像
+                                <select id="reward-avatar-selector" class="text-input" onchange="onAdminAvatarSelected(this.value)"></select>
+                            </label>
+                            <label>
+                                頭像名稱
+                                <input id="reward-avatar-name" class="text-input" type="text" maxlength="80" placeholder="例如：閃耀之星">
+                            </label>
+                            <label>
+                                頭像 ID
+                                <input id="reward-avatar-id" class="text-input" type="text" maxlength="64" placeholder="留空自動產生">
+                            </label>
+                            <label>
+                                圖示 (Emoji)
+                                <input id="reward-avatar-icon" class="text-input" type="text" maxlength="16" placeholder="例如：⭐">
+                            </label>
+                            <label>
+                                稀有度
+                                <select id="reward-avatar-rarity" class="text-input"></select>
+                            </label>
+                            <label>
+                                來源
+                                <select id="reward-avatar-source" class="text-input"></select>
+                            </label>
+                            <label class="full-span">
+                                頭像說明
+                                <textarea id="reward-avatar-description" class="text-input announcement-textarea" placeholder="顯示於身分卡、排行榜工具提示的詳細說明"></textarea>
+                            </label>
+                        </div>
+                        <div class="form-row single-row">
+                            <button class="btn-primary" onclick="publishRewardAvatar()">儲存頭像設定</button>
+                            <button class="btn-secondary" onclick="clearAdminAvatarForm()">清空表單 (建立新頭像)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reward-campaigns-section" class="section-block reward-admin-section">
+            <div class="section-heading-row">
+                <div>
+                    <h2>限時領取管理</h2>
+                    <p class="tool-note">平常可保持收合，需要發放或調整活動時再展開。</p>
+                </div>
+                <button id="reward-campaign-toggle-btn" class="btn-secondary compact-btn" onclick="toggleRewardCampaignSection()">展開限時領取管理</button>
+            </div>
+
+            <div id="reward-campaigns-section-body" class="collapsible-body hidden">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>活動總數</span>
+                        <strong id="reward-campaign-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>近期發放紀錄</span>
+                        <strong id="reward-grant-count">0</strong>
+                    </div>
+                </div>
+
+                <div class="toolbar-grid reward-admin-grid">
+                    <div class="announcement-editor-card">
+                        <h3>管理員直接發放</h3>
+                        <div class="announcement-form-grid">
+                            <label class="full-span">
+                                玩家地址
+                                <input id="reward-grant-address" class="text-input" type="text" placeholder="0x...">
+                            </label>
+                            <label>
+                                道具
+                                <select id="reward-grant-item" class="text-input"></select>
+                            </label>
+                            <label>
+                                數量
+                                <input id="reward-grant-item-qty" class="text-input" type="number" min="1" step="1" value="1">
+                            </label>
+                            <label>
+                                頭像
+                                <select id="reward-grant-avatar" class="text-input"></select>
+                            </label>
+                            <label>
+                                稱號
+                                <select id="reward-grant-title" class="text-input"></select>
+                            </label>
+                            <label>
+                                稱號到期時間
+                                <input id="reward-grant-expires-at" class="text-input" type="datetime-local">
+                            </label>
+                            <label>
+                                額外子熙幣
+                                <input id="reward-grant-token-amount" class="text-input" type="number" min="0" step="1" value="0">
+                            </label>
+                            <label class="full-span">
+                                備註
+                                <input id="reward-grant-note" class="text-input" type="text" maxlength="240" placeholder="例如：元老人物補發">
+                            </label>
+                        </div>
+                        <div class="form-row single-row">
+                            <button class="btn-primary" onclick="grantRewardBundleAdmin()">送出發放</button>
+                        </div>
+                    </div>
+
+                    <div class="announcement-editor-card">
+                        <h3>限時領取活動管理 (新增/修改)</h3>
+                        <div class="announcement-form-grid">
+                            <label class="full-span">
+                                選擇現有活動進行編輯，或留空以建立新活動
+                                <select id="reward-campaign-selector" class="text-input" onchange="onAdminCampaignSelected(this.value)"></select>
+                            </label>
+                            <label>
+                                活動標題
+                                <input id="campaign-title" class="text-input" type="text" maxlength="120" placeholder="例如：開服七日登入禮">
+                            </label>
+                            <label>
+                                活動 ID (僅限更新，留空建立新活動)
+                                <input id="campaign-id-hidden" class="text-input" type="text" readonly placeholder="由系統產生">
+                            </label>
+                            <label>
+                                每人可領次數
+                                <input id="campaign-claim-limit" class="text-input" type="number" min="1" step="1" value="1">
+                            </label>
+                            <label>
+                                開始時間
+                                <input id="campaign-start-at" class="text-input" type="datetime-local">
+                            </label>
+                            <label>
+                                結束時間
+                                <input id="campaign-end-at" class="text-input" type="datetime-local">
+                            </label>
+                            <label>
+                                最低 VIP
+                                <select id="campaign-min-vip" class="text-input"></select>
+                            </label>
+                            <label class="toggle-field">
+                                <input id="campaign-active" type="checkbox" checked>
+                                <span>啟用活動</span>
+                            </label>
+                            <label class="full-span">
+                                活動描述
+                                <textarea id="campaign-description" class="text-input announcement-textarea" placeholder="例如：活動期間登入即可領取限定稱號"></textarea>
+                            </label>
+                            <label>
+                                活動道具
+                                <select id="campaign-item" class="text-input"></select>
+                            </label>
+                            <label>
+                                道具數量
+                                <input id="campaign-item-qty" class="text-input" type="number" min="1" step="1" value="1">
+                            </label>
+                            <label>
+                                活動頭像
+                                <select id="campaign-avatar" class="text-input"></select>
+                            </label>
+                            <label>
+                                活動稱號
+                                <select id="campaign-title-id" class="text-input"></select>
+                            </label>
+                            <label>
+                                稱號到期時間
+                                <input id="campaign-title-expires-at" class="text-input" type="datetime-local">
+                            </label>
+                            <label>
+                                額外子熙幣
+                                <input id="campaign-token-amount" class="text-input" type="number" min="0" step="1" value="0">
+                            </label>
+                        </div>
+                        <div class="form-row single-row">
+                            <button class="btn-primary" onclick="publishRewardCampaign()">儲存活動設定</button>
+                            <button class="btn-secondary" onclick="clearAdminCampaignForm()">清空表單 (建立新活動)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <p id="reward-admin-status-msg">尚未載入稱號活動資料</p>
+
+                <div class="section-block section-block-muted">
+                    <h3>近期發放紀錄</h3>
+                    <div id="reward-grant-log-list" class="result-list">
+                        <div class="result-empty">尚未載入發放紀錄</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+<div id="tx-health-section" class="section-block section-block-muted">
+            <div class="section-heading-row">
+                <div>
+                    <h2>交易失敗率看板</h2>
+                    <p class="tool-note">預設收合，需要時再展開。看板會顯示近期鏈上交易成功率、失敗率與近期錯誤清單。</p>
+                </div>
+                <button id="tx-health-toggle-btn" class="btn-secondary compact-btn" onclick="toggleTxHealthSection()">展開交易看板</button>
+            </div>
+
+            <div id="tx-health-section-body" class="collapsible-body hidden">
+                <div class="toolbar-grid">
+                    <select id="tx-health-hours" class="text-input" onchange="refreshTxHealthDashboard()">
+                        <option value="1">近 1 小時</option>
+                        <option value="6">近 6 小時</option>
+                        <option value="24" selected>近 24 小時</option>
+                        <option value="72">近 72 小時</option>
+                    </select>
+                    <button class="btn-secondary compact-btn" onclick="refreshTxHealthDashboard()">重新整理</button>
+                </div>
+                <p id="tx-health-status-msg">尚未載入交易看板</p>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>總交易數</span>
+                        <strong id="tx-health-total">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>成功率</span>
+                        <strong id="tx-health-success-rate">0%</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>失敗率</span>
+                        <strong id="tx-health-failure-rate">0%</strong>
+                    </div>
+                </div>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>成功筆數</span>
+                        <strong id="tx-health-success-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>失敗筆數</span>
+                        <strong id="tx-health-failure-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>統計區間</span>
+                        <strong id="tx-health-window">24h</strong>
+                    </div>
+                </div>
+
+                <div class="section-block section-block-muted">
+                    <div class="section-heading-row">
+                        <h3>按來源分類</h3>
+                        <button id="tx-health-source-toggle-btn" class="btn-secondary compact-btn" onclick="toggleTxHealthSources()">展開來源分類</button>
+                    </div>
+                    <div id="tx-health-source-body" class="collapsible-body hidden">
+                        <div id="tx-health-source-groups" class="announcement-admin-list">
+                            <div class="result-empty">尚未載入來源分類</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-block section-block-muted">
+                    <h3>主要錯誤原因</h3>
+                    <div id="tx-health-top-errors" class="announcement-admin-list">
+                        <div class="result-empty">尚未載入錯誤統計</div>
+                    </div>
+                </div>
+
+                <div class="section-block section-block-muted">
+                    <h3>近期交易紀錄</h3>
+                    <div id="tx-health-recent-list" class="announcement-admin-list">
+                        <div class="result-empty">尚未載入近期交易</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="ops-section" class="section-block section-block-ops">
+            <div class="section-heading-row">
+                <div>
+                    <h2>帳號重製</h2>
+                    <p class="tool-note">平常不需要操作時可以保持收合。需要維運時再展開執行。</p>
+                </div>
+                <button id="ops-toggle-btn" class="btn-secondary compact-btn" onclick="toggleOpsSection()">展開帳號重製</button>
+            </div>
+
+            <div id="ops-section-body" class="collapsible-body hidden">
+                <div class="announcement-form-grid">
+                    <label>
+                        最低累計下注
+                        <input id="ops-min-total-bet" class="text-input" type="number" min="0" step="1" value="2000000000">
+                    </label>
+                    <label>
+                        最低餘額
+                        <input id="ops-min-balance" class="text-input" type="number" min="0" step="0.01" placeholder="可留空">
+                    </label>
+                    <label>
+                        最高餘額
+                        <input id="ops-max-balance" class="text-input" type="number" min="0" step="0.01" placeholder="可留空">
+                    </label>
+                    <label>
+                        地址包含
+                        <input id="ops-address-keyword" class="text-input" type="text" placeholder="可留空">
+                    </label>
+                    <label>
+                        最多處理數
+                        <input id="ops-max-targets" class="text-input" type="number" min="1" step="1" value="200">
+                    </label>
+                    <label class="toggle-field">
+                        <input id="ops-reset-total-bet" type="checkbox" checked>
+                        <span>歸零累計下注</span>
+                    </label>
+                    <label class="toggle-field">
+                        <input id="ops-reset-balance" type="checkbox">
+                        <span>歸零餘額（鏈上轉帳）</span>
+                    </label>
+                </div>
+                <div class="form-row">
+                    <button class="btn-primary" onclick="previewReset()">預覽名單</button>
+                    <button class="btn-secondary" onclick="executeReset()">正式重製</button>
+                </div>
+                <p id="status-msg">待命中</p>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>重製門檻</span>
+                        <strong>20 億</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>受影響帳號</span>
+                        <strong id="affected-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>執行模式</span>
+                        <strong id="result-mode">尚未執行</strong>
+                    </div>
+                </div>
+
+                <div class="section-block section-block-muted">
+                    <h2>重製結果</h2>
+                    <div id="result-list" class="result-list">
+                        <div class="result-empty">尚未執行預覽</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="issues-section" class="section-block issue-section">
+            <div class="section-heading-row">
+                <div>
+                    <h2>意見回饋</h2>
+                    <p class="tool-note">平常可保持收合，需要處理客服案件時再展開，避免一開始就塞滿頁面。</p>
+                </div>
+                <button id="issue-toggle-btn" class="btn-secondary compact-btn" onclick="toggleIssueSection()">展開意見回饋</button>
+            </div>
+
+            <div id="issues-section-body" class="collapsible-body hidden">
+                <div class="toolbar-grid">
+                    <select id="issue-report-selector" class="text-input" onchange="onIssueReportSelected(this.value)"></select>
+                    <button class="btn-secondary compact-btn" onclick="refreshIssueReports()">重新整理</button>
+                </div>
+                <div class="toolbar-grid">
+                    <select id="issue-status-filter" class="text-input" onchange="renderIssueReports()">
+                        <option value="">全部狀態</option>
                         <option value="open">待處理</option>
                         <option value="in_progress">處理中</option>
                         <option value="resolved">已處理</option>
                     </select>
-                </label>
-                <div class="stat-chips">
-                    <span class="stat-chip">顯示 <span id="issue-visible-count">0</span></span>
-                    <span class="stat-chip">總共 <span id="issue-total-count">0</span></span>
-                    <span class="stat-chip warn">待處理 <span id="issue-open-count">0</span></span>
-                    <span class="stat-chip info">處理中 <span id="issue-progress-count">0</span></span>
+                </div>
+                <p id="issue-status-msg">尚未載入意見回饋</p>
+
+                <div class="summary-grid issue-summary-grid">
+                    <div class="summary-card">
+                        <span>回報總數</span>
+                        <strong id="issue-total-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>目前顯示</span>
+                        <strong id="issue-visible-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>待處理</span>
+                        <strong id="issue-open-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>處理中</span>
+                        <strong id="issue-progress-count">0</strong>
+                    </div>
+                </div>
+
+                <div id="issue-report-list" class="issue-report-list">
+                    <div class="result-empty">請先選擇意見回饋</div>
                 </div>
             </div>
-            <div id="issue-report-list" class="issue-report-container"></div>
-            <div class="admin-actions">
-                <button id="issue-load-more-btn" class="btn-secondary" style="display: none;">載入更多</button>
+        </div>
+
+        <div id="custody-section" class="section-block custody-section section-block-muted">
+            <div class="section-heading-row">
+                <div>
+                    <h2>託管帳號管理</h2>
+                    <p class="tool-note">平常不需要操作時可以保持收合。需要查看時再展開，系統才會載入清單。</p>
+                </div>
+                <button id="custody-toggle-btn" class="btn-secondary compact-btn" onclick="toggleCustodySection()">展開託管帳號</button>
+            </div>
+
+            <div id="custody-section-body" class="collapsible-body hidden">
+                <div class="custody-toolbar">
+                    <select id="custody-user-selector" class="text-input" onchange="onCustodyUserSelected(this.value)"></select>
+                    <button class="btn-secondary compact-btn" onclick="refreshCustodyUsers()">重新整理</button>
+                </div>
+                <p id="custody-status-msg">尚未載入託管帳號</p>
+
+                <div class="summary-grid custody-summary-grid">
+                    <div class="summary-card">
+                        <span>託管帳號總數</span>
+                        <strong id="custody-total-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>目前顯示</span>
+                        <strong id="custody-visible-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>密碼可見性</span>
+                        <strong>不可讀取</strong>
+                    </div>
+                </div>
+
+                <div id="custody-user-list" class="custody-user-list">
+                    <div class="result-empty">請先選擇帳號</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Other sections remain unchanged... -->
+    <div id="admin-toast-stack" class="admin-toast-stack" aria-live="polite" aria-atomic="true"></div>
 
-  </div>
-  <script src="/js/auth.js"></script>
-  <script src="/js/common.js"></script>
-  <script src="/js/admin-tools.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      guardAdmin().then(initAdminToolsPage);
-    });
-  </script>
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/admin-tools.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initAdminToolsPage();
+            });
+        };
+    </script>
+
+    <script>
+        window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
 </body>
+
 </html>

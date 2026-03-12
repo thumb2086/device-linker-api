@@ -1,7 +1,7 @@
 var chatPollTimer = null;
 var chatAutoStartTimer = null;
 var chatLastRenderKey = '';
-var chatWidgetCollapsed = false;
+var chatWidgetCollapsed = true;
 var chatSeenMessageIds = {};
 var chatHasBootstrappedMessages = false;
 var chatBarrageQueue = [];
@@ -266,7 +266,7 @@ function startLobbyChat() {
     chatStarted = true;
     ensureGlobalChatUi();
     stopLobbyChat();
-    chatWidgetCollapsed = false;
+    chatWidgetCollapsed = true;
     chatLastRenderKey = '';
     chatSeenMessageIds = {};
     chatHasBootstrappedMessages = false;

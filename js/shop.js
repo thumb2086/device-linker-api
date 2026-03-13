@@ -325,6 +325,45 @@ function showPurchaseModal(item) {
     renderRewardResultEntries('商品已入庫', [item.name + ' x1']);
 }
 
+
+function renderYjcExchange(yjcVip) {
+    var cardEl = document.getElementById('yjc-exchange-card');
+    var balanceEl = document.getElementById('yjc-balance-label');
+    if (!cardEl || !balanceEl) return;
+    var data = yjcVip || {};
+    var balance = Number(data.balance || 0);
+    if (!Number.isFinite(balance) || balance < 0) balance = 0;
+    cardEl.style.display = 'grid';
+    balanceEl.innerText = '目前佑戩幣：' + formatCompactZh(Math.floor(balance), 2);
+    if (data.available === false && data.source === 'missing_contract') {
+        cardEl.style.display = 'none';
+    }
+}
+
+function exchangeYjc() {
+    var inputEl = document.getElementById('yjc-zxc-amount');
+    var amount = Number(inputEl && inputEl.value || 0);
+    if (!Number.isFinite(amount) || amount < 100000000) {
+        setRewardsStatus('兌換至少需要 100,000,000 子熙幣', true);
+        showRewardsToast('兌換至少需要 100,000,000 子熙幣', true);
+        return;
+    }
+
+    setRewardsStatus('佑戩幣兌換中...', false);
+    rewardsApi('exchange_yjc', { zxcAmount: amount })
+        .then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '佑戩幣兌換失敗');
+            applyRewardsState(data);
+            refreshBalance();
+            setRewardsStatus('兌換成功：+' + String(data.yjcAmount || 0) + ' 佑戩幣', false);
+            showRewardsToast('兌換成功：+' + String(data.yjcAmount || 0) + ' 佑戩幣', false);
+        })
+        .catch(function (error) {
+            setRewardsStatus('錯誤: ' + error.message, true);
+            showRewardsToast(error.message, true);
+        });
+}
+
 function applyRewardsState(data) {
     rewardsState = data || null;
     if (!data || !data.profile) return;
@@ -332,6 +371,7 @@ function applyRewardsState(data) {
     renderCampaigns(data.campaigns || []);
     renderShop(data.catalog && data.catalog.shopItems ? data.catalog.shopItems : []);
     renderTitleShop(data.catalog && data.catalog.titles ? data.catalog.titles : []);
+    renderYjcExchange(data.yjcVip);
     switchRewardsTab(rewardsTab);
 }
 

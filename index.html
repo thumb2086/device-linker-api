@@ -197,9 +197,11 @@
                 </div>
                 <div class="chat-header-actions">
                     <div id="chat-status" class="chat-status">聊天室連線中...</div>
+                    <select id="chat-room-select" class="text-input chat-room-select" onchange="onChatRoomChange()"></select>
                     <button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="true">收合</button>
                 </div>
             </div>
+            <div id="chat-room-note" class="chat-room-note"></div>
             <div id="chat-widget-body">
                 <div id="chat-message-list" class="chat-message-list"></div>
                 <div class="chat-input-row">
@@ -334,7 +336,16 @@
                 updateUI(data);
                 startBalanceRefresh();
                 loadLobbyRewards();
-                startLobbyChat();
+                if (window.startLobbyChat && typeof window.startLobbyChat === 'function') {
+                    startLobbyChat();
+                } else {
+                    if (window.ensureGlobalChatScriptLoaded) ensureGlobalChatScriptLoaded();
+                    window.setTimeout(function () {
+                        if (window.startLobbyChat && typeof window.startLobbyChat === 'function') {
+                            startLobbyChat();
+                        }
+                    }, 180);
+                }
                 hidePageTransition();
 
                 // 只有管理員才顯示維運工具

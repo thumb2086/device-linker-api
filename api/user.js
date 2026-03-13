@@ -8,6 +8,7 @@ import { getSession, saveSession } from "../lib/session-store.js";
 import { ensureDisplayName, getDisplayName, setDisplayName } from "../lib/user-profile.js";
 import { buildRewardSummary } from "../lib/reward-center.js";
 import { settlementService } from "../lib/settlement-service.js";
+import { resolveYjcVipStatus } from "../lib/yjc-vip.js";
 import {
     createIssueReport,
     listAnnouncements,
@@ -181,7 +182,7 @@ function buildPendingPayload(sessionData = {}) {
     };
 }
 
-function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "", rewardProfile = null) {
+function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "", rewardProfile = null, yjcVip = null) {
     const isAdmin = String(sessionData.address || "").toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
     return {
         success: true,
@@ -201,6 +202,7 @@ function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName
         level: vipStatus.vipLevel,
         betLimit: toDecimalString(vipStatus.maxBet),
         levelSystem: { key: "legacy_v1", label: "等級制度 v1" },
+        yjcVip: yjcVip || null,
         isAdmin,
         rewardProfile
     };
@@ -227,12 +229,14 @@ async function loadUserMetrics(address) {
     ]);
     const totalBet = Number(totalBetRaw || 0);
     const rewardProfile = await buildRewardSummary(address, totalBet);
+    const yjcVip = await resolveYjcVipStatus(address);
     return {
         balance: ethers.formatUnits(balanceRaw, decimals),
         totalBet,
         vipStatus: buildVipStatus(totalBet),
         displayName,
-        rewardProfile
+        rewardProfile,
+        yjcVip
     };
 }
 
@@ -299,12 +303,12 @@ export default async function handler(req, res) {
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile)
+                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile, metrics.yjcVip)
                 );
             } catch (error) {
                 console.error("User metrics read failed:", error.message);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "", null)
+                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "", null, null)
                 );
             }
         }
@@ -327,11 +331,11 @@ export default async function handler(req, res) {
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile)
+                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile, metrics.yjcVip)
                 );
             } catch (error) {
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "", null)
+                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "", null, null)
                 );
             }
         }
@@ -380,7 +384,8 @@ export default async function handler(req, res) {
                         metrics.totalBet,
                         metrics.vipStatus,
                         metrics.displayName,
-                        metrics.rewardProfile
+                        metrics.rewardProfile,
+                        metrics.yjcVip
                     );
                     payload.sessionId = newSessionId;
                     return res.status(200).json(payload);
@@ -388,7 +393,7 @@ export default async function handler(req, res) {
                     console.error("Quick login user metrics read failed:", error.message);
                     const fallbackPayload = buildAuthPayload(
                         sessionData,
-                        "0.00", 0, buildVipStatus(0), "", null
+                        "0.00", 0, buildVipStatus(0), "", null, null
                     );
                     fallbackPayload.sessionId = newSessionId;
                     return res.status(200).json(fallbackPayload);

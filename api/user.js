@@ -182,6 +182,22 @@ function buildPendingPayload(sessionData = {}) {
     };
 }
 
+function buildAuthorizedSessionPayload(sessionData) {
+    return {
+        success: true,
+        status: "authorized",
+        address: sessionData.address,
+        publicKey: sessionData.publicKey || null,
+        mode: sessionData.mode || "live",
+        platform: sessionData.platform || "unknown",
+        clientType: sessionData.clientType || "unknown",
+        deviceId: sessionData.deviceId || "",
+        appVersion: sessionData.appVersion || "",
+        authorizedAt: sessionData.authorizedAt || null,
+        expiresAt: sessionData.expiresAt || null
+    };
+}
+
 function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "", rewardProfile = null, yjcVip = null) {
     const isAdmin = String(sessionData.address || "").toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
     return {
@@ -269,6 +285,7 @@ export default async function handler(req, res) {
         const sessionId = normalizeSessionId(query.sessionId || body.sessionId);
         const action = normalizeText(body.action || query.action, req.method === "GET" ? "get_status" : "authorize");
         const clockOnly = String(query.clock || "") === "1";
+        const fastStatus = String(query.fast || body.fast || "") === "1";
         // 維護公告不阻擋登入
 
         if (action === "get_maintenance") {
@@ -300,6 +317,9 @@ export default async function handler(req, res) {
                     error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}`
                 });
             }
+            if (fastStatus) {
+                return res.status(200).json(buildAuthorizedSessionPayload(sessionData));
+            }
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
@@ -327,6 +347,9 @@ export default async function handler(req, res) {
                     status: "blacklisted",
                     error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}`
                 });
+            }
+            if (fastStatus) {
+                return res.status(200).json(buildAuthorizedSessionPayload(sessionData));
             }
             try {
                 const metrics = await loadUserMetrics(sessionData.address);

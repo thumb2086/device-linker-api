@@ -721,12 +721,42 @@ function clearCustodyQuickAuth() {
  * 驗證 session 是否仍有效
  */
 function verifySession(sessionId, callback) {
-    fetch('/api/user?action=get_status&sessionId=' + sessionId)
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            callback(data.status === 'authorized', data);
+    var hasCalled = false;
+    function finish(valid, data) {
+        if (hasCalled) return;
+        hasCalled = true;
+        callback(!!valid, data || null);
+    }
+
+    var timeoutMs = 8000;
+    var controller = null;
+    var timeoutId = null;
+    if (typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        timeoutId = window.setTimeout(function () {
+            try {
+                controller.abort();
+            } catch (e) {
+                // noop
+            }
+            finish(false, null);
+        }, timeoutMs);
+    }
+
+    fetch('/api/user?action=get_status&fast=1&sessionId=' + encodeURIComponent(sessionId || '') + '&_ts=' + Date.now(), {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller ? controller.signal : undefined
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (timeoutId) window.clearTimeout(timeoutId);
+            finish(data && data.status === 'authorized', data || null);
         })
-        .catch(function() { callback(false, null); });
+        .catch(function () {
+            if (timeoutId) window.clearTimeout(timeoutId);
+            finish(false, null);
+        });
 }
 
 /**

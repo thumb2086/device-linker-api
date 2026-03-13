@@ -1055,7 +1055,7 @@ function buildRewardSelectOptionsHtml(items, emptyLabel, selectedValue) {
 }
 
 function buildVipSelectOptionsHtml(items, selectedValue) {
-    var html = '<option value="">不限 VIP</option>';
+    var html = '<option value="">不限等級</option>';
     (items || []).forEach(function (item) {
         var value = String(item && item.label || '');
         if (!value || value === '普通會員') return;

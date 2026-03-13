@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP 專屬區 | 子熙模擬器</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/lobby.css">
+    <style>
+        .vip-header {
+            background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
+            padding: 40px 20px;
+            text-align: center;
+            border-bottom: 2px solid #ffd700;
+            margin-bottom: 30px;
+        }
+        .vip-header h1 {
+            color: #ffd700;
+            font-size: 2.5rem;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .vip-status-card {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid #ffd700;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .status-item {
+            text-align: center;
+            margin: 10px;
+        }
+        .status-label {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+        .status-value {
+            font-size: 1.5rem;
+            color: #fff;
+            font-weight: bold;
+        }
+        .vip-gold { color: #ffd700; }
+
+        .exchange-section {
+            background: #222;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        .exchange-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .exchange-input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #111;
+            color: #fff;
+        }
+
+        .room-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .room-card {
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 15px;
+            padding: 20px;
+            transition: transform 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .room-card.locked {
+            opacity: 0.6;
+            filter: grayscale(0.8);
+            cursor: not-allowed;
+        }
+        .room-card.locked::after {
+            content: "🔒 等級不足";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: #ff4444;
+            font-weight: bold;
+        }
+        .room-card:not(.locked):hover {
+            transform: translateY(-5px);
+            border-color: #ffd700;
+        }
+        .room-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+        .room-info {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 15px;
+        }
+        .player-count {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #444;
+        }
+        .dot.active { background: #00ff00; }
+        .dot.bot { background: #555; }
+
+        .join-btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            background: #ffd700;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .join-btn:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body class="lobby-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">← 返回大廳</a>
+    </div>
+
+    <div class="vip-header">
+        <p class="section-kicker">Premium Access</p>
+        <h1>佑戩幣 VIP 專屬區</h1>
+        <p>持有 YJC 代幣，解鎖更高權限與專屬房間</p>
+    </div>
+
+    <div class="lobby-container">
+        <div class="vip-status-card">
+            <div class="status-item">
+                <div class="status-label">當前帳號</div>
+                <div class="status-value" id="user-address">0x...</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">VIP 等級</div>
+                <div class="status-value vip-gold" id="yjc-tier-label">載入中...</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">YJC 餘額</div>
+                <div class="status-value" id="yjc-balance">0.00</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">ZXC 餘額</div>
+                <div class="status-value" id="zxc-balance">0.00</div>
+            </div>
+        </div>
+
+        <div class="exchange-section">
+            <h3>🪙 快速兌換 (ZXC to YJC)</h3>
+            <p class="status-label">兌換比例 100,000,000 ZXC : 1 YJC</p>
+            <div class="exchange-form">
+                <input type="number" id="exchange-amount" class="exchange-input" placeholder="輸入 ZXC 金額 (最低 1 億)">
+                <button class="btn-primary" onclick="performExchange()">立即兌換</button>
+            </div>
+            <p id="exchange-msg" style="margin-top: 10px; font-size: 0.9rem;"></p>
+        </div>
+
+        <div class="section-title">VIP 專屬桌位</div>
+        <div class="room-grid" id="room-grid">
+            <!-- Room cards will be rendered here -->
+            <div class="room-card" id="room-1">
+                <div class="room-title">一號桌 (新手/機器人場)</div>
+                <div class="room-info">准入條件：持有 1 YJC 以上</div>
+                <div class="player-count" id="room-1-players">
+                    載入中...
+                </div>
+                <button class="join-btn" onclick="joinRoom(1)">進入房間</button>
+            </div>
+
+            <div class="room-card" id="room-2">
+                <div class="room-title">二號桌 (真人 VIP 場)</div>
+                <div class="room-info">准入條件：持有 1,000 YJC 以上<br>享零手續費、真人優先權</div>
+                <div class="player-count" id="room-2-players">
+                    載入中...
+                </div>
+                <button class="join-btn" onclick="joinRoom(2)">進入房間</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script>
+        let currentUser = null;
+        let yjcStatus = null;
+
+        async function loadVipData() {
+            if (!currentUser || !currentUser.sessionId) return;
+
+            try {
+                // Load YJC status
+                const res = await fetch('/api/yjc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'status', sessionId: currentUser.sessionId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    yjcStatus = data;
+                    document.getElementById('user-address').textContent = (data.address || '').slice(0, 8) + '...';
+                    document.getElementById('yjc-tier-label').textContent = data.tier.label;
+                    document.getElementById('yjc-balance').textContent = formatCompactZh(data.balance);
+
+                    // Update room locking UI
+                    updateRoomLocks(data.tier.key);
+                }
+
+                // Load ZXC balance from user API
+                const userRes = await fetch('/api/user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'get_status', sessionId: currentUser.sessionId })
+                });
+                const userData = await userRes.json();
+                if (userData.success) {
+                    document.getElementById('zxc-balance').textContent = formatCompactZh(userData.balance);
+                }
+
+                // Load Room Snapshot
+                loadRoomSnapshot();
+
+            } catch (e) {
+                console.error('Failed to load VIP data', e);
+            }
+        }
+
+        function updateRoomLocks(tier) {
+            const room1 = document.getElementById('room-1');
+            const room2 = document.getElementById('room-2');
+
+            if (tier === 'none') {
+                room1.classList.add('locked');
+                room2.classList.add('locked');
+                room1.querySelector('button').disabled = true;
+                room2.querySelector('button').disabled = true;
+            } else if (tier === 'vip1') {
+                room1.classList.remove('locked');
+                room2.classList.add('locked');
+                room1.querySelector('button').disabled = false;
+                room2.querySelector('button').disabled = true;
+            } else if (tier === 'vip2') {
+                room1.classList.remove('locked');
+                room2.classList.remove('locked');
+                room1.querySelector('button').disabled = false;
+                room2.querySelector('button').disabled = false;
+            }
+        }
+
+        async function loadRoomSnapshot() {
+            try {
+                const res = await fetch('/api/room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'snapshot', sessionId: currentUser.sessionId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    renderRoomPlayers(1, data.rooms.find(r => r.roomId === 1));
+                    renderRoomPlayers(2, data.rooms.find(r => r.roomId === 2));
+                }
+            } catch (e) {
+                console.error('Failed to load room snapshot', e);
+            }
+        }
+
+        function renderRoomPlayers(roomId, roomData) {
+            const container = document.getElementById(`room-${roomId}-players`);
+            if (!roomData) {
+                container.innerHTML = '房間未啟用';
+                return;
+            }
+
+            let html = `<span>真人: ${roomData.humanCount} / Bot: ${roomData.maxSize - roomData.humanCount}</span><br><div style="display:flex; gap:4px; margin-top:5px;">`;
+            roomData.players.forEach(p => {
+                const title = p.type === 'human' ? `玩家: ${p.id}` : `機器人: ${p.id}`;
+                const className = p.type === 'human' ? 'dot active' : 'dot bot';
+                html += `<div class="${className}" title="${title}"></div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        async function performExchange() {
+            const amountInput = document.getElementById('exchange-amount');
+            const amount = parseInt(amountInput.value);
+            const msgEl = document.getElementById('exchange-msg');
+
+            if (isNaN(amount) || amount < 100000000) {
+                alert('請輸入正確金額 (最低 1 億 ZXC)');
+                return;
+            }
+
+            if (!confirm(`確定要將 ${formatCompactZh(amount)} ZXC 兌換為 ${Math.floor(amount / 100000000)} YJC 嗎？`)) return;
+
+            msgEl.textContent = '處理中，請稍候...';
+            msgEl.style.color = '#ffd700';
+
+            try {
+                const res = await fetch('/api/yjc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'exchange',
+                        sessionId: currentUser.sessionId,
+                        amount: amount
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    msgEl.textContent = `成功！兌換 ${data.yjcMinted} YJC。`;
+                    msgEl.style.color = '#00ff00';
+                    amountInput.value = '';
+                    loadVipData();
+                } else {
+                    msgEl.textContent = '錯誤：' + data.error;
+                    msgEl.style.color = '#ff4444';
+                }
+            } catch (e) {
+                msgEl.textContent = '系統錯誤，請稍後再試';
+                msgEl.style.color = '#ff4444';
+            }
+        }
+
+        async function joinRoom(roomId) {
+            try {
+                const res = await fetch('/api/room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'join',
+                        sessionId: currentUser.sessionId,
+                        preferredRoomId: roomId
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`成功進入 ${roomId} 號桌！(此為模擬提示，實際遊戲邏輯將由各遊戲頁面接入)`);
+                    loadRoomSnapshot();
+                } else {
+                    alert('進入失敗：' + data.error);
+                }
+            } catch (e) {
+                alert('進入房間時發生錯誤');
+            }
+        }
+
+        window.onload = function () {
+            showPageTransition('驗證 VIP 權限...');
+            checkGameAuth(function (data) {
+                currentUser = data;
+                updateUI(data);
+                loadVipData();
+                hidePageTransition();
+            });
+        };
+    </script>
+</body>
+
+</html>

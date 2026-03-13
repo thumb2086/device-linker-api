@@ -219,7 +219,6 @@
     <script src="../js/common.js"></script>
     <script src="../js/auth.js"></script>
     <script>
-        let currentUser = null;
         let yjcStatus = null;
 
         function renderVipStatus(data) {
@@ -239,12 +238,12 @@
         }
 
         async function loadVipData() {
-            if (!currentUser || !currentUser.sessionId) return;
+            if (!user || !user.sessionId) return;
 
-            // Try to use yjcVip data already present in currentUser (from checkGameAuth)
-            if (currentUser.yjcVip) {
-                renderVipStatus(currentUser.yjcVip);
-                yjcStatus = currentUser.yjcVip;
+            // Try to use yjcVip data already present in user (from checkGameAuth)
+            if (user.yjcVip) {
+                renderVipStatus(user.yjcVip);
+                yjcStatus = user.yjcVip;
             } else {
                 // Default fallback if no data yet
                 renderVipStatus({ balance: 0, tier: { key: 'none', label: '未達 VIP' } });
@@ -255,7 +254,7 @@
                 const res = await fetch('/api/yjc', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'status', sessionId: currentUser.sessionId })
+                    body: JSON.stringify({ action: 'status', sessionId: user.sessionId })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -270,7 +269,7 @@
                 const userRes = await fetch('/api/user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'get_status', sessionId: currentUser.sessionId })
+                    body: JSON.stringify({ action: 'get_status', sessionId: user.sessionId })
                 });
                 const userData = await userRes.json();
                 if (userData.success) {
@@ -313,7 +312,7 @@
                 const res = await fetch('/api/room', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'snapshot', sessionId: currentUser.sessionId })
+                    body: JSON.stringify({ action: 'snapshot', sessionId: user.sessionId })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -368,7 +367,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         action: 'exchange',
-                        sessionId: currentUser.sessionId,
+                        sessionId: user.sessionId,
                         amount: amount
                     })
                 });
@@ -401,7 +400,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         action: 'join',
-                        sessionId: currentUser.sessionId,
+                        sessionId: user.sessionId,
                         preferredRoomId: roomId
                     })
                 });
@@ -430,8 +429,11 @@
         window.onload = function () {
             showPageTransition('驗證 VIP 權限...');
             checkGameAuth(function (data) {
-                currentUser = data;
+                // updateUI updates the global 'user' object from common.js
                 updateUI(data);
+                // Attach yjcVip to user if it exists in the response
+                if (data.yjcVip) user.yjcVip = data.yjcVip;
+
                 loadVipData();
                 hidePageTransition();
             });

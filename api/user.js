@@ -198,11 +198,12 @@ function buildAuthorizedSessionPayload(sessionData) {
     };
 }
 
-function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "", rewardProfile = null, yjcVip = null) {
+function buildAuthPayload(sessionId, sessionData, balance, totalBet, vipStatus, displayName = "", rewardProfile = null, yjcVip = null) {
     const isAdmin = String(sessionData.address || "").toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
     return {
         success: true,
         status: "authorized",
+        sessionId: sessionId,
         address: sessionData.address,
         displayName,
         publicKey: sessionData.publicKey || null,
@@ -340,12 +341,12 @@ export default async function handler(req, res) {
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile, metrics.yjcVip)
+                    buildAuthPayload(sessionId, sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile, metrics.yjcVip)
                 );
             } catch (error) {
                 console.error("User metrics read failed:", error.message);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "", null, null)
+                    buildAuthPayload(sessionId, sessionData, "0.00", 0, buildVipStatus(0), "", null, null)
                 );
             }
         }
@@ -371,11 +372,11 @@ export default async function handler(req, res) {
             try {
                 const metrics = await loadUserMetrics(sessionData.address);
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile, metrics.yjcVip)
+                    buildAuthPayload(sessionId, sessionData, metrics.balance, metrics.totalBet, metrics.vipStatus, metrics.displayName, metrics.rewardProfile, metrics.yjcVip)
                 );
             } catch (error) {
                 return res.status(200).json(
-                    buildAuthPayload(sessionData, "0.00", 0, buildVipStatus(0), "", null, null)
+                    buildAuthPayload(sessionId, sessionData, "0.00", 0, buildVipStatus(0), "", null, null)
                 );
             }
         }
@@ -418,7 +419,8 @@ export default async function handler(req, res) {
 
                 try {
                     const metrics = await loadUserMetrics(normalizedAddress);
-                    const payload = buildAuthPayload(
+                    return res.status(200).json(buildAuthPayload(
+                        newSessionId,
                         sessionData,
                         metrics.balance,
                         metrics.totalBet,
@@ -426,17 +428,14 @@ export default async function handler(req, res) {
                         metrics.displayName,
                         metrics.rewardProfile,
                         metrics.yjcVip
-                    );
-                    payload.sessionId = newSessionId;
-                    return res.status(200).json(payload);
+                    ));
                 } catch (error) {
                     console.error("Quick login user metrics read failed:", error.message);
-                    const fallbackPayload = buildAuthPayload(
+                    return res.status(200).json(buildAuthPayload(
+                        newSessionId,
                         sessionData,
                         "0.00", 0, buildVipStatus(0), "", null, null
-                    );
-                    fallbackPayload.sessionId = newSessionId;
-                    return res.status(200).json(fallbackPayload);
+                    ));
                 }
             }
 
@@ -621,8 +620,27 @@ export default async function handler(req, res) {
             const clientType = normalizeClientType(body.clientType || (existingSession && existingSession.clientType));
             const deviceId = normalizeDeviceId(body.deviceId || (existingSession && existingSession.deviceId));
             const appVersion = normalizeText(body.appVersion || (existingSession && existingSession.appVersion), "", 32);
-            await saveSession(sessionId, { status: "authorized", address: normalizedAddress, publicKey, mode: "live", platform, clientType, deviceId, appVersion, authorizedAt: new Date().toISOString(), expiresAt: buildExpiresAt(ttlSeconds) }, ttlSeconds);
-            return res.status(200).json({ success: true, status: "authorized", sessionId, address: normalizedAddress, publicKey, mode: "live", platform, clientType });
+            const authSessionData = { status: "authorized", address: normalizedAddress, publicKey, mode: "live", platform, clientType, deviceId, appVersion, authorizedAt: new Date().toISOString(), expiresAt: buildExpiresAt(ttlSeconds) };
+            await saveSession(sessionId, authSessionData, ttlSeconds);
+            try {
+                const metrics = await loadUserMetrics(normalizedAddress);
+                return res.status(200).json(buildAuthPayload(
+                    sessionId,
+                    authSessionData,
+                    metrics.balance,
+                    metrics.totalBet,
+                    metrics.vipStatus,
+                    metrics.displayName,
+                    metrics.rewardProfile,
+                    metrics.yjcVip
+                ));
+            } catch (error) {
+                return res.status(200).json(buildAuthPayload(
+                    sessionId,
+                    authSessionData,
+                    "0.00", 0, buildVipStatus(0), "", null, null
+                ));
+            }
         }
         return res.status(400).json({ success: false, error: "Unsupported action", supportedActions: ["create_session", "get_status", "authorize", "custody_login", "get_profile", "set_profile", "get_history", "get_announcements", "submit_issue_report", "list_my_issue_reports"] });
     } catch (error) {

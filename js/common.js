@@ -560,6 +560,10 @@ function saveUserSettings() {
 function updateUI(data) {
     if (!data) return;
 
+    if (data.sessionId) {
+        user.sessionId = data.sessionId;
+    }
+
     if (data.displayName !== undefined) {
         user.displayName = data.displayName || '';
         var nameEl = document.getElementById('display-name-val');

@@ -45,6 +45,7 @@ body {
     max-width: 800px;
     text-align: center;
     box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
 }
 
@@ -87,6 +88,7 @@ h1 {
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: 0.3s;
 }
 
 .back-btn:hover {
@@ -127,6 +129,7 @@ h1 {
     font-weight: 700;
     cursor: pointer;
     text-decoration: none;
+    transition: 0.2s;
 }
 
 .logout-btn:hover {
@@ -147,6 +150,7 @@ h1 {
     font-size: 0.82rem;
     font-weight: 700;
     cursor: pointer;
+    transition: 0.2s;
 }
 
 .settings-btn:hover {
@@ -278,6 +282,7 @@ h1 {
     box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
     opacity: 0;
     transform: translateY(-6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .user-toast.visible {
@@ -382,6 +387,7 @@ input[type="number"] {
     font-weight: 800;
     outline: none;
     margin-bottom: 20px;
+    transition: 0.3s;
 }
 
 input[type="number"]:focus {
@@ -403,10 +409,16 @@ button {
     font-size: 1.1rem;
     font-weight: 800;
     cursor: pointer;
+    transition: 0.3s;
 }
 
 button:hover:not(:disabled) {
+    transform: translateY(-3px) scale(1.02);
     filter: brightness(1.2);
+}
+
+button:active:not(:disabled) {
+    transform: translateY(0);
 }
 
 button:disabled {
@@ -444,8 +456,13 @@ button:disabled {
     border-top: 3px solid var(--gold);
     border-radius: 50%;
     display: inline-block;
+    animation: spin 1s linear infinite;
     vertical-align: middle;
     margin-right: 10px;
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
 }
 
 /* --- 交易紀錄連結 --- */
@@ -460,11 +477,47 @@ button:disabled {
     text-decoration: none;
     border-bottom: 1px solid #333;
     font-size: 0.8rem;
+    transition: 0.3s;
 }
 
 #tx-log a:hover {
     color: white;
     border-color: var(--gold);
+}
+
+/* --- 脈動動畫 --- */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+    }
+    50% {
+        transform: scale(1.05);
+        text-shadow: 0 0 25px rgba(255, 204, 0, 0.8), 0 0 5px white;
+    }
+    100% {
+        transform: scale(1);
+        text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+    }
+}
+
+/* --- 震動動畫 --- */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+/* --- 淡入動畫 --- */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* --- 副標題 --- */
@@ -500,6 +553,7 @@ button:disabled {
     justify-content: center;
     opacity: 0;
     pointer-events: none;
+    transition: opacity 0.2s ease;
 }
 
 .page-transition.show {
@@ -732,11 +786,19 @@ button:disabled {
     font-weight: 700;
     color: #f2f6ff;
     text-shadow: 0 0 10px rgba(0, 0, 0, 0.68);
+    animation-name: global-barrage-move;
+    animation-timing-function: linear;
+    animation-iteration-count: 1;
 }
 
 .global-barrage-item.winner {
     color: #ffd364;
     text-shadow: 0 0 12px rgba(255, 179, 0, 0.6);
+}
+
+@keyframes global-barrage-move {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(-100vw - 120%)); }
 }
 
 @media (max-width: 860px) {

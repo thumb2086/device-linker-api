@@ -237,15 +237,32 @@ async function checkBlacklist(address) {
 
 async function loadUserMetrics(address) {
     const contract = settlementService.contract;
-    const [balanceRaw, decimals, totalBetRaw, displayName] = await Promise.all([
-        contract.balanceOf(address),
-        getDecimals(),
-        kv.get(`total_bet:${address.toLowerCase()}`),
-        getDisplayName(address)
+    const addressLower = address.toLowerCase();
+
+    // Run independent fetches in parallel to reduce overall latency
+    const [
+        balanceRaw,
+        decimals,
+        totalBetRaw,
+        displayName,
+        yjcVip
+    ] = await Promise.all([
+        contract.balanceOf(address).catch(() => 0n),
+        getDecimals().catch(() => 18),
+        kv.get(`total_bet:${addressLower}`).catch(() => 0),
+        getDisplayName(address).catch(() => ""),
+        resolveYjcVipStatus(address).catch((err) => ({
+            available: false,
+            error: err.message,
+            balance: 0,
+            tier: { key: "none", label: "連線中...", roomAccess: [] }
+        }))
     ]);
+
     const totalBet = Number(totalBetRaw || 0);
-    const rewardProfile = await buildRewardSummary(address, totalBet);
-    const yjcVip = await resolveYjcVipStatus(address);
+    // rewardProfile depends on totalBet, so it stays separate or we'd need another Promise.all
+    const rewardProfile = await buildRewardSummary(address, totalBet).catch(() => null);
+
     return {
         balance: ethers.formatUnits(balanceRaw, decimals),
         totalBet,

@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
         if (action === "join") {
             const yjcVip = await resolveYjcVipStatus(address);
-            const tier = yjcVip.tier.key;
+            const tier = yjcVip && yjcVip.tier ? yjcVip.tier.key : "none";
 
             let result;
             if (tier === "vip2") {

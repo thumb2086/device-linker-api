@@ -217,11 +217,25 @@
         let currentUser = null;
         let yjcStatus = null;
 
+        function renderVipStatus(data) {
+            if (!data) return;
+            const tier = data.tier || { label: '未達 VIP', key: 'none' };
+            document.getElementById('yjc-tier-label').textContent = tier.label;
+            document.getElementById('yjc-balance').textContent = formatCompactZh(data.balance || 0);
+            updateRoomLocks(tier.key);
+        }
+
         async function loadVipData() {
             if (!currentUser || !currentUser.sessionId) return;
 
+            // Try to use yjcVip data already present in currentUser (from checkGameAuth)
+            if (currentUser.yjcVip) {
+                renderVipStatus(currentUser.yjcVip);
+                yjcStatus = currentUser.yjcVip;
+            }
+
             try {
-                // Load YJC status
+                // Load YJC status (Authoritative update)
                 const res = await fetch('/api/yjc', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -231,11 +245,9 @@
                 if (data.success) {
                     yjcStatus = data;
                     document.getElementById('user-address').textContent = (data.address || '').slice(0, 8) + '...';
-                    document.getElementById('yjc-tier-label').textContent = data.tier.label;
-                    document.getElementById('yjc-balance').textContent = formatCompactZh(data.balance);
-
-                    // Update room locking UI
-                    updateRoomLocks(data.tier.key);
+                    renderVipStatus(data);
+                } else {
+                    document.getElementById('yjc-tier-label').textContent = '讀取失敗';
                 }
 
                 // Load ZXC balance from user API
@@ -254,6 +266,7 @@
 
             } catch (e) {
                 console.error('Failed to load VIP data', e);
+                document.getElementById('yjc-tier-label').textContent = '讀取逾時';
             }
         }
 
@@ -290,9 +303,14 @@
                 if (data.success) {
                     renderRoomPlayers(1, data.rooms.find(r => r.roomId === 1));
                     renderRoomPlayers(2, data.rooms.find(r => r.roomId === 2));
+                } else {
+                    document.getElementById('room-1-players').textContent = '資料不可用';
+                    document.getElementById('room-2-players').textContent = '資料不可用';
                 }
             } catch (e) {
                 console.error('Failed to load room snapshot', e);
+                document.getElementById('room-1-players').textContent = '連線失敗';
+                document.getElementById('room-2-players').textContent = '連線失敗';
             }
         }
 

@@ -825,7 +825,7 @@ function checkGameAuth(onReady) {
                     onReady(data);
                 }
             } finally {
-                if (typeof hidePageeTransition === 'function') {
+                if (typeof hidePageTransition === 'function') {
                     hidePageTransition();
                 }
             }

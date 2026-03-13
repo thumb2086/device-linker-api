@@ -29,9 +29,10 @@ export default async function handler(req, res) {
         const manager = await getRoomManager();
 
         if (action === "snapshot") {
+            const snapshot = await manager.getSnapshot();
             return res.status(200).json({
                 success: true,
-                ...manager.getSnapshot()
+                ...snapshot
             });
         }
 

@@ -255,7 +255,7 @@ async function loadUserMetrics(address) {
             available: false,
             error: err.message,
             balance: 0,
-            tier: { key: "none", label: "連線中...", roomAccess: [] }
+            tier: { key: "none", label: "載入失敗", roomAccess: [] }
         }))
     ]);
 

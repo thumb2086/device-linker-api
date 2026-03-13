@@ -178,6 +178,11 @@
             </div>
         </div>
 
+        <div id="no-vip-warning" class="vip-status-card" style="display: none; background: rgba(255, 68, 68, 0.1); border-color: #ff4444; color: #ff4444; flex-direction: column; text-align: center; gap: 10px;">
+            <div style="font-size: 1.2rem; font-weight: bold;">⚠️ 尚未取得 VIP 資格</div>
+            <p>您目前尚未持有 YJC 代幣。請使用下方兌換功能取得代幣，以解鎖專屬桌位與權限。</p>
+        </div>
+
         <div class="exchange-section">
             <h3>🪙 快速兌換 (ZXC to YJC)</h3>
             <p class="status-label">兌換比例 100,000,000 ZXC : 1 YJC</p>
@@ -222,6 +227,14 @@
             const tier = data.tier || { label: '未達 VIP', key: 'none' };
             document.getElementById('yjc-tier-label').textContent = tier.label;
             document.getElementById('yjc-balance').textContent = formatCompactZh(data.balance || 0);
+
+            const warningEl = document.getElementById('no-vip-warning');
+            if (tier.key === 'none') {
+                warningEl.style.display = 'flex';
+            } else {
+                warningEl.style.display = 'none';
+            }
+
             updateRoomLocks(tier.key);
         }
 
@@ -232,6 +245,9 @@
             if (currentUser.yjcVip) {
                 renderVipStatus(currentUser.yjcVip);
                 yjcStatus = currentUser.yjcVip;
+            } else {
+                // Default fallback if no data yet
+                renderVipStatus({ balance: 0, tier: { key: 'none', label: '未達 VIP' } });
             }
 
             try {
@@ -373,6 +389,12 @@
         }
 
         async function joinRoom(roomId) {
+            const btn = document.querySelector(`#room-${roomId} .join-btn`);
+            const originalText = btn.textContent;
+
+            btn.disabled = true;
+            btn.textContent = '進入中...';
+
             try {
                 const res = await fetch('/api/room', {
                     method: 'POST',
@@ -385,13 +407,23 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(`成功進入 ${roomId} 號桌！(此為模擬提示，實際遊戲邏輯將由各遊戲頁面接入)`);
-                    loadRoomSnapshot();
+                    showUserToast(`成功進入 ${roomId} 號桌！正在為您準備位置...`);
+                    // Here we would normally redirect to the game page
+                    // window.location.href = `/games/poker.html?room=${data.roomId}`;
+                    setTimeout(() => {
+                        loadRoomSnapshot();
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }, 2000);
                 } else {
                     alert('進入失敗：' + data.error);
+                    btn.disabled = false;
+                    btn.textContent = originalText;
                 }
             } catch (e) {
                 alert('進入房間時發生錯誤');
+                btn.disabled = false;
+                btn.textContent = originalText;
             }
         }
 

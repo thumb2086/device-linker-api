@@ -170,26 +170,56 @@ function initLobbyAuth(onAuthorized) {
     showQRAuth(onAuthorized);
 }
 
+function fetchMaintenanceSnapshot(callback) {
+    var timeoutMs = 5000;
+    var hasReturned = false;
+    var controller = null;
+    var timeoutId = null;
+
+    function finish(data) {
+        if (hasReturned) return;
+        hasReturned = true;
+        if (timeoutId) window.clearTimeout(timeoutId);
+        callback(data || null);
+    }
+
+    if (typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        timeoutId = window.setTimeout(function () {
+            try {
+                controller.abort();
+            } catch (e) {
+                // noop
+            }
+            finish(null);
+        }, timeoutMs);
+    }
+
+    fetch('/api/user?action=get_maintenance', {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller ? controller.signal : undefined
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) { finish(data); })
+        .catch(function () { finish(null); });
+}
+
 function refreshMaintenanceBanner() {
     var banner = document.getElementById('maintenance-banner');
     var titleEl = banner ? banner.querySelector('.maintenance-title') : null;
     var messageEl = banner ? banner.querySelector('.maintenance-message') : null;
     if (!banner) return;
 
-    fetch('/api/user?action=get_maintenance')
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            if (!data || !data.enabled) {
-                banner.classList.add('hidden');
-                return;
-            }
-            banner.classList.remove('hidden');
-            if (titleEl) titleEl.innerText = data.title || '系統維護中';
-            if (messageEl) messageEl.innerText = data.message || '目前暫停登入與遊戲，請稍後再試。';
-        })
-        .catch(function () {
+    fetchMaintenanceSnapshot(function (data) {
+        if (!data || !data.enabled) {
             banner.classList.add('hidden');
-        });
+            return;
+        }
+        banner.classList.remove('hidden');
+        if (titleEl) titleEl.innerText = data.title || '系統維護中';
+        if (messageEl) messageEl.innerText = data.message || '目前暫停登入與遊戲，請稍後再試。';
+    });
 }
 
 function guardMaintenance(authData, onAllowed) {
@@ -198,18 +228,13 @@ function guardMaintenance(authData, onAllowed) {
         if (onAllowed) onAllowed();
         return;
     }
-    fetch('/api/user?action=get_maintenance')
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            if (data && data.enabled && !(authData && authData.isAdmin)) {
-                window.location.href = '/maintenance.html';
-                return;
-            }
-            if (onAllowed) onAllowed();
-        })
-        .catch(function () {
-            if (onAllowed) onAllowed();
-        });
+    fetchMaintenanceSnapshot(function (data) {
+        if (data && data.enabled && !(authData && authData.isAdmin)) {
+            window.location.href = '/maintenance.html';
+            return;
+        }
+        if (onAllowed) onAllowed();
+    });
 }
 
 function detectClientPlatform() {
@@ -721,12 +746,42 @@ function clearCustodyQuickAuth() {
  * 驗證 session 是否仍有效
  */
 function verifySession(sessionId, callback) {
-    fetch('/api/user?action=get_status&sessionId=' + sessionId)
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-            callback(data.status === 'authorized', data);
+    var hasCalled = false;
+    function finish(valid, data) {
+        if (hasCalled) return;
+        hasCalled = true;
+        callback(!!valid, data || null);
+    }
+
+    var timeoutMs = 8000;
+    var controller = null;
+    var timeoutId = null;
+    if (typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        timeoutId = window.setTimeout(function () {
+            try {
+                controller.abort();
+            } catch (e) {
+                // noop
+            }
+            finish(false, null);
+        }, timeoutMs);
+    }
+
+    fetch('/api/user?action=get_status&fast=1&sessionId=' + encodeURIComponent(sessionId || '') + '&_ts=' + Date.now(), {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller ? controller.signal : undefined
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (timeoutId) window.clearTimeout(timeoutId);
+            finish(data && data.status === 'authorized', data || null);
         })
-        .catch(function() { callback(false, null); });
+        .catch(function () {
+            if (timeoutId) window.clearTimeout(timeoutId);
+            finish(false, null);
+        });
 }
 
 /**

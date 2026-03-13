@@ -122,7 +122,7 @@ function ensureGlobalChatUi() {
         '<div id="chat-message-list" class="chat-message-list"></div>',
         '<div class="chat-input-row">',
         '<input id="chat-input" class="text-input chat-input" maxlength="160" placeholder="輸入留言，所有玩家都看得到...">',
-        '<button class="btn-primary" onclick="sendChatMessage(''chat'')">送出</button>',
+        '<button class="btn-primary" onclick="sendChatMessage(\'chat\')">送出</button>',
         '</div>',
         '</div>'
     ].join('');

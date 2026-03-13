@@ -114,15 +114,15 @@ function ensureGlobalChatUi() {
         '<div class="chat-header-actions">',
         '<div id="chat-status" class="chat-status">聊天室連線中...</div>',
         '<select id="chat-room-select" class="text-input chat-room-select" onchange="onChatRoomChange()"></select>',
-        '<button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="true">收合</button>',
+        '<button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="false">💬</button>',
         '</div>',
         '</div>',
         '<div id="chat-room-note" class="chat-room-note"></div>',
-        '<div id="chat-widget-body">',
+        '<div id="chat-widget-body" class="hidden">',
         '<div id="chat-message-list" class="chat-message-list"></div>',
         '<div class="chat-input-row">',
         '<input id="chat-input" class="text-input chat-input" maxlength="160" placeholder="輸入留言，所有玩家都看得到...">',
-        '<button class="btn-primary" onclick="sendChatMessage(''chat'')">送出</button>',
+        '<button class="btn-primary" onclick="sendChatMessage(\'chat\')">送出</button>',
         '</div>',
         '</div>'
     ].join('');

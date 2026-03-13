@@ -168,6 +168,28 @@
                 <div class="game-tag ready">開放中</div>
             </a>
 
+
+            <a href="games/guide.html#vip-guide-content" class="game-card" id="vip-entry-card" style="display: none;">
+                <div class="game-icon">👑</div>
+                <div class="game-name">VIP 室入口</div>
+                <div class="game-desc" id="vip-entry-desc">持有佑戩幣後可進入 VIP 室，VIP 2 可進入進階區。</div>
+                <div class="game-tag ready" id="vip-entry-tag">VIP 專屬</div>
+            </a>
+
+            <a href="games/guide.html#vip-guide-content" class="game-card" id="vip-bluff-card" style="display: none;">
+                <div class="game-icon">🎯</div>
+                <div class="game-name">VIP 吹牛房</div>
+                <div class="game-desc">VIP 1 起可進入吹牛房（對應 VIP Table 1）</div>
+                <div class="game-tag ready">VIP 1+</div>
+            </a>
+
+            <a href="games/guide.html#vip-guide-content" class="game-card" id="vip-texas-card" style="display: none;">
+                <div class="game-icon">🃏</div>
+                <div class="game-name">VIP 德州撲克房</div>
+                <div class="game-desc">VIP 2 專屬區（需持有 1000+ 佑戩幣）</div>
+                <div class="game-tag ready">VIP 2</div>
+            </a>
+
             <a href="games/admin-tools.html" class="game-card" id="admin-card" style="display: none;">
                 <div class="game-icon">🛠</div>
                 <div class="game-name">維運工具</div>
@@ -189,7 +211,7 @@
             </a>
         </div>
 
-        <section class="lobby-chat-panel global-chat-widget" id="lobby-chat-widget">
+        <section class="lobby-chat-panel global-chat-widget chat-widget-collapsed" id="lobby-chat-widget">
             <div class="lobby-chat-header">
                 <div>
                     <p class="section-kicker">Community</p>
@@ -198,11 +220,11 @@
                 <div class="chat-header-actions">
                     <div id="chat-status" class="chat-status">聊天室連線中...</div>
                     <select id="chat-room-select" class="text-input chat-room-select" onchange="onChatRoomChange()"></select>
-                    <button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="true">收合</button>
+                    <button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="false">💬</button>
                 </div>
             </div>
             <div id="chat-room-note" class="chat-room-note"></div>
-            <div id="chat-widget-body">
+            <div id="chat-widget-body" class="hidden">
                 <div id="chat-message-list" class="chat-message-list"></div>
                 <div class="chat-input-row">
                     <input id="chat-input" class="text-input chat-input" maxlength="160" placeholder="輸入留言，所有玩家都看得到...">
@@ -327,6 +349,41 @@
                 });
         }
 
+        function renderVipGameEntrances(yjcVip) {
+            var vipEntryCard = document.getElementById('vip-entry-card');
+            var vipBluffCard = document.getElementById('vip-bluff-card');
+            var vipTexasCard = document.getElementById('vip-texas-card');
+            var vipEntryDesc = document.getElementById('vip-entry-desc');
+            var vipEntryTag = document.getElementById('vip-entry-tag');
+            if (!vipEntryCard || !vipBluffCard || !vipTexasCard) return;
+
+            var data = yjcVip || {};
+            var tier = data.tier || {};
+            var tierKey = String(tier.key || 'none');
+            var balance = Number(data.balance || 0);
+            if (!Number.isFinite(balance) || balance < 0) balance = 0;
+
+            var isVip1 = tierKey === 'vip1' || tierKey === 'vip2';
+            var isVip2 = tierKey === 'vip2';
+
+            vipEntryCard.style.display = isVip1 ? 'flex' : 'none';
+            vipBluffCard.style.display = isVip1 ? 'flex' : 'none';
+            vipTexasCard.style.display = isVip2 ? 'flex' : 'none';
+
+            if (vipEntryDesc) {
+                if (isVip2) {
+                    vipEntryDesc.innerText = '目前為 VIP 2（佑戩幣 ' + Math.floor(balance) + '），可進入 VIP 1 與 VIP 2 區域。';
+                } else if (isVip1) {
+                    vipEntryDesc.innerText = '目前為 VIP 1（佑戩幣 ' + Math.floor(balance) + '），可進入 VIP 1 區域。持有 1000+ 可升級 VIP 2。';
+                } else {
+                    vipEntryDesc.innerText = '持有 1 顆以上佑戩幣可開啟 VIP 入口，1000+ 可進入 VIP 2 區。';
+                }
+            }
+            if (vipEntryTag) {
+                vipEntryTag.innerText = isVip2 ? 'VIP 2（含 VIP 1）' : 'VIP 1 專屬';
+            }
+        }
+
         function initLobbyPage() {
             showPageTransition('驗證登入中...');
             initLobbyAuth(function (data) {
@@ -334,6 +391,7 @@
                 document.getElementById('auth-announcements').classList.add('hidden');
                 document.getElementById('lobby-ui').classList.remove('hidden');
                 updateUI(data);
+                renderVipGameEntrances(data.yjcVip);
                 startBalanceRefresh();
                 loadLobbyRewards();
                 if (window.startLobbyChat && typeof window.startLobbyChat === 'function') {
@@ -344,7 +402,7 @@
                         if (window.startLobbyChat && typeof window.startLobbyChat === 'function') {
                             startLobbyChat();
                         }
-                    }, 180);
+                    }, 40);
                 }
                 hidePageTransition();
 

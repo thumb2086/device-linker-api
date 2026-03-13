@@ -329,14 +329,41 @@ function showPurchaseModal(item) {
 function renderYjcExchange(yjcVip) {
     var cardEl = document.getElementById('yjc-exchange-card');
     var balanceEl = document.getElementById('yjc-balance-label');
+    var inputEl = document.getElementById('yjc-zxc-amount');
+    var buttonEl = cardEl ? cardEl.querySelector('button') : null;
     if (!cardEl || !balanceEl) return;
+
     var data = yjcVip || {};
     var balance = Number(data.balance || 0);
     if (!Number.isFinite(balance) || balance < 0) balance = 0;
+
     cardEl.style.display = 'grid';
     balanceEl.innerText = '目前佑戩幣：' + formatCompactZh(Math.floor(balance), 2);
-    if (data.available === false && data.source === 'missing_contract') {
-        cardEl.style.display = 'none';
+
+    var unavailable = data.available === false && data.source === 'missing_contract';
+    var reasonEl = document.getElementById('yjc-exchange-unavailable-note');
+    if (!reasonEl) {
+        reasonEl = document.createElement('div');
+        reasonEl.id = 'yjc-exchange-unavailable-note';
+        reasonEl.className = 'yjc-exchange-meta';
+        reasonEl.style.color = '#ffd36a';
+        cardEl.appendChild(reasonEl);
+    }
+
+    if (unavailable) {
+        reasonEl.innerText = '目前佑戩幣合約尚未部署，兌換入口暫時停用。';
+        if (inputEl) inputEl.disabled = true;
+        if (buttonEl) {
+            buttonEl.disabled = true;
+            buttonEl.innerText = '暫不可兌換';
+        }
+    } else {
+        reasonEl.innerText = '';
+        if (inputEl) inputEl.disabled = false;
+        if (buttonEl) {
+            buttonEl.disabled = false;
+            buttonEl.innerText = '兌換';
+        }
     }
 }
 

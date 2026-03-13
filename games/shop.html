@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>活動與商店 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/shop.css">
+</head>
+
+<body class="rewards-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">返回首頁</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card rewards-shell" id="main-card">
+        <h1>活動與商店</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <section class="rewards-header-section">
+            <div class="rewards-identity-card">
+                <div class="identity-avatar" id="identity-avatar">🪙</div>
+                <div class="identity-info-box">
+                    <div class="identity-label">目前裝備</div>
+                    <h2 id="identity-title">等級自動稱號</h2>
+                    <div id="identity-title-desc" class="identity-desc-area"></div>
+                    <p id="identity-avatar-name">經典籌碼</p>
+                    <div id="identity-avatar-desc" class="identity-desc-area" style="border-left-color: #9fd0ff; background: rgba(159, 208, 255, 0.08); color: #9fd0ff; margin-top: 4px;"></div>
+                </div>
+            </div>
+            <div class="rewards-header-actions">
+                <button class="btn-secondary compact-btn" onclick="refreshRewardsCenter()">重新整理</button>
+                <div id="yjc-exchange-card" class="yjc-exchange-card">
+                    <div class="yjc-exchange-title">佑戩幣兌換</div>
+                    <div class="yjc-exchange-meta" id="yjc-balance-label">目前佑戩幣：0</div>
+                    <div class="yjc-exchange-row">
+                        <input id="yjc-zxc-amount" class="text-input" type="number" min="100000000" step="100000000" value="100000000" placeholder="輸入要兌換的子熙幣數量">
+                        <button class="btn-primary compact-btn" onclick="exchangeYjc()">兌換</button>
+                    </div>
+                    <div class="yjc-exchange-meta">規則：每 100,000,000 子熙幣可兌換 1 佑戩幣</div>
+                </div>
+            </div>
+        </section>
+
+        <p id="rewards-status" class="rewards-status">同步中...</p>
+
+        <div class="rewards-nav">
+            <button class="rewards-nav-btn active" data-tab="campaign" onclick="switchRewardsTab('campaign')">活動</button>
+            <button class="rewards-nav-btn" data-tab="shop" onclick="switchRewardsTab('shop')">道具商店</button>
+            <button class="rewards-nav-btn" data-tab="title" onclick="switchRewardsTab('title')">稱號商店</button>
+        </div>
+
+        <section class="rewards-panel active" data-panel="campaign">
+            <div class="section-heading">
+                <h2>限時活動</h2>
+            </div>
+            <div id="campaign-list" class="reward-card-list">
+                <div class="reward-empty">同步活動中...</div>
+            </div>
+        </section>
+
+        <section class="rewards-panel" data-panel="shop">
+            <div class="section-heading">
+                <h2>道具商店</h2>
+            </div>
+            <div id="shop-list" class="reward-card-list reward-grid-list">
+                <div class="reward-empty">商店同步中...</div>
+            </div>
+        </section>
+
+        <section class="rewards-panel" data-panel="title">
+            <div class="section-heading">
+                <h2>稱號商店</h2>
+            </div>
+            <div id="title-shop-filter" class="reward-filter-row"></div>
+            <div id="title-shop-list" class="reward-card-list reward-grid-list">
+                <div class="reward-empty">稱號商店同步中...</div>
+            </div>
+        </section>
+    </div>
+
+    <div id="reward-result-modal" class="reward-result-modal hidden">
+        <div class="reward-result-dialog">
+            <div class="reward-result-badge">已獲得</div>
+            <h2 id="reward-result-title">獎勵到手</h2>
+            <div id="reward-result-list" class="reward-result-list"></div>
+            <button class="btn-primary" onclick="closeRewardResultModal()">我知道了</button>
+        </div>
+    </div>
+
+    <div id="rewards-toast-stack" class="rewards-toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/shop.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initRewardsCenterPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

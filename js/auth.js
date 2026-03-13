@@ -562,7 +562,7 @@ function startAppCredentialAuth() {
                         publicKey: data.publicKey,
                         balance: '0.00',
                         totalBet: '0.00',
-                        vipLevel: '普通會員'
+                        level: '普通會員'
                     });
                 }
             });
@@ -632,7 +632,7 @@ function startCustodyAuth() {
                         publicKey: data.publicKey,
                         balance: '0.00',
                         totalBet: '0.00',
-                        vipLevel: '普通會員'
+                        level: '普通會員'
                     });
                 }
             });
@@ -697,7 +697,7 @@ function quickCustodyAuth() {
                         publicKey: data.publicKey,
                         balance: '0.00',
                         totalBet: '0.00',
-                        vipLevel: '普通會員'
+                        level: '普通會員'
                     });
                 }
             });

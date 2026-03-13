@@ -506,7 +506,7 @@ function runRace() {
         });
         updatePendingBetsUI();
 
-        updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
+        updateUI({ totalBet: result.totalBet, level: result.level });
         renderHorseDataTable(result.horses || getHorseList(), result.horseStats || HORSE_STATS_FIXED);
     })
     .catch(function (e) {

@@ -458,7 +458,7 @@ function spinRoulette() {
             delete confirmedBet.tempId;
         }
 
-        updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
+        updateUI({ totalBet: result.totalBet, level: result.level });
         maybeDrawRoulette();
     })
     .catch(function (e) {

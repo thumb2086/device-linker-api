@@ -49,7 +49,7 @@ body {
     position: relative;
 }
 
-/* --- 鑽石 VIP 特效 --- */
+/* --- 鑽石 等級特效 --- */
 .vip-diamond {
     box-shadow: 0 0 50px rgba(0, 191, 255, 0.3);
     border-color: var(--diamond-blue);

@@ -129,7 +129,7 @@ function renderSkeleton() {
     var lconfig = getLeaderboardConfig();
 
     var html = '<div class="leaderboard-row leaderboard-head">' +
-        '<span>名次</span><span>地址</span><span>' + escapeHtml(lconfig.valueLabel) + '</span><span>VIP</span>' +
+        '<span>名次</span><span>地址</span><span>' + escapeHtml(lconfig.valueLabel) + '</span><span>等級</span>' +
         '</div>';
     
     for (var i = 0; i < 10; i++) {
@@ -155,7 +155,7 @@ function renderLeaderboardRows(items) {
 
     var currentAddress = String(user.address || '').trim().toLowerCase();
     var html = '<div class="leaderboard-row leaderboard-head">' +
-        '<span>名次</span><span>地址</span><span>' + escapeHtml(lconfig.valueLabel) + '</span><span>VIP</span>' +
+        '<span>名次</span><span>地址</span><span>' + escapeHtml(lconfig.valueLabel) + '</span><span>等級</span>' +
         '</div>';
 
     items.forEach(function (item) {
@@ -172,7 +172,7 @@ function renderLeaderboardRows(items) {
             '<span class="rank-col">' + fmtRank(item.rank) + '</span>' +
             '<span class="addr-col" title="' + escapeHtml(item.address) + '">' + avatarSpan + title + '<span class="leaderboard-name">' + escapeHtml(displayName) + (isMine ? ' (你)' : '') + '</span></span>' +
             '<span class="bet-col">' + formatCompactZh(value, 2) + ' 子熙幣</span>' +
-            '<span class="vip-col">' + escapeHtml(item.vipLevel) + '</span>' +
+            '<span class="vip-col">' + escapeHtml(item.level || item.vipLevel || "-") + '</span>' +
             '</div>';
     });
 

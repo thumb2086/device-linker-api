@@ -84,7 +84,7 @@ function updateBoard(data, isInitialDeal) {
     document.getElementById('dealer-total').innerText = data.dealerTotal || 0;
     document.getElementById('player-total').innerText = data.playerTotal || 0;
     if(data.totalBet) {
-        updateUI({ totalBet: data.totalBet, vipLevel: data.vipLevel });
+        updateUI({ totalBet: data.totalBet, level: data.level });
     }
 }
 

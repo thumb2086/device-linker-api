@@ -13,6 +13,8 @@ var BARRAGE_MIN_DURATION = 7;
 var BARRAGE_MAX_DURATION = 14;
 var barrageLaneNextReadyAt = new Array(BARRAGE_LANE_COUNT).fill(0);
 var chatStarted = false;
+var chatRoomOptions = [];
+var currentChatRoomId = 'public';
 
 function escapeChatHtml(text) {
     return String(text || '')
@@ -46,6 +48,51 @@ function getGlobalBarrageLayer() {
     return document.getElementById('global-barrage-layer');
 }
 
+
+function renderRoomSelectOptions() {
+    var select = document.getElementById('chat-room-select');
+    var note = document.getElementById('chat-room-note');
+    if (!select) return;
+
+    var options = Array.isArray(chatRoomOptions) && chatRoomOptions.length ? chatRoomOptions : [{ id: 'public', label: '公共大廳', requiredLevel: null }];
+    select.innerHTML = options.map(function (room) {
+        var lockText = room.requiredLevel ? ' 👑' : '';
+        var req = room.requiredLevel ? ('（需 ' + room.requiredLevel + '）') : '';
+        return '<option value="' + escapeChatHtml(room.id) + '">' + escapeChatHtml(room.label + req + lockText) + '</option>';
+    }).join('');
+
+    var hasCurrent = options.some(function (room) { return room.id === currentChatRoomId; });
+    if (!hasCurrent) currentChatRoomId = 'public';
+    select.value = currentChatRoomId;
+
+    var activeRoom = options.find(function (room) { return room.id === currentChatRoomId; }) || options[0];
+    if (note && activeRoom) {
+        var requirementText = activeRoom.requiredLevel
+            ? ('需求：' + activeRoom.requiredLevel)
+            : '所有玩家可加入';
+        var token = activeRoom.bettingToken || null;
+        var tokenText = '';
+        if (token && token.symbol) {
+            tokenText = token.bettingEnabled
+                ? ('｜下注幣：' + token.symbol)
+                : ('｜預留幣：' + token.symbol + '（尚未上鏈）');
+        }
+        var announcementText = activeRoom.announcement ? ('｜' + activeRoom.announcement) : '';
+        note.innerText = '目前房間：' + activeRoom.label + '（' + requirementText + '）' + tokenText + announcementText;
+    }
+}
+
+function onChatRoomChange() {
+    var select = document.getElementById('chat-room-select');
+    if (!select) return;
+    currentChatRoomId = String(select.value || 'public');
+    chatLastRenderKey = '';
+    chatSeenMessageIds = {};
+    chatHasBootstrappedMessages = false;
+    renderRoomSelectOptions();
+    loadChatMessages();
+}
+
 function ensureGlobalChatUi() {
     if (!document || !document.body) return;
 
@@ -66,9 +113,11 @@ function ensureGlobalChatUi() {
         '<div><h2>全服聊天室</h2></div>',
         '<div class="chat-header-actions">',
         '<div id="chat-status" class="chat-status">聊天室連線中...</div>',
+        '<select id="chat-room-select" class="text-input chat-room-select" onchange="onChatRoomChange()"></select>',
         '<button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="true">收合</button>',
         '</div>',
         '</div>',
+        '<div id="chat-room-note" class="chat-room-note"></div>',
         '<div id="chat-widget-body">',
         '<div id="chat-message-list" class="chat-message-list"></div>',
         '<div class="chat-input-row">',
@@ -203,11 +252,25 @@ function flushBarrageQueue() {
     chatBarrageFlushTimer = setTimeout(flushBarrageQueue, 200);
 }
 
+
+function buildChatListUrl() {
+    var params = [
+        'action=list',
+        'limit=60',
+        'roomId=' + encodeURIComponent(currentChatRoomId)
+    ];
+    if (window.user && user.sessionId) params.push('sessionId=' + encodeURIComponent(String(user.sessionId)));
+    return '/api/chat?' + params.join('&');
+}
+
 function loadChatMessages() {
-    return fetch('/api/chat?action=list&limit=60')
+    return fetch(buildChatListUrl())
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '聊天室載入失敗');
+            if (Array.isArray(data.rooms) && data.rooms.length) chatRoomOptions = data.rooms;
+            if (data.room && data.room.id) currentChatRoomId = String(data.room.id);
+            renderRoomSelectOptions();
             var rows = data.messages || [];
             var shouldQueueBarrage = chatHasBootstrappedMessages;
             renderChatMessages(rows, shouldQueueBarrage);
@@ -220,11 +283,20 @@ function loadChatMessages() {
                 chatHasBootstrappedMessages = true;
             }
             var status = document.getElementById('chat-status');
-            if (status) status.innerText = '全服同步中 · ' + String(data.returned || 0) + ' 則';
+            var roomName = data.room && data.room.label ? data.room.label : '公共大廳';
+            if (status) status.innerText = roomName + ' 同步中 · ' + String(data.returned || 0) + ' 則';
         })
         .catch(function (error) {
             var status = document.getElementById('chat-status');
-            if (status) status.innerText = '聊天室同步失敗：' + error.message;
+            var message = String(error && error.message || '聊天室同步失敗');
+            if (message.indexOf('進入') >= 0 && currentChatRoomId !== 'public') {
+                currentChatRoomId = 'public';
+                chatLastRenderKey = '';
+                renderRoomSelectOptions();
+                if (status) status.innerText = 'VIP 房目前不可進入，已切回公共大廳';
+                return loadChatMessages();
+            }
+            if (status) status.innerText = '聊天室同步失敗：' + message;
         });
 }
 
@@ -246,14 +318,15 @@ function sendChatMessage(type) {
             action: 'send',
             sessionId: user.sessionId,
             type: type === 'winner' ? 'winner' : 'chat',
-            message: message
+            message: message,
+            roomId: currentChatRoomId
         })
     })
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '送出失敗');
             input.value = '';
-            if (status) status.innerText = '✅ 已送出，全服可見';
+            if (status) status.innerText = '✅ 已送出至目前房間';
             return loadChatMessages();
         })
         .catch(function (error) {
@@ -273,6 +346,7 @@ function startLobbyChat() {
     chatBarrageQueue = [];
     barrageLaneNextReadyAt = new Array(BARRAGE_LANE_COUNT).fill(0);
     applyLobbyChatWidgetState();
+    renderRoomSelectOptions();
     setGlobalBarrageEnabled(true);
     loadChatMessages();
     chatPollTimer = setInterval(loadChatMessages, 3500);

@@ -938,6 +938,22 @@ body.lobby-body {
     color: #ffd36a;
 }
 
+.chat-room-select {
+    min-width: 130px;
+    height: 28px;
+    padding: 3px 8px;
+    font-size: 0.72rem;
+    border-radius: 8px;
+}
+
+.chat-room-note {
+    margin-top: 6px;
+    margin-bottom: 2px;
+    color: #9ec6ff;
+    font-size: 0.72rem;
+    line-height: 1.45;
+}
+
 .chat-message-list {
     max-height: 180px;
     overflow: auto;

@@ -122,7 +122,7 @@ function ensureGlobalChatUi() {
         '<div id="chat-message-list" class="chat-message-list"></div>',
         '<div class="chat-input-row">',
         '<input id="chat-input" class="text-input chat-input" maxlength="160" placeholder="輸入留言，所有玩家都看得到...">',
-        '<button class="btn-primary" onclick="sendChatMessage(\'chat\')">送出</button>',
+        '<button class="btn-primary" onclick="sendChatMessage(''chat'')">送出</button>',
         '</div>',
         '</div>'
     ].join('');
@@ -170,6 +170,24 @@ function toggleLobbyChatWidget() {
     chatWidgetCollapsed = !chatWidgetCollapsed;
     applyLobbyChatWidgetState();
 }
+
+function appendChatMessageRow(item) {
+    var list = document.getElementById('chat-message-list');
+    if (!list) return;
+
+    var row = document.createElement('div');
+    row.className = 'chat-message-row';
+    row.innerHTML =
+        '<div class="chat-message-head">' +
+        '<span class="chat-message-user">' + escapeChatHtml(getChatDisplayName(item)) + '</span>' +
+        '<span class="chat-message-time">' + escapeChatHtml(formatChatTime(item.createdAt)) + '</span>' +
+        '</div>' +
+        '<div class="chat-message-body">' + escapeChatHtml(item.message || '') + '</div>';
+
+    list.appendChild(row);
+    list.scrollTop = list.scrollHeight;
+}
+
 
 function renderChatMessages(messages, shouldQueueBarrage) {
     var list = document.getElementById('chat-message-list');
@@ -338,7 +356,13 @@ function sendChatMessage(type) {
             if (!data || !data.success) throw new Error((data && data.error) || '送出失敗');
             input.value = '';
             if (status) status.innerText = '✅ 已送出至目前房間';
-            return loadChatMessages();
+            
+            var newMessage = data.message;
+            if (!newMessage || !newMessage.id) return;
+
+            appendChatMessageRow(newMessage);
+            queueBarrageMessages([newMessage]);
+
         })
         .catch(function (error) {
             if (status) status.innerText = '❌ ' + error.message;

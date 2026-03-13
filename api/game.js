@@ -65,6 +65,27 @@ function shouldEmitWinnerBarrage(body) {
     return toSafeNumber(body.multiplier) > 0;
 }
 
+function resolveWinnerAmount(requestBody, responseBody) {
+    const responseAmountCandidates = [
+        responseBody && responseBody.winAmount,
+        responseBody && responseBody.payoutAmount,
+        responseBody && responseBody.payout,
+        responseBody && responseBody.totalWon,
+        responseBody && responseBody.won
+    ];
+    for (const candidate of responseAmountCandidates) {
+        const amount = toSafeNumber(candidate);
+        if (amount > 0) return amount;
+    }
+
+    const betAmount = toSafeNumber(requestBody && requestBody.amount);
+    const multiplier = toSafeNumber(responseBody && responseBody.multiplier);
+    if (betAmount > 0 && multiplier > 0) {
+        return Number((betAmount * multiplier).toFixed(2));
+    }
+    return 0;
+}
+
 async function appendWinnerBarrage({ session, game, requestBody, responseBody }) {
     if (!session || !session.address) return;
     if (!shouldEmitWinnerBarrage(responseBody)) return;
@@ -81,8 +102,8 @@ async function appendWinnerBarrage({ session, game, requestBody, responseBody })
         crash: "暴漲"
     };
     const label = gameLabelMap[String(game || "")] || "遊戲";
-    const betAmount = toSafeNumber(requestBody && requestBody.amount);
-    const amountText = betAmount > 0 ? `（下注 ${betAmount}）` : "";
+    const winnerAmount = resolveWinnerAmount(requestBody, responseBody);
+    const amountText = winnerAmount > 0 ? `（中獎額 ${winnerAmount}）` : "";
 
     const payload = {
         id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,

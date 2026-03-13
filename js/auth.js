@@ -743,7 +743,7 @@ function verifySession(sessionId, callback) {
         }, timeoutMs);
     }
 
-    fetch('/api/user?action=get_status&sessionId=' + encodeURIComponent(sessionId || '') + '&_ts=' + Date.now(), {
+    fetch('/api/user?action=get_status&fast=1&sessionId=' + encodeURIComponent(sessionId || '') + '&_ts=' + Date.now(), {
         method: 'GET',
         cache: 'no-store',
         signal: controller ? controller.signal : undefined

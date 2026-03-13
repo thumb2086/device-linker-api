@@ -818,10 +818,16 @@ function checkGameAuth(onReady) {
             window.location.href = '/';
             return;
         }
+        
         guardMaintenance(data, function () {
-            if (onReady) onReady(data);
-            if (typeof hidePageTransition === 'function') {
-                hidePageTransition();
+            try {
+                if (onReady) {
+                    onReady(data);
+                }
+            } finally {
+                if (typeof hidePageTransition === 'function') {
+                    hidePageTransition();
+                }
             }
         });
     });

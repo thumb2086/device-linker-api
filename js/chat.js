@@ -374,7 +374,7 @@ function startLobbyChat() {
     chatStarted = true;
     ensureGlobalChatUi();
     stopLobbyChat();
-    chatWidgetCollapsed = window.innerWidth > 860;
+    chatWidgetCollapsed = true;
     chatLastRenderKey = '';
     chatSeenMessageIds = {};
     chatHasBootstrappedMessages = false;

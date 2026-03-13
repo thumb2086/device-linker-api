@@ -230,6 +230,9 @@ function guardMaintenance(authData, onAllowed) {
     }
     fetchMaintenanceSnapshot(function (data) {
         if (data && data.enabled && !(authData && authData.isAdmin)) {
+            if (typeof hidePageTransition === 'function') {
+                hidePageTransition();
+            }
             window.location.href = '/maintenance.html';
             return;
         }
@@ -768,7 +771,7 @@ function verifySession(sessionId, callback) {
         }, timeoutMs);
     }
 
-    fetch('/api/user?action=get_status&fast=1&sessionId=' + encodeURIComponent(sessionId || '') + '&_ts=' + Date.now(), {
+    fetch('/api/user?action=get_status&sessionId=' + encodeURIComponent(sessionId || '') + '&_ts=' + Date.now(), {
         method: 'GET',
         cache: 'no-store',
         signal: controller ? controller.signal : undefined
@@ -795,6 +798,9 @@ function checkGameAuth(onReady) {
 
     var stored = getStoredAuth();
     if (!stored) {
+        if (typeof hidePageTransition === 'function') {
+            hidePageTransition();
+        }
         window.location.href = '/';
         return;
     }
@@ -806,6 +812,9 @@ function checkGameAuth(onReady) {
     verifySession(stored.sessionId, function(valid, data) {
         if (!valid) {
             clearAuth();
+            if (typeof hidePageTransition === 'function') {
+                hidePageTransition();
+            }
             window.location.href = '/';
             return;
         }
@@ -816,7 +825,7 @@ function checkGameAuth(onReady) {
                     onReady(data);
                 }
             } finally {
-                if (typeof hidePageTransition === 'function') {
+                if (typeof hidePageeTransition === 'function') {
                     hidePageTransition();
                 }
             }

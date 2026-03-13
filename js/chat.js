@@ -127,6 +127,17 @@ function ensureGlobalChatUi() {
         '</div>'
     ].join('');
     document.body.appendChild(wrapper);
+
+    var input = document.getElementById('chat-input');
+    if (input && !input.dataset.chatEnterBound) {
+        input.dataset.chatEnterBound = '1';
+        input.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendChatMessage('chat');
+            }
+        });
+    }
 }
 
 function setGlobalBarrageEnabled(enabled) {
@@ -145,12 +156,12 @@ function applyLobbyChatWidgetState() {
     if (chatWidgetCollapsed) {
         body.classList.add('hidden');
         widget.classList.add('chat-widget-collapsed');
-        btn.innerText = '展開';
+        btn.innerText = '💬';
         btn.setAttribute('aria-expanded', 'false');
     } else {
         body.classList.remove('hidden');
         widget.classList.remove('chat-widget-collapsed');
-        btn.innerText = '收合';
+        btn.innerText = '－';
         btn.setAttribute('aria-expanded', 'true');
     }
 }
@@ -339,7 +350,7 @@ function startLobbyChat() {
     chatStarted = true;
     ensureGlobalChatUi();
     stopLobbyChat();
-    chatWidgetCollapsed = true;
+    chatWidgetCollapsed = window.innerWidth > 860;
     chatLastRenderKey = '';
     chatSeenMessageIds = {};
     chatHasBootstrappedMessages = false;

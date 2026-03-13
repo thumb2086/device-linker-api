@@ -230,9 +230,6 @@ function guardMaintenance(authData, onAllowed) {
     }
     fetchMaintenanceSnapshot(function (data) {
         if (data && data.enabled && !(authData && authData.isAdmin)) {
-            if (typeof hidePageTransition === 'function') {
-                hidePageTransition();
-            }
             window.location.href = '/maintenance.html';
             return;
         }
@@ -798,9 +795,6 @@ function checkGameAuth(onReady) {
 
     var stored = getStoredAuth();
     if (!stored) {
-        if (typeof hidePageTransition === 'function') {
-            hidePageTransition();
-        }
         window.location.href = '/';
         return;
     }
@@ -812,9 +806,6 @@ function checkGameAuth(onReady) {
     verifySession(stored.sessionId, function(valid, data) {
         if (!valid) {
             clearAuth();
-            if (typeof hidePageTransition === 'function') {
-                hidePageTransition();
-            }
             window.location.href = '/';
             return;
         }

@@ -87,6 +87,32 @@ body.rewards-body {
     color: #ffd36a;
 }
 
+.yjc-exchange-card {
+    width: min(520px, 100%);
+    background: rgba(123, 240, 169, 0.08);
+    border: 1px solid rgba(123, 240, 169, 0.25);
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    gap: 8px;
+}
+
+.yjc-exchange-title {
+    color: #7bf0a9;
+    font-weight: 800;
+}
+
+.yjc-exchange-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+}
+
+.yjc-exchange-meta {
+    color: #bfeacf;
+    font-size: 0.84rem;
+}
+
 .rewards-nav {
     display: flex;
     flex-wrap: wrap;

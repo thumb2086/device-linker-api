@@ -4,6 +4,17 @@ var rewardsTab = 'campaign';
 var rewardsToastSeq = 0;
 var rewardTitleShopCategory = 'all';
 
+function renderYjcExchange(yjcVip) {
+    var balanceEl = document.getElementById('yjc-balance-label');
+    if (!balanceEl) return;
+    if (!yjcVip || yjcVip.available === false) {
+        balanceEl.innerText = '佑戩幣查詢暫不可用';
+        return;
+    }
+    var tierLabel = yjcVip.tier && yjcVip.tier.label ? (' | ' + yjcVip.tier.label) : '';
+    balanceEl.innerText = '目前佑戩幣：' + formatCompactZh(yjcVip.balance || 0, 0) + tierLabel;
+}
+
 function setRewardsStatus(text, isError) {
     var el = document.getElementById('rewards-status');
     if (!el) return;
@@ -329,10 +340,33 @@ function applyRewardsState(data) {
     rewardsState = data || null;
     if (!data || !data.profile) return;
     renderIdentity(data.profile);
+    renderYjcExchange(data.yjcVip || null);
     renderCampaigns(data.campaigns || []);
     renderShop(data.catalog && data.catalog.shopItems ? data.catalog.shopItems : []);
     renderTitleShop(data.catalog && data.catalog.titles ? data.catalog.titles : []);
     switchRewardsTab(rewardsTab);
+}
+
+function exchangeYjc() {
+    var inputEl = document.getElementById('yjc-zxc-amount');
+    var zxcAmount = Number(inputEl && inputEl.value || 0);
+    if (!Number.isFinite(zxcAmount) || zxcAmount <= 0) {
+        setRewardsStatus('錯誤: 請輸入有效兌換數量', true);
+        return;
+    }
+    setRewardsStatus('兌換佑戩幣中...', false);
+    rewardsApi('exchange_yjc', { zxcAmount: Math.floor(zxcAmount) })
+        .then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || '兌換失敗');
+            applyRewardsState(data);
+            refreshBalance();
+            showRewardsToast('兌換成功：' + String(data.yjcAmount || 0) + ' 佑戩幣', false);
+            setRewardsStatus('兌換成功', false);
+        })
+        .catch(function (error) {
+            setRewardsStatus('錯誤: ' + error.message, true);
+            showRewardsToast(error.message, true);
+        });
 }
 
 function refreshRewardsCenter() {

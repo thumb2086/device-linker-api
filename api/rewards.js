@@ -4,6 +4,8 @@ import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 import { buildVipStatus, getVipTierOptions } from "../lib/vip.js";
 import { settlementService } from "../lib/settlement-service.js";
+import { convertZxcToYjc, resolveYjcVipStatus } from "../lib/yjc-vip.js";
+import { yjcSettlementService } from "../lib/yjc-settlement.js";
 import {
     buildRewardSummary,
     buildRewardSummaryFromProfile,
@@ -120,12 +122,13 @@ function parseRewardBundle(body) {
 }
 
 async function buildSummaryPayload(address, totalBet) {
-    const [profile, campaigns, catalog] = await Promise.all([
+    const [profile, campaigns, catalog, yjcVip] = await Promise.all([
         buildRewardSummary(address, totalBet),
         listRewardCampaigns({ activeOnly: true, address, hideClaimed: true }),
-        getRewardCatalog()
+        getRewardCatalog(),
+        resolveYjcVipStatus(address)
     ]);
-    return { profile, catalog: { ...catalog, levelTiers: getVipTierOptions() }, campaigns: campaigns.campaigns };
+    return { profile, catalog: { ...catalog, levelTiers: getVipTierOptions() }, campaigns: campaigns.campaigns, yjcVip };
 }
 
 export default async function handler(req, res) {
@@ -181,6 +184,26 @@ export default async function handler(req, res) {
             await purchaseRewardTitle(context.address, title.id);
             const summary = await buildSummaryPayload(context.address, context.totalBet);
             return res.status(200).json({ success: true, txHash: results.betTxHash, purchasedTitle: title, ...summary });
+        }
+        if (action === "exchange_yjc") {
+            const context = await getUserContext(sessionId);
+            const requestedZxc = Number(body.zxcAmount || 0);
+            const normalizedZxc = Number.isFinite(requestedZxc) ? Math.max(0, Math.floor(requestedZxc)) : 0;
+            const yjcAmount = convertZxcToYjc(normalizedZxc);
+            if (yjcAmount <= 0) {
+                return res.status(400).json({ success: false, error: "兌換至少需要 100,000,000 子熙幣" });
+            }
+            const requiredZxc = yjcAmount * 100000000;
+            const decimals = await settlementService.getDecimals();
+            const requiredZxcWei = ethers.parseUnits(String(requiredZxc), decimals);
+            const balanceWei = await settlementService.contract.balanceOf(context.address);
+            if (balanceWei < requiredZxcWei) {
+                return res.status(400).json({ success: false, error: "餘額不足，無法兌換佑戩幣" });
+            }
+            const settleResult = await settlementService.settle({ userAddress: context.address, betWei: requiredZxcWei, payoutWei: 0n, source: "rewards_exchange_yjc", meta: { requiredZxc, yjcAmount } });
+            const mintTx = await yjcSettlementService.mintTo(context.address, yjcAmount, { source: "rewards_exchange_yjc", meta: { requiredZxc, yjcAmount } });
+            const summary = await buildSummaryPayload(context.address, context.totalBet);
+            return res.status(200).json({ success: true, requiredZxc, yjcAmount, txHash: settleResult.betTxHash, yjcTxHash: mintTx.hash, ...summary });
         }
         if (action === "use_item") {
             const context = await getUserContext(sessionId);

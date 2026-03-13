@@ -214,7 +214,7 @@ function playDragon() {
     .then(function(result) {
         if (result.error) throw new Error(result.error);
 
-        updateUI({ totalBet: result.totalBet, vipLevel: result.vipLevel });
+        updateUI({ totalBet: result.totalBet, level: result.level });
 
         // Reveal gate cards from server to be safe
         renderCard(document.getElementById('card-left'), result.gate.left);

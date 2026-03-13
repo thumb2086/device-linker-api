@@ -198,8 +198,9 @@ function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName
         expiresAt: sessionData.expiresAt || null,
         balance: toDecimalString(balance),
         totalBet: toDecimalString(totalBet),
-        vipLevel: vipStatus.vipLevel,
-        maxBet: toDecimalString(vipStatus.maxBet),
+        level: vipStatus.vipLevel,
+        betLimit: toDecimalString(vipStatus.maxBet),
+        levelSystem: { key: "legacy_v1", label: "等級制度 v1" },
         isAdmin,
         rewardProfile
     };

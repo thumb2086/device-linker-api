@@ -216,9 +216,9 @@ function renderTitles(items, profile) {
     if (!listEl) return;
     var titleCards = [];
     titleCards.push('<div class="inventory-card">' +
-        '<div class="inventory-card-head"><strong>VIP 自動稱號</strong><span class="inventory-rarity">預設</span></div>' +
-        '<div class="inventory-card-meta desc">系統根據您當前的 VIP 等級自動分配的榮譽稱號。</div>' +
-        '<div class="inventory-card-meta">卸下目前稱號後，會回到依 VIP 等級自動顯示的稱號。</div>' +
+        '<div class="inventory-card-head"><strong>等級自動稱號</strong><span class="inventory-rarity">預設</span></div>' +
+        '<div class="inventory-card-meta desc">系統根據您當前的 等級自動分配的榮譽稱號。</div>' +
+        '<div class="inventory-card-meta">卸下目前稱號後，會回到依 等級自動顯示的稱號。</div>' +
         '<div class="inventory-card-actions">' +
             '<button class="' + (!profile || !profile.selectedTitleId ? 'btn-secondary' : 'btn-primary') + ' compact-btn" onclick="equipInventoryTitle(\'\')">' + (!profile || !profile.selectedTitleId ? '目前使用中' : '卸下稱號') + '</button>' +
         '</div>' +
@@ -370,7 +370,7 @@ function equipInventoryTitle(titleId) {
             if (inventoryState) inventoryState.profile = data.profile;
             applyInventoryState(inventoryState);
             setInventoryStatus('稱號已裝備', false);
-            showInventoryToast(titleId ? '稱號已裝備' : '已切回 VIP 自動稱號', false);
+            showInventoryToast(titleId ? '稱號已裝備' : '已切回 等級自動稱號', false);
         })
         .catch(function (error) {
             setInventoryStatus('錯誤: ' + error.message, true);

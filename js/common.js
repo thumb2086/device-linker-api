@@ -1,6 +1,6 @@
 ﻿/* === 子熙賭場 - 共用 UI 工具 === */
 
-var user = { address: '', publicKey: '', sessionId: '', displayName: '', balance: 0, chainBalance: 0, totalBet: 0, vipLevel: '', maxBet: 0 };
+var user = { address: '', publicKey: '', sessionId: '', displayName: '', balance: 0, chainBalance: 0, totalBet: 0, level: '', betLimit: 0 };
 var userToastTimerSeq = 0;
 var BALANCE_OVERRIDE_KEY = 'zixi_balance_override';
 var BALANCE_OVERRIDE_ENABLED = false;
@@ -162,7 +162,7 @@ function renderIdentity(profile) {
     var avatarDescEl = document.getElementById('identity-avatar-desc');
 
     if (avatarEl) avatarEl.innerText = profile && profile.avatar ? profile.avatar.icon : '🪙';
-    if (titleEl) titleEl.innerText = profile && profile.title ? profile.title.name : 'VIP 自動稱號';
+    if (titleEl) titleEl.innerText = profile && profile.title ? profile.title.name : '等級自動稱號';
     if (avatarNameEl) avatarNameEl.innerText = profile && profile.avatar ? profile.avatar.name : '經典籌碼';
 
     // 舊版單一說明區域相容性
@@ -244,11 +244,11 @@ function renderMaxBetNote(maxBet) {
     if (!noteEl) return;
 
     if (maxBet === undefined || maxBet === null || maxBet === '') {
-        noteEl.innerText = '單注上限將依目前 VIP 等級計算';
+        noteEl.innerText = '單注上限將依目前等級計算';
         return;
     }
 
-    noteEl.innerText = '單注上限 ' + formatDisplayNumber(maxBet, 2) + ' 子熙幣，依目前 VIP 等級自動調整';
+    noteEl.innerText = '單注上限 ' + formatDisplayNumber(maxBet, 2) + ' 子熙幣，依目前等級自動調整';
 }
 
 function ensureSupportShortcutStyle() {
@@ -582,23 +582,26 @@ function updateUI(data) {
         if (totalBetEl) totalBetEl.innerText = formatDisplayNumber(totalBetNum, 2);
     }
 
-    if (data.vipLevel) {
-        user.vipLevel = data.vipLevel;
-        var vipText = data.vipLevel;
-        if (data.maxBet !== undefined) {
-            user.maxBet = toSafeNumber(data.maxBet, 0);
-            vipText += ' | 單注上限 ' + formatDisplayNumber(data.maxBet, 2) + ' 子熙幣';
+    var levelValue = data.level !== undefined ? data.level : data.vipLevel;
+    var betLimitValue = data.betLimit !== undefined ? data.betLimit : data.maxBet;
+
+    if (levelValue) {
+        user.level = String(levelValue);
+        var levelText = String(levelValue);
+        if (betLimitValue !== undefined) {
+            user.betLimit = toSafeNumber(betLimitValue, 0);
+            levelText += ' | 單注上限 ' + formatDisplayNumber(betLimitValue, 2) + ' 子熙幣';
         }
 
         var badge = document.getElementById('vip-badge');
-        if (badge) badge.innerText = vipText;
+        if (badge) badge.innerText = levelText;
 
         var headerVip = document.getElementById('header-vip');
-        if (headerVip) headerVip.innerText = vipText;
+        if (headerVip) headerVip.innerText = levelText;
 
         var card = document.getElementById('main-card');
         if (card) {
-            if (data.vipLevel.indexOf('鑽石') !== -1 || data.vipLevel.indexOf('VIP') !== -1) {
+            if (String(levelValue).indexOf('鑽石') !== -1 || String(levelValue).indexOf('等級') !== -1) {
                 card.classList.add('vip-diamond');
             } else {
                 card.classList.remove('vip-diamond');
@@ -606,9 +609,9 @@ function updateUI(data) {
         }
     }
 
-    if (data.maxBet !== undefined) {
-        user.maxBet = toSafeNumber(data.maxBet, 0);
-        renderMaxBetNote(data.maxBet);
+    if (betLimitValue !== undefined) {
+        user.betLimit = toSafeNumber(betLimitValue, 0);
+        renderMaxBetNote(betLimitValue);
     }
 
     if (data.rewardProfile) {

@@ -125,7 +125,7 @@ async function buildSummaryPayload(address, totalBet) {
         listRewardCampaigns({ activeOnly: true, address, hideClaimed: true }),
         getRewardCatalog()
     ]);
-    return { profile, catalog: { ...catalog, vipLevels: getVipTierOptions() }, campaigns: campaigns.campaigns };
+    return { profile, catalog: { ...catalog, levelTiers: getVipTierOptions() }, campaigns: campaigns.campaigns };
 }
 
 export default async function handler(req, res) {
@@ -142,11 +142,11 @@ export default async function handler(req, res) {
             if (sessionId === "public") {
                 const catalog = await getRewardCatalog();
                 const campaigns = await listRewardCampaigns({ activeOnly: true });
-                return res.status(200).json({ success: true, catalog: { ...catalog, vipLevels: getVipTierOptions() }, campaigns: campaigns.campaigns });
+                return res.status(200).json({ success: true, catalog: { ...catalog, levelTiers: getVipTierOptions() }, campaigns: campaigns.campaigns });
             }
             const context = await getUserContext(sessionId);
             const summary = await buildSummaryPayload(context.address, context.totalBet);
-            return res.status(200).json({ success: true, vipLevel: context.vipStatus.vipLevel, ...summary });
+            return res.status(200).json({ success: true, level: context.vipStatus.vipLevel, betLimit: context.vipStatus.maxBet, levelSystem: { key: "legacy_v1", label: "等級制度 v1" }, ...summary });
         }
         if (action === "buy") {
             const context = await getUserContext(sessionId);
@@ -213,7 +213,7 @@ export default async function handler(req, res) {
         if (action === "list_campaigns") {
             const context = await getUserContext(sessionId);
             const result = await listRewardCampaigns({ activeOnly: toBoolean(body.activeOnly), hideClaimed: toBoolean(body.hideClaimed), address: context.address });
-            return res.status(200).json({ success: true, vipLevel: context.vipStatus.vipLevel, campaigns: result.campaigns });
+            return res.status(200).json({ success: true, level: context.vipStatus.vipLevel, betLimit: context.vipStatus.maxBet, campaigns: result.campaigns, levelSystem: { key: "legacy_v1", label: "等級制度 v1" } });
         }
         if (action === "claim_campaign") {
             const context = await getUserContext(sessionId);
@@ -249,7 +249,7 @@ export default async function handler(req, res) {
             const parsedBundle = parseRewardBundle(body);
             const hasRewardFields = ["itemId", "itemQty", "avatarId", "titleId", "titleExpiresAt", "expiresAt", "tokenAmount", "tokenAmount2"].some((field) => Object.prototype.hasOwnProperty.call(body, field));
             const hasBundle = (parsedBundle.items && parsedBundle.items.length) || (parsedBundle.avatars && parsedBundle.avatars.length) || (parsedBundle.titles && parsedBundle.titles.length) || parsedBundle.tokens || (parsedBundle.tokenRewards && Object.keys(parsedBundle.tokenRewards).length);
-            const record = { id: existingId, title: trimText(body.title, 120), description: trimText(body.description, 600), isActive: body.isActive === undefined ? true : toBoolean(body.isActive), startAt: trimText(body.startAt, 64), endAt: trimText(body.endAt, 64), claimLimitPerUser: Number(body.claimLimitPerUser || 1), minVipLevel: trimText(body.minVipLevel, 64), rewards: hasRewardFields ? (hasBundle ? parsedBundle : {}) : (existing && existing.rewards) || {}, createdBy: admin.address, updatedBy: admin.address };
+            const record = { id: existingId, title: trimText(body.title, 120), description: trimText(body.description, 600), isActive: body.isActive === undefined ? true : toBoolean(body.isActive), startAt: trimText(body.startAt, 64), endAt: trimText(body.endAt, 64), claimLimitPerUser: Number(body.claimLimitPerUser || 1), minLevel: trimText(body.minLevel || body.minVipLevel, 64), rewards: hasRewardFields ? (hasBundle ? parsedBundle : {}) : (existing && existing.rewards) || {}, createdBy: admin.address, updatedBy: admin.address };
             const saved = existingId ? await saveRewardCampaign({ ...(existing || {}), ...record }) : await createRewardCampaign(record);
             return res.status(200).json({ success: true, campaign: saved });
         }

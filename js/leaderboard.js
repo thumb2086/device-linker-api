@@ -172,7 +172,7 @@ function renderLeaderboardRows(items) {
             '<span class="rank-col">' + fmtRank(item.rank) + '</span>' +
             '<span class="addr-col" title="' + escapeHtml(item.address) + '">' + avatarSpan + title + '<span class="leaderboard-name">' + escapeHtml(displayName) + (isMine ? ' (你)' : '') + '</span></span>' +
             '<span class="bet-col">' + formatCompactZh(value, 2) + ' 子熙幣</span>' +
-            '<span class="vip-col">' + escapeHtml(item.vipLevel) + '</span>' +
+            '<span class="vip-col">' + escapeHtml(item.level || item.vipLevel || "-") + '</span>' +
             '</div>';
     });
 

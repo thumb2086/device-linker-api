@@ -692,8 +692,8 @@ class SlotMachine {
 
         updateUI({
             totalBet: result.totalBet,
-            vipLevel: result.vipLevel,
-            maxBet: result.maxBet
+            level: result.level,
+            betLimit: result.betLimit
         });
 
         if (totalMultiplier > 0) {

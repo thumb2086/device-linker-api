@@ -248,8 +248,9 @@ async function buildPeriodLeaderboard(type, period, currentAddress, limit, snaps
             displayName: displayNameMap.get(entry.address) || "",
             maskedAddress: maskAddress(entry.address),
             totalBet: entry.totalBet.toFixed(2),
-            vipLevel: vipStatus.vipLevel,
-            maxBet: String(vipStatus.maxBet),
+            level: vipStatus.vipLevel,
+            betLimit: String(vipStatus.maxBet),
+            levelSystem: { key: "legacy_v1", label: "等級制度 v1" },
             avatar: rewardDisplay.avatar || null,
             title: rewardDisplay.title || null
         };
@@ -267,8 +268,9 @@ async function buildPeriodLeaderboard(type, period, currentAddress, limit, snaps
             displayName: displayNameMap.get(entry.address) || "",
             maskedAddress: maskAddress(entry.address),
             totalBet: entry.totalBet.toFixed(2),
-            vipLevel: vipStatus.vipLevel,
-            maxBet: String(vipStatus.maxBet),
+            level: vipStatus.vipLevel,
+            betLimit: String(vipStatus.maxBet),
+            levelSystem: { key: "legacy_v1", label: "等級制度 v1" },
             avatar: rewardDisplay.avatar || null,
             title: rewardDisplay.title || null
         };
@@ -381,13 +383,13 @@ export default async function handler(req, res) {
             const leaderboard = entries.slice(0, limit).map((entry, index) => {
                 const vipStatus = buildVipStatus(entry.totalBet);
                 const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
-                return { rank: index + 1, address: entry.address, displayName: displayNameMap.get(entry.address) || "", maskedAddress: maskAddress(entry.address), totalBet: entry.totalBet.toFixed(2), vipLevel: vipStatus.vipLevel, maxBet: String(vipStatus.maxBet), avatar: rewardDisplay.avatar || null, title: rewardDisplay.title || null };
+                return { rank: index + 1, address: entry.address, displayName: displayNameMap.get(entry.address) || "", maskedAddress: maskAddress(entry.address), totalBet: entry.totalBet.toFixed(2), level: vipStatus.vipLevel, betLimit: String(vipStatus.maxBet), avatar: rewardDisplay.avatar || null, title: rewardDisplay.title || null };
             });
             const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
             const myRank = myIndex >= 0 ? entries[myIndex] : null;
             return res.status(200).json({
                 success: true, generatedAt: cached.generatedAt || new Date().toISOString(), totalPlayers: entries.length, leaderboard,
-                myRank: myRank ? { rank: myIndex + 1, address: myRank.address, displayName: displayNameMap.get(myRank.address) || "", maskedAddress: maskAddress(myRank.address), totalBet: myRank.totalBet.toFixed(2), vipLevel: buildVipStatus(myRank.totalBet).vipLevel, maxBet: String(buildVipStatus(myRank.totalBet).maxBet), avatar: (rewardDisplayMap.get(myRank.address) || {}).avatar || null, title: (rewardDisplayMap.get(myRank.address) || {}).title || null } : null
+                myRank: myRank ? { rank: myIndex + 1, address: myRank.address, displayName: displayNameMap.get(myRank.address) || "", maskedAddress: maskAddress(myRank.address), totalBet: myRank.totalBet.toFixed(2), level: buildVipStatus(myRank.totalBet).vipLevel, betLimit: String(buildVipStatus(myRank.totalBet).maxBet), avatar: (rewardDisplayMap.get(myRank.address) || {}).avatar || null, title: (rewardDisplayMap.get(myRank.address) || {}).title || null } : null
             });
         }
         if (action === "weekly_bet") {
@@ -424,13 +426,13 @@ export default async function handler(req, res) {
             const leaderboard = entries.slice(0, limit).map((entry, index) => {
                 const vipStatus = buildVipStatus(entry.totalBet);
                 const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
-                return { rank: index + 1, address: entry.address, displayName: displayNameMap.get(entry.address) || "", maskedAddress: maskAddress(entry.address), netWorth: entry.netWorth.toFixed(2), walletBalance: entry.walletBalance.toFixed(2), bankBalance: entry.bankBalance.toFixed(2), stockValue: entry.stockValue.toFixed(2), futuresUnrealizedPnl: entry.futuresUnrealizedPnl.toFixed(2), loanPrincipal: entry.loanPrincipal.toFixed(2), totalBet: entry.totalBet.toFixed(2), vipLevel: vipStatus.vipLevel, avatar: rewardDisplay.avatar || null, title: rewardDisplay.title || null };
+                return { rank: index + 1, address: entry.address, displayName: displayNameMap.get(entry.address) || "", maskedAddress: maskAddress(entry.address), netWorth: entry.netWorth.toFixed(2), walletBalance: entry.walletBalance.toFixed(2), bankBalance: entry.bankBalance.toFixed(2), stockValue: entry.stockValue.toFixed(2), futuresUnrealizedPnl: entry.futuresUnrealizedPnl.toFixed(2), loanPrincipal: entry.loanPrincipal.toFixed(2), totalBet: entry.totalBet.toFixed(2), level: vipStatus.vipLevel, avatar: rewardDisplay.avatar || null, title: rewardDisplay.title || null };
             });
             const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
             const myRank = myIndex >= 0 ? entries[myIndex] : null;
             return res.status(200).json({
                 success: true, generatedAt: cached.generatedAt || new Date().toISOString(), totalPlayers: entries.length, leaderboard,
-                myRank: myRank ? { rank: myIndex + 1, address: myRank.address, displayName: displayNameMap.get(myRank.address) || "", maskedAddress: maskAddress(myRank.address), netWorth: myRank.netWorth.toFixed(2), walletBalance: myRank.walletBalance.toFixed(2), bankBalance: myRank.bankBalance.toFixed(2), stockValue: myRank.stockValue.toFixed(2), futuresUnrealizedPnl: myRank.futuresUnrealizedPnl.toFixed(2), loanPrincipal: myRank.loanPrincipal.toFixed(2), totalBet: myRank.totalBet.toFixed(2), vipLevel: buildVipStatus(myRank.totalBet).vipLevel, avatar: (rewardDisplayMap.get(myRank.address) || {}).avatar || null, title: (rewardDisplayMap.get(myRank.address) || {}).title || null } : null
+                myRank: myRank ? { rank: myIndex + 1, address: myRank.address, displayName: displayNameMap.get(myRank.address) || "", maskedAddress: maskAddress(myRank.address), netWorth: myRank.netWorth.toFixed(2), walletBalance: myRank.walletBalance.toFixed(2), bankBalance: myRank.bankBalance.toFixed(2), stockValue: myRank.stockValue.toFixed(2), futuresUnrealizedPnl: myRank.futuresUnrealizedPnl.toFixed(2), loanPrincipal: myRank.loanPrincipal.toFixed(2), totalBet: myRank.totalBet.toFixed(2), level: buildVipStatus(myRank.totalBet).vipLevel, avatar: (rewardDisplayMap.get(myRank.address) || {}).avatar || null, title: (rewardDisplayMap.get(myRank.address) || {}).title || null } : null
             });
         }
         return res.status(400).json({ success: false, error: `Unsupported action: ${action}`, supportedActions: ["total_bet", "weekly_bet", "monthly_bet", "season_bet", "net_worth"] });

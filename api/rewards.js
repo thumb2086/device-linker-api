@@ -94,6 +94,15 @@ async function requireAdmin(sessionId) {
     return context;
 }
 
+function parseTokenRewards(body) {
+    const tokenRewards = {};
+    const primaryAmount = Number(body.tokenAmount || 0);
+    const secondaryAmount = Number(body.tokenAmount2 || 0);
+    if (Number.isFinite(primaryAmount) && primaryAmount > 0) tokenRewards.zxc = primaryAmount;
+    if (Number.isFinite(secondaryAmount) && secondaryAmount > 0) tokenRewards.alt = secondaryAmount;
+    return tokenRewards;
+}
+
 function parseRewardBundle(body) {
     const bundle = {};
     const itemId = trimText(body.itemId, 64);
@@ -101,11 +110,12 @@ function parseRewardBundle(body) {
     const avatarId = trimText(body.avatarId, 64);
     const titleId = trimText(body.titleId, 64);
     const expiresAt = trimText(body.titleExpiresAt || body.expiresAt, 64);
-    const tokenAmount = Number(body.tokenAmount || 0);
+    const tokenRewards = parseTokenRewards(body);
     if (itemId) bundle.items = [{ id: itemId, qty: Number.isFinite(itemQty) && itemQty > 0 ? Math.floor(itemQty) : 1 }];
     if (avatarId) bundle.avatars = [avatarId];
     if (titleId) bundle.titles = [{ id: titleId, expiresAt }];
-    if (Number.isFinite(tokenAmount) && tokenAmount > 0) bundle.tokens = tokenAmount;
+    if (Number(tokenRewards.zxc || 0) > 0) bundle.tokens = tokenRewards.zxc;
+    if (Object.keys(tokenRewards).length > 0) bundle.tokenRewards = tokenRewards;
     return bundle;
 }
 
@@ -115,7 +125,7 @@ async function buildSummaryPayload(address, totalBet) {
         listRewardCampaigns({ activeOnly: true, address, hideClaimed: true }),
         getRewardCatalog()
     ]);
-    return { profile, catalog: { ...catalog, vipLevels: getVipTierOptions() }, campaigns: campaigns.campaigns };
+    return { profile, catalog: { ...catalog, levelTiers: getVipTierOptions() }, campaigns: campaigns.campaigns };
 }
 
 export default async function handler(req, res) {
@@ -132,11 +142,11 @@ export default async function handler(req, res) {
             if (sessionId === "public") {
                 const catalog = await getRewardCatalog();
                 const campaigns = await listRewardCampaigns({ activeOnly: true });
-                return res.status(200).json({ success: true, catalog: { ...catalog, vipLevels: getVipTierOptions() }, campaigns: campaigns.campaigns });
+                return res.status(200).json({ success: true, catalog: { ...catalog, levelTiers: getVipTierOptions() }, campaigns: campaigns.campaigns });
             }
             const context = await getUserContext(sessionId);
             const summary = await buildSummaryPayload(context.address, context.totalBet);
-            return res.status(200).json({ success: true, vipLevel: context.vipStatus.vipLevel, ...summary });
+            return res.status(200).json({ success: true, level: context.vipStatus.vipLevel, betLimit: context.vipStatus.maxBet, levelSystem: { key: "legacy_v1", label: "等級制度 v1" }, ...summary });
         }
         if (action === "buy") {
             const context = await getUserContext(sessionId);
@@ -203,7 +213,7 @@ export default async function handler(req, res) {
         if (action === "list_campaigns") {
             const context = await getUserContext(sessionId);
             const result = await listRewardCampaigns({ activeOnly: toBoolean(body.activeOnly), hideClaimed: toBoolean(body.hideClaimed), address: context.address });
-            return res.status(200).json({ success: true, vipLevel: context.vipStatus.vipLevel, campaigns: result.campaigns });
+            return res.status(200).json({ success: true, level: context.vipStatus.vipLevel, betLimit: context.vipStatus.maxBet, campaigns: result.campaigns, levelSystem: { key: "legacy_v1", label: "等級制度 v1" } });
         }
         if (action === "claim_campaign") {
             const context = await getUserContext(sessionId);
@@ -237,9 +247,9 @@ export default async function handler(req, res) {
             const existingId = trimText(body.campaignId, 128);
             const existing = existingId ? await getRewardCampaign(existingId) : null;
             const parsedBundle = parseRewardBundle(body);
-            const hasRewardFields = ["itemId", "itemQty", "avatarId", "titleId", "titleExpiresAt", "expiresAt", "tokenAmount"].some((field) => Object.prototype.hasOwnProperty.call(body, field));
-            const hasBundle = (parsedBundle.items && parsedBundle.items.length) || (parsedBundle.avatars && parsedBundle.avatars.length) || (parsedBundle.titles && parsedBundle.titles.length) || parsedBundle.tokens;
-            const record = { id: existingId, title: trimText(body.title, 120), description: trimText(body.description, 600), isActive: body.isActive === undefined ? true : toBoolean(body.isActive), startAt: trimText(body.startAt, 64), endAt: trimText(body.endAt, 64), claimLimitPerUser: Number(body.claimLimitPerUser || 1), minVipLevel: trimText(body.minVipLevel, 64), rewards: hasRewardFields ? (hasBundle ? parsedBundle : {}) : (existing && existing.rewards) || {}, createdBy: admin.address, updatedBy: admin.address };
+            const hasRewardFields = ["itemId", "itemQty", "avatarId", "titleId", "titleExpiresAt", "expiresAt", "tokenAmount", "tokenAmount2"].some((field) => Object.prototype.hasOwnProperty.call(body, field));
+            const hasBundle = (parsedBundle.items && parsedBundle.items.length) || (parsedBundle.avatars && parsedBundle.avatars.length) || (parsedBundle.titles && parsedBundle.titles.length) || parsedBundle.tokens || (parsedBundle.tokenRewards && Object.keys(parsedBundle.tokenRewards).length);
+            const record = { id: existingId, title: trimText(body.title, 120), description: trimText(body.description, 600), isActive: body.isActive === undefined ? true : toBoolean(body.isActive), startAt: trimText(body.startAt, 64), endAt: trimText(body.endAt, 64), claimLimitPerUser: Number(body.claimLimitPerUser || 1), minLevel: trimText(body.minLevel || body.minVipLevel, 64), rewards: hasRewardFields ? (hasBundle ? parsedBundle : {}) : (existing && existing.rewards) || {}, createdBy: admin.address, updatedBy: admin.address };
             const saved = existingId ? await saveRewardCampaign({ ...(existing || {}), ...record }) : await createRewardCampaign(record);
             return res.status(200).json({ success: true, campaign: saved });
         }
@@ -247,7 +257,7 @@ export default async function handler(req, res) {
             const admin = await requireAdmin(sessionId);
             const targetAddress = normalizeAddress(body.address, "address");
             const bundle = parseRewardBundle(body);
-            if (!bundle.items && !bundle.avatars && !bundle.titles && !bundle.tokens) return res.status(400).json({ success: false, error: "No rewards selected" });
+            if (!bundle.items && !bundle.avatars && !bundle.titles && !bundle.tokens && !(bundle.tokenRewards && Object.keys(bundle.tokenRewards).length)) return res.status(400).json({ success: false, error: "No rewards selected" });
             const grant = await grantRewardBundle(targetAddress, bundle, { source: "admin", expiresAt: trimText(body.expiresAt, 64) });
             let txHash = "";
             if (Number(bundle.tokens || 0) > 0) {

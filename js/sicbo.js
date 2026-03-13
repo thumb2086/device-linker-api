@@ -399,7 +399,7 @@ function placeSicboBet() {
             confirmedBet.closesAt = data.closesAt;
             delete confirmedBet.tempId; // Officially confirmed
         }
-        updateUI({ totalBet: data.totalBet, vipLevel: data.vipLevel, maxBet: data.maxBet });
+        updateUI({ totalBet: data.totalBet, level: data.level, betLimit: data.betLimit });
     })
     .catch(function (error) {
         setDisplayedBalance(currentBalance); // Rollback

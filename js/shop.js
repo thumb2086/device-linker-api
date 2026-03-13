@@ -64,7 +64,7 @@ function rewardTitleCategoryLabel(category) {
         featured: '精選',
         achievement: '成就',
         event: '活動',
-        vip: 'VIP',
+        vip: '等級',
         special: '特別'
     };
     return map[String(category || '').toLowerCase()] || String(category || '全部');

@@ -340,7 +340,7 @@ function placeBingoBet() {
             confirmedBet.numbers = data.userNumbers || confirmedBet.numbers;
             delete confirmedBet.tempId;
         }
-        updateUI({ totalBet: data.totalBet, vipLevel: data.vipLevel, maxBet: data.maxBet });
+        updateUI({ totalBet: data.totalBet, level: data.level, betLimit: data.betLimit });
     })
     .catch(function (err) {
         setDisplayedBalance(currentBalance);

@@ -1077,7 +1077,7 @@ function getRewardTitleCategoryOptions() {
         { value: 'featured', label: '精選' },
         { value: 'achievement', label: '成就' },
         { value: 'event', label: '活動' },
-        { value: 'vip', label: 'VIP' },
+        { value: 'vip', label: '等級' },
         { value: 'special', label: '特別' }
     ];
 }
@@ -1125,7 +1125,7 @@ function renderRewardAdminSelects() {
     if (avatarCountEl) avatarCountEl.innerText = String((rewardCatalog.avatars || []).length);
     var vipEl = document.getElementById('campaign-min-vip');
     if (vipEl) {
-        vipEl.innerHTML = buildVipSelectOptionsHtml(rewardCatalog.vipLevels, '');
+        vipEl.innerHTML = buildVipSelectOptionsHtml((rewardCatalog.levelTiers || rewardCatalog.vipLevels || []), '');
     }
     var titleRarityEl = document.getElementById('reward-title-rarity');
     if (titleRarityEl) {
@@ -1291,7 +1291,7 @@ function onAdminCampaignSelected(campaignId) {
     document.getElementById('campaign-start-at').value = toDateTimeLocalValue(campaign.startAt || '');
     document.getElementById('campaign-end-at').value = toDateTimeLocalValue(campaign.endAt || '');
     document.getElementById('campaign-claim-limit').value = String(campaign.claimLimitPerUser || 1);
-    document.getElementById('campaign-min-vip').value = campaign.minVipLevel || '';
+    document.getElementById('campaign-min-vip').value = (campaign.minLevel || campaign.minVipLevel) || '';
     document.getElementById('campaign-active').checked = !!campaign.isActive;
     document.getElementById('campaign-item').value = rewardItem ? rewardItem.id : '';
     document.getElementById('campaign-item-qty').value = rewardItem ? String(rewardItem.qty) : '1';
@@ -1536,7 +1536,7 @@ function publishRewardCampaign() {
             startAt: getIsoDateTimeValue('campaign-start-at'),
             endAt: getIsoDateTimeValue('campaign-end-at'),
             claimLimitPerUser: String(document.getElementById('campaign-claim-limit').value || '1'),
-            minVipLevel: String(document.getElementById('campaign-min-vip').value || ''),
+            minLevel: String(document.getElementById('campaign-min-vip').value || ''),
             isActive: !!document.getElementById('campaign-active').checked,
             itemId: String(document.getElementById('campaign-item').value || ''),
             itemQty: String(document.getElementById('campaign-item-qty').value || '1'),

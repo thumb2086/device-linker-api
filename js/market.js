@@ -190,15 +190,16 @@ function renderOverview(payload) {
         loanRateLabel.innerText = fmtPercent(payload.params.loanAnnualRate);
     }
     var futuresMaxBetEl = document.getElementById('futures-max-bet');
-    if (futuresMaxBetEl && payload.maxBet !== undefined) {
-        futuresMaxBetEl.innerText = formatDisplayNumber(payload.maxBet, 2) + ' 子熙幣';
+    var betLimit = payload && payload.betLimit !== undefined ? payload.betLimit : payload.maxBet;
+    if (futuresMaxBetEl && betLimit !== undefined) {
+        futuresMaxBetEl.innerText = formatDisplayNumber(betLimit, 2) + ' 子熙幣';
     }
 
     updateUI({
         balance: account.cash,
         totalBet: payload.totalBet,
-        vipLevel: payload.vipLevel,
-        maxBet: payload.maxBet
+        level: payload.level || payload.vipLevel,
+        betLimit: payload.betLimit !== undefined ? payload.betLimit : payload.maxBet
     });
     renderMarketTable(market);
     renderStocks(account);

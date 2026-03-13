@@ -51,6 +51,19 @@ function toSafeNumber(value) {
     return Number.isFinite(num) ? num : 0;
 }
 
+
+function normalizeLevelFields(body) {
+    if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+    const normalized = { ...body };
+    if (normalized.level === undefined && normalized.vipLevel !== undefined) normalized.level = normalized.vipLevel;
+    if (normalized.betLimit === undefined && normalized.maxBet !== undefined) normalized.betLimit = normalized.maxBet;
+    delete normalized.vipLevel;
+    delete normalized.maxBet;
+    if (!normalized.levelSystem || typeof normalized.levelSystem !== "object") {
+        normalized.levelSystem = { key: "legacy_v1", label: "等級制度 v1" };
+    }
+    return normalized;
+}
 function shortAddress(address) {
     const normalized = String(address || "").trim();
     if (!normalized) return "匿名玩家";
@@ -65,7 +78,7 @@ function shouldEmitWinnerBarrage(body) {
     return toSafeNumber(body.multiplier) > 0;
 }
 
-function resolveWinnerAmount(requestBody, responseBody) {
+function resolveWinnerAmount(requestBody, responseBody, game) {
     const responseAmountCandidates = [
         responseBody && responseBody.winAmount,
         responseBody && responseBody.payoutAmount,
@@ -79,9 +92,20 @@ function resolveWinnerAmount(requestBody, responseBody) {
     }
 
     const betAmount = toSafeNumber(requestBody && requestBody.amount);
+    if (betAmount <= 0) return 0;
+
     const multiplier = toSafeNumber(responseBody && responseBody.multiplier);
-    if (betAmount > 0 && multiplier > 0) {
+    if (multiplier > 0) {
         return Number((betAmount * multiplier).toFixed(2));
+    }
+
+    const defaultWinMultiplierByGame = {
+        coinflip: 1.8
+    };
+    const gameKey = String(game || "").trim().toLowerCase();
+    const fallbackMultiplier = toSafeNumber(defaultWinMultiplierByGame[gameKey]);
+    if (fallbackMultiplier > 0 && responseBody && responseBody.isWin === true) {
+        return Number((betAmount * fallbackMultiplier).toFixed(2));
     }
     return 0;
 }
@@ -102,7 +126,7 @@ async function appendWinnerBarrage({ session, game, requestBody, responseBody })
         crash: "暴漲"
     };
     const label = gameLabelMap[String(game || "")] || "遊戲";
-    const winnerAmount = resolveWinnerAmount(requestBody, responseBody);
+    const winnerAmount = resolveWinnerAmount(requestBody, responseBody, game);
     const amountText = winnerAmount > 0 ? `（中獎額 ${winnerAmount}）` : "";
 
     const payload = {
@@ -166,7 +190,7 @@ export default async function handler(req, res) {
             console.error("appendWinnerBarrage failed:", error?.message || error);
         });
         if (body && typeof body === "object" && !Array.isArray(body)) {
-            return originalJson({ ...body, requestId });
+            return originalJson({ ...normalizeLevelFields(body), requestId });
         }
         return originalJson(body);
     };

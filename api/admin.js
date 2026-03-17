@@ -48,9 +48,18 @@ function getSafeBody(req) {
     return typeof rawBody === "object" ? rawBody : {};
 }
 
-function normalizeAddress(rawValue) {
+function normalizeAddress(rawValue, fieldName = "address") {
     try {
         return ethers.getAddress(String(rawValue || "").trim()).toLowerCase();
+    } catch {
+        throw new Error(`${fieldName} format is invalid`);
+    }
+}
+
+function tryNormalizeAddress(rawAddress) {
+    if (!rawAddress) return "";
+    try {
+        return ethers.getAddress(String(rawAddress).trim()).toLowerCase();
     } catch {
         return "";
     }
@@ -185,7 +194,7 @@ export default async function handler(req, res) {
         const action = String(body.action || "reset_total_bets").trim().toLowerCase();
         const sessionId = normalizeSessionId(body.sessionId);
         const dryRun = body.dryRun === true || String(body.dryRun || "").trim().toLowerCase() === "true";
-        const configuredAdminAddress = normalizeAddress(process.env.OPS_ADMIN_ADDRESS || ADMIN_WALLET_ADDRESS);
+        const configuredAdminAddress = normalizeAddress(process.env.OPS_ADMIN_ADDRESS || ADMIN_WALLET_ADDRESS, "Admin wallet address");
 
         if (!sessionId) {
             return res.status(400).json({ success: false, error: "Missing sessionId" });
@@ -196,7 +205,7 @@ export default async function handler(req, res) {
             return res.status(403).json({ success: false, error: "Session expired" });
         }
 
-        const sessionAddress = normalizeAddress(session.address);
+        const sessionAddress = normalizeAddress(session.address, "Session address");
         if (!configuredAdminAddress || sessionAddress !== configuredAdminAddress) {
             return res.status(403).json({ success: false, error: "Current session is not an admin wallet" });
         }
@@ -213,8 +222,19 @@ export default async function handler(req, res) {
             });
         }
 
+        if (action === "set_vip") {
+            const targetAddress = tryNormalizeAddress(body.address);
+            if (!targetAddress) return res.status(400).json({ success: false, error: "Invalid address" });
+            const level = parseInt(body.level || "0");
+            if (isNaN(level) || level < 0 || level > 3) {
+                return res.status(400).json({ success: false, error: "VIP level must be between 0 and 3" });
+            }
+            await kv.set(`vip:${targetAddress}`, level);
+            return res.status(200).json({ success: true, address: targetAddress, level });
+        }
+
         if (action === "add_to_blacklist") {
-            const targetAddress = normalizeAddress(body.address);
+            const targetAddress = tryNormalizeAddress(body.address);
             if (!targetAddress) {
                 return res.status(400).json({ success: false, error: "Invalid address" });
             }
@@ -229,7 +249,7 @@ export default async function handler(req, res) {
         }
 
         if (action === "remove_from_blacklist") {
-            const targetAddress = normalizeAddress(body.address);
+            const targetAddress = tryNormalizeAddress(body.address);
             if (!targetAddress) {
                 return res.status(400).json({ success: false, error: "Invalid address" });
             }
@@ -276,7 +296,7 @@ export default async function handler(req, res) {
         }
 
         if (action === "set_user_win_bias") {
-            const targetAddress = normalizeAddress(body.address);
+            const targetAddress = tryNormalizeAddress(body.address);
             if (!targetAddress) return res.status(400).json({ success: false, error: "Invalid address" });
             if (body.bias === null || body.bias === undefined || body.bias === "") {
                 await kv.del(`user_win_bias:${targetAddress}`);
@@ -291,10 +311,17 @@ export default async function handler(req, res) {
         }
 
         if (action === "get_user_win_bias") {
-            const targetAddress = normalizeAddress(body.address);
+            const targetAddress = tryNormalizeAddress(body.address);
             if (!targetAddress) return res.status(400).json({ success: false, error: "Invalid address" });
             const bias = await kv.get(`user_win_bias:${targetAddress}`);
             return res.status(200).json({ success: true, address: targetAddress, bias: bias ?? null });
+        }
+
+        if (action === "get_status" || action === "status") {
+            const targetAddress = tryNormalizeAddress(body.address);
+            if (!targetAddress) return res.status(400).json({ success: false, error: "Invalid address" });
+            const metrics = await loadUserMetrics(targetAddress);
+            return res.status(200).json({ success: true, metrics });
         }
 
         if (action === "inspect_custody_user") {

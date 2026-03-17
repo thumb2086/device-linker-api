@@ -109,10 +109,18 @@ function jsonError(res, statusCode, error) {
     });
 }
 
+class SessionError extends Error {
+    constructor(message, statusCode = 403) {
+        super(message);
+        this.name = "SessionError";
+        this.statusCode = statusCode;
+    }
+}
+
 async function resolveSessionAddress(sessionId) {
     if (!sessionId) return { session: null, address: "" };
     const session = await getSession(String(sessionId || "").trim());
-    if (!session || !session.address) throw new Error("Session expired");
+    if (!session || !session.address) throw new SessionError("Session expired");
     return { session, address: normalizeAddress(session.address, "session address") };
 }
 
@@ -295,6 +303,9 @@ export default async function handler(req, res) {
         }
         return res.status(400).json({ success: false, error: `Unsupported action: ${action}`, supportedActions: ["summary", "status", "balance", "game_history", "get_balance", "airdrop", "import", "deposit", "export", "transfer", "secure_transfer", "withdraw", "cashout"] });
     } catch (error) {
+        if (error instanceof SessionError) {
+            return res.status(error.statusCode).json({ success: false, error: error.message });
+        }
         return jsonError(res, 500, error);
     }
 }

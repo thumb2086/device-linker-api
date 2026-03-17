@@ -41,6 +41,15 @@ function normalizeAddress(rawAddress, fieldName = "address") {
     }
 }
 
+function tryNormalizeAddress(rawAddress) {
+    if (!rawAddress) return "";
+    try {
+        return ethers.getAddress(String(rawAddress).trim()).toLowerCase();
+    } catch {
+        return "";
+    }
+}
+
 function normalizeAmount(rawAmount) {
     const normalized = String(rawAmount ?? "").replace(/,/g, "").trim();
     if (!/^\d+(\.\d+)?$/.test(normalized)) throw new Error("amount format is invalid");
@@ -65,20 +74,35 @@ function toPemFromBase64(base64PublicKey) {
 }
 
 function deriveAddressFromPublicKey(base64PublicKey) {
-    const spkiBytes = Buffer.from(base64PublicKey, "base64");
-    if (!spkiBytes.length) return null;
-    let uncompressed = null;
-    if (spkiBytes.length === 65 && spkiBytes[0] === 0x04) {
-        uncompressed = spkiBytes;
-    } else if (spkiBytes.length > 26 && spkiBytes[26] === 0x04) {
-        const sliced = spkiBytes.slice(26);
-        if (sliced.length >= 65 && sliced[0] === 0x04) uncompressed = sliced.slice(0, 65);
-    } else if (spkiBytes.length > 65) {
-        const tail = spkiBytes.slice(-65);
-        if (tail[0] === 0x04) uncompressed = tail;
+    try {
+        const spkiBytes = Buffer.from(base64PublicKey, "base64");
+        if (!spkiBytes.length) return null;
+        let uncompressed = null;
+        
+        // 1. Check for 65-byte uncompressed key (0x04 prefix)
+        if (spkiBytes.length === 65 && spkiBytes[0] === 0x04) {
+            uncompressed = spkiBytes;
+        } 
+        // 2. Check for 33-byte compressed key (0x02 or 0x03 prefix)
+        else if (spkiBytes.length === 33 && (spkiBytes[0] === 0x02 || spkiBytes[0] === 0x03)) {
+            uncompressed = spkiBytes;
+        }
+        // 3. Check for SPKI wrapped key (header + 0x04 + 64 bytes)
+        else if (spkiBytes.length > 20) {
+            // Find the 0x04 prefix if it's there
+            const osIndex = spkiBytes.indexOf(Buffer.from([0x04]));
+            if (osIndex !== -1 && osIndex < 35) { // Common SPKI headers are < 35 bytes
+                const sliced = spkiBytes.slice(osIndex);
+                if (sliced.length === 65) uncompressed = sliced;
+            }
+        }
+        
+        if (!uncompressed) return null;
+        return ethers.computeAddress(`0x${uncompressed.toString("hex")}`).toLowerCase();
+    } catch (e) {
+        console.error("Derive address failed:", e.message);
+        return null;
     }
-    if (!uncompressed) return null;
-    return ethers.computeAddress(`0x${uncompressed.toString("hex")}`).toLowerCase();
 }
 
 function toBooleanFlag(value) {
@@ -154,7 +178,9 @@ export default async function handler(req, res) {
         };
 
         if (action === "get_balance") {
-            const address = normalizeAddress(body.address || (await getSessionInfo()).address, "address");
+            const sInfo = await getSessionInfo();
+            const address = tryNormalizeAddress(body.address) || sInfo.address;
+            if (!address) return jsonError(res, 400, sInfo.error || "Missing address or session expired");
             if (await blockIfBlacklisted(res, address)) return;
             const balanceRaw = await contract.balanceOf(address);
             return res.status(200).json({ success: true, balance: ethers.formatUnits(balanceRaw, decimals), decimals: decimals.toString() });
@@ -162,7 +188,7 @@ export default async function handler(req, res) {
         
         if (action === "airdrop") {
             const sInfo = await getSessionInfo();
-            const targetAddress = sInfo.address || normalizeAddress(body.address, "address");
+            const targetAddress = sInfo.address || tryNormalizeAddress(body.address);
             if (!targetAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, targetAddress)) return;
             const trackedDistributedWei = await getTrackedAirdropDistributedWei();
@@ -193,7 +219,7 @@ export default async function handler(req, res) {
         
         if (action === "game_history") {
             const sInfo = await getSessionInfo();
-            const historyAddress = sInfo.address || normalizeAddress(body.address, "address");
+            const historyAddress = sInfo.address || tryNormalizeAddress(body.address);
             if (!historyAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, historyAddress)) return;
             const result = await listGameHistory(historyAddress, { limit: body.limit });
@@ -202,7 +228,7 @@ export default async function handler(req, res) {
         
         if (action === "summary" || action === "status" || action === "balance") {
             const sInfo = await getSessionInfo();
-            const userAddress = sInfo.address || normalizeAddress(body.address, "address");
+            const userAddress = sInfo.address || tryNormalizeAddress(body.address);
             if (!userAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, userAddress)) return;
             const [userBalanceWei, treasuryBalanceWei, trackedAirdropDistributedWei] = await Promise.all([
@@ -246,7 +272,7 @@ export default async function handler(req, res) {
         
         if (action === "import" || action === "deposit") {
             const sInfo = await getSessionInfo();
-            const userAddress = sInfo.address || normalizeAddress(body.address, "address");
+            const userAddress = sInfo.address || tryNormalizeAddress(body.address);
             if (!userAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, userAddress)) return;
             const results = await settlementService.settle({
@@ -260,7 +286,7 @@ export default async function handler(req, res) {
         
         if (action === "withdraw" || action === "cashout") {
             const sInfo = await getSessionInfo();
-            const userAddress = sInfo.address || normalizeAddress(body.address, "address");
+            const userAddress = sInfo.address || tryNormalizeAddress(body.address);
             if (!userAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, userAddress)) return;
             const userBalanceWei = await contract.balanceOf(userAddress);
@@ -277,9 +303,10 @@ export default async function handler(req, res) {
         
         if (action === "secure_transfer") {
             const sInfo = await getSessionInfo();
-            const fromAddress = sInfo.address || normalizeAddress(body.from, "from");
+            const fromAddress = sInfo.address || tryNormalizeAddress(body.from);
             if (!fromAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing from address");
-            const toAddress = normalizeAddress(body.to || body.toAddress, "to");
+            const toAddress = tryNormalizeAddress(body.to || body.toAddress);
+            if (!toAddress) return jsonError(res, 400, "Invalid or missing 'to' address");
             if (await blockIfBlacklisted(res, fromAddress)) return;
             const cleanAmount = amountText.replace(/\.0+$/, "");
             const normalizedPublicKey = normalizeBase64PublicKey(body.publicKey);
@@ -315,9 +342,10 @@ export default async function handler(req, res) {
         
         if (action === "export" || action === "transfer") {
             const sInfo = await getSessionInfo();
-            const userAddress = sInfo.address || normalizeAddress(body.from, "from");
+            const userAddress = sInfo.address || tryNormalizeAddress(body.from);
             if (!userAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing from address");
-            const toAddress = normalizeAddress(body.to || body.toAddress, "to");
+            const toAddress = tryNormalizeAddress(body.to || body.toAddress);
+            if (!toAddress) return jsonError(res, 400, "Invalid or missing 'to' address");
             if (await blockIfBlacklisted(res, userAddress)) return;
             const userBalanceWei = await contract.balanceOf(userAddress);
             if (userBalanceWei < amountWei) return res.status(400).json({ success: false, error: "Insufficient balance" });

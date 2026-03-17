@@ -36,6 +36,15 @@ function normalizeAddress(rawAddress, fieldName = "address") {
     }
 }
 
+function tryNormalizeAddress(rawAddress) {
+    if (!rawAddress) return "";
+    try {
+        return ethers.getAddress(String(rawAddress).trim()).toLowerCase();
+    } catch {
+        return "";
+    }
+}
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', CORS_METHODS);
@@ -52,7 +61,8 @@ export default async function handler(req, res) {
         const session = await getSession(sessionId);
         if (!session || !session.address) return res.status(403).json({ success: false, error: "會話過期，請重新登入" });
 
-        const userAddress = normalizeAddress(session.address, "session address");
+        const userAddress = tryNormalizeAddress(session.address);
+        if (!userAddress) return res.status(403).json({ success: false, error: "會話地址無效，請重新登入" });
         const key = accountKey(userAddress);
         const nowTs = Date.now();
         const market = buildMarketSnapshot(nowTs);

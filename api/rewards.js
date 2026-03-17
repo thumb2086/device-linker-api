@@ -65,6 +65,15 @@ function normalizeAddress(rawValue, fieldName = "address") {
     }
 }
 
+function tryNormalizeAddress(rawAddress) {
+    if (!rawAddress) return "";
+    try {
+        return ethers.getAddress(String(rawAddress).trim()).toLowerCase();
+    } catch {
+        return "";
+    }
+}
+
 function toBoolean(value) {
     return value === true || String(value || "").trim().toLowerCase() === "true";
 }
@@ -275,6 +284,14 @@ export default async function handler(req, res) {
             const record = { id: existingId, title: trimText(body.title, 120), description: trimText(body.description, 600), isActive: body.isActive === undefined ? true : toBoolean(body.isActive), startAt: trimText(body.startAt, 64), endAt: trimText(body.endAt, 64), claimLimitPerUser: Number(body.claimLimitPerUser || 1), minLevel: trimText(body.minLevel || body.minVipLevel, 64), rewards: hasRewardFields ? (hasBundle ? parsedBundle : {}) : (existing && existing.rewards) || {}, createdBy: admin.address, updatedBy: admin.address };
             const saved = existingId ? await saveRewardCampaign({ ...(existing || {}), ...record }) : await createRewardCampaign(record);
             return res.status(200).json({ success: true, campaign: saved });
+        }
+        if (action === "claim") {
+            const session = await requireSession(sessionId); // Re-fetch session to ensure it's not expired
+            const targetAddress = tryNormalizeAddress(body.address) || (session.address ? normalizeAddress(session.address, "session address") : "");
+            if (!targetAddress) return res.status(400).json({ success: false, error: "Missing address or session expired" });
+            
+            const results = await claimAddressRewards(targetAddress);
+            return res.status(200).json({ success: true, ...results });
         }
         if (action === "admin_grant_rewards") {
             const admin = await requireAdmin(sessionId);

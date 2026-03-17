@@ -139,18 +139,31 @@ export default async function handler(req, res) {
         const contract = settlementService.contract;
         const treasuryAddress = normalizeAddress(settlementService.lossPoolAddress, "LOSS_POOL_ADDRESS");
 
-        const sessionInfo = sessionId ? await resolveSessionAddress(sessionId) : { session: null, address: "" };
-        const sessionAddress = sessionInfo.address;
+        // 將 session 解析延後到具體 action 內，避免不需要 session 的功能被攔截
+        let _sessionInfo = null;
+        const getSessionInfo = async () => {
+            if (_sessionInfo) return _sessionInfo;
+            if (!sessionId) return { session: null, address: "" };
+            try {
+                _sessionInfo = await resolveSessionAddress(sessionId);
+                return _sessionInfo;
+            } catch (err) {
+                if (err instanceof SessionError) return { session: null, address: "", error: err.message };
+                throw err;
+            }
+        };
 
         if (action === "get_balance") {
-            const address = normalizeAddress(body.address, "address");
+            const address = normalizeAddress(body.address || (await getSessionInfo()).address, "address");
             if (await blockIfBlacklisted(res, address)) return;
             const balanceRaw = await contract.balanceOf(address);
             return res.status(200).json({ success: true, balance: ethers.formatUnits(balanceRaw, decimals), decimals: decimals.toString() });
         }
         
         if (action === "airdrop") {
-            const targetAddress = sessionAddress || normalizeAddress(body.address, "address");
+            const sInfo = await getSessionInfo();
+            const targetAddress = sInfo.address || normalizeAddress(body.address, "address");
+            if (!targetAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, targetAddress)) return;
             const trackedDistributedWei = await getTrackedAirdropDistributedWei();
             const policy = calculateAirdropRewardWei(decimals, trackedDistributedWei);
@@ -179,14 +192,18 @@ export default async function handler(req, res) {
         }
         
         if (action === "game_history") {
-            const historyAddress = sessionAddress || normalizeAddress(body.address, "address");
+            const sInfo = await getSessionInfo();
+            const historyAddress = sInfo.address || normalizeAddress(body.address, "address");
+            if (!historyAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, historyAddress)) return;
             const result = await listGameHistory(historyAddress, { limit: body.limit });
             return res.status(200).json({ success: true, action: "game_history", address: historyAddress, total: result.total, items: result.items });
         }
         
         if (action === "summary" || action === "status" || action === "balance") {
-            const userAddress = sessionAddress || normalizeAddress(body.address, "address");
+            const sInfo = await getSessionInfo();
+            const userAddress = sInfo.address || normalizeAddress(body.address, "address");
+            if (!userAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, userAddress)) return;
             const [userBalanceWei, treasuryBalanceWei, trackedAirdropDistributedWei] = await Promise.all([
                 contract.balanceOf(userAddress), 
@@ -228,7 +245,9 @@ export default async function handler(req, res) {
         if (amountWei <= 0n) return res.status(400).json({ success: false, error: "amount must be greater than 0" });
         
         if (action === "import" || action === "deposit") {
-            const userAddress = sessionAddress || normalizeAddress(body.address, "address");
+            const sInfo = await getSessionInfo();
+            const userAddress = sInfo.address || normalizeAddress(body.address, "address");
+            if (!userAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, userAddress)) return;
             const results = await settlementService.settle({
                 userAddress,
@@ -240,7 +259,9 @@ export default async function handler(req, res) {
         }
         
         if (action === "withdraw" || action === "cashout") {
-            const userAddress = sessionAddress || normalizeAddress(body.address, "address");
+            const sInfo = await getSessionInfo();
+            const userAddress = sInfo.address || normalizeAddress(body.address, "address");
+            if (!userAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, userAddress)) return;
             const userBalanceWei = await contract.balanceOf(userAddress);
             if (userBalanceWei < amountWei) return res.status(400).json({ success: false, error: "Insufficient balance" });
@@ -255,7 +276,9 @@ export default async function handler(req, res) {
         }
         
         if (action === "secure_transfer") {
-            const fromAddress = sessionAddress || normalizeAddress(body.from, "from");
+            const sInfo = await getSessionInfo();
+            const fromAddress = sInfo.address || normalizeAddress(body.from, "from");
+            if (!fromAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing from address");
             const toAddress = normalizeAddress(body.to || body.toAddress, "to");
             if (await blockIfBlacklisted(res, fromAddress)) return;
             const cleanAmount = amountText.replace(/\.0+$/, "");
@@ -291,7 +314,9 @@ export default async function handler(req, res) {
         }
         
         if (action === "export" || action === "transfer") {
-            const userAddress = sessionAddress || normalizeAddress(body.from, "from");
+            const sInfo = await getSessionInfo();
+            const userAddress = sInfo.address || normalizeAddress(body.from, "from");
+            if (!userAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing from address");
             const toAddress = normalizeAddress(body.to || body.toAddress, "to");
             if (await blockIfBlacklisted(res, userAddress)) return;
             const userBalanceWei = await contract.balanceOf(userAddress);

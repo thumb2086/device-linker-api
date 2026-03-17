@@ -610,9 +610,9 @@ export default async function handler(req, res) {
         }
         return res.status(400).json({ success: false, error: "Unsupported action", supportedActions: ["create_session", "get_status", "authorize", "custody_login", "get_profile", "set_profile", "get_history", "get_announcements", "submit_issue_report", "list_my_issue_reports"] });
     } catch (error) {
-        console.error("User API Error:", error);
-        if (error.message === "Session expired") {
-            return res.status(403).json({ success: false, error: "Session expired" });
+        console.error("User API Error:", error.message || error);
+        if (error.message === "Session expired" || error.message?.includes("Session")) {
+            return res.status(403).json({ success: false, error: "Session expired", code: "SESSION_EXPIRED" });
         }
         return res.status(500).json({ success: false, error: error.message || "User API failed" });
     }

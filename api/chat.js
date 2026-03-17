@@ -152,6 +152,9 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, error: "Unsupported action" });
     } catch (error) {
         console.error("Chat API Error:", error);
+        if (error.message === "Session expired") {
+            return res.status(403).json({ success: false, error: "Session expired" });
+        }
         return res.status(500).json({ success: false, error: error.message || "Chat API failed" });
     }
 }

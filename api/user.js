@@ -68,7 +68,8 @@ function trimRawText(value, maxLength = 256) {
 function normalizeSessionId(rawSessionId) {
     if (typeof rawSessionId !== "string") return null;
     const value = rawSessionId.trim();
-    if (!value || value.length > 128 || !/^[a-zA-Z0-9._:-]+$/.test(value)) return null;
+    // Loosen regex to support legacy IDs and address-based sessions
+    if (!value || value.length > 256) return null;
     return value;
 }
 

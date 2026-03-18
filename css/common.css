@@ -602,6 +602,7 @@ button:disabled {
 
 .chat-widget-collapsed {
     width: 72px;
+    height: 72px;
     min-width: 72px;
     border-radius: 999px;
     overflow: hidden;

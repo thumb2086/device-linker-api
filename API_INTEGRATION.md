@@ -1,4 +1,4 @@
-﻿# Device-Linker API Integration
+# Device-Linker API Integration
 
 Base URL:
 
@@ -402,6 +402,105 @@ Response:
 This will:
 1. Delete metadata for tickets 100 to 105.
 2. Update the queue `serving` index to 105 if the current index is lower.
+
+---
+
+## 10. Market Simulation & Stock Trading
+
+Base path: `POST /api/market-sim`
+
+Common response fields on success:
+```json
+{
+  "success": true,
+  "action": "...",
+  "account": { /* user market account summary */ },
+  "market": { /* current market prices */ },
+  "totalBet": "1000.00",
+  "vipLevel": "普通會員",
+  "maxBet": "1000",
+  "walletBalance": 1234.56,
+  "liquidationEvents": [],
+  "actionResult": { /* action specific result data */ }
+}
+```
+
+### Snapshot
+```json
+{
+  "action": "snapshot",
+  "sessionId": "session_xxx"
+}
+```
+
+### Bank
+```json
+{
+  "action": "bank_deposit",
+  "sessionId": "session_xxx",
+  "amount": 100
+}
+```
+```json
+{
+  "action": "bank_withdraw",
+  "sessionId": "session_xxx",
+  "amount": 50
+}
+```
+
+### Loan
+```json
+{
+  "action": "borrow",
+  "sessionId": "session_xxx",
+  "amount": 100
+}
+```
+```json
+{
+  "action": "repay",
+  "sessionId": "session_xxx",
+  "amount": 50
+}
+```
+
+### Spot Trading
+```json
+{
+  "action": "buy_stock",
+  "sessionId": "session_xxx",
+  "symbol": "BTC",
+  "quantity": 1.5
+}
+```
+```json
+{
+  "action": "sell_stock",
+  "sessionId": "session_xxx",
+  "symbol": "BTC",
+  "quantity": 1.5
+}
+```
+
+### Futures Trading
+```json
+{
+  "action": "open_futures",
+  "sessionId": "session_xxx",
+  "symbol": "BTC",
+  "side": "long",
+  "margin": 100,
+  "leverage": 10
+}
+```
+```json
+{
+  "action": "close_futures",
+  "sessionId": "session_xxx",
+  "positionId": "pos_12345"
+}
+```
 
 ---
 

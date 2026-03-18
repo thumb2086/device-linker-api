@@ -638,6 +638,9 @@ button:disabled {
     padding: 0;
     border: none;
     background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .global-chat-widget .lobby-chat-header,

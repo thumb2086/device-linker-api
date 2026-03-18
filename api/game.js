@@ -12,7 +12,7 @@ import { getSession } from "../lib/session-store.js";
 import { randomUUID } from "crypto";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 
-const CHAT_STREAM_KEY = "chat:stream:v1";
+const CHAT_STREAM_KEY = "chat:stream:v1:public";
 const CHAT_MAX_ITEMS = 120;
 
 const GAME_HANDLERS = {

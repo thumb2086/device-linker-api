@@ -1,4 +1,4 @@
-﻿/* === 子熙賭場 - 共用 UI 工具 === */
+/* === 子熙賭場 - 共用 UI 工具 === */
 
 var user = { address: '', publicKey: '', sessionId: '', displayName: '', balance: 0, chainBalance: 0, totalBet: 0, level: '', betLimit: 0 };
 var userToastTimerSeq = 0;
@@ -259,7 +259,7 @@ function ensureSupportShortcutStyle() {
         '.support-shortcut-link {',
         'position: fixed;',
         'right: 18px;',
-        'bottom: 18px;',
+        'bottom: 90px;',
         'z-index: 60;',
         'display: inline-flex;',
         'align-items: center;',
@@ -273,7 +273,7 @@ function ensureSupportShortcutStyle() {
         'box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);',
         '}',
         '.support-shortcut-link:hover { transform: translateY(-1px); }',
-        '@media (max-width: 640px) { .support-shortcut-link { left: 12px; right: 12px; justify-content: center; bottom: 12px; } }'
+        '@media (max-width: 640px) { .support-shortcut-link { left: 12px; right: 12px; justify-content: center; bottom: 84px; } }'
     ].join('');
     document.head.appendChild(style);
 }

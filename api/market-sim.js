@@ -94,39 +94,39 @@ export default async function handler(req, res) {
                 account = createDefaultMarketAccount(nowTs, walletBalance);
             } else if (action === "buy_stock") {
                 actionResult = buyStock(account, market, body.symbol, body.quantity);
-                const tradeCostWei = ethers.parseUnits(String(actionResult.total), decimals);
+                const tradeCostWei = ethers.parseUnits(Number(actionResult.total).toFixed(6), decimals);
                 await settlementService.settle({ userAddress, betWei: tradeCostWei, payoutWei: 0n, source: MARKET_SIM_TX_SOURCE, meta: { action, symbol: body.symbol } });
             } else if (action === "sell_stock") {
                 actionResult = sellStock(account, market, body.symbol, body.quantity);
-                const payoutWei = ethers.parseUnits(String(actionResult.net), decimals);
+                const payoutWei = ethers.parseUnits(Number(actionResult.net).toFixed(6), decimals);
                 await settlementService.settle({ userAddress, betWei: 0n, payoutWei, source: MARKET_SIM_TX_SOURCE, meta: { action, symbol: body.symbol } });
             } else if (action === "open_futures") {
                 actionResult = openFutures(account, market, { symbol: body.symbol, side: body.side, margin: body.margin, leverage: body.leverage, maxMargin: vipStatus.maxBet });
                 const totalCharge = Number(actionResult.margin) + Number(actionResult.fee || 0);
-                const totalChargeWei = ethers.parseUnits(String(totalCharge), decimals);
+                const totalChargeWei = ethers.parseUnits(Number(totalCharge).toFixed(6), decimals);
                 await settlementService.settle({ userAddress, betWei: totalChargeWei, payoutWei: 0n, source: MARKET_SIM_TX_SOURCE, meta: { action, symbol: body.symbol, side: body.side } });
             } else if (action === "close_futures") {
                 actionResult = closeFutures(account, market, body.positionId);
                 const payoutAmount = Math.max(0, Number(actionResult.refund || 0) - Number(actionResult.fee || 0));
                 if (payoutAmount > 0) {
-                    const payoutWei = ethers.parseUnits(String(payoutAmount), decimals);
+                    const payoutWei = ethers.parseUnits(Number(payoutAmount).toFixed(6), decimals);
                     await settlementService.settle({ userAddress, betWei: 0n, payoutWei, source: MARKET_SIM_TX_SOURCE, meta: { action, positionId: body.positionId } });
                 }
             } else if (action === "bank_deposit") {
                 actionResult = bankDeposit(account, body.amount);
-                const amountWei = ethers.parseUnits(String(actionResult.amount), decimals);
+                const amountWei = ethers.parseUnits(Number(actionResult.amount).toFixed(6), decimals);
                 await settlementService.settle({ userAddress, betWei: amountWei, payoutWei: 0n, source: MARKET_SIM_TX_SOURCE, meta: { action } });
             } else if (action === "bank_withdraw") {
                 actionResult = bankWithdraw(account, body.amount);
-                const amountWei = ethers.parseUnits(String(actionResult.amount), decimals);
+                const amountWei = ethers.parseUnits(Number(actionResult.amount).toFixed(6), decimals);
                 await settlementService.settle({ userAddress, betWei: 0n, payoutWei: amountWei, source: MARKET_SIM_TX_SOURCE, meta: { action } });
             } else if (action === "borrow") {
                 actionResult = borrowLoan(account, market, body.amount);
-                const amountWei = ethers.parseUnits(String(actionResult.amount), decimals);
+                const amountWei = ethers.parseUnits(Number(actionResult.amount).toFixed(6), decimals);
                 await settlementService.settle({ userAddress, betWei: 0n, payoutWei: amountWei, source: MARKET_SIM_TX_SOURCE, meta: { action } });
             } else if (action === "repay") {
                 actionResult = repayLoan(account, body.amount);
-                const amountWei = ethers.parseUnits(String(actionResult.amount), decimals);
+                const amountWei = ethers.parseUnits(Number(actionResult.amount).toFixed(6), decimals);
                 await settlementService.settle({ userAddress, betWei: amountWei, payoutWei: 0n, source: MARKET_SIM_TX_SOURCE, meta: { action } });
             } else if (action !== "snapshot") {
                 return res.status(400).json({ success: false, error: `不支援 action: ${action}` });

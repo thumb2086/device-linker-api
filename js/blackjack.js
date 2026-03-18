@@ -108,7 +108,7 @@ function startBlackjack() {
     }
 
     // --- Audio --- 
-    if (window.audioManager) window.audioManager.playSFX('bet');
+    if (window.audioManager) window.audioManager.play('bet');
 
     // --- Optimistic UI Update ---
     blackjackIsSubmitting = true;
@@ -126,7 +126,7 @@ function startBlackjack() {
     
     blackjackInProgress = true;
     setActionButtonsState(true);
-    if (window.audioManager) window.audioManager.playSFX('deal_card');
+    if (window.audioManager) window.audioManager.play('deal_card');
 
     // --- Background Fetch ---
     fetch('/api/game?game=blackjack', {
@@ -165,7 +165,7 @@ function playerHit() {
     if (!blackjackInProgress || blackjackIsSubmitting) return;
 
     // --- Audio ---
-    if (window.audioManager) window.audioManager.playSFX('deal_card');
+    if (window.audioManager) window.audioManager.play('deal_card');
 
     // --- Optimistic UI Update ---
     blackjackIsSubmitting = true;
@@ -224,7 +224,7 @@ function playerStand() {
 
     // Optimistically reveal dealer's hole card if it exists
     if (optimisticDealerCards[1] && optimisticDealerCards[1].hidden) {
-         if (window.audioManager) window.audioManager.playSFX('deal_card');
+         if (window.audioManager) window.audioManager.play('deal_card');
     }
 
     // --- Background Fetch ---
@@ -269,18 +269,18 @@ function finalizeBlackjack(result) {
         winAmount = blackjackBetAmount;
         statusMsg.innerText = '🤝 平手：退回本金';
         statusMsg.style.color = '#ffcc00';
-        if (window.audioManager) window.audioManager.playSFX('chip'); // Play a neutral chip sound for push
+        if (window.audioManager) window.audioManager.play('chip'); // Play a neutral chip sound for push
     } else if (result.isWin) {
         winAmount = blackjackBetAmount * (1 + result.multiplier);
         statusMsg.innerHTML = '🏆 你贏了！<span class="result-multiplier" style="display:inline;">' + result.multiplier + 'x</span>（' + result.shot + '）';
         statusMsg.style.color = '#00ff88';
-        if (window.audioManager) window.audioManager.playSFX(result.multiplier > 1 ? 'win_big' : 'win_small');
+        if (window.audioManager) window.audioManager.play(result.multiplier > 1 ? 'win_big' : 'win_small');
     } else {
         winAmount = 0;
         statusMsg.innerText = '💀 你輸了：' + result.reason;
         statusMsg.style.color = '#ff4444';
         // Optionally, play a losing sound
-        // if (window.audioManager) window.audioManager.playSFX('lose');
+        // if (window.audioManager) window.audioManager.play('lose');
     }
 
     // We don't set the balance here optimistically, we wait for the server authoritative one.

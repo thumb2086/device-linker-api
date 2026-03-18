@@ -263,7 +263,7 @@ function refreshMarket(silent) {
         renderOverview(data);
         if (!silent) {
              setStatus('行情已更新', false);
-             if (window.audioManager) window.audioManager.playSFX('chip');
+             if (window.audioManager) window.audioManager.play('chip');
         }
     }).catch(function (e) {
         setStatus('錯誤: ' + e.message, true);
@@ -282,7 +282,7 @@ function submitStock(action) {
     var oldText = btn ? btn.innerText : '';
     if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
 
-    if (window.audioManager) window.audioManager.playSFX('bet');
+    if (window.audioManager) window.audioManager.play('bet');
 
     setStatus('股票交易中...', false);
     withBusy(function () {
@@ -294,7 +294,7 @@ function submitStock(action) {
             renderOverview(data);
             setStatus('股票交易完成', false);
             showUserToast('交易成功');
-            if (window.audioManager) window.audioManager.playSFX('win_small');
+            if (window.audioManager) window.audioManager.play('win_small');
         });
     }).catch(function (e) {
         setStatus('錯誤: ' + e.message, true);
@@ -315,7 +315,7 @@ function openFuturesPosition() {
     var btn = document.querySelector('button[onclick="openFuturesPosition()"]');
     if (btn) { btn.disabled = true; btn.innerText = '處理中...'; }
 
-    if (window.audioManager) window.audioManager.playSFX('bet');
+    if (window.audioManager) window.audioManager.play('bet');
 
     setStatus('期貨開倉中 (等待鏈上鎖定)...', false);
     withBusy(function () {
@@ -329,7 +329,7 @@ function openFuturesPosition() {
             renderOverview(data);
             setStatus('期貨開倉成功', false);
             showUserToast('期貨開倉成功');
-            if (window.audioManager) window.audioManager.playSFX('win_small');
+            if (window.audioManager) window.audioManager.play('win_small');
         });
     }).catch(function (e) {
         setStatus('錯誤: ' + e.message, true);
@@ -343,7 +343,7 @@ function closeFuturesPosition(positionId) {
     if (!positionId) return;
     setStatus('期貨平倉中...', false);
 
-    if (window.audioManager) window.audioManager.playSFX('bet');
+    if (window.audioManager) window.audioManager.play('bet');
 
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
     if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
@@ -354,7 +354,7 @@ function closeFuturesPosition(positionId) {
             renderOverview(data);
             setStatus('期貨平倉完成', false);
             showUserToast('期貨平倉完成');
-            if (window.audioManager) window.audioManager.playSFX('win_small');
+            if (window.audioManager) window.audioManager.play('win_small');
         });
     }).catch(function (e) {
         setStatus('錯誤: ' + e.message, true);
@@ -371,7 +371,7 @@ function submitBank(action) {
     var oldText = btn ? btn.innerText : '';
     if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
     
-    if (window.audioManager) window.audioManager.playSFX('chip');
+    if (window.audioManager) window.audioManager.play('chip');
 
     setStatus(action === 'bank_deposit' ? '存款中...' : '提款中...', false);
 
@@ -396,7 +396,7 @@ function submitLoan(action) {
     var oldText = btn ? btn.innerText : '';
     if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
 
-    if (window.audioManager) window.audioManager.playSFX('chip');
+    if (window.audioManager) window.audioManager.play('chip');
 
     setStatus(action === 'borrow' ? '借款中...' : '還款中...', false);
 

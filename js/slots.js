@@ -162,7 +162,7 @@ class SlotMachine {
         }
 
         this.setInitialState();
-        this.setResultState("待命中", "三連中獎、雙連退半與交易狀態都會顯示在這裡。", "");
+        this.setResultState("待命中", "三連中獎、雙連返還與交易狀態都會顯示在這裡。", "");
     }
 
     setInitialState() {
@@ -284,9 +284,6 @@ class SlotMachine {
             top: [0, 2],
             middle: [3, 5],
             bottom: [6, 8],
-            "left-col": [0, 6],
-            "middle-col": [1, 7],
-            "right-col": [2, 8],
             "diag-down": [0, 8],
             "diag-up": [6, 2]
         };

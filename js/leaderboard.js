@@ -129,7 +129,7 @@ function renderSkeleton() {
     var lconfig = getLeaderboardConfig();
 
     var html = '<div class="leaderboard-row leaderboard-head">' +
-        '<span>名次</span><span>地址</span><span>' + escapeHtml(lconfig.valueLabel) + '</span><span>等級</span>' +
+        '<span>名次</span><span>用戶名 (Username)</span><span>' + escapeHtml(lconfig.valueLabel) + '</span><span>等級</span>' +
         '</div>';
     
     for (var i = 0; i < 10; i++) {
@@ -155,7 +155,7 @@ function renderLeaderboardRows(items) {
 
     var currentAddress = String(user.address || '').trim().toLowerCase();
     var html = '<div class="leaderboard-row leaderboard-head">' +
-        '<span>名次</span><span>地址</span><span>' + escapeHtml(lconfig.valueLabel) + '</span><span>等級</span>' +
+        '<span>名次</span><span>用戶名 (Username)</span><span>' + escapeHtml(lconfig.valueLabel) + '</span><span>等級</span>' +
         '</div>';
 
     items.forEach(function (item) {

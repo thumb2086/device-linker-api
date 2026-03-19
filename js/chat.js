@@ -147,6 +147,12 @@ function setGlobalBarrageEnabled(enabled) {
     else layer.classList.add('hidden');
 }
 
+function scrollChatListToLatest() {
+    var list = document.getElementById('chat-message-list');
+    if (!list) return;
+    list.scrollTop = list.scrollHeight;
+}
+
 function applyLobbyChatWidgetState() {
     var body = document.getElementById('chat-widget-body');
     var btn = document.getElementById('chat-toggle-btn');
@@ -163,6 +169,9 @@ function applyLobbyChatWidgetState() {
         widget.classList.remove('chat-widget-collapsed');
         btn.innerText = '－';
         btn.setAttribute('aria-expanded', 'true');
+        requestAnimationFrame(function () {
+            scrollChatListToLatest();
+        });
     }
 }
 
@@ -185,7 +194,7 @@ function appendChatMessageRow(item) {
         '<div class="chat-message-body">' + escapeChatHtml(item.message || '') + '</div>';
 
     list.appendChild(row);
-    list.scrollTop = list.scrollHeight;
+    scrollChatListToLatest();
 }
 
 
@@ -207,7 +216,7 @@ function renderChatMessages(messages, shouldQueueBarrage) {
             '</div>';
     }).join('');
 
-    list.scrollTop = list.scrollHeight;
+    scrollChatListToLatest();
     if (shouldQueueBarrage) queueBarrageMessages(rows);
 }
 

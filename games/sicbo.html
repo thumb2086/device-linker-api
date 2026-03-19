@@ -29,12 +29,28 @@
         </div>
 
         <div class="sicbo-stage">
-            <div class="dice-row" id="dice-row">
-                <span class="die" id="die-1">?</span>
-                <span class="die" id="die-2">?</span>
-                <span class="die" id="die-3">?</span>
+            <div class="sicbo-stage-head">
+                <div>
+                    <p class="stage-kicker">Sic Bo Table</p>
+                    <h2>自動封盤與開獎</h2>
+                </div>
+                <div class="stage-timer-card">
+                    <span id="round-phase-label">同步中</span>
+                    <strong id="round-countdown">--</strong>
+                </div>
+            </div>
+            <div class="dice-shaker" id="dice-shaker">
+                <div class="dice-cup-lid"></div>
+                <div class="dice-cup-base">
+                    <div class="dice-row" id="dice-row">
+                        <span class="die" id="die-1" data-value="0"><span class="die-pips"></span></span>
+                        <span class="die" id="die-2" data-value="0"><span class="die-pips"></span></span>
+                        <span class="die" id="die-3" data-value="0"><span class="die-pips"></span></span>
+                    </div>
+                </div>
             </div>
             <div class="round-hint" id="round-hint">正在同步局勢...</div>
+            <div class="round-result" id="round-result">最近開獎：待同步</div>
         </div>
 
         <div class="input-group compact-input-group">
@@ -48,7 +64,7 @@
             <div class="bet-value-grid" id="bet-value-grid"></div>
         </div>
 
-        <button class="btn-primary" onclick="placeSicboBet()">下注開獎</button>
+        <button class="btn-primary" id="place-bet-btn" onclick="placeSicboBet()">下注開獎</button>
 
         <p id="status-msg">等待下注...</p>
         <div id="tx-log"></div>

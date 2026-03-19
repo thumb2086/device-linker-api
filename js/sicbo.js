@@ -8,24 +8,14 @@ var lastObservedSicboRoundId = null;
 var pendingSicboBets = []; // { amount, betType, betValue, label, roundId, closesAt, tempId? }
 var isSicboDrawing = false;
 var isSicboSubmitting = false;
-var selectedBetType = 'big';
+var selectedBetType = 'player';
 var selectedBetValue = '';
 var sicboTickerId = null;
 
-var TOTAL_PAYOUTS = {
-    4: 50, 5: 18, 6: 14, 7: 12, 8: 8, 9: 6, 10: 6, 11: 6, 12: 6, 13: 8, 14: 12, 15: 14, 16: 18, 17: 50
-};
-
 var BET_TYPE_OPTIONS = [
-    { value: 'big', label: '大', needsValue: false },
-    { value: 'small', label: '小', needsValue: false },
-    { value: 'odd', label: '單', needsValue: false },
-    { value: 'even', label: '雙', needsValue: false },
-    { value: 'total', label: '總和', needsValue: true },
-    { value: 'single', label: '單骰', needsValue: true },
-    { value: 'double_specific', label: '雙同號', needsValue: true },
-    { value: 'triple_any', label: '任意圍', needsValue: false },
-    { value: 'triple_specific', label: '指定圍', needsValue: true }
+    { value: 'player', label: '閒贏', needsValue: false },
+    { value: 'banker', label: '莊贏', needsValue: false },
+    { value: 'tie', label: '和局', needsValue: false }
 ];
 
 function hash32(input) {
@@ -116,18 +106,7 @@ function updateRoundHint() {
 }
 
 function getValueOptions(type) {
-    if (type === 'total') {
-        return [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(function (value) {
-            return { value: String(value), label: '總和 ' + value };
-        });
-    }
-
-    if (type === 'single' || type === 'double_specific' || type === 'triple_specific') {
-        return [1, 2, 3, 4, 5, 6].map(function (value) {
-            return { value: String(value), label: '點數 ' + value };
-        });
-    }
-
+    void type;
     return [];
 }
 
@@ -203,27 +182,27 @@ function rollDice(roundId) {
     ];
 }
 
-function countValue(dice, target) {
-    return dice.filter(function(d) { return d === target; }).length;
+function rollBankerDice(roundId) {
+    return [
+        (hash32('sicbo:banker:' + roundId + ':1') % 6) + 1,
+        (hash32('sicbo:banker:' + roundId + ':2') % 6) + 1,
+        (hash32('sicbo:banker:' + roundId + ':3') % 6) + 1
+    ];
 }
 
-function evaluateBet(dice, betType, betValue) {
-    var total = dice[0] + dice[1] + dice[2];
-    var isTriple = dice[0] === dice[1] && dice[1] === dice[2];
-    var target = Number(betValue);
+function compareDiceTotals(playerDice, bankerDice) {
+    var playerTotal = playerDice[0] + playerDice[1] + playerDice[2];
+    var bankerTotal = bankerDice[0] + bankerDice[1] + bankerDice[2];
+    if (playerTotal > bankerTotal) return 'player';
+    if (playerTotal < bankerTotal) return 'banker';
+    return 'tie';
+}
 
-    if (betType === 'big') return (!isTriple && total >= 11 && total <= 17) ? 1 : 0;
-    if (betType === 'small') return (!isTriple && total >= 4 && total <= 10) ? 1 : 0;
-    if (betType === 'odd') return (!isTriple && total % 2 === 1) ? 1 : 0;
-    if (betType === 'even') return (!isTriple && total % 2 === 0) ? 1 : 0;
-    if (betType === 'total') return (TOTAL_PAYOUTS[total] && total === target) ? TOTAL_PAYOUTS[total] : 0;
-    if (betType === 'triple_any') return isTriple ? 24 : 0;
-    if (betType === 'triple_specific') return (isTriple && dice[0] === target) ? 150 : 0;
-    if (betType === 'double_specific') return countValue(dice, target) >= 2 ? 8 : 0; // Standard payout is 8:1
-    if (betType === 'single') {
-        var matches = countValue(dice, target);
-        return matches > 0 ? matches : 0;
-    }
+function evaluateBet(playerDice, bankerDice, betType) {
+    var winner = compareDiceTotals(playerDice, bankerDice);
+    if (betType === 'player') return winner === 'player' ? 1.1 : 0;
+    if (betType === 'banker') return winner === 'banker' ? 1.1 : 0;
+    if (betType === 'tie') return winner === 'tie' ? 8 : 0;
     return 0;
 }
 
@@ -278,11 +257,12 @@ function startSicboDraw(roundId) {
     if(window.audioManager) window.audioManager.play('dice_shake');
 
     var roundBets = pendingSicboBets.filter(function (bet) { return bet.roundId === roundId; });
-    var resolvedDice = rollDice(roundId);
+    var resolvedPlayerDice = rollDice(roundId);
+    var resolvedBankerDice = rollBankerDice(roundId);
 
     window.setTimeout(function () {
         if(shaker) shaker.classList.remove('shake');
-        setDice(resolvedDice);
+        setDice(resolvedPlayerDice);
         pendingSicboBets = pendingSicboBets.filter(function (bet) { return bet.roundId !== roundId; });
         updatePendingSicboBetsUI();
 
@@ -291,13 +271,17 @@ function startSicboDraw(roundId) {
 
         if (hasBetsInRound) {
             roundBets.forEach(function (bet) {
-                var multiplier = evaluateBet(resolvedDice, bet.betType, bet.betValue);
+                var multiplier = evaluateBet(resolvedPlayerDice, resolvedBankerDice, bet.betType);
                 if (multiplier > 0) totalWinAmount += bet.amount * multiplier;
             });
         }
 
         if (status) {
-            var resultText = '開獎結果 ' + resolvedDice.join('-') + '，總和 ' + (resolvedDice[0] + resolvedDice[1] + resolvedDice[2]);
+            var playerTotal = resolvedPlayerDice[0] + resolvedPlayerDice[1] + resolvedPlayerDice[2];
+            var bankerTotal = resolvedBankerDice[0] + resolvedBankerDice[1] + resolvedBankerDice[2];
+            var winner = compareDiceTotals(resolvedPlayerDice, resolvedBankerDice);
+            var winnerText = winner === 'player' ? '閒家勝' : (winner === 'banker' ? '莊家勝' : '和局');
+            var resultText = '閒家 ' + resolvedPlayerDice.join('-') + '（' + playerTotal + '） vs 莊家 ' + resolvedBankerDice.join('-') + '（' + bankerTotal + '）→ ' + winnerText;
             if (hasBetsInRound) {
                  if (totalWinAmount > 0) {
                     status.innerText = resultText + '，本輪贏得 ' + formatDisplayNumber(totalWinAmount, 2) + ' 子熙幣';

@@ -11,6 +11,7 @@ import { kv } from "@vercel/kv";
 import { getSession } from "../lib/session-store.js";
 import { randomUUID } from "crypto";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
+import { getDisplayName } from "../lib/user-profile.js";
 
 const CHAT_STREAM_KEY = "chat:stream:v1:public";
 const CHAT_MAX_ITEMS = 120;
@@ -128,13 +129,14 @@ async function appendWinnerBarrage({ session, game, requestBody, responseBody })
     const label = gameLabelMap[String(game || "")] || "遊戲";
     const winnerAmount = resolveWinnerAmount(requestBody, responseBody, game);
     const amountText = winnerAmount > 0 ? `（中獎額 ${winnerAmount}）` : "";
+    const displayName = String(session.displayName || await getDisplayName(session.address) || "").trim();
 
     const payload = {
         id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
         type: "winner",
         message: `在 ${label} 中獎！${amountText}`,
         address: String(session.address || "").toLowerCase(),
-        displayName: String(session.displayName || shortAddress(session.address)).slice(0, 32),
+        displayName: String(displayName || shortAddress(session.address)).slice(0, 32),
         createdAt: new Date().toISOString()
     };
 

@@ -259,7 +259,7 @@ function ensureSupportShortcutStyle() {
         '.support-shortcut-link {',
         'position: fixed;',
         'right: 18px;',
-        'bottom: 110px;',
+        'bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);',
         'z-index: 60;',
         'display: inline-flex;',
         'align-items: center;',
@@ -273,7 +273,7 @@ function ensureSupportShortcutStyle() {
         'box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);',
         '}',
         '.support-shortcut-link:hover { transform: translateY(-1px); }',
-        '@media (max-width: 640px) { .support-shortcut-link { left: 12px; right: 12px; justify-content: center; bottom: calc(env(safe-area-inset-bottom, 0px) + 98px); } }'
+        '@media (max-width: 640px) { .support-shortcut-link { left: 12px; right: 12px; justify-content: center; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); } }'
     ].join('');
     document.head.appendChild(style);
 }

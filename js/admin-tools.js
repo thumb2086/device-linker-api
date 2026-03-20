@@ -798,16 +798,21 @@ function onIssueReportSelected(reportId) {
     if (visibleEl) visibleEl.innerText = reportId ? '1' : '0';
 }
 
+function loadIssueReports() {
+    return callAdminApi('list_issue_reports').then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || '載入回報失敗');
+        issueReports = Array.isArray(data.reports) ? data.reports : [];
+        renderIssueReports();
+        issueLoaded = true;
+        setIssueStatus('已同步 ' + issueReports.length + ' 筆回報', false);
+        return data;
+    });
+}
+
 function refreshIssueReports() {
     setIssueStatus('正在同步回報...', false);
     withAdminBusy('issue', function () {
-        return callAdminApi('list_issue_reports').then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '載入回報失敗');
-            issueReports = Array.isArray(data.reports) ? data.reports : [];
-            renderIssueReports();
-            issueLoaded = true;
-            setIssueStatus('已同步 ' + issueReports.length + ' 筆回報', false);
-        });
+        return loadIssueReports();
     }).catch(function (error) {
         setIssueStatus('錯誤: ' + error.message, true);
     });
@@ -845,7 +850,7 @@ function updateIssueReport(reportId) {
             if (!data || !data.success) throw new Error((data && data.error) || '更新回報失敗');
             setIssueStatus('已更新回報狀態', false);
             showAdminToast('意見回饋狀態已更新', false);
-            return refreshIssueReports();
+            return loadIssueReports();
         });
     }).catch(function (error) {
         setIssueStatus('錯誤: ' + error.message, true);

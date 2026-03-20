@@ -420,6 +420,37 @@ function playUiClickSound() {
     playFallbackClickTone();
 }
 
+function inferGlobalBgmTrack() {
+    var path = String(window.location && window.location.pathname || '').toLowerCase();
+    if (!path || path === '/' || path === '/index.html') return 'lobby';
+    if (path.indexOf('/games/market') >= 0) return 'tense';
+    if (path.indexOf('/games/casino') >= 0) return 'lobby';
+    if (path.indexOf('/games/') >= 0) return 'casino';
+    return 'lobby';
+}
+
+function ensureGlobalBgmPlayback() {
+    var track = inferGlobalBgmTrack();
+    if (!track || !getBgmEnabled()) return;
+
+    if (!window.audioManager || typeof window.audioManager.playBGM !== 'function') {
+        if (window.__zixiBgmRetryTimer) clearTimeout(window.__zixiBgmRetryTimer);
+        window.__zixiBgmRetryTimer = setTimeout(function () {
+            ensureGlobalBgmPlayback();
+        }, 300);
+        return;
+    }
+
+    if (window.__zixiBgmRetryTimer) {
+        clearTimeout(window.__zixiBgmRetryTimer);
+        window.__zixiBgmRetryTimer = null;
+    }
+
+    window.audioManager.setBgmVolume(getBgmVolume());
+    window.audioManager.setBgmEnabled(true);
+    window.audioManager.playBGM(track);
+}
+
 function ensureGlobalAudioBindings() {
     if (window.__zixiGlobalAudioBound) return;
     window.__zixiGlobalAudioBound = true;
@@ -606,6 +637,7 @@ function saveUserSettings() {
                 window.audioManager.setBgmEnabled(nextBgmEnabled);
                 window.audioManager.setBgmVolume(nextBgmVolume);
                 if (nextAudioEnabled && !window.audioManager.initialized) window.audioManager.init();
+                if (nextBgmEnabled) ensureGlobalBgmPlayback();
             }
             if (typeof setGlobalBarrageEnabled === 'function') {
                 setGlobalBarrageEnabled(nextBarrageEnabled);
@@ -686,6 +718,7 @@ function updateUI(data) {
     ensureSupportShortcut();
     ensureAudioManagerScript();
     ensureGlobalAudioBindings();
+    ensureGlobalBgmPlayback();
     ensureSettingsButton();
 }
 

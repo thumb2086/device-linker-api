@@ -1,19 +1,28 @@
 var currentMultiplier = 1.0;
-var gameState = 'idle'; // idle, betting, pending, flying, crashed
+var isFlying = false;
 var flightStartTime = 0;
 var animationId = null;
-var playerBet = null; // { amount, status: 'bet' | 'cashed_out' }
-var lastGameState = {};
-var isSubmitting = false;
-
+var currentBetId = null;
+var currentBetAmount = 0;
 var canvas = null;
 var ctx = null;
 var engineSoundId = null;
+var lastCrashPollAt = 0;
 
-var GRAPH_PADDING = { top: 82, right: 32, bottom: 28, left: 30 };
+var GRAPH_PADDING = {
+    top: 82,
+    right: 32,
+    bottom: 28,
+    left: 30
+};
 
-function getCanvasWidth() { return canvas ? canvas.clientWidth : 0; }
-function getCanvasHeight() { return canvas ? canvas.clientHeight : 0; }
+function getCanvasWidth() {
+    return canvas ? canvas.clientWidth : 0;
+}
+
+function getCanvasHeight() {
+    return canvas ? canvas.clientHeight : 0;
+}
 
 function setMultiplierDisplay(value, state) {
     var el = document.getElementById('multiplier-val');
@@ -22,30 +31,23 @@ function setMultiplierDisplay(value, state) {
     el.className = 'multiplier-display ' + (state || 'is-idle');
 }
 
-function setGameStatus(text, color) {
+function setCrashStatus(text, color) {
     var statusMsg = document.getElementById('status-msg');
     if (!statusMsg) return;
     statusMsg.innerText = text;
-    statusMsg.style.color = color;
+    statusMsg.style.color = color || '#c4d0d4';
 }
 
-function updatePlayerControls() {
-    var betBtn = document.getElementById('bet-btn');
-    var cashoutBtn = document.getElementById('cashout-btn');
-    if (!betBtn || !cashoutBtn) return;
+function hideCrashOverlay() {
+    var overlay = document.getElementById('crash-overlay');
+    if (overlay) overlay.classList.remove('is-visible');
+}
 
-    var canBet = gameState === 'betting' && !playerBet && !isSubmitting;
-    var canCashOut = gameState === 'flying' && playerBet && playerBet.status === 'bet' && !isSubmitting;
-
-    betBtn.disabled = !canBet;
-    cashoutBtn.disabled = !canCashOut;
-
-    if (gameState === 'betting' && playerBet) {
-        betBtn.innerText = '已下注';
-        betBtn.disabled = true;
-    } else {
-        betBtn.innerText = '下注';
-    }
+function showCrashOverlay(point) {
+    var overlay = document.getElementById('crash-overlay');
+    var crashMsg = document.getElementById('crash-msg');
+    if (crashMsg) crashMsg.innerText = Number(point || 0).toFixed(2) + 'x';
+    if (overlay) overlay.classList.add('is-visible');
 }
 
 function initCrashGraph() {
@@ -56,8 +58,6 @@ function initCrashGraph() {
     window.addEventListener('resize', resizeCanvas);
     setMultiplierDisplay(1, 'is-idle');
     drawGrid();
-    syncGameState();
-    setInterval(syncGameState, 2000);
 }
 
 function resizeCanvas() {
@@ -69,7 +69,7 @@ function resizeCanvas() {
     canvas.style.width = rect.width + 'px';
     canvas.style.height = rect.height + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (gameState !== 'flying') drawGrid();
+    if (!isFlying) drawGrid();
 }
 
 function drawGrid() {
@@ -77,34 +77,46 @@ function drawGrid() {
     var width = getCanvasWidth();
     var height = getCanvasHeight();
     ctx.clearRect(0, 0, width, height);
+
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
     ctx.lineWidth = 1;
-    for (var row = 0; row < 6; row++) {
+
+    for (var row = 0; row < 6; row += 1) {
         var y = GRAPH_PADDING.top + ((height - GRAPH_PADDING.top - GRAPH_PADDING.bottom) / 5) * row;
-        ctx.beginPath(); ctx.moveTo(GRAPH_PADDING.left, y); ctx.lineTo(width - GRAPH_PADDING.right, y); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(GRAPH_PADDING.left, y);
+        ctx.lineTo(width - GRAPH_PADDING.right, y);
+        ctx.stroke();
     }
-    for (var col = 0; col < 7; col++) {
+
+    for (var col = 0; col < 7; col += 1) {
         var x = GRAPH_PADDING.left + ((width - GRAPH_PADDING.left - GRAPH_PADDING.right) / 6) * col;
-        ctx.beginPath(); ctx.moveTo(x, GRAPH_PADDING.top); ctx.lineTo(x, height - GRAPH_PADDING.bottom); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, GRAPH_PADDING.top);
+        ctx.lineTo(x, height - GRAPH_PADDING.bottom);
+        ctx.stroke();
     }
 }
 
-function getFlightPoint(multiplier, maxMultiplier) {
-    var elapsed = Math.log(multiplier) / 0.08;
+function getFlightPoint(timeSeconds, elapsedSeconds, maxMultiplier) {
     var width = getCanvasWidth();
     var height = getCanvasHeight();
-    var maxElapsed = Math.max(4, Math.log(maxMultiplier) / 0.08);
+    var safeElapsed = Math.max(4, elapsedSeconds * 1.05);
+    var safeMaxMultiplier = Math.max(2.2, maxMultiplier * 1.15);
+    var normalizedMultiplier = (Math.pow(Math.E, 0.08 * timeSeconds) - 1) / (safeMaxMultiplier - 1);
 
     return {
-        x: GRAPH_PADDING.left + (elapsed / maxElapsed) * (width - GRAPH_PADDING.left - GRAPH_PADDING.right),
-        y: height - GRAPH_PADDING.bottom - ((multiplier - 1) / (maxMultiplier - 1)) * (height - GRAPH_PADDING.top - GRAPH_PADDING.bottom)
+        x: GRAPH_PADDING.left + (timeSeconds / safeElapsed) * (width - GRAPH_PADDING.left - GRAPH_PADDING.right),
+        y: height - GRAPH_PADDING.bottom - normalizedMultiplier * (height - GRAPH_PADDING.top - GRAPH_PADDING.bottom)
     };
 }
 
-function drawFlightPath(multiplier) {
+function drawFlightPath(elapsedSeconds) {
     if (!ctx || !canvas) return;
 
-    var maxMultiplier = Math.max(multiplier, 2.2);
+    var width = getCanvasWidth();
+    var maxMultiplier = Math.max(currentMultiplier, 2.2);
+
     drawGrid();
 
     ctx.beginPath();
@@ -115,38 +127,35 @@ function drawFlightPath(multiplier) {
     ctx.shadowBlur = 14;
     ctx.shadowColor = 'rgba(52, 245, 159, 0.35)';
 
-    var firstPoint = getFlightPoint(1, maxMultiplier);
+    var firstPoint = getFlightPoint(0, elapsedSeconds, maxMultiplier);
     ctx.moveTo(firstPoint.x, firstPoint.y);
 
-    for (var m = 1.02; m <= multiplier; m *= 1.02) {
-        var point = getFlightPoint(m, maxMultiplier);
+    for (var t = 0.04; t <= elapsedSeconds; t += 0.04) {
+        var point = getFlightPoint(t, elapsedSeconds, maxMultiplier);
         ctx.lineTo(point.x, point.y);
     }
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    var endPoint = getFlightPoint(multiplier, maxMultiplier);
-    ctx.beginPath(); ctx.fillStyle = '#34f59f'; ctx.arc(endPoint.x, endPoint.y, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.fillStyle = 'rgba(52, 245, 159, 0.14)'; ctx.arc(endPoint.x, endPoint.y, 14, 0, Math.PI * 2); ctx.fill();
-}
+    var endPoint = getFlightPoint(elapsedSeconds, elapsedSeconds, maxMultiplier);
+    ctx.beginPath();
+    ctx.fillStyle = '#34f59f';
+    ctx.arc(endPoint.x, endPoint.y, 6, 0, Math.PI * 2);
+    ctx.fill();
 
-function animateFlight() {
-    if (gameState !== 'flying') return;
+    ctx.fillStyle = 'rgba(52, 245, 159, 0.14)';
+    ctx.beginPath();
+    ctx.arc(endPoint.x, endPoint.y, 14, 0, Math.PI * 2);
+    ctx.fill();
 
-    var now = Date.now();
-    var elapsed = (now - flightStartTime) / 1000;
-    currentMultiplier = Math.pow(Math.E, 0.08 * elapsed);
-    
-    setMultiplierDisplay(currentMultiplier, 'is-live');
-    drawFlightPath(currentMultiplier);
-
-    // Auto-cashout logic
-    var autoValue = parseFloat(document.getElementById('auto-cashout').value);
-    if (playerBet && playerBet.status === 'bet' && Number.isFinite(autoValue) && autoValue >= 1.01 && currentMultiplier >= autoValue) {
-        cashOut();
-    }
-
-    animationId = requestAnimationFrame(animateFlight);
+    ctx.fillStyle = '#8df8c8';
+    ctx.font = '600 13px sans-serif';
+    ctx.textAlign = endPoint.x > width - 96 ? 'right' : 'left';
+    ctx.fillText(
+        currentMultiplier.toFixed(2) + 'x',
+        endPoint.x > width - 96 ? endPoint.x - 10 : endPoint.x + 10,
+        Math.max(GRAPH_PADDING.top + 14, endPoint.y - 12)
+    );
 }
 
 function stopEngineSound() {
@@ -156,180 +165,233 @@ function stopEngineSound() {
     }
 }
 
-function onRoundStart(data) {
-    gameState = 'flying';
-    flightStartTime = Date.parse(data.startTime) || Date.now();
-    hideCrashOverlay();
-    if (window.audioManager) engineSoundId = window.audioManager.play('crash_engine', { loop: true });
-    animateFlight();
-    if (playerBet) setGameStatus('飛行中，抓準時機兌現', '#9fe7c6');
-}
-
-function onRoundEnd(data) {
-    if (gameState === 'flying') {
-        if (window.audioManager) window.audioManager.play('crash_explosion');
-    }
-    gameState = 'crashed';
-    stopEngineSound();
-    cancelAnimationFrame(animationId);
-    setMultiplierDisplay(data.crashPoint, 'is-crashed');
-    showCrashOverlay(data.crashPoint);
-    addHistory(data.crashPoint, playerBet && playerBet.status === 'cashed_out');
-
-    if (playerBet && playerBet.status === 'bet') {
-        setGameStatus('爆炸了，本輪未能兌現', '#ff6b6b');
-    } else if (!playerBet) {
-        setGameStatus('本輪結束', '#c4d0d4');
-    }
-    playerBet = null;
-}
-
-function syncGameState() {
-    fetch('/api/game?game=crash&action=status').then(res => res.json()).then(data => {
-        if (JSON.stringify(data) === JSON.stringify(lastGameState)) return;
-        lastGameState = data;
-
-        var oldGameState = gameState;
-        gameState = data.state;
-
-        if (oldGameState !== 'betting' && gameState === 'betting') {
-            playerBet = null;
-            hideCrashOverlay();
-            setMultiplierDisplay(1.0, 'is-idle');
-            drawGrid();
-            setGameStatus('距離起飛 ' + data.expiresIn + ' 秒，可下注', '#c4d0d4');
-        } else if (gameState === 'betting') {
-            setGameStatus('距離起飛 ' + data.expiresIn + ' 秒，可下注', '#c4d0d4');
-        }
-
-        if (oldGameState !== 'pending' && gameState === 'pending') {
-            setGameStatus('即將起飛，停止下注', '#ffd36a');
-        }
-
-        if (oldGameState !== 'flying' && gameState === 'flying') {
-            onRoundStart(data);
-        }
-
-        if (gameState === 'crashed' && (oldGameState === 'flying' || oldGameState === 'pending')) {
-            onRoundEnd(data);
-        }
-        updatePlayerControls();
-    });
-}
-
-function placeBet() {
-    if (gameState !== 'betting' || isSubmitting || playerBet) return;
+function startGame() {
+    if (isFlying) return;
 
     var amount = parseFloat(document.getElementById('bet-amount').value);
     var statusMsg = document.getElementById('status-msg');
+    var startBtn = document.getElementById('start-btn');
+    var cashoutBtn = document.getElementById('cashout-btn');
+    var currentBalance = getCurrentUserBalance();
 
     if (!Number.isFinite(amount) || amount <= 0) {
-        setGameStatus('請輸入有效的下注金額', '#ff6b6b');
+        setCrashStatus('請輸入有效的下注金額', '#ff6b6b');
         return;
     }
-    var currentBalance = getCurrentUserBalance();
+
     if (currentBalance < amount) {
-        setGameStatus('餘額不足', '#ff6b6b');
+        setCrashStatus('餘額不足', '#ff6b6b');
         return;
     }
 
-    // --- Optimistic Update ---
-    isSubmitting = true;
-    setDisplayedBalance(currentBalance - amount);
-    if (window.audioManager) window.audioManager.play('bet');
-    
-    playerBet = { amount: amount, status: 'bet' };
-    updatePlayerControls();
+    startBtn.disabled = true;
+    cashoutBtn.disabled = true;
+    currentBetId = null;
+    currentBetAmount = 0;
+    hideCrashOverlay();
+    setMultiplierDisplay(1, 'is-live');
+    drawGrid();
+    statusMsg.innerHTML = '<span class="loader"></span> 正在起飛...';
+    statusMsg.style.color = '#c4d0d4';
 
-    // --- Background Fetch ---
+    if (window.audioManager) window.audioManager.play('bet');
+
     fetch('/api/game?game=crash', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: user.address, amount: amount, sessionId: user.sessionId, action: 'bet' })
+        body: JSON.stringify({
+            address: user.address,
+            amount: amount,
+            sessionId: user.sessionId,
+            action: 'start'
+        })
     })
-    .then(res => {
-        if (!res.ok) return res.json().then(err => { throw new Error(err.error || '下注失敗') });
-        return res.json();
+        .then(function (res) { return res.json(); })
+        .then(function (result) {
+            if (result.error) throw new Error(result.error);
+
+            currentBetId = result.betId;
+            currentBetAmount = amount;
+            isFlying = true;
+            flightStartTime = Date.now();
+            lastCrashPollAt = 0;
+            currentMultiplier = 1.0;
+            cashoutBtn.disabled = false;
+            statusMsg.innerText = '飛行中，抓準時機兌現';
+            statusMsg.style.color = '#9fe7c6';
+
+            if (window.audioManager) {
+                engineSoundId = window.audioManager.play('crash_engine', { loop: true });
+            }
+
+            setDisplayedBalance(currentBalance - amount, 45000, 'crash_bet');
+            if (result.totalBet !== undefined) {
+                updateUI({ totalBet: result.totalBet });
+            }
+            document.getElementById('tx-log').innerHTML = txLinkHTML(result.txHash);
+            animateFlight();
+        })
+        .catch(function (error) {
+            setCrashStatus('錯誤: ' + error.message, '#ff6b6b');
+            startBtn.disabled = false;
+            setMultiplierDisplay(1, 'is-idle');
+            currentBetId = null;
+            currentBetAmount = 0;
+        });
+}
+
+function animateFlight() {
+    if (!isFlying) return;
+
+    var now = Date.now();
+    var elapsed = (now - flightStartTime) / 1000;
+    currentMultiplier = Math.pow(Math.E, 0.08 * elapsed);
+    setMultiplierDisplay(currentMultiplier, 'is-live');
+
+    var autoValue = parseFloat(document.getElementById('auto-cashout').value);
+    if (Number.isFinite(autoValue) && autoValue >= 1.1 && currentMultiplier >= autoValue) {
+        cashOut();
+        return;
+    }
+
+    drawFlightPath(elapsed);
+    animationId = requestAnimationFrame(animateFlight);
+
+    if (now - lastCrashPollAt >= 350) {
+        lastCrashPollAt = now;
+        checkIfCrashed();
+    }
+}
+
+function checkIfCrashed() {
+    if (!isFlying || !currentBetId) return;
+
+    fetch('/api/game?game=crash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            address: user.address,
+            sessionId: user.sessionId,
+            action: 'get_result',
+            betId: currentBetId,
+            currentMultiplier: currentMultiplier
+        })
     })
-    .then(result => {
-        if (result.error) throw new Error(result.error);
-        // Bet confirmed, do nothing, UI is already updated
-    })
-    .catch(error => {
-        setGameStatus('下注失敗: ' + error.message, '#ff6b6b');
-        setDisplayedBalance(currentBalance); // Rollback
-        playerBet = null;
-    })
-    .finally(() => {
-        isSubmitting = false;
-        updatePlayerControls();
-    });
+        .then(function (res) { return res.json(); })
+        .then(function (result) {
+            if (!isFlying || !result || typeof result.crashPoint !== 'number') return;
+            if (currentMultiplier >= result.crashPoint) {
+                onCrash(result.crashPoint);
+            }
+        })
+        .catch(function () {});
+}
+
+function onCrash(point) {
+    if (!isFlying && !currentBetId) return;
+
+    isFlying = false;
+    cancelAnimationFrame(animationId);
+    stopEngineSound();
+
+    if (window.audioManager) {
+        window.audioManager.play('crash_explosion');
+    }
+
+    setMultiplierDisplay(point, 'is-crashed');
+    showCrashOverlay(point);
+
+    var startBtn = document.getElementById('start-btn');
+    var cashoutBtn = document.getElementById('cashout-btn');
+    if (startBtn) startBtn.disabled = false;
+    if (cashoutBtn) cashoutBtn.disabled = true;
+
+    setCrashStatus('爆炸了，這局未能兌現', '#ff6b6b');
+    currentBetId = null;
+    currentBetAmount = 0;
+    addHistory(point, false);
 }
 
 function cashOut() {
-    if (gameState !== 'flying' || !playerBet || playerBet.status !== 'bet' || isSubmitting) return;
+    if (!isFlying || !currentBetId) return;
 
-    // --- Optimistic Update ---
-    isSubmitting = true;
     var multiplier = currentMultiplier;
-    var payout = playerBet.amount * multiplier;
-    
-    setDisplayedBalance(getCurrentUserBalance() + payout);
-    if (window.audioManager) window.audioManager.play('win_small');
+    var startBtn = document.getElementById('start-btn');
+    var cashoutBtn = document.getElementById('cashout-btn');
+    var statusMsg = document.getElementById('status-msg');
 
-    setGameStatus('成功兌現 @ ' + multiplier.toFixed(2) + 'x', '#34f59f');
-    setMultiplierDisplay(multiplier, 'is-win');
-    playerBet.status = 'cashed_out';
-    updatePlayerControls();
+    isFlying = false;
+    cancelAnimationFrame(animationId);
+    stopEngineSound();
 
-    // --- Background Fetch ---
+    if (window.audioManager) {
+        window.audioManager.play('win_small');
+    }
+
+    statusMsg.innerHTML = '<span class="loader"></span> 正在兌現...';
+    statusMsg.style.color = '#c4d0d4';
+
     fetch('/api/game?game=crash', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: user.address, sessionId: user.sessionId, action: 'cashout' })
+        body: JSON.stringify({
+            address: user.address,
+            sessionId: user.sessionId,
+            action: 'cashout',
+            betId: currentBetId,
+            multiplier: multiplier
+        })
     })
-    .then(res => res.json())
-    .then(result => {
-        if(result.error && result.reason === 'already_crashed'){
-             // Server authoritative state says we were too late. Rollback.
-            setDisplayedBalance(getCurrentUserBalance() - payout);
-            onRoundEnd(result.gameState);
-        } else {
-            // Success, maybe sync balance just in case
-            setTimeout(refreshBalance, 2000);
-        }
-    })
-    .catch(error => {
-        // Extremely rare, but if API fails, we conservatively roll back.
-        setGameStatus('兌現確認失敗，餘額已回滾', '#ff6b6b');
-        setDisplayedBalance(getCurrentUserBalance() - payout);
-        playerBet.status = 'bet'; // Allow retry?
-    })
-    .finally(() => {
-        isSubmitting = false;
-        updatePlayerControls();
-    });
+        .then(function (res) { return res.json(); })
+        .then(function (result) {
+            if (startBtn) startBtn.disabled = false;
+            if (cashoutBtn) cashoutBtn.disabled = true;
+
+            if (result.status === 'crashed') {
+                onCrash(result.crashPoint);
+                return;
+            }
+
+            if (result.error) throw new Error(result.error);
+
+            hideCrashOverlay();
+            setMultiplierDisplay(result.multiplier || multiplier, 'is-win');
+            statusMsg.innerText = '成功兌現，獲得 ' + result.payout + ' 子熙幣 (' + Number(result.multiplier || multiplier).toFixed(2) + 'x)';
+            statusMsg.style.color = '#34f59f';
+            document.getElementById('tx-log').innerHTML = txLinkHTML(result.txHash);
+
+            if (result.payout !== undefined) {
+                setDisplayedBalance(getCurrentUserBalance() + Number(result.payout || 0), 45000, 'crash_cashout');
+            }
+            currentBetId = null;
+            currentBetAmount = 0;
+            refreshBalance();
+            addHistory(multiplier, true);
+        })
+        .catch(function (error) {
+            if (startBtn) startBtn.disabled = false;
+            if (cashoutBtn) cashoutBtn.disabled = false;
+            statusMsg.innerText = '兌現失敗: ' + error.message;
+            statusMsg.style.color = '#ff6b6b';
+            setMultiplierDisplay(multiplier, 'is-live');
+            isFlying = true;
+            if (window.audioManager) {
+                engineSoundId = window.audioManager.play('crash_engine', { loop: true });
+            }
+            animateFlight();
+        });
 }
 
 function addHistory(point, win) {
     var list = document.getElementById('history-list');
     if (!list) return;
+
     var item = document.createElement('div');
     item.className = 'history-item ' + (win ? 'win' : 'lose');
     item.innerText = Number(point || 0).toFixed(2) + 'x';
     list.prepend(item);
-    if (list.children.length > 10) list.removeChild(list.lastChild);
-}
 
-// Helper to show the crash point overlay, not in original code but needed for onRoundEnd
-function showCrashOverlay(point) {
-    var overlay = document.getElementById('crash-overlay');
-    var crashMsg = document.getElementById('crash-msg');
-    if (crashMsg) crashMsg.innerText = Number(point || 0).toFixed(2) + 'x';
-    if (overlay) overlay.classList.add('is-visible');
-}
-
-function hideCrashOverlay() {
-    var overlay = document.getElementById('crash-overlay');
-    if (overlay) overlay.classList.remove('is-visible');
+    while (list.children.length > 10) {
+        list.removeChild(list.lastChild);
+    }
 }

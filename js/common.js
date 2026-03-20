@@ -354,6 +354,32 @@ function getAudioVolume() {
     }
 }
 
+function getBgmEnabled() {
+    try {
+        return localStorage.getItem('casino_bgm_muted') !== 'true';
+    } catch (error) {
+        return true;
+    }
+}
+
+function getBgmVolume() {
+    try {
+        var raw = parseFloat(localStorage.getItem('casino_bgm_volume') || '0.35');
+        if (!Number.isFinite(raw)) return 0.35;
+        return Math.min(1, Math.max(0, raw));
+    } catch (error) {
+        return 0.35;
+    }
+}
+
+function getBarrageEnabled() {
+    try {
+        return localStorage.getItem('casino_barrage_enabled') !== 'false';
+    } catch (error) {
+        return true;
+    }
+}
+
 function ensureAudioManagerScript() {
     if (window.audioManager || document.getElementById('shared-audio-manager-script')) return;
     var script = document.createElement('script');
@@ -445,11 +471,29 @@ function ensureSettingsModal() {
         '</select>',
         '</label>',
         '<label class="settings-field">',
-        '<span>音量</span>',
+        '<span>音效音量</span>',
         '<input id="settings-audio-volume" class="settings-input settings-range" type="range" min="0" max="100" step="5">',
         '</label>',
+        '<label class="settings-field">',
+        '<span>BGM</span>',
+        '<select id="settings-bgm-enabled" class="settings-input">',
+        '<option value="on">開啟</option>',
+        '<option value="off">關閉</option>',
+        '</select>',
+        '</label>',
+        '<label class="settings-field">',
+        '<span>BGM 音量</span>',
+        '<input id="settings-bgm-volume" class="settings-input settings-range" type="range" min="0" max="100" step="5">',
+        '</label>',
+        '<label class="settings-field">',
+        '<span>彈幕</span>',
+        '<select id="settings-barrage-enabled" class="settings-input">',
+        '<option value="on">開啟</option>',
+        '<option value="off">關閉</option>',
+        '</select>',
+        '</label>',
         '</div>',
-        '<p class="settings-note">可切換成中文簡寫或完整數字；音效開啟後，全站按鈕會有點擊音。</p>',
+        '<p class="settings-note">可切換金額顯示、音效、BGM 與彈幕；儲存後會立即套用到目前頁面。</p>',
         '<div class="settings-actions">',
         '<button class="back-btn" type="button" onclick="closeUserSettings()">取消</button>',
         '<button class="btn-primary settings-save-btn" type="button" onclick="saveUserSettings()">儲存設定</button>',
@@ -486,10 +530,16 @@ function openUserSettings() {
     var numberModeInput = document.getElementById('settings-number-mode');
     var audioEnabledInput = document.getElementById('settings-audio-enabled');
     var audioVolumeInput = document.getElementById('settings-audio-volume');
+    var bgmEnabledInput = document.getElementById('settings-bgm-enabled');
+    var bgmVolumeInput = document.getElementById('settings-bgm-volume');
+    var barrageEnabledInput = document.getElementById('settings-barrage-enabled');
     if (nameInput) nameInput.value = user.displayName || '';
     if (numberModeInput) numberModeInput.value = getNumberDisplayMode();
     if (audioEnabledInput) audioEnabledInput.value = getAudioEnabled() ? 'on' : 'off';
     if (audioVolumeInput) audioVolumeInput.value = String(Math.round(getAudioVolume() * 100));
+    if (bgmEnabledInput) bgmEnabledInput.value = getBgmEnabled() ? 'on' : 'off';
+    if (bgmVolumeInput) bgmVolumeInput.value = String(Math.round(getBgmVolume() * 100));
+    if (barrageEnabledInput) barrageEnabledInput.value = getBarrageEnabled() ? 'on' : 'off';
     modal.classList.remove('hidden');
 }
 
@@ -505,10 +555,16 @@ function saveUserSettings() {
     var modeInput = document.getElementById('settings-number-mode');
     var audioEnabledInput = document.getElementById('settings-audio-enabled');
     var audioVolumeInput = document.getElementById('settings-audio-volume');
+    var bgmEnabledInput = document.getElementById('settings-bgm-enabled');
+    var bgmVolumeInput = document.getElementById('settings-bgm-volume');
+    var barrageEnabledInput = document.getElementById('settings-barrage-enabled');
     var nextDisplayName = String(nameInput && nameInput.value || '').trim();
     var nextMode = modeInput ? modeInput.value : getNumberDisplayMode();
     var nextAudioEnabled = !audioEnabledInput || audioEnabledInput.value !== 'off';
     var nextAudioVolume = Math.min(1, Math.max(0, toSafeNumber(audioVolumeInput && audioVolumeInput.value, 50) / 100));
+    var nextBgmEnabled = !bgmEnabledInput || bgmEnabledInput.value !== 'off';
+    var nextBgmVolume = Math.min(1, Math.max(0, toSafeNumber(bgmVolumeInput && bgmVolumeInput.value, 35) / 100));
+    var nextBarrageEnabled = !barrageEnabledInput || barrageEnabledInput.value !== 'off';
     var currentDisplayName = String(user.displayName || '').trim();
     var previousMode = getNumberDisplayMode();
 
@@ -537,14 +593,22 @@ function saveUserSettings() {
             try {
                 localStorage.setItem('casino_muted', nextAudioEnabled ? 'false' : 'true');
                 localStorage.setItem('casino_volume', String(nextAudioVolume));
+                localStorage.setItem('casino_bgm_muted', nextBgmEnabled ? 'false' : 'true');
+                localStorage.setItem('casino_bgm_volume', String(nextBgmVolume));
+                localStorage.setItem('casino_barrage_enabled', nextBarrageEnabled ? 'true' : 'false');
             } catch (error) {
-                console.log('Failed to persist audio settings');
+                console.log('Failed to persist user settings');
             }
             ensureAudioManagerScript();
             if (window.audioManager) {
                 window.audioManager.setMute(!nextAudioEnabled);
-                window.audioManager.setVolume(nextAudioVolume);
+                window.audioManager.setSfxVolume(nextAudioVolume);
+                window.audioManager.setBgmEnabled(nextBgmEnabled);
+                window.audioManager.setBgmVolume(nextBgmVolume);
                 if (nextAudioEnabled && !window.audioManager.initialized) window.audioManager.init();
+            }
+            if (typeof setGlobalBarrageEnabled === 'function') {
+                setGlobalBarrageEnabled(nextBarrageEnabled);
             }
             closeUserSettings();
             if (previousMode !== normalizedMode) {

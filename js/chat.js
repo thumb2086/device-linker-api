@@ -16,6 +16,14 @@ var chatStarted = false;
 var chatRoomOptions = [];
 var currentChatRoomId = 'public';
 
+function getStoredBarrageEnabled() {
+    try {
+        return localStorage.getItem('casino_barrage_enabled') !== 'false';
+    } catch (error) {
+        return true;
+    }
+}
+
 function escapeChatHtml(text) {
     return String(text || '')
         .replace(/&/g, '&amp;')
@@ -143,8 +151,19 @@ function ensureGlobalChatUi() {
 function setGlobalBarrageEnabled(enabled) {
     var layer = getGlobalBarrageLayer();
     if (!layer) return;
-    if (enabled) layer.classList.remove('hidden');
-    else layer.classList.add('hidden');
+    if (enabled) {
+        layer.classList.remove('hidden');
+        return;
+    }
+
+    layer.classList.add('hidden');
+    layer.innerHTML = '';
+    chatBarrageQueue = [];
+    barrageLaneNextReadyAt = new Array(BARRAGE_LANE_COUNT).fill(0);
+    if (chatBarrageFlushTimer) {
+        clearTimeout(chatBarrageFlushTimer);
+        chatBarrageFlushTimer = null;
+    }
 }
 
 function applyLobbyChatWidgetState() {
@@ -212,6 +231,7 @@ function renderChatMessages(messages, shouldQueueBarrage) {
 }
 
 function queueBarrageMessages(rows) {
+    if (!getStoredBarrageEnabled()) return;
     var items = Array.isArray(rows) ? rows : [];
     for (var i = 0; i < items.length; i += 1) {
         var item = items[i] || {};
@@ -239,6 +259,7 @@ function pickLane(nowTs) {
 function renderBarrageItem(item, laneIndex) {
     var layer = getGlobalBarrageLayer();
     if (!layer) return;
+    if (!getStoredBarrageEnabled()) return;
 
     var isWinner = item && item.type === 'winner';
     var text = (isWinner ? '🏆 中獎播報 ' : '💬 ') + getChatDisplayName(item) + '：' + String(item && item.message || '');
@@ -382,7 +403,7 @@ function startLobbyChat() {
     barrageLaneNextReadyAt = new Array(BARRAGE_LANE_COUNT).fill(0);
     applyLobbyChatWidgetState();
     renderRoomSelectOptions();
-    setGlobalBarrageEnabled(true);
+    setGlobalBarrageEnabled(getStoredBarrageEnabled());
     loadChatMessages();
     chatPollTimer = setInterval(loadChatMessages, 3500);
 }

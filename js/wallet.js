@@ -313,22 +313,28 @@ function exportFunds() {
     if (amountNum <= 0) return notifyWallet('請輸入有效金額', true);
 
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    var restoreBtn = null;
     if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    restoreBtn = function () {
+        if (!btn) return;
+        btn.disabled = false;
+        btn.innerText = '匯出';
+    };
 
     setWalletStatus('匯出資金中...', false);
     setWalletTx('');
 
     withWalletBusy(function () {
-        return callWallet('export', { to: to, amount: amount }).then(function (data) {
+        return callWallet('export', { to: to, amount: amountText }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '匯出失敗');
             setDisplayedBalance(getCurrentUserBalance() - amountNum, 45000, 'wallet_export');
-            notifyWallet('匯出成功：-' + formatDisplayNumber(amount, 2) + ' 子熙幣', false);
+            notifyWallet('匯出成功：-' + formatDisplayNumber(amountNum, 2) + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
             return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
         });
     }).catch(function (e) {
         notifyWallet('錯誤: ' + e.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function withdrawToTreasury() {
@@ -338,29 +344,41 @@ function withdrawToTreasury() {
     if (amountNum <= 0) return notifyWallet('請輸入有效金額', true);
 
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    var restoreBtn = null;
     if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    restoreBtn = function () {
+        if (!btn) return;
+        btn.disabled = false;
+        btn.innerText = '匯回';
+    };
 
     setWalletStatus('匯回金庫中...', false);
     setWalletTx('');
 
     withWalletBusy(function () {
-        return callWallet('withdraw', { amount: amount }).then(function (data) {
+        return callWallet('withdraw', { amount: amountText }).then(function (data) {
             if (!data || !data.success) throw new Error((data && data.error) || '匯回失敗');
             setDisplayedBalance(getCurrentUserBalance() - amountNum, 45000, 'wallet_withdraw');
-            notifyWallet('匯回成功：-' + formatDisplayNumber(amount, 2) + ' 子熙幣', false);
+            notifyWallet('匯回成功：-' + formatDisplayNumber(amountNum, 2) + ' 子熙幣', false);
             setWalletTx(data.txHash || '');
             return Promise.all([refreshWalletSummary(true), refreshWalletHistory(true)]);
         });
     }).catch(function (e) {
         notifyWallet('錯誤: ' + e.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function claimAirdrop() {
     if (!user.sessionId) return;
 
     var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    var restoreBtn = null;
     if (btn) { btn.disabled = true; btn.innerText = '處理中'; }
+    restoreBtn = function () {
+        if (!btn) return;
+        btn.disabled = false;
+        btn.innerText = '領取空投';
+    };
 
     setWalletStatus('領取空投中...', false);
     setWalletTx('');
@@ -384,7 +402,7 @@ function claimAirdrop() {
             });
     }).catch(function (e) {
         notifyWallet('錯誤: ' + e.message, true);
-    });
+    }).finally(restoreBtn);
 }
 
 function initWalletPage() {

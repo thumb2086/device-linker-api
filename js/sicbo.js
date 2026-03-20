@@ -5,27 +5,17 @@ var serverTimeSynced = false;
 var isClockSyncing = false;
 var lastClockSyncAt = 0;
 var lastObservedSicboRoundId = null;
-var pendingSicboBets = []; // { amount, betType, betValue, label, roundId, closesAt, tempId? }
+var pendingSicboBets = [];
 var isSicboDrawing = false;
 var isSicboSubmitting = false;
-var selectedBetType = 'big';
+var selectedBetType = 'player';
 var selectedBetValue = '';
 var sicboTickerId = null;
 
-var TOTAL_PAYOUTS = {
-    4: 50, 5: 18, 6: 14, 7: 12, 8: 8, 9: 6, 10: 6, 11: 6, 12: 6, 13: 8, 14: 12, 15: 14, 16: 18, 17: 50
-};
-
 var BET_TYPE_OPTIONS = [
-    { value: 'big', label: '大', needsValue: false },
-    { value: 'small', label: '小', needsValue: false },
-    { value: 'odd', label: '單', needsValue: false },
-    { value: 'even', label: '雙', needsValue: false },
-    { value: 'total', label: '總和', needsValue: true },
-    { value: 'single', label: '單骰', needsValue: true },
-    { value: 'double_specific', label: '雙同號', needsValue: true },
-    { value: 'triple_any', label: '任意圍', needsValue: false },
-    { value: 'triple_specific', label: '指定圍', needsValue: true }
+    { value: 'player', label: '閒贏', needsValue: false },
+    { value: 'banker', label: '莊贏', needsValue: false },
+    { value: 'tie', label: '和局', needsValue: false }
 ];
 
 function hash32(input) {
@@ -95,6 +85,7 @@ function getCurrentSicboState() {
 
 function updateRoundHint() {
     var hint = document.getElementById('round-hint');
+    var placeBetBtn = document.getElementById('place-bet-btn');
     if (!hint) return;
 
     var state = getCurrentSicboState();
@@ -102,7 +93,9 @@ function updateRoundHint() {
         ? ('本局倒數 ' + state.secLeft + ' 秒，仍可下注')
         : '本局已封盤，等待開獎';
 
-    document.getElementById('place-bet-btn').disabled = !state.isBettingOpen || isSicboSubmitting;
+    if (placeBetBtn) {
+        placeBetBtn.disabled = !state.isBettingOpen || isSicboSubmitting;
+    }
 
     if (lastObservedSicboRoundId !== null && lastObservedSicboRoundId !== state.roundId) {
         var drawRoundId = lastObservedSicboRoundId;
@@ -113,22 +106,6 @@ function updateRoundHint() {
     }
 
     maybeDrawSicbo();
-}
-
-function getValueOptions(type) {
-    if (type === 'total') {
-        return [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(function (value) {
-            return { value: String(value), label: '總和 ' + value };
-        });
-    }
-
-    if (type === 'single' || type === 'double_specific' || type === 'triple_specific') {
-        return [1, 2, 3, 4, 5, 6].map(function (value) {
-            return { value: String(value), label: '點數 ' + value };
-        });
-    }
-
-    return [];
 }
 
 function renderBetTypeGrid() {
@@ -150,38 +127,13 @@ function renderBetTypeGrid() {
 function renderBetValueGrid() {
     var grid = document.getElementById('bet-value-grid');
     if (!grid) return;
-
-    var options = getValueOptions(selectedBetType);
-    if (options.length === 0) {
-        grid.innerHTML = '';
-        selectedBetValue = '';
-        return;
-    }
-
-    if (!selectedBetValue || !options.some(function (option) { return option.value === selectedBetValue; })) {
-        selectedBetValue = options[0].value;
-    }
-
-    grid.innerHTML = options.map(function (option) {
-        return '<button class="bet-chip' + (selectedBetValue === option.value ? ' is-selected' : '') + '" data-value="' + option.value + '">' + option.label + '</button>';
-    }).join('');
-
-    Array.prototype.forEach.call(grid.querySelectorAll('[data-value]'), function (button) {
-        button.addEventListener('click', function () {
-            if (isSicboSubmitting) return;
-            selectBetValue(button.getAttribute('data-value'));
-        });
-    });
+    grid.innerHTML = '';
+    selectedBetValue = '';
 }
 
 function selectBetType(type) {
     selectedBetType = type;
     renderBetTypeGrid();
-    renderBetValueGrid();
-}
-
-function selectBetValue(value) {
-    selectedBetValue = value;
     renderBetValueGrid();
 }
 
@@ -203,27 +155,27 @@ function rollDice(roundId) {
     ];
 }
 
-function countValue(dice, target) {
-    return dice.filter(function(d) { return d === target; }).length;
+function rollBankerDice(roundId) {
+    return [
+        (hash32('sicbo:banker:' + roundId + ':1') % 6) + 1,
+        (hash32('sicbo:banker:' + roundId + ':2') % 6) + 1,
+        (hash32('sicbo:banker:' + roundId + ':3') % 6) + 1
+    ];
 }
 
-function evaluateBet(dice, betType, betValue) {
-    var total = dice[0] + dice[1] + dice[2];
-    var isTriple = dice[0] === dice[1] && dice[1] === dice[2];
-    var target = Number(betValue);
+function compareDiceTotals(playerDice, bankerDice) {
+    var playerTotal = playerDice[0] + playerDice[1] + playerDice[2];
+    var bankerTotal = bankerDice[0] + bankerDice[1] + bankerDice[2];
+    if (playerTotal > bankerTotal) return 'player';
+    if (playerTotal < bankerTotal) return 'banker';
+    return 'tie';
+}
 
-    if (betType === 'big') return (!isTriple && total >= 11 && total <= 17) ? 1 : 0;
-    if (betType === 'small') return (!isTriple && total >= 4 && total <= 10) ? 1 : 0;
-    if (betType === 'odd') return (!isTriple && total % 2 === 1) ? 1 : 0;
-    if (betType === 'even') return (!isTriple && total % 2 === 0) ? 1 : 0;
-    if (betType === 'total') return (TOTAL_PAYOUTS[total] && total === target) ? TOTAL_PAYOUTS[total] : 0;
-    if (betType === 'triple_any') return isTriple ? 24 : 0;
-    if (betType === 'triple_specific') return (isTriple && dice[0] === target) ? 150 : 0;
-    if (betType === 'double_specific') return countValue(dice, target) >= 2 ? 8 : 0; // Standard payout is 8:1
-    if (betType === 'single') {
-        var matches = countValue(dice, target);
-        return matches > 0 ? matches : 0;
-    }
+function evaluateBet(playerDice, bankerDice, betType) {
+    var winner = compareDiceTotals(playerDice, bankerDice);
+    if (betType === 'player') return winner === 'player' ? 1.1 : 0;
+    if (betType === 'banker') return winner === 'banker' ? 1.1 : 0;
+    if (betType === 'tie') return winner === 'tie' ? 8 : 0;
     return 0;
 }
 
@@ -273,16 +225,14 @@ function startSicboDraw(roundId) {
         status.innerText = '骰子搖動中...';
         status.style.color = '#ffd36a';
     }
-    var shaker = document.querySelector('.dice-shaker');
-    if (shaker) shaker.classList.add('shake');
-    if(window.audioManager) window.audioManager.play('dice_shake');
+    if (window.audioManager) window.audioManager.play('dice_shake');
 
     var roundBets = pendingSicboBets.filter(function (bet) { return bet.roundId === roundId; });
-    var resolvedDice = rollDice(roundId);
+    var resolvedPlayerDice = rollDice(roundId);
+    var resolvedBankerDice = rollBankerDice(roundId);
 
     window.setTimeout(function () {
-        if(shaker) shaker.classList.remove('shake');
-        setDice(resolvedDice);
+        setDice(resolvedPlayerDice);
         pendingSicboBets = pendingSicboBets.filter(function (bet) { return bet.roundId !== roundId; });
         updatePendingSicboBetsUI();
 
@@ -291,15 +241,19 @@ function startSicboDraw(roundId) {
 
         if (hasBetsInRound) {
             roundBets.forEach(function (bet) {
-                var multiplier = evaluateBet(resolvedDice, bet.betType, bet.betValue);
+                var multiplier = evaluateBet(resolvedPlayerDice, resolvedBankerDice, bet.betType);
                 if (multiplier > 0) totalWinAmount += bet.amount * multiplier;
             });
         }
 
         if (status) {
-            var resultText = '開獎結果 ' + resolvedDice.join('-') + '，總和 ' + (resolvedDice[0] + resolvedDice[1] + resolvedDice[2]);
+            var playerTotal = resolvedPlayerDice[0] + resolvedPlayerDice[1] + resolvedPlayerDice[2];
+            var bankerTotal = resolvedBankerDice[0] + resolvedBankerDice[1] + resolvedBankerDice[2];
+            var winner = compareDiceTotals(resolvedPlayerDice, resolvedBankerDice);
+            var winnerText = winner === 'player' ? '閒家勝' : (winner === 'banker' ? '莊家勝' : '和局');
+            var resultText = '閒家 ' + resolvedPlayerDice.join('-') + '（' + playerTotal + '） vs 莊家 ' + resolvedBankerDice.join('-') + '（' + bankerTotal + '）→ ' + winnerText;
             if (hasBetsInRound) {
-                 if (totalWinAmount > 0) {
+                if (totalWinAmount > 0) {
                     status.innerText = resultText + '，本輪贏得 ' + formatDisplayNumber(totalWinAmount, 2) + ' 子熙幣';
                     status.style.color = '#34f59f';
                 } else {
@@ -312,17 +266,15 @@ function startSicboDraw(roundId) {
             }
         }
 
-        if(hasBetsInRound) refreshBalance();
+        if (hasBetsInRound) refreshBalance();
         isSicboDrawing = false;
         maybeDrawSicbo();
     }, 1200);
 }
 
-function getBetLabel(betType, betValue) {
+function getBetLabel(betType) {
     var option = BET_TYPE_OPTIONS.find(function (item) { return item.value === betType; });
-    if (!option) return betType;
-    if (!option.needsValue) return option.label;
-    return option.label + ' ' + betValue;
+    return option ? option.label : betType;
 }
 
 function placeSicboBet() {
@@ -330,91 +282,104 @@ function placeSicboBet() {
 
     var amount = Number(document.getElementById('bet-amount').value || 0);
     var betType = selectedBetType;
-    var betValue = selectedBetValue;
     var status = document.getElementById('status-msg');
+    var placeBetBtn = document.getElementById('place-bet-btn');
 
     if (!Number.isFinite(amount) || amount <= 0) {
-        if (status) { status.innerText = '請輸入有效的下注金額'; status.style.color = '#ff6b6b'; }
+        if (status) {
+            status.innerText = '請輸入有效的下注金額';
+            status.style.color = '#ff6b6b';
+        }
         return;
     }
 
     var state = getCurrentSicboState();
     if (!state.isBettingOpen) {
-        if (status) { status.innerText = '本局已封盤，請等待下一局'; status.style.color = '#ff6b6b'; }
-        return;
-    }
-    
-    var option = BET_TYPE_OPTIONS.find(function(o) { return o.value === betType; });
-    if (option && option.needsValue && (betValue === '' || betValue === null)) {
-        if (status) { status.innerText = '請選擇一個下注細項'; status.style.color = '#ff6b6b'; }
+        if (status) {
+            status.innerText = '本局已封盤，請等待下一局';
+            status.style.color = '#ff6b6b';
+        }
         return;
     }
 
     var currentBalance = getCurrentUserBalance();
     if (currentBalance < amount) {
-        if (status) { status.innerText = '餘額不足'; status.style.color = '#ff6b6b'; }
+        if (status) {
+            status.innerText = '餘額不足';
+            status.style.color = '#ff6b6b';
+        }
         return;
     }
 
-    // --- Optimistic Update ---
     isSicboSubmitting = true;
-    setDisplayedBalance(currentBalance - amount);
+    setDisplayedBalance(currentBalance - amount, 45000, 'sicbo_bet');
     if (status) {
         status.innerText = '下注成功，等待本局開獎';
         status.style.color = '#34f59f';
     }
-    if(window.audioManager) window.audioManager.play('bet');
+    if (window.audioManager) window.audioManager.play('bet');
 
     var tempId = 'temp_' + Date.now() + Math.random();
-    var optimisticBet = {
+    pendingSicboBets.push({
         amount: amount,
         betType: betType,
-        betValue: betValue || undefined,
-        label: getBetLabel(betType, betValue || ''),
+        label: getBetLabel(betType),
         roundId: state.roundId,
         closesAt: state.closesAt,
         tempId: tempId
-    };
-    pendingSicboBets.push(optimisticBet);
+    });
     updatePendingSicboBetsUI();
-    document.getElementById('place-bet-btn').disabled = true;
+    if (placeBetBtn) placeBetBtn.disabled = true;
 
-    // --- Background Fetch ---
     fetch('/api/game?game=sicbo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: user.address, amount: amount, sessionId: user.sessionId, betType: betType, betValue: betValue || undefined })
+        body: JSON.stringify({
+            address: user.address,
+            amount: amount,
+            sessionId: user.sessionId,
+            betType: betType
+        })
     })
-    .then(function (res) {
-        if (!res.ok) return res.json().then(err => { throw new Error(err.error || '下注失敗') });
-        return res.json();
-    })
-    .then(function (data) {
-        if (data.serverNowTs) updateServerTime(data.serverNowTs);
-        if (data.error) throw new Error(data.error);
+        .then(function (res) {
+            if (!res.ok) {
+                return res.json().then(function (err) {
+                    throw new Error(err.error || '下注失敗');
+                });
+            }
+            return res.json();
+        })
+        .then(function (data) {
+            if (data.serverNowTs) updateServerTime(data.serverNowTs);
+            if (data.error) throw new Error(data.error);
 
-        var confirmedBet = pendingSicboBets.find(function(b) { return b.tempId === tempId; });
-        if (confirmedBet) {
-            confirmedBet.roundId = data.roundId;
-            confirmedBet.closesAt = data.closesAt;
-            delete confirmedBet.tempId; // Officially confirmed
-        }
-        updateUI({ totalBet: data.totalBet, level: data.level, betLimit: data.betLimit });
-    })
-    .catch(function (error) {
-        setDisplayedBalance(currentBalance); // Rollback
-        if (status) {
-            status.innerText = '錯誤: ' + error.message;
-            status.style.color = '#ff6b6b';
-        }
-        // Remove optimistic bet
-        pendingSicboBets = pendingSicboBets.filter(function(b) { return b.tempId !== tempId; });
-        updatePendingSicboBetsUI();
-    })
-    .finally(function() {
-        isSicboSubmitting = false;
-        document.getElementById('place-bet-btn').disabled = !getCurrentSicboState().isBettingOpen;
-    });
+            var confirmedBet = pendingSicboBets.find(function (item) { return item.tempId === tempId; });
+            if (confirmedBet) {
+                confirmedBet.roundId = data.roundId;
+                confirmedBet.closesAt = data.closesAt;
+                delete confirmedBet.tempId;
+            }
+            updateUI({
+                totalBet: data.totalBet,
+                level: data.level,
+                betLimit: data.betLimit
+            });
+        })
+        .catch(function (error) {
+            setDisplayedBalance(currentBalance, 2000, 'sicbo_rollback');
+            if (status) {
+                status.innerText = '錯誤: ' + error.message;
+                status.style.color = '#ff6b6b';
+            }
+            pendingSicboBets = pendingSicboBets.filter(function (item) { return item.tempId !== tempId; });
+            updatePendingSicboBetsUI();
+        })
+        .finally(function () {
+            isSicboSubmitting = false;
+            if (placeBetBtn) {
+                placeBetBtn.disabled = !getCurrentSicboState().isBettingOpen;
+            }
+        });
 }
 
 function initSicboGame() {
@@ -430,7 +395,7 @@ function initSicboGame() {
         updateRoundHint();
     }, 1000);
 
-    window.addEventListener('beforeunload', function() {
-        if(sicboTickerId) clearInterval(sicboTickerId);
+    window.addEventListener('beforeunload', function () {
+        if (sicboTickerId) clearInterval(sicboTickerId);
     });
 }

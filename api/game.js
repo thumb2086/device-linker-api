@@ -7,6 +7,7 @@ import dragonHandler from "../lib/game-handlers/dragon.js";
 import sicboHandler from "../lib/game-handlers/sicbo.js";
 import bingoHandler from "../lib/game-handlers/bingo.js";
 import crashHandler from "../lib/game-handlers/crash.js";
+import duelHandler from "../lib/game-handlers/duel.js";
 import { kv } from "@vercel/kv";
 import { getSession } from "../lib/session-store.js";
 import { randomUUID } from "crypto";
@@ -25,7 +26,8 @@ const GAME_HANDLERS = {
     dragon: dragonHandler,
     sicbo: sicboHandler,
     bingo: bingoHandler,
-    crash: crashHandler
+    crash: crashHandler,
+    duel: duelHandler
 };
 
 const MAINTENANCE_MODE = ["1", "true", "yes", "on"].includes(String(process.env.MAINTENANCE_MODE || "").trim().toLowerCase());

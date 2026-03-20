@@ -4,6 +4,9 @@ var currentWalletAddress = '';
 function fmtToken(value, digits) {
     var num = toSafeNumber(value, 0);
     var places = digits === undefined ? 6 : digits;
+    if (typeof getNumberDisplayMode === 'function' && getNumberDisplayMode() === 'compact' && Math.abs(num) >= 10000) {
+        return formatDisplayNumber(num, places);
+    }
     return num.toLocaleString(undefined, {
         minimumFractionDigits: 2,
         maximumFractionDigits: places

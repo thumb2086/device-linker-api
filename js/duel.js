@@ -43,6 +43,10 @@ function setDuelTx(txHash) {
     txEl.innerHTML = txHash ? txLinkHTML(txHash) : '';
 }
 
+function formatStakeTierLabel(value) {
+    return formatDisplayNumber(Number(value || 0), 0);
+}
+
 function selectStakeTier(stakeTier) {
     selectedStakeTier = Number(stakeTier) || 1000;
     [1000, 5000, 10000].forEach(function (tier) {
@@ -150,14 +154,14 @@ function renderWaitingState(waiting) {
     document.getElementById('opponent-name').innerText = '等待對手';
     document.getElementById('self-score').innerText = '0';
     document.getElementById('opponent-score').innerText = '0';
-    document.getElementById('my-roll-state').innerText = '已鎖定 ' + Number(waiting.stakeTier || 0).toLocaleString();
+    document.getElementById('my-roll-state').innerText = '已鎖定 ' + formatStakeTierLabel(waiting.stakeTier);
     document.getElementById('opponent-roll-state').innerText = '等待中';
     document.getElementById('round-number').innerText = '配對中';
-    document.getElementById('round-meta').innerText = Number(waiting.stakeTier || 0).toLocaleString() + ' 檔位';
+    document.getElementById('round-meta').innerText = formatStakeTierLabel(waiting.stakeTier) + ' 檔位';
     document.getElementById('round-deadline').innerText = '已扣除入場金額，找到對手後自動開局';
     renderRounds([]);
     renderLog([
-        '你已進入 ' + Number(waiting.stakeTier || 0).toLocaleString() + ' 檔位等待配對',
+        '你已進入 ' + formatStakeTierLabel(waiting.stakeTier) + ' 檔位等待配對',
         '等待同檔位玩家加入後開始第 1 局'
     ]);
     setDuelTx(waiting.txHash || '');
@@ -195,7 +199,7 @@ function renderMatchState(match) {
         document.getElementById('round-meta').innerText = '等待派彩';
         document.getElementById('round-deadline').innerText = match.settlementError ? ('派彩失敗：' + match.settlementError) : '系統正在派彩';
     } else {
-        document.getElementById('round-meta').innerText = Number(match.stakeTier || 0).toLocaleString() + ' 檔位，先贏 2 局';
+        document.getElementById('round-meta').innerText = formatStakeTierLabel(match.stakeTier) + ' 檔位，先贏 2 局';
         document.getElementById('round-deadline').innerText = '剩餘 ' + Math.ceil(Number(match.currentRound && match.currentRound.deadlineMs || 0) / 1000) + ' 秒';
     }
 

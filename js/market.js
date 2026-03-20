@@ -6,9 +6,13 @@ var marketRefreshBusy = false;
 function fmt(value, digits) {
     var num = Number(value || 0);
     if (!isFinite(num)) num = 0;
+    var places = digits === undefined ? 2 : digits;
+    if (typeof getNumberDisplayMode === 'function' && getNumberDisplayMode() === 'compact' && Math.abs(num) >= 10000) {
+        return formatDisplayNumber(num, places);
+    }
     return num.toLocaleString(undefined, {
-        minimumFractionDigits: digits === undefined ? 2 : digits,
-        maximumFractionDigits: digits === undefined ? 2 : digits
+        minimumFractionDigits: Math.min(2, places),
+        maximumFractionDigits: places
     });
 }
 

@@ -92,7 +92,7 @@ function escapeHtml(text) {
 function fmtRank(rank) {
     var parsed = Number(rank || 0);
     if (!isFinite(parsed) || parsed <= 0) return '-';
-    return '#' + parsed.toLocaleString();
+    return '#' + formatDisplayNumber(parsed, 0);
 }
 
 function renderMyRank(data) {
@@ -100,7 +100,7 @@ function renderMyRank(data) {
     var myBetEl = document.getElementById('my-total-bet');
     var myNameEl = document.getElementById('my-name');
     var totalEl = document.getElementById('leaderboard-total');
-    if (totalEl) totalEl.innerText = Number(data.totalPlayers || 0).toLocaleString();
+    if (totalEl) totalEl.innerText = formatDisplayNumber(Number(data.totalPlayers || 0), 0);
 
     if (!data.myRank) {
         if (myRankEl) myRankEl.innerText = '未上榜';

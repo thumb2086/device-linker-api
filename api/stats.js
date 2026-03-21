@@ -6,18 +6,13 @@ import { buildDisplayNameMap } from "../lib/user-profile.js";
 import { buildRewardDisplayMap, getRewardProfile, saveRewardProfile } from "../lib/reward-center.js";
 import { settlementService } from "../lib/settlement-service.js";
 import { getPeriodSnapshot, formatPeriodIso } from "../lib/leaderboard-period.js";
+import { applyReadCacheHeaders, readThroughCache } from "../lib/read-cache.js";
 import {
     buildAccountSummary,
     buildMarketSnapshot,
     normalizeMarketAccount,
     settleLiquidations
 } from "../lib/market-sim.js";
-import {
-    LEADERBOARD_CACHE_TTL_SECONDS,
-    applyLeaderboardCacheHeaders,
-    getCachedLeaderboard,
-    setCachedLeaderboard
-} from "../lib/leaderboard-cache.js";
 
 const TOTAL_BET_PREFIX = "total_bet:";
 const WEEK_BET_PREFIX = "total_bet_week:";
@@ -353,11 +348,81 @@ async function loadBalanceEntries(addresses, totalBetMap) {
     return entries;
 }
 
+function applyStatsReadHeaders(res, meta) {
+    if (!res) return;
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    applyReadCacheHeaders(res, meta);
+}
+
+function buildTotalBetValueMap(entries) {
+    const totals = new Map();
+    for (const entry of entries) {
+        totals.set(entry.address, Number(entry.totalBet || 0));
+    }
+    return totals;
+}
+
+function buildNetWorthValueMap(entries) {
+    const totals = new Map();
+    for (const entry of entries) {
+        totals.set(entry.address, Number(entry.totalBet || 0));
+    }
+    return totals;
+}
+
+async function loadTotalBetSnapshot() {
+    const entries = await loadTotalBetEntries();
+    return {
+        generatedAt: new Date().toISOString(),
+        entries: entries.map((entry) => ({
+            address: entry.address,
+            totalBet: entry.totalBet
+        }))
+    };
+}
+
+async function loadPeriodLeaderboardSnapshot(type, period, snapshot) {
+    await ensurePeriodSettlement(type, period, snapshot);
+    const entries = await loadPeriodBetEntries(type, period.id);
+    return {
+        generatedAt: new Date().toISOString(),
+        period: Object.assign({ type, id: period.id }, formatPeriodIso(period)),
+        entries: entries.map((entry) => ({
+            address: entry.address,
+            totalBet: entry.totalBet
+        }))
+    };
+}
+
+async function loadNetWorthSnapshot() {
+    const { addresses, totalBetMap } = await loadKnownUsers("");
+    const entries = await loadBalanceEntries(addresses, totalBetMap);
+    return {
+        generatedAt: new Date().toISOString(),
+        entries: entries.map((entry) => ({
+            address: entry.address,
+            netWorth: entry.netWorth,
+            walletBalance: entry.walletBalance,
+            bankBalance: entry.bankBalance,
+            stockValue: entry.stockValue,
+            futuresUnrealizedPnl: entry.futuresUnrealizedPnl,
+            loanPrincipal: entry.loanPrincipal,
+            totalBet: entry.totalBet
+        }))
+    };
+}
+
+async function loadCurrentNetWorthEntry(currentAddress) {
+    if (!currentAddress) return null;
+    const { totalBetMap } = await loadKnownUsers(currentAddress);
+    const currentEntries = await loadBalanceEntries([currentAddress], totalBetMap);
+    return currentEntries[0] || null;
+}
+
 export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    applyLeaderboardCacheHeaders(res, LEADERBOARD_CACHE_TTL_SECONDS);
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") return res.status(405).json({ success: false, error: "Method Not Allowed" });
     try {
@@ -371,15 +436,18 @@ export default async function handler(req, res) {
         const currentAddress = String(session.address || "").trim().toLowerCase();
         const periodSnapshot = getPeriodSnapshot();
         if (action === "total_bet") {
-            let cached = await getCachedLeaderboard("total_bet_v1");
-            if (!cached || !Array.isArray(cached.entries)) {
-                const entries = await loadTotalBetEntries();
-                cached = { generatedAt: new Date().toISOString(), entries: entries.map((entry) => ({ address: entry.address, totalBet: entry.totalBet })) };
-                await setCachedLeaderboard("total_bet_v1", cached, LEADERBOARD_CACHE_TTL_SECONDS);
-            }
-            const entries = cached.entries.map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
-            const displayNameMap = await buildDisplayNameMap(entries.map((entry) => entry.address));
-            const rewardDisplayMap = await buildRewardDisplayMap(entries.map((entry) => entry.address), (address) => { const entry = entries.find((item) => item.address === address); return entry ? entry.totalBet : 0; });
+            const cached = await readThroughCache({
+                namespace: "leaderboard",
+                keyParts: ["total_bet"],
+                tier: "public-heavy",
+                loader: loadTotalBetSnapshot
+            });
+            applyStatsReadHeaders(res, cached.meta);
+            const entries = (cached.value.entries || []).map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
+            const totalBetMap = buildTotalBetValueMap(entries);
+            const entryAddresses = entries.map((entry) => entry.address);
+            const displayNameMap = await buildDisplayNameMap(entryAddresses);
+            const rewardDisplayMap = await buildRewardDisplayMap(entryAddresses, (address) => totalBetMap.get(address) || 0);
             const leaderboard = entries.slice(0, limit).map((entry, index) => {
                 const vipStatus = buildVipStatus(entry.totalBet);
                 const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
@@ -388,41 +456,185 @@ export default async function handler(req, res) {
             const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
             const myRank = myIndex >= 0 ? entries[myIndex] : null;
             return res.status(200).json({
-                success: true, generatedAt: cached.generatedAt || new Date().toISOString(), totalPlayers: entries.length, leaderboard,
+                success: true, generatedAt: cached.value.generatedAt || new Date().toISOString(), totalPlayers: entries.length, leaderboard,
                 myRank: myRank ? { rank: myIndex + 1, address: myRank.address, displayName: displayNameMap.get(myRank.address) || "", maskedAddress: maskAddress(myRank.address), totalBet: myRank.totalBet.toFixed(2), level: buildVipStatus(myRank.totalBet).vipLevel, betLimit: String(buildVipStatus(myRank.totalBet).maxBet), avatar: (rewardDisplayMap.get(myRank.address) || {}).avatar || null, title: (rewardDisplayMap.get(myRank.address) || {}).title || null } : null
             });
         }
         if (action === "weekly_bet") {
-            const payload = await buildPeriodLeaderboard("weekly", periodSnapshot.week, currentAddress, limit, periodSnapshot);
-            return res.status(200).json(Object.assign({ success: true, generatedAt: new Date().toISOString() }, payload));
+            const cached = await readThroughCache({
+                namespace: "leaderboard",
+                keyParts: ["weekly_bet", periodSnapshot.week.id],
+                tier: "public-heavy",
+                loader: async () => loadPeriodLeaderboardSnapshot("weekly", periodSnapshot.week, periodSnapshot)
+            });
+            applyStatsReadHeaders(res, cached.meta);
+            const entries = (cached.value.entries || []).map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
+            const addresses = entries.map((entry) => entry.address);
+            const totalBetMap = await loadTotalBetMap(addresses);
+            const displayNameMap = await buildDisplayNameMap(addresses);
+            const rewardDisplayMap = await buildRewardDisplayMap(addresses, (address) => totalBetMap.get(address) || 0);
+            const leaderboard = entries.slice(0, limit).map((entry, index) => {
+                const vipStatus = buildVipStatus(totalBetMap.get(entry.address) || 0);
+                const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
+                return {
+                    rank: index + 1,
+                    address: entry.address,
+                    displayName: displayNameMap.get(entry.address) || "",
+                    maskedAddress: maskAddress(entry.address),
+                    totalBet: entry.totalBet.toFixed(2),
+                    level: vipStatus.vipLevel,
+                    betLimit: String(vipStatus.maxBet),
+                    levelSystem: { key: "legacy_v1", label: "蝑??嗅漲 v1" },
+                    avatar: rewardDisplay.avatar || null,
+                    title: rewardDisplay.title || null
+                };
+            });
+            const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
+            const myEntry = myIndex >= 0 ? entries[myIndex] : null;
+            return res.status(200).json({
+                success: true,
+                generatedAt: cached.value.generatedAt || new Date().toISOString(),
+                period: cached.value.period,
+                totalPlayers: entries.length,
+                leaderboard,
+                myRank: myEntry ? {
+                    rank: myIndex + 1,
+                    address: myEntry.address,
+                    displayName: displayNameMap.get(myEntry.address) || "",
+                    maskedAddress: maskAddress(myEntry.address),
+                    totalBet: myEntry.totalBet.toFixed(2),
+                    level: buildVipStatus(totalBetMap.get(myEntry.address) || 0).vipLevel,
+                    betLimit: String(buildVipStatus(totalBetMap.get(myEntry.address) || 0).maxBet),
+                    levelSystem: { key: "legacy_v1", label: "蝑??嗅漲 v1" },
+                    avatar: (rewardDisplayMap.get(myEntry.address) || {}).avatar || null,
+                    title: (rewardDisplayMap.get(myEntry.address) || {}).title || null
+                } : null,
+                myPeriodBet: (myEntry ? myEntry.totalBet : 0).toFixed(2)
+            });
         }
         if (action === "monthly_bet") {
-            const payload = await buildPeriodLeaderboard("monthly", periodSnapshot.month, currentAddress, limit, periodSnapshot);
-            return res.status(200).json(Object.assign({ success: true, generatedAt: new Date().toISOString() }, payload));
+            const cached = await readThroughCache({
+                namespace: "leaderboard",
+                keyParts: ["monthly_bet", periodSnapshot.month.id],
+                tier: "public-heavy",
+                loader: async () => loadPeriodLeaderboardSnapshot("monthly", periodSnapshot.month, periodSnapshot)
+            });
+            applyStatsReadHeaders(res, cached.meta);
+            const entries = (cached.value.entries || []).map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
+            const addresses = entries.map((entry) => entry.address);
+            const totalBetMap = await loadTotalBetMap(addresses);
+            const displayNameMap = await buildDisplayNameMap(addresses);
+            const rewardDisplayMap = await buildRewardDisplayMap(addresses, (address) => totalBetMap.get(address) || 0);
+            const leaderboard = entries.slice(0, limit).map((entry, index) => {
+                const vipStatus = buildVipStatus(totalBetMap.get(entry.address) || 0);
+                const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
+                return {
+                    rank: index + 1,
+                    address: entry.address,
+                    displayName: displayNameMap.get(entry.address) || "",
+                    maskedAddress: maskAddress(entry.address),
+                    totalBet: entry.totalBet.toFixed(2),
+                    level: vipStatus.vipLevel,
+                    betLimit: String(vipStatus.maxBet),
+                    levelSystem: { key: "legacy_v1", label: "蝑??嗅漲 v1" },
+                    avatar: rewardDisplay.avatar || null,
+                    title: rewardDisplay.title || null
+                };
+            });
+            const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
+            const myEntry = myIndex >= 0 ? entries[myIndex] : null;
+            return res.status(200).json({
+                success: true,
+                generatedAt: cached.value.generatedAt || new Date().toISOString(),
+                period: cached.value.period,
+                totalPlayers: entries.length,
+                leaderboard,
+                myRank: myEntry ? {
+                    rank: myIndex + 1,
+                    address: myEntry.address,
+                    displayName: displayNameMap.get(myEntry.address) || "",
+                    maskedAddress: maskAddress(myEntry.address),
+                    totalBet: myEntry.totalBet.toFixed(2),
+                    level: buildVipStatus(totalBetMap.get(myEntry.address) || 0).vipLevel,
+                    betLimit: String(buildVipStatus(totalBetMap.get(myEntry.address) || 0).maxBet),
+                    levelSystem: { key: "legacy_v1", label: "蝑??嗅漲 v1" },
+                    avatar: (rewardDisplayMap.get(myEntry.address) || {}).avatar || null,
+                    title: (rewardDisplayMap.get(myEntry.address) || {}).title || null
+                } : null,
+                myPeriodBet: (myEntry ? myEntry.totalBet : 0).toFixed(2)
+            });
         }
         if (action === "season_bet") {
-            const payload = await buildPeriodLeaderboard("season", periodSnapshot.season, currentAddress, limit, periodSnapshot);
-            return res.status(200).json(Object.assign({ success: true, generatedAt: new Date().toISOString() }, payload));
+            const cached = await readThroughCache({
+                namespace: "leaderboard",
+                keyParts: ["season_bet", periodSnapshot.season.id],
+                tier: "public-heavy",
+                loader: async () => loadPeriodLeaderboardSnapshot("season", periodSnapshot.season, periodSnapshot)
+            });
+            applyStatsReadHeaders(res, cached.meta);
+            const entries = (cached.value.entries || []).map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
+            const addresses = entries.map((entry) => entry.address);
+            const totalBetMap = await loadTotalBetMap(addresses);
+            const displayNameMap = await buildDisplayNameMap(addresses);
+            const rewardDisplayMap = await buildRewardDisplayMap(addresses, (address) => totalBetMap.get(address) || 0);
+            const leaderboard = entries.slice(0, limit).map((entry, index) => {
+                const vipStatus = buildVipStatus(totalBetMap.get(entry.address) || 0);
+                const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
+                return {
+                    rank: index + 1,
+                    address: entry.address,
+                    displayName: displayNameMap.get(entry.address) || "",
+                    maskedAddress: maskAddress(entry.address),
+                    totalBet: entry.totalBet.toFixed(2),
+                    level: vipStatus.vipLevel,
+                    betLimit: String(vipStatus.maxBet),
+                    levelSystem: { key: "legacy_v1", label: "蝑??嗅漲 v1" },
+                    avatar: rewardDisplay.avatar || null,
+                    title: rewardDisplay.title || null
+                };
+            });
+            const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
+            const myEntry = myIndex >= 0 ? entries[myIndex] : null;
+            return res.status(200).json({
+                success: true,
+                generatedAt: cached.value.generatedAt || new Date().toISOString(),
+                period: cached.value.period,
+                totalPlayers: entries.length,
+                leaderboard,
+                myRank: myEntry ? {
+                    rank: myIndex + 1,
+                    address: myEntry.address,
+                    displayName: displayNameMap.get(myEntry.address) || "",
+                    maskedAddress: maskAddress(myEntry.address),
+                    totalBet: myEntry.totalBet.toFixed(2),
+                    level: buildVipStatus(totalBetMap.get(myEntry.address) || 0).vipLevel,
+                    betLimit: String(buildVipStatus(totalBetMap.get(myEntry.address) || 0).maxBet),
+                    levelSystem: { key: "legacy_v1", label: "蝑??嗅漲 v1" },
+                    avatar: (rewardDisplayMap.get(myEntry.address) || {}).avatar || null,
+                    title: (rewardDisplayMap.get(myEntry.address) || {}).title || null
+                } : null,
+                myPeriodBet: (myEntry ? myEntry.totalBet : 0).toFixed(2)
+            });
         }
         if (action === "net_worth") {
-            let cached = await getCachedLeaderboard("balance_v2");
-            if (!cached || !Array.isArray(cached.entries)) {
-                const { addresses, totalBetMap } = await loadKnownUsers(currentAddress);
-                const entries = await loadBalanceEntries(addresses, totalBetMap);
-                cached = { generatedAt: new Date().toISOString(), entries: entries.map((entry) => ({ address: entry.address, netWorth: entry.netWorth, walletBalance: entry.walletBalance, bankBalance: entry.bankBalance, stockValue: entry.stockValue, futuresUnrealizedPnl: entry.futuresUnrealizedPnl, loanPrincipal: entry.loanPrincipal, totalBet: entry.totalBet })) };
-                await setCachedLeaderboard("balance_v2", cached, LEADERBOARD_CACHE_TTL_SECONDS);
-            }
-            const entries = cached.entries.map((entry) => ({ address: entry.address, netWorth: Number(entry.netWorth || 0), walletBalance: Number(entry.walletBalance || 0), bankBalance: Number(entry.bankBalance || 0), stockValue: Number(entry.stockValue || 0), futuresUnrealizedPnl: Number(entry.futuresUnrealizedPnl || 0), loanPrincipal: Number(entry.loanPrincipal || 0), totalBet: Number(entry.totalBet || 0) }));
-            const displayNameMap = await buildDisplayNameMap(entries.map((entry) => entry.address));
+            const cached = await readThroughCache({
+                namespace: "leaderboard",
+                keyParts: ["net_worth"],
+                tier: "public-heavy",
+                loader: loadNetWorthSnapshot
+            });
+            applyStatsReadHeaders(res, cached.meta);
+            const entries = (cached.value.entries || []).map((entry) => ({ address: entry.address, netWorth: Number(entry.netWorth || 0), walletBalance: Number(entry.walletBalance || 0), bankBalance: Number(entry.bankBalance || 0), stockValue: Number(entry.stockValue || 0), futuresUnrealizedPnl: Number(entry.futuresUnrealizedPnl || 0), loanPrincipal: Number(entry.loanPrincipal || 0), totalBet: Number(entry.totalBet || 0) }));
             if (currentAddress && !entries.some((entry) => entry.address === currentAddress)) {
-                const { addresses, totalBetMap } = await loadKnownUsers(currentAddress);
-                const currentOnlyEntries = await loadBalanceEntries(addresses.filter((address) => address === currentAddress), totalBetMap);
-                if (currentOnlyEntries[0]) {
-                    entries.push(currentOnlyEntries[0]);
+                const currentOnlyEntry = await loadCurrentNetWorthEntry(currentAddress);
+                if (currentOnlyEntry) {
+                    entries.push(currentOnlyEntry);
                     entries.sort((left, right) => { if (right.netWorth !== left.netWorth) return right.netWorth - left.netWorth; return left.address.localeCompare(right.address); });
                 }
             }
-            const rewardDisplayMap = await buildRewardDisplayMap(entries.map((entry) => entry.address), (address) => { const entry = entries.find((item) => item.address === address); return entry ? entry.totalBet : 0; });
+            const displayNameMap = await buildDisplayNameMap(entries.map((entry) => entry.address));
+            const totalBetMap = buildNetWorthValueMap(entries);
+            const rewardDisplayMap = await buildRewardDisplayMap(entries.map((entry) => entry.address), (address) => totalBetMap.get(address) || 0);
             const leaderboard = entries.slice(0, limit).map((entry, index) => {
                 const vipStatus = buildVipStatus(entry.totalBet);
                 const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
@@ -431,7 +643,7 @@ export default async function handler(req, res) {
             const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
             const myRank = myIndex >= 0 ? entries[myIndex] : null;
             return res.status(200).json({
-                success: true, generatedAt: cached.generatedAt || new Date().toISOString(), totalPlayers: entries.length, leaderboard,
+                success: true, generatedAt: cached.value.generatedAt || new Date().toISOString(), totalPlayers: entries.length, leaderboard,
                 myRank: myRank ? { rank: myIndex + 1, address: myRank.address, displayName: displayNameMap.get(myRank.address) || "", maskedAddress: maskAddress(myRank.address), netWorth: myRank.netWorth.toFixed(2), walletBalance: myRank.walletBalance.toFixed(2), bankBalance: myRank.bankBalance.toFixed(2), stockValue: myRank.stockValue.toFixed(2), futuresUnrealizedPnl: myRank.futuresUnrealizedPnl.toFixed(2), loanPrincipal: myRank.loanPrincipal.toFixed(2), totalBet: myRank.totalBet.toFixed(2), level: buildVipStatus(myRank.totalBet).vipLevel, avatar: (rewardDisplayMap.get(myRank.address) || {}).avatar || null, title: (rewardDisplayMap.get(myRank.address) || {}).title || null } : null
             });
         }

@@ -4,41 +4,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>排行榜 | 子熙模擬器</title>
+    <title>排行榜 | Casino</title>
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/leaderboard.css">
 </head>
 
 <body class="leaderboard-body">
     <div class="page-header">
-        <a href="/" class="back-btn">← 大廳</a>
+        <a href="/" class="back-btn">返回大廳</a>
         <div class="header-stats">
             <span class="vip" id="header-vip">-</span>
-            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <span><span class="balance" id="header-balance">-</span> 金幣</span>
             <button class="logout-btn" onclick="logoutUser()">登出</button>
         </div>
     </div>
 
     <div class="casino-card" id="main-card">
-        <h1 id="leaderboard-title">🏆 排行榜</h1>
+        <h1 id="leaderboard-title">排行榜</h1>
 
         <div class="leaderboard-type-selector">
-            <button class="type-btn is-active" data-type="total-bet">押注榜</button>
-            <button class="type-btn" data-type="balance">淨資產榜</button>
+            <button class="type-btn is-active" data-type="total-bet">投注排行</button>
+            <button class="type-btn" data-type="balance">淨值排行</button>
         </div>
 
         <div class="leaderboard-scope" id="leaderboard-scope">
-            <button class="scope-btn is-active" data-scope="total">累積榜</button>
-            <button class="scope-btn" data-scope="weekly">周榜</button>
+            <button class="scope-btn is-active" data-scope="total">總榜</button>
+            <button class="scope-btn" data-scope="weekly">週榜</button>
             <button class="scope-btn" data-scope="monthly">月榜</button>
             <button class="scope-btn" data-scope="season">賽季榜</button>
         </div>
         <div class="leaderboard-period" id="leaderboard-period">-</div>
 
         <div class="user-stats">
-            <span id="vip-badge">普通會員</span>
-            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> 子熙幣</div>
-            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+            <span id="vip-badge">VIP</span>
+            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> 金幣</div>
+            <div class="stat-row">累計投注: <span id="total-bet-val">0.00</span> 金幣</div>
         </div>
 
         <div class="leaderboard-overview">
@@ -47,7 +47,7 @@
                 <strong id="my-rank">-</strong>
             </div>
             <div class="overview-card">
-                <span id="my-bet-label">累積押注</span>
+                <span id="my-bet-label">總投注</span>
                 <strong id="my-total-bet">-</strong>
             </div>
             <div class="overview-card">
@@ -61,7 +61,7 @@
         </div>
 
         <div class="leaderboard-toolbar">
-            <button class="btn-primary" onclick="loadLeaderboard(false)">刷新排行榜</button>
+            <button class="btn-primary" onclick="refreshLeaderboard()">更新排行榜</button>
             <span id="leaderboard-status">載入中...</span>
         </div>
 
@@ -80,7 +80,6 @@
             });
         };
     </script>
-
 </body>
 
 </html>

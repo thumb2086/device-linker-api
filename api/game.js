@@ -16,6 +16,7 @@ import { getDisplayName } from "../lib/user-profile.js";
 
 const CHAT_STREAM_KEY = "chat:stream:v1:public";
 const CHAT_MAX_ITEMS = 120;
+const WINNER_BARRAGE_DEDUPE_TTL_SECONDS = 24 * 60 * 60;
 
 const GAME_HANDLERS = {
     coinflip: coinflipHandler,
@@ -54,6 +55,55 @@ function toSafeNumber(value) {
     return Number.isFinite(num) ? num : 0;
 }
 
+function normalizeBarrageToken(value) {
+    return String(value || "").trim().toLowerCase();
+}
+
+function hasWinningOutcome(body) {
+    if (!body || typeof body !== "object") return false;
+    if (body.isWin === true) return true;
+    return toSafeNumber(body.multiplier) > 0;
+}
+
+function isPendingWinnerState(body) {
+    const status = normalizeBarrageToken(body && (body.settlementStatus || body.status || body.state));
+    const action = normalizeBarrageToken(body && body.action);
+    if (["pending", "in_progress", "active", "waiting", "betting", "open", "settling", "spinning"].includes(status)) {
+        return true;
+    }
+    if (["gate", "start", "spin", "status", "list", "create", "join_queue"].includes(action)) {
+        return true;
+    }
+    return false;
+}
+
+function isFinalWinnerState(body) {
+    const status = normalizeBarrageToken(body && (body.settlementStatus || body.status || body.state));
+    const action = normalizeBarrageToken(body && body.action);
+    if (["settled", "success", "finished", "completed", "resolved", "cashed_out"].includes(status)) {
+        return !["gate", "start", "spin"].includes(action);
+    }
+    if (["shoot", "play", "cashout"].includes(action)) {
+        return true;
+    }
+    return false;
+}
+
+function resolveWinnerBarrageDedupeId(body) {
+    if (!body || typeof body !== "object") return "";
+    const candidates = [
+        body.roundId,
+        body.betId,
+        body.spinId,
+        body.matchId,
+        body.txHash
+    ];
+    for (const candidate of candidates) {
+        const normalized = String(candidate || "").trim();
+        if (normalized) return normalized;
+    }
+    return "";
+}
 
 function normalizeLevelFields(body) {
     if (!body || typeof body !== "object" || Array.isArray(body)) return body;
@@ -77,8 +127,9 @@ function shortAddress(address) {
 function shouldEmitWinnerBarrage(body) {
     if (!body || typeof body !== "object") return false;
     if (body.success === false || body.error) return false;
-    if (body.isWin === true) return true;
-    return toSafeNumber(body.multiplier) > 0;
+    if (!hasWinningOutcome(body)) return false;
+    if (isPendingWinnerState(body)) return false;
+    return isFinalWinnerState(body);
 }
 
 function resolveWinnerAmount(requestBody, responseBody, game) {
@@ -116,6 +167,15 @@ function resolveWinnerAmount(requestBody, responseBody, game) {
 async function appendWinnerBarrage({ session, game, requestBody, responseBody }) {
     if (!session || !session.address) return;
     if (!shouldEmitWinnerBarrage(responseBody)) return;
+
+    const dedupeId = resolveWinnerBarrageDedupeId(responseBody);
+    if (!dedupeId) return;
+    const dedupeKey = `winner_barrage:${String(game || "").trim().toLowerCase()}:${String(session.address || "").toLowerCase()}:${dedupeId}`;
+    const firstEmission = await kv.set(dedupeKey, new Date().toISOString(), {
+        nx: true,
+        ex: WINNER_BARRAGE_DEDUPE_TTL_SECONDS
+    });
+    if (!(firstEmission === "OK" || firstEmission === true)) return;
 
     const gameLabelMap = {
         coinflip: "擲硬幣",

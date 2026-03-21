@@ -13,6 +13,7 @@ import { getSession } from "../lib/session-store.js";
 import { randomUUID } from "crypto";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 import { getDisplayName } from "../lib/user-profile.js";
+import { appendChatMessage } from "../lib/chat-store.js";
 
 const CHAT_STREAM_KEY = "chat:stream:v1:public";
 const CHAT_MAX_ITEMS = 120;
@@ -202,10 +203,7 @@ async function appendWinnerBarrage({ session, game, requestBody, responseBody })
         createdAt: new Date().toISOString()
     };
 
-    const data = await kv.get(CHAT_STREAM_KEY);
-    const rows = Array.isArray(data) ? data : [];
-    rows.push(payload);
-    await kv.set(CHAT_STREAM_KEY, rows.slice(-CHAT_MAX_ITEMS));
+    await appendChatMessage(payload, "public");
 }
 
 async function checkBlacklist(address) {

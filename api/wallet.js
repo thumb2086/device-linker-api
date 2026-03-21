@@ -10,6 +10,12 @@ import {
 } from "../lib/airdrop-policy.js";
 import { listGameHistory } from "../lib/game-history.js";
 import { sendManagedContractTx } from "../lib/admin-chain.js";
+import {
+    applyReadCacheHeaders,
+    invalidateReadCache,
+    invalidateReadCacheByPrefix,
+    readThroughCache
+} from "../lib/read-cache.js";
 import { settlementService } from "../lib/settlement-service.js";
 
 const MAX_TRANSFER_AMOUNT = 100000000;
@@ -126,6 +132,22 @@ async function blockIfBlacklisted(res, address) {
     return true;
 }
 
+function applyWalletReadHeaders(res, meta) {
+    if (!res) return;
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    applyReadCacheHeaders(res, meta);
+}
+
+async function invalidateWalletReadCaches(address) {
+    const normalized = tryNormalizeAddress(address);
+    if (!normalized) return;
+    await Promise.all([
+        invalidateReadCache("wallet-balance", [normalized]),
+        invalidateReadCache("wallet-summary", [normalized]),
+        invalidateReadCacheByPrefix("wallet-game-history", [normalized])
+    ]);
+}
+
 function jsonError(res, statusCode, error) {
     return res.status(statusCode).json({
         success: false,
@@ -182,8 +204,22 @@ export default async function handler(req, res) {
             const address = tryNormalizeAddress(body.address) || sInfo.address;
             if (!address) return jsonError(res, 400, sInfo.error || "Missing address or session expired");
             if (await blockIfBlacklisted(res, address)) return;
-            const balanceRaw = await contract.balanceOf(address);
-            return res.status(200).json({ success: true, balance: ethers.formatUnits(balanceRaw, decimals), decimals: decimals.toString() });
+            const cached = await readThroughCache({
+                namespace: "wallet-balance",
+                keyParts: [address],
+                tier: "user-live",
+                loader: async () => {
+                    const balanceRaw = await contract.balanceOf(address);
+                    return {
+                        success: true,
+                        balance: ethers.formatUnits(balanceRaw, decimals),
+                        decimals: decimals.toString(),
+                        generatedAt: new Date().toISOString()
+                    };
+                }
+            });
+            applyWalletReadHeaders(res, cached.meta);
+            return res.status(200).json(cached.value);
         }
         
         if (action === "airdrop") {
@@ -203,6 +239,7 @@ export default async function handler(req, res) {
 
             const newDistributedWei = policy.distributedWei + policy.rewardWei;
             await kv.set(AIRDROP_DISTRIBUTED_TOTAL_KEY, newDistributedWei.toString());
+            await invalidateWalletReadCaches(targetAddress);
             
             return res.status(200).json({ 
                 success: true, 
@@ -222,8 +259,25 @@ export default async function handler(req, res) {
             const historyAddress = sInfo.address || tryNormalizeAddress(body.address);
             if (!historyAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, historyAddress)) return;
-            const result = await listGameHistory(historyAddress, { limit: body.limit });
-            return res.status(200).json({ success: true, action: "game_history", address: historyAddress, total: result.total, items: result.items });
+            const normalizedLimit = Math.max(1, Math.floor(Number(body.limit) || 20));
+            const cached = await readThroughCache({
+                namespace: "wallet-game-history",
+                keyParts: [historyAddress, normalizedLimit],
+                tier: "user-history",
+                loader: async () => {
+                    const result = await listGameHistory(historyAddress, { limit: normalizedLimit });
+                    return {
+                        success: true,
+                        action: "game_history",
+                        address: historyAddress,
+                        total: result.total,
+                        items: result.items,
+                        generatedAt: new Date().toISOString()
+                    };
+                }
+            });
+            applyWalletReadHeaders(res, cached.meta);
+            return res.status(200).json(cached.value);
         }
         
         if (action === "summary" || action === "status" || action === "balance") {
@@ -231,33 +285,43 @@ export default async function handler(req, res) {
             const userAddress = sInfo.address || tryNormalizeAddress(body.address);
             if (!userAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, userAddress)) return;
-            const [userBalanceWei, treasuryBalanceWei, trackedAirdropDistributedWei] = await Promise.all([
-                contract.balanceOf(userAddress), 
-                contract.balanceOf(treasuryAddress), 
-                getTrackedAirdropDistributedWei()
-            ]);
-            const airdropPolicy = calculateAirdropRewardWei(decimals, trackedAirdropDistributedWei);
-            const halvingStepWei = ethers.parseUnits(AIRDROP_HALVING_STEP, decimals);
-            const nextHalvingAtWei = halvingStepWei > 0n ? halvingStepWei * BigInt(airdropPolicy.halvingCount + 1) : 0n;
-            
-            return res.status(200).json({ 
-                success: true, 
-                action: "summary", 
-                address: userAddress, 
-                treasuryAddress, 
-                decimals: String(decimals), 
-                userBalance: ethers.formatUnits(userBalanceWei, decimals), 
-                treasuryBalance: ethers.formatUnits(treasuryBalanceWei, decimals), 
-                airdrop: { 
-                    distributed: ethers.formatUnits(airdropPolicy.distributedWei, decimals), 
-                    distributedExcludingAdmin: ethers.formatUnits(airdropPolicy.distributedWei, decimals), 
-                    cap: null, 
-                    remaining: null, 
-                    reward: ethers.formatUnits(airdropPolicy.rewardWei, decimals), 
-                    halvingCount: airdropPolicy.halvingCount, 
-                    nextHalvingAt: ethers.formatUnits(nextHalvingAtWei, decimals) 
-                } 
+            const cached = await readThroughCache({
+                namespace: "wallet-summary",
+                keyParts: [userAddress],
+                tier: "user-live",
+                loader: async () => {
+                    const [userBalanceWei, treasuryBalanceWei, trackedAirdropDistributedWei] = await Promise.all([
+                        contract.balanceOf(userAddress),
+                        contract.balanceOf(treasuryAddress),
+                        getTrackedAirdropDistributedWei()
+                    ]);
+                    const airdropPolicy = calculateAirdropRewardWei(decimals, trackedAirdropDistributedWei);
+                    const halvingStepWei = ethers.parseUnits(AIRDROP_HALVING_STEP, decimals);
+                    const nextHalvingAtWei = halvingStepWei > 0n ? halvingStepWei * BigInt(airdropPolicy.halvingCount + 1) : 0n;
+
+                    return {
+                        success: true,
+                        action: "summary",
+                        address: userAddress,
+                        treasuryAddress,
+                        decimals: String(decimals),
+                        userBalance: ethers.formatUnits(userBalanceWei, decimals),
+                        treasuryBalance: ethers.formatUnits(treasuryBalanceWei, decimals),
+                        airdrop: {
+                            distributed: ethers.formatUnits(airdropPolicy.distributedWei, decimals),
+                            distributedExcludingAdmin: ethers.formatUnits(airdropPolicy.distributedWei, decimals),
+                            cap: null,
+                            remaining: null,
+                            reward: ethers.formatUnits(airdropPolicy.rewardWei, decimals),
+                            halvingCount: airdropPolicy.halvingCount,
+                            nextHalvingAt: ethers.formatUnits(nextHalvingAtWei, decimals)
+                        },
+                        generatedAt: new Date().toISOString()
+                    };
+                }
             });
+            applyWalletReadHeaders(res, cached.meta);
+            return res.status(200).json(cached.value);
         }
         
         const amountText = normalizeAmount(body.amount);
@@ -281,6 +345,7 @@ export default async function handler(req, res) {
                 payoutWei: amountWei,
                 source: "wallet_import"
             });
+            await invalidateWalletReadCaches(userAddress);
             return res.status(200).json({ success: true, action: "import", from: treasuryAddress, to: userAddress, amount: amountText, txHash: results.payoutTxHash });
         }
         
@@ -298,6 +363,7 @@ export default async function handler(req, res) {
                 payoutWei: 0n,
                 source: "wallet_withdraw"
             });
+            await invalidateWalletReadCaches(userAddress);
             return res.status(200).json({ success: true, action: "withdraw", from: userAddress, to: treasuryAddress, amount: amountText, txHash: results.betTxHash });
         }
         
@@ -337,6 +403,10 @@ export default async function handler(req, res) {
             
             const writeContract = settlementService.writeContract;
             const tx = await sendManagedContractTx(writeContract, "adminTransfer", [fromAddress, toAddress, transferWei], { gasLimit: 220000, txSource: "wallet_secure_transfer" });
+            await Promise.all([
+                invalidateWalletReadCaches(fromAddress),
+                invalidateWalletReadCaches(toAddress)
+            ]);
             return res.status(200).json({ success: true, txHash: tx.hash, from: fromAddress, to: toAddress, amount: amountText, isPayout: payoutMode, requestedAmount: cleanAmount, transferredAmount: ethers.formatUnits(transferWei, decimals), feeAmount: ethers.formatUnits(feeWei, decimals), feeRate: payoutMode ? "0.05" : "0.00" });
         }
         
@@ -352,6 +422,10 @@ export default async function handler(req, res) {
             
             const writeContract = settlementService.writeContract;
             const tx = await sendManagedContractTx(writeContract, "adminTransfer", [userAddress, toAddress, amountWei], { gasLimit: 220000, txSource: "wallet_export" });
+            await Promise.all([
+                invalidateWalletReadCaches(userAddress),
+                invalidateWalletReadCaches(toAddress)
+            ]);
             return res.status(200).json({ success: true, action: "export", from: userAddress, to: toAddress, amount: amountText, txHash: tx.hash });
         }
         return res.status(400).json({ success: false, error: `Unsupported action: ${action}`, supportedActions: ["summary", "status", "balance", "game_history", "get_balance", "airdrop", "import", "deposit", "export", "transfer", "secure_transfer", "withdraw", "cashout"] });

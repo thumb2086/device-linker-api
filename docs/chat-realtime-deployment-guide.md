@@ -208,6 +208,13 @@ That means:
 
 The current codebase will continue to use HTTP snapshot plus delta polling.
 
+Realtime is now **opt-in**.
+
+If you do nothing:
+- frontend will stay on polling mode
+- it will not attempt WebSocket connection
+- it will not keep retrying `/chat`
+
 ## Related files
 
 - [api/chat.js](C:\Users\CPXru\Desktop\thumb\program\device-linker-api\api\chat.js)
@@ -215,3 +222,27 @@ The current codebase will continue to use HTTP snapshot plus delta polling.
 - [lib/chat-store.js](C:\Users\CPXru\Desktop\thumb\program\device-linker-api\lib\chat-store.js)
 - [lib/realtime-bus.js](C:\Users\CPXru\Desktop\thumb\program\device-linker-api\lib\realtime-bus.js)
 - [scripts/chat-realtime-server.mjs](C:\Users\CPXru\Desktop\thumb\program\device-linker-api\scripts\chat-realtime-server.mjs)
+
+## Realtime opt-in later
+
+When you are ready to enable realtime later, use one of these:
+
+### Option A: explicit external WebSocket URL
+
+```html
+<script>
+window.CHAT_REALTIME_URL = "wss://your-chat-app.fly.dev/chat";
+</script>
+```
+
+### Option B: same host `/chat`
+
+Use this only if your current site host also exposes the realtime endpoint:
+
+```html
+<script>
+window.CHAT_REALTIME_ENABLED = true;
+</script>
+```
+
+Without either of the two settings above, chat stays in polling mode by design.

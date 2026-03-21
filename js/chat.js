@@ -26,6 +26,12 @@ var CHAT_POLL_INTERVAL_MS = 3000;
 var CHAT_REALTIME_RECONNECT_MS = 3000;
 var barrageLaneNextReadyAt = new Array(BARRAGE_LANE_COUNT).fill(0);
 
+function isChatRealtimeConfigured() {
+    if (window.CHAT_REALTIME_URL) return true;
+    return window.CHAT_REALTIME_ENABLED === true ||
+        String(window.CHAT_REALTIME_ENABLED || "").trim().toLowerCase() === "true";
+}
+
 function getStoredBarrageEnabled() {
     try {
         return localStorage.getItem("casino_barrage_enabled") !== "false";
@@ -495,6 +501,7 @@ function stopPollingLoop() {
 
 function buildChatRealtimeUrl() {
     if (window.CHAT_REALTIME_URL) return String(window.CHAT_REALTIME_URL);
+    if (!isChatRealtimeConfigured()) return "";
     if (!window.location) return "";
     var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return protocol + "//" + window.location.host + "/chat";
@@ -508,7 +515,7 @@ function clearReconnectTimer() {
 
 function scheduleRealtimeReconnect() {
     clearReconnectTimer();
-    if (!chatStarted) return;
+    if (!chatStarted || !isChatRealtimeConfigured()) return;
     chatReconnectTimer = setTimeout(function () {
         connectChatRealtime();
     }, CHAT_REALTIME_RECONNECT_MS);
@@ -543,6 +550,12 @@ function sendRealtimeJoin() {
 }
 
 function connectChatRealtime() {
+    if (!isChatRealtimeConfigured()) {
+        chatRealtimeEnabled = false;
+        startPollingLoop();
+        updateChatConnectionStatus();
+        return;
+    }
     if (!window.WebSocket || !(window.user && user.sessionId)) {
         startPollingLoop();
         return;

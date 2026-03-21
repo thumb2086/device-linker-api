@@ -6,6 +6,7 @@ var chatSeenMessageIds = {};
 var chatHasBootstrappedMessages = false;
 var chatBarrageQueue = [];
 var chatBarrageFlushTimer = null;
+var chatScrollFrame = null;
 var BARRAGE_LANE_COUNT = 8;
 var BARRAGE_LANE_BASE_TOP = 70;
 var BARRAGE_LANE_GAP = 42;
@@ -166,6 +167,32 @@ function setGlobalBarrageEnabled(enabled) {
     }
 }
 
+function scrollChatToLatest() {
+    var list = document.getElementById('chat-message-list');
+    if (!list) return;
+
+    function commitScroll() {
+        list.scrollTop = list.scrollHeight;
+    }
+
+    if (chatScrollFrame && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(chatScrollFrame);
+        chatScrollFrame = null;
+    }
+
+    if (typeof window.requestAnimationFrame === 'function') {
+        chatScrollFrame = window.requestAnimationFrame(function () {
+            chatScrollFrame = window.requestAnimationFrame(function () {
+                chatScrollFrame = null;
+                commitScroll();
+            });
+        });
+        return;
+    }
+
+    window.setTimeout(commitScroll, 0);
+}
+
 function applyLobbyChatWidgetState() {
     var body = document.getElementById('chat-widget-body');
     var btn = document.getElementById('chat-toggle-btn');
@@ -182,6 +209,7 @@ function applyLobbyChatWidgetState() {
         widget.classList.remove('chat-widget-collapsed');
         btn.innerText = '－';
         btn.setAttribute('aria-expanded', 'true');
+        scrollChatToLatest();
     }
 }
 
@@ -204,7 +232,7 @@ function appendChatMessageRow(item) {
         '<div class="chat-message-body">' + escapeChatHtml(item.message || '') + '</div>';
 
     list.appendChild(row);
-    list.scrollTop = list.scrollHeight;
+    scrollChatToLatest();
 }
 
 
@@ -226,7 +254,7 @@ function renderChatMessages(messages, shouldQueueBarrage) {
             '</div>';
     }).join('');
 
-    list.scrollTop = list.scrollHeight;
+    scrollChatToLatest();
     if (shouldQueueBarrage) queueBarrageMessages(rows);
 }
 

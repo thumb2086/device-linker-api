@@ -183,6 +183,10 @@ function buildPendingPayload(sessionData = {}) {
     };
 }
 
+function isAdminAddress(address) {
+    return String(address || "").toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
+}
+
 function buildAuthorizedSessionPayload(sessionData) {
     return {
         success: true,
@@ -195,12 +199,13 @@ function buildAuthorizedSessionPayload(sessionData) {
         deviceId: sessionData.deviceId || "",
         appVersion: sessionData.appVersion || "",
         authorizedAt: sessionData.authorizedAt || null,
-        expiresAt: sessionData.expiresAt || null
+        expiresAt: sessionData.expiresAt || null,
+        isAdmin: isAdminAddress(sessionData.address)
     };
 }
 
 function buildAuthPayload(sessionData, balance, totalBet, vipStatus, displayName = "", rewardProfile = null, yjcVip = null) {
-    const isAdmin = String(sessionData.address || "").toLowerCase() === ADMIN_WALLET_ADDRESS.toLowerCase();
+    const isAdmin = isAdminAddress(sessionData.address);
     return {
         success: true,
         status: "authorized",
@@ -528,7 +533,7 @@ export default async function handler(req, res) {
             }, ttlSeconds);
             return res.status(200).json({
                 success: true, status: "authorized", sessionId: custodySessionId, address: custodyUser.address, publicKey: custodyUser.publicKey,
-                mode: "custody", isNewAccount, registerBonus: CUSTODY_REGISTER_BONUS, bonusGranted, bonusTxHash, bonusError
+                mode: "custody", isAdmin: isAdminAddress(custodyUser.address), isNewAccount, registerBonus: CUSTODY_REGISTER_BONUS, bonusGranted, bonusTxHash, bonusError
             });
         }
 

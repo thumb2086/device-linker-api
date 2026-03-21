@@ -135,6 +135,28 @@ function updateAppQuickLoginUI() {
     if (clearBtn) clearBtn.classList.add('hidden');
 }
 
+function buildAuthorizedFallbackPayload(data) {
+    return {
+        success: true,
+        status: 'authorized',
+        address: data && data.address ? data.address : '',
+        publicKey: data && data.publicKey ? data.publicKey : '',
+        balance: '0.00',
+        totalBet: '0.00',
+        level: '普通會員',
+        isAdmin: !!(data && data.isAdmin)
+    };
+}
+
+function notifyLobbyAuthReady(valid, authData, fallbackData) {
+    if (!lobbyAuthReadyCallback) return;
+    if (valid && authData) {
+        lobbyAuthReadyCallback(authData);
+        return;
+    }
+    lobbyAuthReadyCallback(buildAuthorizedFallbackPayload(fallbackData));
+}
+
 /**
  * 大廳頁面用: 初始化認證流程 (QR Code + 輪詢)
  * @param {Function} onAuthorized - 認證成功後的回調
@@ -492,9 +514,9 @@ function quickAppAuth() {
         storeAppQuickCredentials(user.address, user.publicKey);
         updateAppQuickLoginUI();
 
-        if (lobbyAuthReadyCallback) {
-            lobbyAuthReadyCallback(data);
-        }
+        verifySession(data.sessionId, function (valid, authData) {
+            notifyLobbyAuthReady(valid, authData, data);
+        });
 
         updateAuthMessage('✅ App 快速登入成功');
     })
@@ -578,6 +600,8 @@ function startAppCredentialAuth() {
             updateAppQuickLoginUI();
 
             verifySession(data.sessionId, function (valid, authData) {
+                notifyLobbyAuthReady(valid, authData, data);
+                return;
                 if (valid && lobbyAuthReadyCallback) {
                     lobbyAuthReadyCallback(authData);
                     return;
@@ -648,6 +672,8 @@ function startCustodyAuth() {
             updateCustodyQuickLoginUI();
 
             verifySession(data.sessionId, function (valid, authData) {
+                notifyLobbyAuthReady(valid, authData, data);
+                return;
                 if (valid && lobbyAuthReadyCallback) {
                     lobbyAuthReadyCallback(authData);
                     return;
@@ -713,6 +739,8 @@ function quickCustodyAuth() {
             storeAuth(data.sessionId, data.address, data.publicKey);
 
             verifySession(data.sessionId, function (valid, authData) {
+                notifyLobbyAuthReady(valid, authData, data);
+                return;
                 if (valid && lobbyAuthReadyCallback) {
                     lobbyAuthReadyCallback(authData);
                     return;

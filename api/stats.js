@@ -432,6 +432,135 @@ async function loadCurrentNetWorthEntry(currentAddress) {
     return currentEntries[0] || null;
 }
 
+function normalizeEntriesFromSnapshot(rawEntries, mode = "bet") {
+    const entries = Array.isArray(rawEntries) ? rawEntries : [];
+    if (mode === "net_worth") {
+        return entries.map((entry) => ({
+            address: entry.address,
+            netWorth: Number(entry.netWorth || 0),
+            walletBalance: Number(entry.walletBalance || 0),
+            bankBalance: Number(entry.bankBalance || 0),
+            stockValue: Number(entry.stockValue || 0),
+            futuresUnrealizedPnl: Number(entry.futuresUnrealizedPnl || 0),
+            loanPrincipal: Number(entry.loanPrincipal || 0),
+            totalBet: Number(entry.totalBet || 0)
+        }));
+    }
+    return entries.map((entry) => ({
+        address: entry.address,
+        totalBet: Number(entry.totalBet || 0)
+    }));
+}
+
+function collectTopAddresses(entries, limit) {
+    return (Array.isArray(entries) ? entries : [])
+        .slice(0, Math.max(1, Number(limit) || 50))
+        .map((entry) => String(entry && entry.address || "").trim().toLowerCase())
+        .filter(Boolean);
+}
+
+function buildBetLeaderboardRows(entries, limit, displayNameMap, rewardDisplayMap, totalBetMap) {
+    return entries.slice(0, limit).map((entry, index) => {
+        const vipStatus = buildVipStatus(totalBetMap.get(entry.address) || entry.totalBet || 0);
+        const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
+        return {
+            rank: index + 1,
+            address: entry.address,
+            displayName: displayNameMap.get(entry.address) || "",
+            maskedAddress: maskAddress(entry.address),
+            totalBet: Number(entry.totalBet || 0).toFixed(2),
+            level: vipStatus.vipLevel,
+            betLimit: String(vipStatus.maxBet),
+            levelSystem: { key: "legacy_v1", label: "legacy_v1" },
+            avatar: rewardDisplay.avatar || null,
+            title: rewardDisplay.title || null
+        };
+    });
+}
+
+function buildNetWorthLeaderboardRows(entries, limit, displayNameMap, rewardDisplayMap) {
+    return entries.slice(0, limit).map((entry, index) => {
+        const vipStatus = buildVipStatus(entry.totalBet || 0);
+        const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
+        return {
+            rank: index + 1,
+            address: entry.address,
+            displayName: displayNameMap.get(entry.address) || "",
+            maskedAddress: maskAddress(entry.address),
+            netWorth: Number(entry.netWorth || 0).toFixed(2),
+            walletBalance: Number(entry.walletBalance || 0).toFixed(2),
+            bankBalance: Number(entry.bankBalance || 0).toFixed(2),
+            stockValue: Number(entry.stockValue || 0).toFixed(2),
+            futuresUnrealizedPnl: Number(entry.futuresUnrealizedPnl || 0).toFixed(2),
+            loanPrincipal: Number(entry.loanPrincipal || 0).toFixed(2),
+            totalBet: Number(entry.totalBet || 0).toFixed(2),
+            level: vipStatus.vipLevel,
+            avatar: rewardDisplay.avatar || null,
+            title: rewardDisplay.title || null
+        };
+    });
+}
+
+async function loadHydratedTotalBetView(limit) {
+    const rawCached = await readThroughCache({
+        namespace: "leaderboard",
+        keyParts: ["total_bet"],
+        tier: "public-heavy",
+        loader: loadTotalBetSnapshot
+    });
+    const entries = normalizeEntriesFromSnapshot(rawCached.value.entries, "bet");
+    const totalBetMap = buildTotalBetValueMap(entries);
+    const requestedAddresses = collectTopAddresses(entries, limit);
+    const displayNameMap = await buildDisplayNameMap(requestedAddresses);
+    const rewardDisplayMap = await buildRewardDisplayMap(requestedAddresses, (address) => totalBetMap.get(address) || 0);
+    return {
+        generatedAt: rawCached.value.generatedAt || rawCached.meta.generatedAt || new Date().toISOString(),
+        totalPlayers: entries.length,
+        leaderboard: buildBetLeaderboardRows(entries, limit, displayNameMap, rewardDisplayMap, totalBetMap)
+    };
+}
+
+async function loadHydratedPeriodBetView(type, period, snapshot, limit) {
+    const rawCached = await readThroughCache({
+        namespace: "leaderboard",
+        keyParts: [`${type}_bet`, period.id],
+        tier: "public-heavy",
+        loader: async () => loadPeriodLeaderboardSnapshot(type, period, snapshot)
+    });
+    const entries = normalizeEntriesFromSnapshot(rawCached.value.entries, "bet");
+    const requestedAddresses = collectTopAddresses(entries, limit);
+    const totalBetMap = await loadTotalBetMap(requestedAddresses);
+    const displayNameMap = await buildDisplayNameMap(requestedAddresses);
+    const rewardDisplayMap = await buildRewardDisplayMap(requestedAddresses, (address) => totalBetMap.get(address) || 0);
+    return {
+        generatedAt: rawCached.value.generatedAt || rawCached.meta.generatedAt || new Date().toISOString(),
+        period: rawCached.value.period || Object.assign({ type, id: period.id }, formatPeriodIso(period)),
+        totalPlayers: entries.length,
+        leaderboard: buildBetLeaderboardRows(entries, limit, displayNameMap, rewardDisplayMap, totalBetMap)
+    };
+}
+
+async function loadHydratedNetWorthView(limit) {
+    const rawCached = await readThroughCache({
+        namespace: "leaderboard",
+        keyParts: ["net_worth"],
+        tier: "public-heavy",
+        loader: loadNetWorthSnapshot
+    });
+    const entries = normalizeEntriesFromSnapshot(rawCached.value.entries, "net_worth");
+    const requestedAddresses = collectTopAddresses(entries, limit);
+    const displayNameMap = await buildDisplayNameMap(requestedAddresses);
+    const rewardDisplayMap = await buildRewardDisplayMap(requestedAddresses, (address) => {
+        const entry = entries.find((item) => item.address === address);
+        return entry ? Number(entry.totalBet || 0) : 0;
+    });
+    return {
+        generatedAt: rawCached.value.generatedAt || rawCached.meta.generatedAt || new Date().toISOString(),
+        totalPlayers: entries.length,
+        leaderboard: buildNetWorthLeaderboardRows(entries, limit, displayNameMap, rewardDisplayMap)
+    };
+}
+
 function parseGeneratedAtMs(rawValue) {
     const parsed = Date.parse(String(rawValue || ""));
     return Number.isFinite(parsed) ? parsed : 0;
@@ -621,27 +750,70 @@ export default async function handler(req, res) {
         }
         if (action === "total_bet") {
             const cached = await readThroughCache({
+                namespace: "leaderboard_view",
+                keyParts: ["total_bet", limit],
+                tier: "public-heavy",
+                loader: async () => loadHydratedTotalBetView(limit)
+            });
+            applyStatsReadHeaders(res, cached.meta);
+            const rawCached = await readThroughCache({
                 namespace: "leaderboard",
                 keyParts: ["total_bet"],
                 tier: "public-heavy",
                 loader: loadTotalBetSnapshot
             });
-            applyStatsReadHeaders(res, cached.meta);
-            const entries = (cached.value.entries || []).map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
-            const totalBetMap = buildTotalBetValueMap(entries);
-            const requestedAddresses = collectRequestedLeaderboardAddresses(entries, currentAddress, limit);
-            const displayNameMap = await buildDisplayNameMap(requestedAddresses);
-            const rewardDisplayMap = await buildRewardDisplayMap(requestedAddresses, (address) => totalBetMap.get(address) || 0);
-            const leaderboard = entries.slice(0, limit).map((entry, index) => {
-                const vipStatus = buildVipStatus(entry.totalBet);
-                const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
-                return { rank: index + 1, address: entry.address, displayName: displayNameMap.get(entry.address) || "", maskedAddress: maskAddress(entry.address), totalBet: entry.totalBet.toFixed(2), level: vipStatus.vipLevel, betLimit: String(vipStatus.maxBet), avatar: rewardDisplay.avatar || null, title: rewardDisplay.title || null };
-            });
+            const entries = normalizeEntriesFromSnapshot(rawCached.value.entries, "bet");
             const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
-            const myRank = myIndex >= 0 ? entries[myIndex] : null;
+            let myRank = myIndex >= 0 ? (cached.value.leaderboard || []).find((entry) => entry.address === currentAddress) || null : null;
+            if (!myRank && myIndex >= 0) {
+                const myEntry = entries[myIndex];
+                const totalBetMap = new Map([[currentAddress, Number(myEntry.totalBet || 0)]]);
+                const displayNameMap = await buildDisplayNameMap([currentAddress]);
+                const rewardDisplayMap = await buildRewardDisplayMap([currentAddress], (address) => totalBetMap.get(address) || 0);
+                const rows = buildBetLeaderboardRows([myEntry], 1, displayNameMap, rewardDisplayMap, totalBetMap);
+                myRank = rows.length ? Object.assign({}, rows[0], { rank: myIndex + 1 }) : null;
+            }
             return res.status(200).json({
-                success: true, generatedAt: cached.value.generatedAt || new Date().toISOString(), totalPlayers: entries.length, leaderboard,
-                myRank: myRank ? { rank: myIndex + 1, address: myRank.address, displayName: displayNameMap.get(myRank.address) || "", maskedAddress: maskAddress(myRank.address), totalBet: myRank.totalBet.toFixed(2), level: buildVipStatus(myRank.totalBet).vipLevel, betLimit: String(buildVipStatus(myRank.totalBet).maxBet), avatar: (rewardDisplayMap.get(myRank.address) || {}).avatar || null, title: (rewardDisplayMap.get(myRank.address) || {}).title || null } : null
+                success: true,
+                generatedAt: cached.value.generatedAt || new Date().toISOString(),
+                totalPlayers: cached.value.totalPlayers || entries.length,
+                leaderboard: cached.value.leaderboard || [],
+                myRank
+            });
+        }
+        if (action === "weekly_bet") {
+            const cached = await readThroughCache({
+                namespace: "leaderboard_view",
+                keyParts: ["weekly_bet", periodSnapshot.week.id, limit],
+                tier: "public-heavy",
+                loader: async () => loadHydratedPeriodBetView("weekly", periodSnapshot.week, periodSnapshot, limit)
+            });
+            applyStatsReadHeaders(res, cached.meta);
+            const rawCached = await readThroughCache({
+                namespace: "leaderboard",
+                keyParts: ["weekly_bet", periodSnapshot.week.id],
+                tier: "public-heavy",
+                loader: async () => loadPeriodLeaderboardSnapshot("weekly", periodSnapshot.week, periodSnapshot)
+            });
+            const entries = normalizeEntriesFromSnapshot(rawCached.value.entries, "bet");
+            const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
+            const myEntry = myIndex >= 0 ? entries[myIndex] : null;
+            let myRank = myEntry ? (cached.value.leaderboard || []).find((entry) => entry.address === currentAddress) || null : null;
+            if (!myRank && myEntry) {
+                const totalBetMap = await loadTotalBetMap([currentAddress]);
+                const displayNameMap = await buildDisplayNameMap([currentAddress]);
+                const rewardDisplayMap = await buildRewardDisplayMap([currentAddress], (address) => totalBetMap.get(address) || 0);
+                const rows = buildBetLeaderboardRows([myEntry], 1, displayNameMap, rewardDisplayMap, totalBetMap);
+                myRank = rows.length ? Object.assign({}, rows[0], { rank: myIndex + 1 }) : null;
+            }
+            return res.status(200).json({
+                success: true,
+                generatedAt: cached.value.generatedAt || new Date().toISOString(),
+                period: cached.value.period,
+                totalPlayers: cached.value.totalPlayers || entries.length,
+                leaderboard: cached.value.leaderboard || [],
+                myRank,
+                myPeriodBet: (myEntry ? myEntry.totalBet : 0).toFixed(2)
             });
         }
         if (action === "weekly_bet") {
@@ -693,6 +865,41 @@ export default async function handler(req, res) {
                     avatar: (rewardDisplayMap.get(myEntry.address) || {}).avatar || null,
                     title: (rewardDisplayMap.get(myEntry.address) || {}).title || null
                 } : null,
+                myPeriodBet: (myEntry ? myEntry.totalBet : 0).toFixed(2)
+            });
+        }
+        if (action === "monthly_bet") {
+            const cached = await readThroughCache({
+                namespace: "leaderboard_view",
+                keyParts: ["monthly_bet", periodSnapshot.month.id, limit],
+                tier: "public-heavy",
+                loader: async () => loadHydratedPeriodBetView("monthly", periodSnapshot.month, periodSnapshot, limit)
+            });
+            applyStatsReadHeaders(res, cached.meta);
+            const rawCached = await readThroughCache({
+                namespace: "leaderboard",
+                keyParts: ["monthly_bet", periodSnapshot.month.id],
+                tier: "public-heavy",
+                loader: async () => loadPeriodLeaderboardSnapshot("monthly", periodSnapshot.month, periodSnapshot)
+            });
+            const entries = normalizeEntriesFromSnapshot(rawCached.value.entries, "bet");
+            const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
+            const myEntry = myIndex >= 0 ? entries[myIndex] : null;
+            let myRank = myEntry ? (cached.value.leaderboard || []).find((entry) => entry.address === currentAddress) || null : null;
+            if (!myRank && myEntry) {
+                const totalBetMap = await loadTotalBetMap([currentAddress]);
+                const displayNameMap = await buildDisplayNameMap([currentAddress]);
+                const rewardDisplayMap = await buildRewardDisplayMap([currentAddress], (address) => totalBetMap.get(address) || 0);
+                const rows = buildBetLeaderboardRows([myEntry], 1, displayNameMap, rewardDisplayMap, totalBetMap);
+                myRank = rows.length ? Object.assign({}, rows[0], { rank: myIndex + 1 }) : null;
+            }
+            return res.status(200).json({
+                success: true,
+                generatedAt: cached.value.generatedAt || new Date().toISOString(),
+                period: cached.value.period,
+                totalPlayers: cached.value.totalPlayers || entries.length,
+                leaderboard: cached.value.leaderboard || [],
+                myRank,
                 myPeriodBet: (myEntry ? myEntry.totalBet : 0).toFixed(2)
             });
         }
@@ -750,6 +957,41 @@ export default async function handler(req, res) {
         }
         if (action === "season_bet") {
             const cached = await readThroughCache({
+                namespace: "leaderboard_view",
+                keyParts: ["season_bet", periodSnapshot.season.id, limit],
+                tier: "public-heavy",
+                loader: async () => loadHydratedPeriodBetView("season", periodSnapshot.season, periodSnapshot, limit)
+            });
+            applyStatsReadHeaders(res, cached.meta);
+            const rawCached = await readThroughCache({
+                namespace: "leaderboard",
+                keyParts: ["season_bet", periodSnapshot.season.id],
+                tier: "public-heavy",
+                loader: async () => loadPeriodLeaderboardSnapshot("season", periodSnapshot.season, periodSnapshot)
+            });
+            const entries = normalizeEntriesFromSnapshot(rawCached.value.entries, "bet");
+            const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
+            const myEntry = myIndex >= 0 ? entries[myIndex] : null;
+            let myRank = myEntry ? (cached.value.leaderboard || []).find((entry) => entry.address === currentAddress) || null : null;
+            if (!myRank && myEntry) {
+                const totalBetMap = await loadTotalBetMap([currentAddress]);
+                const displayNameMap = await buildDisplayNameMap([currentAddress]);
+                const rewardDisplayMap = await buildRewardDisplayMap([currentAddress], (address) => totalBetMap.get(address) || 0);
+                const rows = buildBetLeaderboardRows([myEntry], 1, displayNameMap, rewardDisplayMap, totalBetMap);
+                myRank = rows.length ? Object.assign({}, rows[0], { rank: myIndex + 1 }) : null;
+            }
+            return res.status(200).json({
+                success: true,
+                generatedAt: cached.value.generatedAt || new Date().toISOString(),
+                period: cached.value.period,
+                totalPlayers: cached.value.totalPlayers || entries.length,
+                leaderboard: cached.value.leaderboard || [],
+                myRank,
+                myPeriodBet: (myEntry ? myEntry.totalBet : 0).toFixed(2)
+            });
+        }
+        if (action === "season_bet") {
+            const cached = await readThroughCache({
                 namespace: "leaderboard",
                 keyParts: ["season_bet", periodSnapshot.season.id],
                 tier: "public-heavy",
@@ -798,6 +1040,48 @@ export default async function handler(req, res) {
                     title: (rewardDisplayMap.get(myEntry.address) || {}).title || null
                 } : null,
                 myPeriodBet: (myEntry ? myEntry.totalBet : 0).toFixed(2)
+            });
+        }
+        if (action === "net_worth") {
+            const cached = await readThroughCache({
+                namespace: "leaderboard_view",
+                keyParts: ["net_worth", limit],
+                tier: "public-heavy",
+                loader: async () => loadHydratedNetWorthView(limit)
+            });
+            applyStatsReadHeaders(res, cached.meta);
+            const rawCached = await readThroughCache({
+                namespace: "leaderboard",
+                keyParts: ["net_worth"],
+                tier: "public-heavy",
+                loader: loadNetWorthSnapshot
+            });
+            const entries = normalizeEntriesFromSnapshot(rawCached.value.entries, "net_worth");
+            if (currentAddress && !entries.some((entry) => entry.address === currentAddress)) {
+                const currentOnlyEntry = await loadCurrentNetWorthEntry(currentAddress);
+                if (currentOnlyEntry) {
+                    entries.push(currentOnlyEntry);
+                    entries.sort((left, right) => {
+                        if (right.netWorth !== left.netWorth) return right.netWorth - left.netWorth;
+                        return left.address.localeCompare(right.address);
+                    });
+                }
+            }
+            const myIndex = entries.findIndex((entry) => entry.address === currentAddress);
+            const myEntry = myIndex >= 0 ? entries[myIndex] : null;
+            let myRank = myEntry ? (cached.value.leaderboard || []).find((entry) => entry.address === currentAddress) || null : null;
+            if (!myRank && myEntry) {
+                const displayNameMap = await buildDisplayNameMap([currentAddress]);
+                const rewardDisplayMap = await buildRewardDisplayMap([currentAddress], () => Number(myEntry.totalBet || 0));
+                const rows = buildNetWorthLeaderboardRows([myEntry], 1, displayNameMap, rewardDisplayMap);
+                myRank = rows.length ? Object.assign({}, rows[0], { rank: myIndex + 1 }) : null;
+            }
+            return res.status(200).json({
+                success: true,
+                generatedAt: cached.value.generatedAt || new Date().toISOString(),
+                totalPlayers: entries.length,
+                leaderboard: cached.value.leaderboard || [],
+                myRank
             });
         }
         if (action === "net_worth") {

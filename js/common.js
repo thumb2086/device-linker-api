@@ -6,6 +6,7 @@ var BALANCE_OVERRIDE_KEY = 'zixi_balance_override';
 var BALANCE_OVERRIDE_ENABLED = true;
 var balanceRefreshIntervalId = null;
 var balanceAuthoritativeSyncIntervalId = null;
+var slotsSettlementResumeIntervalId = null;
 
 function getNumberDisplayMode() {
     try {
@@ -780,12 +781,54 @@ function syncAuthoritativeChainBalance() {
     refreshBalance();
 }
 
+function resumeGlobalSlotsSettlements() {
+    if (!user.sessionId || !user.address) return;
+    if (window.location.pathname.indexOf('/games/slots.html') >= 0) return;
+
+    fetch('/api/game?game=slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'status',
+            address: user.address,
+            sessionId: user.sessionId
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data || data.error) return;
+
+            var updates = Array.isArray(data.updates) ? data.updates : [];
+            var payoutAdded = 0;
+            for (var index = 0; index < updates.length; index += 1) {
+                var update = updates[index] || {};
+                if (String(update.settlementStatus || '').toLowerCase() === 'settled') {
+                    payoutAdded += toSafeNumber(update.payoutAmount, 0);
+                }
+            }
+
+            if (payoutAdded > 0) {
+                setDisplayedBalance(getCurrentUserBalance() + payoutAdded, 5000, 'slots-global-payout');
+            }
+
+            if (updates.length > 0) {
+                setTimeout(refreshBalance, 1200);
+            }
+        })
+        .catch(function () {
+            console.log('Global slots settlement resume failed');
+        });
+}
+
 function startBalanceRefresh() {
     if (balanceRefreshIntervalId) clearInterval(balanceRefreshIntervalId);
     if (balanceAuthoritativeSyncIntervalId) clearInterval(balanceAuthoritativeSyncIntervalId);
+    if (slotsSettlementResumeIntervalId) clearInterval(slotsSettlementResumeIntervalId);
     setTimeout(refreshBalance, 800);
+    setTimeout(resumeGlobalSlotsSettlements, 2200);
     balanceRefreshIntervalId = setInterval(refreshBalance, 30000);
     balanceAuthoritativeSyncIntervalId = setInterval(syncAuthoritativeChainBalance, 15 * 60 * 1000);
+    slotsSettlementResumeIntervalId = setInterval(resumeGlobalSlotsSettlements, 12000);
 }
 
 function txLinkHTML(txHash) {

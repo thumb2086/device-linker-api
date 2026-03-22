@@ -430,14 +430,19 @@ function inferGlobalBgmTrack() {
     return 'lobby';
 }
 
-function ensureGlobalBgmPlayback() {
+function ensureGlobalBgmPlayback(force) {
     var track = inferGlobalBgmTrack();
-    if (!track || !getBgmEnabled()) return;
+    if (!track || !getBgmEnabled()) {
+        if (window.audioManager && typeof window.audioManager.setBgmEnabled === 'function') {
+            window.audioManager.setBgmEnabled(getBgmEnabled());
+        }
+        return;
+    }
 
     if (!window.audioManager || typeof window.audioManager.playBGM !== 'function') {
         if (window.__zixiBgmRetryTimer) clearTimeout(window.__zixiBgmRetryTimer);
         window.__zixiBgmRetryTimer = setTimeout(function () {
-            ensureGlobalBgmPlayback();
+            ensureGlobalBgmPlayback(force);
         }, 300);
         return;
     }
@@ -447,9 +452,14 @@ function ensureGlobalBgmPlayback() {
         window.__zixiBgmRetryTimer = null;
     }
 
+    var shouldForce = force === true;
     window.audioManager.setBgmVolume(getBgmVolume());
-    window.audioManager.setBgmEnabled(true);
+    window.audioManager.setBgmEnabled(getBgmEnabled());
+    if (!shouldForce && window.__zixiActiveBgmTrack === track && window.audioManager.currentBgmKey) {
+        return;
+    }
     window.audioManager.playBGM(track);
+    window.__zixiActiveBgmTrack = track;
 }
 
 function ensureGlobalAudioBindings() {
@@ -655,8 +665,9 @@ function saveUserSettings() {
         });
 }
 
-function updateUI(data) {
+function updateUI(data, options) {
     if (!data) return;
+    var opts = options && typeof options === 'object' ? options : {};
 
     if (data.displayName !== undefined) {
         user.displayName = data.displayName || '';
@@ -716,11 +727,13 @@ function updateUI(data) {
         renderIdentity(data.rewardProfile);
     }
 
-    ensureSupportShortcut();
-    ensureAudioManagerScript();
-    ensureGlobalAudioBindings();
-    ensureGlobalBgmPlayback();
-    ensureSettingsButton();
+    if (!opts.skipGlobalHooks) {
+        ensureSupportShortcut();
+        ensureAudioManagerScript();
+        ensureGlobalAudioBindings();
+        ensureGlobalBgmPlayback();
+        ensureSettingsButton();
+    }
 }
 
 function promptDisplayName() {

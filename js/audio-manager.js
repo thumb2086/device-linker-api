@@ -72,6 +72,38 @@ class AudioManager {
         }
     }
 
+    _createSound(key) {
+        var url = this.soundConfig[key];
+        if (!url || typeof Howl === "undefined") return null;
+        var sound = new Howl({
+            src: [url],
+            volume: this._getSoundVolume(key),
+            mute: this._isSoundMuted(key),
+            html5: this._isBgmKey(key),
+            preload: this._isBgmKey(key) ? false : true
+        });
+        this.sounds[key] = sound;
+        return sound;
+    }
+
+    _ensureSound(key) {
+        if (!key) return null;
+        if (this.sounds[key]) return this.sounds[key];
+        return this._createSound(key);
+    }
+
+    _releaseSound(key) {
+        var sound = this.sounds[key];
+        if (!sound) return;
+        try {
+            sound.stop();
+            if (typeof sound.unload === "function") sound.unload();
+        } catch (error) {
+            console.log("Failed to release sound", key);
+        }
+        delete this.sounds[key];
+    }
+
     init() {
         if (this.initialized) return;
 
@@ -91,13 +123,8 @@ class AudioManager {
         var entries = Object.entries(this.soundConfig);
         for (var i = 0; i < entries.length; i += 1) {
             var key = entries[i][0];
-            var url = entries[i][1];
-            this.sounds[key] = new Howl({
-                src: [url],
-                volume: this._getSoundVolume(key),
-                mute: this._isSoundMuted(key),
-                html5: this._isBgmKey(key)
-            });
+            if (this._isBgmKey(key)) continue;
+            this._ensureSound(key);
         }
 
         if (this.pendingBgmKey && this.bgmEnabled && !this.isMuted) {
@@ -108,7 +135,7 @@ class AudioManager {
     play(key, options = {}) {
         if (!this.initialized) this.init();
 
-        var sound = this.sounds[key];
+        var sound = this._ensureSound(key);
         if (!sound) return null;
         if (this._isSoundMuted(key)) return null;
 
@@ -156,6 +183,9 @@ class AudioManager {
 
         if (this.currentBgmKey && this.currentBgmKey !== key) {
             this.stop(this.currentBgmKey, this.currentBgmId);
+            this._releaseSound(this.currentBgmKey);
+            this.currentBgmKey = "";
+            this.currentBgmId = null;
         }
 
         if (this.currentBgmKey === key && this.currentBgmId) {
@@ -167,7 +197,10 @@ class AudioManager {
 
     stopBGM() {
         if (!this.currentBgmKey) return;
-        this.stop(this.currentBgmKey, this.currentBgmId);
+        var currentKey = this.currentBgmKey;
+        this.stop(currentKey, this.currentBgmId);
+        this._releaseSound(currentKey);
+        this.currentBgmKey = "";
         this.currentBgmId = null;
     }
 

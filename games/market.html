@@ -4,29 +4,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>金融市場模擬 | 子熙幣</title>
+    <title>金融市場 | 子熙幣</title>
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/market.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
 </head>
 
 <body class="market-body">
     <div class="page-header">
-        <a href="/" class="back-btn">← 大廳</a>
+        <a href="/" class="back-btn">返回大廳</a>
         <div class="header-stats">
-            <div class="audio-player" id="audio-player-controls">
-                <button class="audio-player-mute-btn" id="mute-btn">🔊</button>
-                <div class="audio-player-volume-controls">
-                    <div class="audio-player-volume-slider">
-                        <span>BGM</span>
-                        <input type="range" id="bgm-volume-slider" min="0" max="1" step="0.05">
-                    </div>
-                    <div class="audio-player-volume-slider">
-                        <span>SFX</span>
-                        <input type="range" id="sfx-volume-slider" min="0" max="1" step="0.05">
-                    </div>
-                </div>
-            </div>
             <span class="vip" id="header-vip">-</span>
             <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
             <button class="logout-btn" onclick="logoutUser()">登出</button>
@@ -34,17 +20,17 @@
     </div>
 
     <div class="casino-card" id="main-card">
-        <h1>📈 金融市場模擬</h1>
+        <h1>金融市場</h1>
 
         <div class="user-stats">
-            <span id="vip-badge">普通會員</span>
-            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> 子熙幣</div>
-            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+            <span id="vip-badge">等級載入中</span>
+            <div class="stat-row">可用資金: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計下注: <span id="total-bet-val">0.00</span> 子熙幣</div>
         </div>
 
         <div class="sim-overview">
             <div class="sim-item">
-                <span>可用 子熙幣</span>
+                <span>模擬現金</span>
                 <strong id="sim-cash">0.00</strong>
             </div>
             <div class="sim-item">
@@ -52,11 +38,11 @@
                 <strong id="sim-bank">0.00</strong>
             </div>
             <div class="sim-item">
-                <span>貸款餘額</span>
+                <span>貸款本金</span>
                 <strong id="sim-loan">0.00</strong>
             </div>
             <div class="sim-item">
-                <span>淨值</span>
+                <span>淨資產</span>
                 <strong id="sim-net">0.00</strong>
             </div>
             <div class="sim-item">
@@ -64,14 +50,17 @@
                 <strong id="market-vol">0.00%</strong>
             </div>
             <div class="sim-item">
-                <span>恐懼貪婪</span>
+                <span>恐懼貪婪指數</span>
                 <strong id="fg-index">0</strong>
             </div>
         </div>
 
         <div class="section-block">
-            <h2>市場行情</h2>
-            <p class="market-note">所有股票、BTC 與黃金報價每 <strong>30 秒</strong> 自動更新一次；你也可以手動按「刷新行情」立即同步。</p>
+            <div class="section-header-row">
+                <h2>市場行情</h2>
+                <div id="market-cache-meta" class="market-cache-meta"></div>
+            </div>
+            <p class="market-note">行情依目前系統參數自動模擬，頁面會定時同步最新快照。</p>
             <div id="market-table" class="market-table"></div>
         </div>
 
@@ -87,8 +76,8 @@
         </div>
 
         <div class="section-block">
-            <h2>期貨槓桿</h2>
-            <p class="market-note">做多 / 做空共用會員單筆上限：<strong id="futures-max-bet">-</strong></p>
+            <h2>期貨倉位</h2>
+            <p class="market-note">多空都可開倉，單次保證金上限為 <strong id="futures-max-bet">-</strong></p>
             <div class="form-row">
                 <select id="futures-symbol"></select>
                 <select id="futures-side">
@@ -103,12 +92,12 @@
         </div>
 
         <div class="section-block">
-            <h2>銀行利息 / 貸款</h2>
-            <p class="market-note">存款年利率 <strong id="bank-rate-label">2%</strong>，借貸年利率 <strong id="loan-rate-label">4%</strong>。利息會依持有時間持續累積，不是整天才結一次。</p>
+            <h2>銀行與貸款</h2>
+            <p class="market-note">銀行年利率 <strong id="bank-rate-label">2%</strong>，貸款年利率 <strong id="loan-rate-label">4%</strong>。</p>
             <div class="form-row">
                 <input type="number" id="bank-amount" min="0.000001" step="0.000001" value="100">
-                <button class="btn-primary" onclick="submitBank('bank_deposit')">存款</button>
-                <button class="btn-secondary" onclick="submitBank('bank_withdraw')">提款</button>
+                <button class="btn-primary" onclick="submitBank('bank_deposit')">存入銀行</button>
+                <button class="btn-secondary" onclick="submitBank('bank_withdraw')">銀行提款</button>
             </div>
             <div class="form-row">
                 <input type="number" id="loan-amount" min="0.000001" step="0.000001" value="100">
@@ -118,16 +107,16 @@
         </div>
 
         <div class="section-block">
-            <h2>模擬操作</h2>
-            <div class="form-row">
-                <button class="btn-primary" onclick="refreshMarket(false)">刷新行情</button>
+            <h2>同步狀態</h2>
+            <div class="form-row market-action-row">
+                <button class="btn-primary" onclick="refreshMarket(false, { forceRefresh: true })">重新整理</button>
             </div>
             <p id="status-msg">載入中...</p>
             <div id="liquidation-log"></div>
         </div>
 
         <div class="section-block">
-            <h2>近期紀錄</h2>
+            <h2>操作紀錄</h2>
             <div id="history-log" class="history-log"></div>
         </div>
     </div>
@@ -137,52 +126,12 @@
     <script src="../js/audio-manager.js"></script>
     <script src="../js/market.js"></script>
     <script>
-        function initAudioPlayer() {
-            const audioManager = window.audioManager;
-            const muteBtn = document.getElementById('mute-btn');
-            const bgmSlider = document.getElementById('bgm-volume-slider');
-            const sfxSlider = document.getElementById('sfx-volume-slider');
-
-            if (!audioManager || !muteBtn || !bgmSlider || !sfxSlider) return;
-
-            const updateMuteButton = () => {
-                muteBtn.textContent = audioManager.isMuted ? '🔇' : '🔊';
-            };
-
-            bgmSlider.value = audioManager.bgmVolume;
-            sfxSlider.value = audioManager.sfxVolume;
-            updateMuteButton();
-
-            muteBtn.addEventListener('click', () => {
-                audioManager.setMute(!audioManager.isMuted);
-                updateMuteButton();
-            });
-
-            bgmSlider.addEventListener('input', (e) => {
-                audioManager.setBgmVolume(parseFloat(e.target.value));
-            });
-
-            sfxSlider.addEventListener('input', (e) => {
-                audioManager.setSfxVolume(parseFloat(e.target.value));
-            });
-
-            console.log('🔊 Audio Player UI Initialized');
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMarketApp);
+        } else {
+            initMarketApp();
         }
-
-        window.onload = function () {
-            checkGameAuth(function (data) {
-                updateUI(data);
-                startBalanceRefresh();
-                initMarketPage();
-                initAudioPlayer();
-
-                if (window.audioManager) {
-                    window.audioManager.playBGM('tense');
-                }
-            });
-        };
     </script>
-
 </body>
 
 </html>

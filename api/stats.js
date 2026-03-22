@@ -432,6 +432,131 @@ async function loadCurrentNetWorthEntry(currentAddress) {
     return currentEntries[0] || null;
 }
 
+function parseGeneratedAtMs(rawValue) {
+    const parsed = Date.parse(String(rawValue || ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function mergeReadCacheMeta(metaList) {
+    const list = Array.isArray(metaList) ? metaList.filter(Boolean) : [];
+    const statuses = list.map((meta) => String(meta.status || "").toUpperCase());
+    const layers = list.map((meta) => String(meta.layer || "").trim());
+    const generatedAtMs = list.reduce((latest, meta) => Math.max(latest, parseGeneratedAtMs(meta.generatedAt)), 0);
+
+    let status = "HIT";
+    if (statuses.includes("MISS")) status = "MISS";
+    else if (statuses.includes("STALE")) status = "STALE";
+
+    let layer = "L1";
+    if (layers.includes("origin")) layer = "origin";
+    else if (layers.includes("L2")) layer = "L2";
+
+    return {
+        status,
+        layer,
+        generatedAt: generatedAtMs > 0 ? new Date(generatedAtMs).toISOString() : new Date().toISOString()
+    };
+}
+
+function getChampionSourceConfigs(periodSnapshot) {
+    return [
+        {
+            key: "totalBet",
+            label: "總下注榜一",
+            metricLabel: "總下注",
+            viewType: "total-bet",
+            viewScope: "total",
+            readOptions: {
+                namespace: "leaderboard",
+                keyParts: ["total_bet"],
+                tier: "public-heavy",
+                loader: loadTotalBetSnapshot
+            },
+            selectValue: (entry) => Number(entry?.totalBet || 0)
+        },
+        {
+            key: "weeklyBet",
+            label: "本週榜一",
+            metricLabel: "本週下注",
+            viewType: "total-bet",
+            viewScope: "weekly",
+            readOptions: {
+                namespace: "leaderboard",
+                keyParts: ["weekly_bet", periodSnapshot.week.id],
+                tier: "public-heavy",
+                loader: async () => loadPeriodLeaderboardSnapshot("weekly", periodSnapshot.week, periodSnapshot)
+            },
+            selectValue: (entry) => Number(entry?.totalBet || 0)
+        },
+        {
+            key: "monthlyBet",
+            label: "本月榜一",
+            metricLabel: "本月下注",
+            viewType: "total-bet",
+            viewScope: "monthly",
+            readOptions: {
+                namespace: "leaderboard",
+                keyParts: ["monthly_bet", periodSnapshot.month.id],
+                tier: "public-heavy",
+                loader: async () => loadPeriodLeaderboardSnapshot("monthly", periodSnapshot.month, periodSnapshot)
+            },
+            selectValue: (entry) => Number(entry?.totalBet || 0)
+        },
+        {
+            key: "seasonBet",
+            label: "本賽季榜一",
+            metricLabel: "本賽季下注",
+            viewType: "total-bet",
+            viewScope: "season",
+            readOptions: {
+                namespace: "leaderboard",
+                keyParts: ["season_bet", periodSnapshot.season.id],
+                tier: "public-heavy",
+                loader: async () => loadPeriodLeaderboardSnapshot("season", periodSnapshot.season, periodSnapshot)
+            },
+            selectValue: (entry) => Number(entry?.totalBet || 0)
+        },
+        {
+            key: "netWorth",
+            label: "總資產榜一",
+            metricLabel: "總資產",
+            viewType: "balance",
+            viewScope: "total",
+            readOptions: {
+                namespace: "leaderboard",
+                keyParts: ["net_worth"],
+                tier: "public-heavy",
+                loader: loadNetWorthSnapshot
+            },
+            selectValue: (entry) => Number(entry?.netWorth || 0)
+        }
+    ];
+}
+
+function buildChampionPayload(config, entry, period, generatedAt, displayNameMap, rewardDisplayMap, totalBetMap) {
+    const address = entry && entry.address ? String(entry.address).toLowerCase() : "";
+    const totalBet = address ? Number(totalBetMap.get(address) || entry?.totalBet || 0) : 0;
+    const vipStatus = address ? buildVipStatus(totalBet) : { vipLevel: "-" };
+    const rewardDisplay = address ? (rewardDisplayMap.get(address) || {}) : {};
+    return {
+        key: config.key,
+        label: config.label,
+        metricLabel: config.metricLabel,
+        viewType: config.viewType,
+        viewScope: config.viewScope,
+        hasChampion: !!address,
+        generatedAt: generatedAt || null,
+        period: period || null,
+        address,
+        maskedAddress: address ? maskAddress(address) : "-",
+        displayName: address ? (displayNameMap.get(address) || "") : "",
+        value: entry ? Number(config.selectValue(entry) || 0) : 0,
+        level: vipStatus.vipLevel,
+        avatar: rewardDisplay.avatar || null,
+        title: rewardDisplay.title || null
+    };
+}
+
 export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -448,6 +573,52 @@ export default async function handler(req, res) {
         if (!session || !session.address) return res.status(403).json({ success: false, error: "Session expired" });
         const currentAddress = String(session.address || "").trim().toLowerCase();
         const periodSnapshot = getPeriodSnapshot();
+        if (action === "champions") {
+            const championConfigs = getChampionSourceConfigs(periodSnapshot);
+            const sourceResults = await Promise.all(championConfigs.map((config) => readThroughCache(config.readOptions)));
+            const aggregateMeta = mergeReadCacheMeta(sourceResults.map((result) => result.meta));
+            applyStatsReadHeaders(res, aggregateMeta);
+
+            const championSources = championConfigs.map((config, index) => {
+                const result = sourceResults[index] || {};
+                const value = result.value || {};
+                const entries = Array.isArray(value.entries) ? value.entries : [];
+                return {
+                    config,
+                    period: value.period || null,
+                    generatedAt: value.generatedAt || aggregateMeta.generatedAt,
+                    entry: entries.length ? entries[0] : null
+                };
+            });
+
+            const championAddresses = Array.from(new Set(
+                championSources
+                    .map((source) => String(source.entry?.address || "").trim().toLowerCase())
+                    .filter(Boolean)
+            ));
+            const totalBetMap = await loadTotalBetMap(championAddresses);
+            const displayNameMap = await buildDisplayNameMap(championAddresses);
+            const rewardDisplayMap = await buildRewardDisplayMap(championAddresses, (address) => totalBetMap.get(address) || 0);
+            const champions = {};
+
+            championSources.forEach((source) => {
+                champions[source.config.key] = buildChampionPayload(
+                    source.config,
+                    source.entry,
+                    source.period,
+                    source.generatedAt,
+                    displayNameMap,
+                    rewardDisplayMap,
+                    totalBetMap
+                );
+            });
+
+            return res.status(200).json({
+                success: true,
+                generatedAt: aggregateMeta.generatedAt,
+                champions
+            });
+        }
         if (action === "total_bet") {
             const cached = await readThroughCache({
                 namespace: "leaderboard",
@@ -661,7 +832,7 @@ export default async function handler(req, res) {
                 myRank: myRank ? { rank: myIndex + 1, address: myRank.address, displayName: displayNameMap.get(myRank.address) || "", maskedAddress: maskAddress(myRank.address), netWorth: myRank.netWorth.toFixed(2), walletBalance: myRank.walletBalance.toFixed(2), bankBalance: myRank.bankBalance.toFixed(2), stockValue: myRank.stockValue.toFixed(2), futuresUnrealizedPnl: myRank.futuresUnrealizedPnl.toFixed(2), loanPrincipal: myRank.loanPrincipal.toFixed(2), totalBet: myRank.totalBet.toFixed(2), level: buildVipStatus(myRank.totalBet).vipLevel, avatar: (rewardDisplayMap.get(myRank.address) || {}).avatar || null, title: (rewardDisplayMap.get(myRank.address) || {}).title || null } : null
             });
         }
-        return res.status(400).json({ success: false, error: `Unsupported action: ${action}`, supportedActions: ["total_bet", "weekly_bet", "monthly_bet", "season_bet", "net_worth"] });
+        return res.status(400).json({ success: false, error: `Unsupported action: ${action}`, supportedActions: ["champions", "total_bet", "weekly_bet", "monthly_bet", "season_bet", "net_worth"] });
     } catch (error) {
         console.error("Stats API Error:", error);
         return res.status(500).json({ success: false, error: error.message || "Stats API failed" });

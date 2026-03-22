@@ -20,11 +20,22 @@
     </div>
 
     <div class="casino-card" id="main-card">
-        <h1 id="leaderboard-title">排行榜</h1>
+        <h1 id="leaderboard-title">總下注排行榜</h1>
+
+        <section class="leaderboard-champions">
+            <div class="leaderboard-section-head">
+                <div>
+                    <p class="leaderboard-kicker">Hall of Fame</p>
+                    <h2>各榜榜一</h2>
+                </div>
+                <span class="leaderboard-section-note" id="leaderboard-champion-meta">載入中...</span>
+            </div>
+            <div id="leaderboard-champion-grid" class="leaderboard-champion-grid"></div>
+        </section>
 
         <div class="leaderboard-type-selector">
-            <button class="type-btn is-active" data-type="total-bet">投注排行</button>
-            <button class="type-btn" data-type="balance">淨值排行</button>
+            <button class="type-btn is-active" data-type="total-bet">下注榜</button>
+            <button class="type-btn" data-type="balance">資產榜</button>
         </div>
 
         <div class="leaderboard-scope" id="leaderboard-scope">
@@ -38,7 +49,7 @@
         <div class="user-stats">
             <span id="vip-badge">VIP</span>
             <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> 金幣</div>
-            <div class="stat-row">累計投注: <span id="total-bet-val">0.00</span> 金幣</div>
+            <div class="stat-row">累積下注: <span id="total-bet-val">0.00</span> 金幣</div>
         </div>
 
         <div class="leaderboard-overview">
@@ -47,15 +58,15 @@
                 <strong id="my-rank">-</strong>
             </div>
             <div class="overview-card">
-                <span id="my-bet-label">總投注</span>
+                <span id="my-bet-label">總下注</span>
                 <strong id="my-total-bet">-</strong>
             </div>
             <div class="overview-card">
-                <span>我的名稱</span>
+                <span>我的稱號</span>
                 <strong id="my-name" style="word-break: break-all;">-</strong>
             </div>
             <div class="overview-card">
-                <span>排行榜人數</span>
+                <span>榜單人數</span>
                 <strong id="leaderboard-total">0</strong>
             </div>
         </div>

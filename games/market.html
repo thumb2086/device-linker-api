@@ -74,6 +74,14 @@
                 </div>
             </div>
             <p class="market-note">先顯示快照、背景同步最新行情。板塊與大盤趨勢會一起帶動個股，不再是各走各的。</p>
+            <div class="market-index-panel">
+                <div class="market-index-copy">
+                    <span>大盤指數</span>
+                    <strong id="market-index-value">100.00</strong>
+                    <div id="market-index-trend" class="market-index-trend">震盪 0%</div>
+                </div>
+                <div id="market-index-chart" class="market-index-chart"></div>
+            </div>
             <div id="sector-board" class="sector-board"></div>
             <div id="market-table" class="market-table"></div>
         </div>
@@ -86,12 +94,8 @@
                 <button class="btn-primary" onclick="submitStock('buy_stock')">買入</button>
                 <button class="btn-secondary" onclick="submitStock('sell_stock')">賣出</button>
             </div>
-            <div class="batch-trade-box">
-                <label for="batch-stock-orders">批次交易</label>
-                <textarea id="batch-stock-orders" rows="5" placeholder="AAPL,10&#10;NVDA,3&#10;buy TSM 5"></textarea>
-                <div class="batch-trade-help">格式支援 `SYMBOL,數量` 預設賣出，或 `buy/sell SYMBOL 數量`。可一次送多支股票。</div>
-                <button class="btn-primary" type="button" onclick="submitBatchStockTrades()">送出批次交易</button>
-            </div>
+            <div class="market-note quick-trade-note">快速交易模式已開啟。你可以連續下單，系統會在背景依序送出，不需要每筆手動等上一筆完成。</div>
+            <div id="trade-queue-status" class="trade-queue-status hidden"></div>
             <div id="stock-holdings" class="position-list"></div>
         </div>
 

@@ -662,7 +662,99 @@ function getChampionSourceConfigs(periodSnapshot) {
     ];
 }
 
-function buildChampionPayload(config, entry, period, generatedAt, displayNameMap, rewardDisplayMap, totalBetMap) {
+const HALL_OF_FAME_CONFIGS = [
+    {
+        cacheKey: "weekly_bet_hof",
+        historyType: "weekly",
+        key: "weeklyBet",
+        label: "週榜王",
+        metricLabel: "累計正式榜一",
+        viewType: "total-bet",
+        viewScope: "weekly"
+    },
+    {
+        cacheKey: "monthly_bet_hof",
+        historyType: "monthly",
+        key: "monthlyBet",
+        label: "月榜王",
+        metricLabel: "累計正式榜一",
+        viewType: "total-bet",
+        viewScope: "monthly"
+    },
+    {
+        cacheKey: "season_bet_hof",
+        historyType: "season",
+        key: "seasonBet",
+        label: "賽季榜王",
+        metricLabel: "累計正式榜一",
+        viewType: "total-bet",
+        viewScope: "season"
+    }
+];
+
+function compareHallOfFameCandidate(left, right) {
+    if (!left) return 1;
+    if (!right) return -1;
+    if (right.count !== left.count) return right.count - left.count;
+    const periodCompare = String(right.lastSettledPeriodId || "").localeCompare(String(left.lastSettledPeriodId || ""));
+    if (periodCompare !== 0) return periodCompare;
+    return String(left.address || "").localeCompare(String(right.address || ""));
+}
+
+async function loadHallOfFameSnapshot(type) {
+    const keys = [];
+    for await (const key of kv.scanIterator({ match: `system_title:${type}:history:*`, count: 1000 })) {
+        keys.push(key);
+    }
+
+    const winners = new Map();
+    const chunkSize = 100;
+    for (let index = 0; index < keys.length; index += chunkSize) {
+        const chunkKeys = keys.slice(index, index + chunkSize);
+        const chunkValues = await Promise.all(chunkKeys.map((key) => kv.get(key)));
+        for (let valueIndex = 0; valueIndex < chunkValues.length; valueIndex += 1) {
+            const record = chunkValues[valueIndex];
+            const address = String(record && record.winner || "").trim().toLowerCase();
+            if (!address) continue;
+            const previous = winners.get(address) || { address, count: 0, lastSettledPeriodId: "" };
+            previous.count += 1;
+            const periodId = String(record && record.periodId || "").trim();
+            if (periodId && periodId.localeCompare(previous.lastSettledPeriodId) > 0) {
+                previous.lastSettledPeriodId = periodId;
+            }
+            winners.set(address, previous);
+        }
+    }
+
+    const best = Array.from(winners.values()).sort(compareHallOfFameCandidate)[0] || null;
+    return {
+        generatedAt: new Date().toISOString(),
+        type,
+        address: best ? best.address : "",
+        count: best ? Number(best.count || 0) : 0,
+        lastSettledPeriodId: best ? String(best.lastSettledPeriodId || "") : ""
+    };
+}
+
+async function loadSettledChampionMeta(type, leaderAddress) {
+    const normalizedAddress = String(leaderAddress || "").trim().toLowerCase();
+    const reigningAddress = String(await kv.get(`system_title:${type}:current_winner`) || "").trim().toLowerCase();
+    const lastSettledPeriodId = String(await kv.get(`system_title:${type}:last_settled_period`) || "").trim();
+    if (!normalizedAddress || !reigningAddress || normalizedAddress !== reigningAddress) {
+        return {
+            streakCount: 0,
+            streakMode: "settled_only",
+            lastSettledPeriodId: ""
+        };
+    }
+    return {
+        streakCount: Number(await kv.get(`system_title:${type}:streak:${reigningAddress}`) || 0) || 0,
+        streakMode: "settled_only",
+        lastSettledPeriodId
+    };
+}
+
+function buildChampionPayload(config, entry, period, generatedAt, displayNameMap, rewardDisplayMap, totalBetMap, extraMeta = {}) {
     const address = entry && entry.address ? String(entry.address).toLowerCase() : "";
     const totalBet = address ? Number(totalBetMap.get(address) || entry?.totalBet || 0) : 0;
     const vipStatus = address ? buildVipStatus(totalBet) : { vipLevel: "-" };
@@ -680,6 +772,33 @@ function buildChampionPayload(config, entry, period, generatedAt, displayNameMap
         maskedAddress: address ? maskAddress(address) : "-",
         displayName: address ? (displayNameMap.get(address) || "") : "",
         value: entry ? Number(config.selectValue(entry) || 0) : 0,
+        level: vipStatus.vipLevel,
+        avatar: rewardDisplay.avatar || null,
+        title: rewardDisplay.title || null,
+        streakCount: Number(extraMeta.streakCount || 0),
+        streakMode: extraMeta.streakMode || "settled_only",
+        lastSettledPeriodId: String(extraMeta.lastSettledPeriodId || "")
+    };
+}
+
+function buildHallOfFamePayload(config, snapshot, generatedAt, displayNameMap, rewardDisplayMap, totalBetMap) {
+    const address = snapshot && snapshot.address ? String(snapshot.address).toLowerCase() : "";
+    const totalBet = address ? Number(totalBetMap.get(address) || 0) : 0;
+    const vipStatus = address ? buildVipStatus(totalBet) : { vipLevel: "-" };
+    const rewardDisplay = address ? (rewardDisplayMap.get(address) || {}) : {};
+    return {
+        key: config.key,
+        label: config.label,
+        metricLabel: config.metricLabel,
+        viewType: config.viewType,
+        viewScope: config.viewScope,
+        hasChampion: !!address,
+        generatedAt: generatedAt || null,
+        address,
+        maskedAddress: address ? maskAddress(address) : "-",
+        displayName: address ? (displayNameMap.get(address) || "") : "",
+        count: Number(snapshot && snapshot.count || 0),
+        lastSettledPeriodId: String(snapshot && snapshot.lastSettledPeriodId || ""),
         level: vipStatus.vipLevel,
         avatar: rewardDisplay.avatar || null,
         title: rewardDisplay.title || null
@@ -705,7 +824,13 @@ export default async function handler(req, res) {
         if (action === "champions") {
             const championConfigs = getChampionSourceConfigs(periodSnapshot);
             const sourceResults = await Promise.all(championConfigs.map((config) => readThroughCache(config.readOptions)));
-            const aggregateMeta = mergeReadCacheMeta(sourceResults.map((result) => result.meta));
+            const hallOfFameResults = await Promise.all(HALL_OF_FAME_CONFIGS.map((config) => readThroughCache({
+                namespace: "leaderboard_hof",
+                keyParts: [config.cacheKey],
+                tier: "public-heavy",
+                loader: async () => loadHallOfFameSnapshot(config.historyType)
+            })));
+            const aggregateMeta = mergeReadCacheMeta(sourceResults.map((result) => result.meta).concat(hallOfFameResults.map((result) => result.meta)));
             applyStatsReadHeaders(res, aggregateMeta);
 
             const championSources = championConfigs.map((config, index) => {
@@ -720,21 +845,62 @@ export default async function handler(req, res) {
                 };
             });
 
+            const championMetaList = await Promise.all(championSources.map(async (source) => {
+                if (source.config.key === "weeklyBet") {
+                    return loadSettledChampionMeta("weekly", source.entry?.address);
+                }
+                if (source.config.key === "monthlyBet") {
+                    return loadSettledChampionMeta("monthly", source.entry?.address);
+                }
+                if (source.config.key === "seasonBet") {
+                    return loadSettledChampionMeta("season", source.entry?.address);
+                }
+                return {
+                    streakCount: 0,
+                    streakMode: "settled_only",
+                    lastSettledPeriodId: ""
+                };
+            }));
+
+            const hallOfFameSources = HALL_OF_FAME_CONFIGS.map((config, index) => {
+                const result = hallOfFameResults[index] || {};
+                const value = result.value || {};
+                return {
+                    config,
+                    generatedAt: value.generatedAt || aggregateMeta.generatedAt,
+                    snapshot: value
+                };
+            });
+
             const championAddresses = Array.from(new Set(
                 championSources
                     .map((source) => String(source.entry?.address || "").trim().toLowerCase())
+                    .concat(hallOfFameSources.map((source) => String(source.snapshot?.address || "").trim().toLowerCase()))
                     .filter(Boolean)
             ));
             const totalBetMap = await loadTotalBetMap(championAddresses);
             const displayNameMap = await buildDisplayNameMap(championAddresses);
             const rewardDisplayMap = await buildRewardDisplayMap(championAddresses, (address) => totalBetMap.get(address) || 0);
             const champions = {};
+            const hallOfFame = {};
 
-            championSources.forEach((source) => {
+            championSources.forEach((source, index) => {
                 champions[source.config.key] = buildChampionPayload(
                     source.config,
                     source.entry,
                     source.period,
+                    source.generatedAt,
+                    displayNameMap,
+                    rewardDisplayMap,
+                    totalBetMap,
+                    championMetaList[index]
+                );
+            });
+
+            hallOfFameSources.forEach((source) => {
+                hallOfFame[source.config.key] = buildHallOfFamePayload(
+                    source.config,
+                    source.snapshot,
                     source.generatedAt,
                     displayNameMap,
                     rewardDisplayMap,
@@ -745,7 +911,8 @@ export default async function handler(req, res) {
             return res.status(200).json({
                 success: true,
                 generatedAt: aggregateMeta.generatedAt,
-                champions
+                champions,
+                hallOfFame
             });
         }
         if (action === "total_bet") {

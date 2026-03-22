@@ -11,26 +11,37 @@
 
 <body class="leaderboard-body">
     <div class="page-header">
-        <a href="/" class="back-btn">返回大廳</a>
+        <a href="/" class="back-btn">返回首頁</a>
         <div class="header-stats">
             <span class="vip" id="header-vip">-</span>
-            <span><span class="balance" id="header-balance">-</span> 金幣</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
             <button class="logout-btn" onclick="logoutUser()">登出</button>
         </div>
     </div>
 
     <div class="casino-card" id="main-card">
-        <h1 id="leaderboard-title">總下注排行榜</h1>
+        <h1 id="leaderboard-title">排行榜</h1>
+
+        <section class="leaderboard-champions">
+            <div class="leaderboard-section-head">
+                <div>
+                    <p class="leaderboard-kicker">Live Leaders</p>
+                    <h2>目前榜一</h2>
+                </div>
+                <span class="leaderboard-section-note" id="leaderboard-champion-meta">讀取中...</span>
+            </div>
+            <div id="leaderboard-champion-grid" class="leaderboard-champion-grid"></div>
+        </section>
 
         <section class="leaderboard-champions">
             <div class="leaderboard-section-head">
                 <div>
                     <p class="leaderboard-kicker">Hall of Fame</p>
-                    <h2>各榜榜一</h2>
+                    <h2>歷史榜王</h2>
                 </div>
-                <span class="leaderboard-section-note" id="leaderboard-champion-meta">載入中...</span>
+                <span class="leaderboard-section-note" id="leaderboard-hof-meta">讀取中...</span>
             </div>
-            <div id="leaderboard-champion-grid" class="leaderboard-champion-grid"></div>
+            <div id="leaderboard-hof-grid" class="leaderboard-champion-grid"></div>
         </section>
 
         <div class="leaderboard-type-selector">
@@ -48,8 +59,8 @@
 
         <div class="user-stats">
             <span id="vip-badge">VIP</span>
-            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> 金幣</div>
-            <div class="stat-row">累積下注: <span id="total-bet-val">0.00</span> 金幣</div>
+            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累積下注: <span id="total-bet-val">0.00</span> 子熙幣</div>
         </div>
 
         <div class="leaderboard-overview">
@@ -58,22 +69,22 @@
                 <strong id="my-rank">-</strong>
             </div>
             <div class="overview-card">
-                <span id="my-bet-label">總下注</span>
+                <span id="my-bet-label">累積下注</span>
                 <strong id="my-total-bet">-</strong>
             </div>
             <div class="overview-card">
-                <span>我的稱號</span>
+                <span>我的名稱</span>
                 <strong id="my-name" style="word-break: break-all;">-</strong>
             </div>
             <div class="overview-card">
-                <span>榜單人數</span>
+                <span>總玩家數</span>
                 <strong id="leaderboard-total">0</strong>
             </div>
         </div>
 
         <div class="leaderboard-toolbar">
             <button class="btn-primary" onclick="refreshLeaderboard()">更新排行榜</button>
-            <span id="leaderboard-status">載入中...</span>
+            <span id="leaderboard-status">讀取中...</span>
         </div>
 
         <div id="leaderboard-list" class="leaderboard-list"></div>

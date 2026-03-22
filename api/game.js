@@ -72,7 +72,7 @@ function isPendingWinnerState(body) {
     if (["pending", "in_progress", "active", "waiting", "betting", "open", "settling", "spinning"].includes(status)) {
         return true;
     }
-    if (["gate", "start", "spin", "status", "list", "create", "join_queue"].includes(action)) {
+    if (["gate", "start", "spin", "list", "create", "join_queue"].includes(action)) {
         return true;
     }
     return false;
@@ -97,6 +97,8 @@ function resolveWinnerBarrageDedupeId(body) {
         body.betId,
         body.spinId,
         body.matchId,
+        body.finalTxHash,
+        body.payoutTxHash,
         body.txHash
     ];
     for (const candidate of candidates) {

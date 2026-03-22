@@ -113,8 +113,7 @@ function getNewestPendingSlotsSpin() {
 }
 
 function calcDisplayBalance(realBalance) {
-    var baseBalance = Number(realBalance || 0);
-    return baseBalance;
+    return Number(realBalance || 0);
 }
 
 class SlotMachine {
@@ -162,7 +161,8 @@ class SlotMachine {
         }
 
         this.setInitialState();
-        this.setResultState("待命中", "三連中獎、雙連退半與交易狀態都會顯示在這裡。", "");
+        this.setStatus("準備開始...", false, false);
+        this.setResultState("待命中", "三連、雙連與組合派彩都會顯示在這裡。", "");
     }
 
     setInitialState() {
@@ -182,14 +182,6 @@ class SlotMachine {
         cell.appendChild(glyph);
     }
 
-    freezeCurrentBoard() {
-        for (var index = 0; index < this.cells.length; index += 1) {
-            var cell = this.cells[index];
-            var symbolKey = cell && cell.getAttribute("data-symbol-key");
-            this.renderSymbol(cell, symbolKey || this.symbolKeys[index % this.symbolKeys.length], false);
-        }
-    }
-
     setSettlingState(isSettling) {
         this.isSettling = Boolean(isSettling);
         if (this.boardEl) {
@@ -202,7 +194,9 @@ class SlotMachine {
             for (var row = 0; row < 3; row += 1) {
                 var cellIndex = (row * 3) + col;
                 var cell = this.cells[cellIndex];
-                var symbol = columns && columns[col] && columns[col][row] ? columns[col][row].name : this.symbolKeys[(cellIndex + col) % this.symbolKeys.length];
+                var symbol = columns && columns[col] && columns[col][row]
+                    ? columns[col][row].name
+                    : this.symbolKeys[(cellIndex + col) % this.symbolKeys.length];
                 this.renderSymbol(cell, symbol, Boolean(isSpinning));
             }
         }
@@ -241,14 +235,14 @@ class SlotMachine {
         this.isSpinning = Boolean(isBusy);
         if (this.spinButton) {
             this.spinButton.disabled = this.isSpinning;
-            this.spinButton.textContent = this.isSpinning ? "處理中..." : "🎰 旋轉";
+            this.spinButton.textContent = this.isSpinning ? "旋轉中..." : "🎰 旋轉";
         }
     }
 
     setSettlementPendingState() {
         if (this.spinButton) {
             this.spinButton.disabled = this.isSpinning;
-            this.spinButton.textContent = this.isSpinning ? "處理中..." : "🎰 再來一把";
+            this.spinButton.textContent = this.isSpinning ? "旋轉中..." : "🎰 等待派彩";
         }
     }
 
@@ -316,24 +310,39 @@ class SlotMachine {
         setDisplayedBalance(nextBalance, ttlMs, source);
     }
 
-    updateTxLog(txHash, lineSummary, description) {
+    updateTxLog(txInfo, lineSummary, description) {
         var txLog = document.getElementById("tx-log");
         if (!txLog) return;
 
         var html = "";
-        if (txHash) {
-            html += txLinkHTML(txHash);
+        var betTxHash = "";
+        var payoutTxHash = "";
+
+        if (txInfo && typeof txInfo === "object") {
+            betTxHash = String(txInfo.betTxHash || "").trim();
+            payoutTxHash = String(txInfo.payoutTxHash || "").trim();
+        } else {
+            betTxHash = String(txInfo || "").trim();
+        }
+
+        if (betTxHash) {
+            html += '<span style="color:#c8c8c8; font-size:0.86rem;">Bet Tx</span><br>' + txLinkHTML(betTxHash);
+        }
+        if (payoutTxHash) {
+            html += (html ? "<br>" : "") +
+                '<span style="color:#c8c8c8; font-size:0.86rem;">Payout Tx</span><br>' +
+                txLinkHTML(payoutTxHash);
         }
         if (lineSummary) {
             html += (html ? "<br>" : "") +
                 "<span style=\"color:#c8c8c8; font-size:0.9rem;\">" +
-                lineSummary.replace(/</g, "&lt;").replace(/>/g, "&gt;") +
+                escapeHtml(lineSummary) +
                 "</span>";
         }
         if (description) {
             html += (html ? "<br>" : "") +
                 "<span style=\"color:#8a8a8a; font-size:0.85rem;\">" +
-                description.replace(/</g, "&lt;").replace(/>/g, "&gt;") +
+                escapeHtml(description) +
                 "</span>";
         }
         txLog.innerHTML = html;
@@ -344,39 +353,30 @@ class SlotMachine {
         var tripleCount = Number(result.tripleCount || 0);
         var doubleCount = Number(result.doubleCount || 0);
         var lineSummary = this.buildLineSummary(result.lineWins);
-        var statusText = "💀 本局未中，結果已揭曉";
         var resultLabel = "已開獎";
-        var resultCopy = "結果已揭曉。";
-        var resultTone = "is-pending";
+        var resultCopy = "盤面已揭曉，派彩正在確認中。";
 
         if (totalMultiplier > 0) {
             if (tripleCount > 0) {
-                statusText = "🏆 命中 " + tripleCount + " 條三連";
-                if (doubleCount > 0) {
-                    statusText += "，外加 " + doubleCount + " 條雙連";
-                }
-                statusText += "，派彩已先顯示";
-                resultLabel = tripleCount > 1 || doubleCount > 0 ? "組合派彩已開獎" : "三連已開獎";
-                resultCopy = "本局共命中三連 " + tripleCount + " 條、雙連 " + doubleCount + " 條，總倍率 " + totalMultiplier + "x；畫面已先顯示結果。";
+                resultLabel = tripleCount > 1 || doubleCount > 0 ? "組合派彩待入帳" : "三連待入帳";
+                resultCopy = "本局命中三連 " + tripleCount + " 條、雙連 " + doubleCount + " 條，總倍率 " + totalMultiplier + "x。";
             } else {
-                statusText = "⭐ 命中 " + doubleCount + " 條雙連，返還已先顯示";
-                resultLabel = doubleCount > 1 ? "多線雙連已開獎" : "雙連已開獎";
-                resultCopy = "雙連依條數累加，本局共命中 " + doubleCount + " 條雙連，總返還 " + totalMultiplier + "x；畫面已先顯示結果。";
+                resultLabel = doubleCount > 1 ? "多線雙連待入帳" : "雙連待入帳";
+                resultCopy = "本局命中雙連 " + doubleCount + " 條，總返還 " + totalMultiplier + "x。";
             }
         }
 
         return {
-            statusText: statusText,
+            statusText: "押注已扣，派彩處理中",
             resultLabel: resultLabel,
             resultCopy: resultCopy,
-            resultTone: resultTone,
+            resultTone: "is-pending",
             lineSummary: lineSummary
         };
     }
 
     refreshPendingBalanceView(source) {
-        var chainBalance = Number(user.chainBalance || 0);
-        this.updateDisplayedBalance(calcDisplayBalance(chainBalance), 45000, source || "slots-pending");
+        this.updateDisplayedBalance(getCurrentUserBalance(), 45000, source || "slots-pending");
     }
 
     scheduleSettlementPolling(delayMs) {
@@ -390,9 +390,18 @@ class SlotMachine {
 
     showFailedResult(result) {
         this.setSettlingState(hasPendingSlotsSettlements());
-        this.setStatus("❌ " + (result.error || "老虎機結算失敗"), true, false);
-        this.setResultState("結算失敗", "鏈上結算沒有完成，餘額已自動回補。", "is-error");
-        this.updateTxLog("", "", result.error || "老虎機結算失敗");
+        var settlementStatus = String(result && result.settlementStatus || "").toLowerCase();
+        if (settlementStatus === "failed_payout") {
+            this.setStatus("押注已扣，但派彩失敗", true, false);
+            this.setResultState("派彩待重試", "押注已扣除，系統會持續重試派彩。", "is-error");
+        } else {
+            this.setStatus("押注扣款失敗", true, false);
+            this.setResultState("交易失敗", "這筆旋轉沒有完成扣款，盤面不算數。", "is-error");
+        }
+        this.updateTxLog({
+            betTxHash: result && result.betTxHash,
+            payoutTxHash: result && result.payoutTxHash
+        }, "", result && result.error ? result.error : "老虎機結算失敗");
     }
 
     applySettlementUpdate(result) {
@@ -401,24 +410,41 @@ class SlotMachine {
         var settlementStatus = String(result.settlementStatus || "").trim().toLowerCase();
         if (settlementStatus === "pending" || settlementStatus === "settling") {
             upsertPendingSlotsSpin(result, { localOnly: false });
-            return;
+            return settlementStatus;
         }
 
         var wasPresented = this.presentedSpinId === result.spinId;
         var currentDisplayedBalance = getCurrentUserBalance();
+        var previousSpin = getSlotsPendingSpin(result.spinId);
+
+        if (settlementStatus === "failed_payout") {
+            upsertPendingSlotsSpin(result, { localOnly: false });
+            if (wasPresented) {
+                this.showFailedResult(result);
+            } else {
+                showUserToast("老虎機派彩失敗，系統會自動重試。", true);
+            }
+            return settlementStatus;
+        }
+
         removePendingSlotsSpin(result.spinId);
 
         if (settlementStatus === "settled") {
-            this.updateDisplayedBalance(currentDisplayedBalance, 45000, "slots-settled");
+            var payoutAmount = Number(result.payoutAmount || 0);
+            var nextDisplayedBalance = currentDisplayedBalance;
+            if (previousSpin && payoutAmount > 0) {
+                nextDisplayedBalance += payoutAmount;
+            }
+            this.updateDisplayedBalance(nextDisplayedBalance, 5000, "slots-settled");
             if (wasPresented) {
                 this.showSettledResult(result);
             }
         } else if (settlementStatus === "failed") {
-            this.refreshPendingBalanceView("slots-failed");
+            this.updateDisplayedBalance(Number(user.chainBalance || currentDisplayedBalance), 12000, "slots-failed");
             if (wasPresented) {
                 this.showFailedResult(result);
             } else {
-                showUserToast("老虎機背景結算失敗，餘額已回補。", true);
+                showUserToast("老虎機押注扣款失敗，餘額已同步。", true);
             }
         }
 
@@ -429,7 +455,7 @@ class SlotMachine {
                     skipRegister: true,
                     fromSync: true,
                     skipPollingKickoff: true,
-                    preserveDisplayedBalance: settlementStatus === "settled"
+                    preserveDisplayedBalance: true
                 });
             }
         }
@@ -438,7 +464,6 @@ class SlotMachine {
     }
 
     async pollSettlementQueue() {
-        var self = this;
         if (this.isPollingSettlement || !user.sessionId || !hasPendingSlotsSettlements()) {
             this.setSettlingState(hasPendingSlotsSettlements());
             return;
@@ -518,33 +543,33 @@ class SlotMachine {
 
         var betAmount = parseFloat(document.getElementById("bet-amount").value);
         if (!Number.isFinite(betAmount) || betAmount <= 0) {
-            this.setStatus("❌ 請輸入有效的金額", true);
-            this.setResultState("輸入錯誤", "下注金額必須大於 0。", "is-error");
+            this.setStatus("請輸入有效押注金額", true, false);
+            this.setResultState("輸入錯誤", "押注金額必須大於 0。", "is-error");
             return;
         }
 
         var displayedBalanceBeforeSpin = getCurrentUserBalance();
         if (displayedBalanceBeforeSpin < betAmount) {
-            this.setStatus("❌ 餘額不足", true);
-            this.setResultState("餘額不足", "目前餘額不足以支付這一筆旋轉。", "is-error");
+            this.setStatus("餘額不足", true, false);
+            this.setResultState("餘額不足", "請先補充子熙幣後再下注。", "is-error");
             return;
         }
 
         this.setSpinningState(true);
         this.clearPaylines();
-        this.setSettlingState(true); // Optimistically assume we need to settle
+        this.setSettlingState(true);
         this.updateTxLog("", "", "");
         this.setStatus("<span class=\"loader\"></span> 旋轉中...", false, true);
-        if (window.audioManager) window.audioManager.play('bet');
+        if (window.audioManager) window.audioManager.play("bet");
         this.setResultState("旋轉中", "正在生成盤面與結果。", "");
-        
+
         this.updateDisplayedBalance(displayedBalanceBeforeSpin - betAmount, 5000, "slots-pre-spin");
 
         var self = this;
         var minSpinMs = 550;
         var startedAt = Date.now();
-        var spinSoundId = window.audioManager ? window.audioManager.play('slot_reel', { loop: true }) : null;
-        
+        var spinSoundId = window.audioManager ? window.audioManager.play("slot_reel", { loop: true }) : null;
+
         var spinInterval = setInterval(function () {
             for (var index = 0; index < self.cells.length; index += 1) {
                 self.renderSymbol(self.cells[index], self.symbolKeys[Math.floor(Math.random() * self.symbolKeys.length)], true);
@@ -561,54 +586,53 @@ class SlotMachine {
                 sessionId: user.sessionId
             })
         })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.json().then(function(err) { 
-                    throw new Error((err && err.error) || "老虎機交易失敗"); 
-                }).catch(function(){
-                    throw new Error('伺服器錯誤: ' + response.status);
-                });
-            }
-            return response.json();
-        })
-        .then(function(result) {
-            var elapsedMs = Date.now() - startedAt;
-            var promise = (elapsedMs < minSpinMs) 
-                ? new Promise(resolve => setTimeout(resolve, minSpinMs - elapsedMs))
-                : Promise.resolve();
-
-            promise.then(function() {
-                clearInterval(spinInterval);
-                if (window.audioManager && spinSoundId) window.audioManager.stop('slot_reel', spinSoundId);
-                if (window.audioManager) window.audioManager.play('slot_stop');
-
-                if (result.error) {
-                    throw new Error((result.details ? (result.error + "：" + result.details) : result.error) || "老虎機交易失敗");
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.json().then(function (err) {
+                        throw new Error((err && err.error) || "老虎機旋轉失敗");
+                    }).catch(function () {
+                        throw new Error("連線失敗 " + response.status);
+                    });
                 }
+                return response.json();
+            })
+            .then(function (result) {
+                var elapsedMs = Date.now() - startedAt;
+                var promise = elapsedMs < minSpinMs
+                    ? new Promise(function (resolve) { setTimeout(resolve, minSpinMs - elapsedMs); })
+                    : Promise.resolve();
 
+                return promise.then(function () {
+                    clearInterval(spinInterval);
+                    if (window.audioManager && spinSoundId) window.audioManager.stop("slot_reel", spinSoundId);
+                    if (window.audioManager) window.audioManager.play("slot_stop");
+
+                    if (result.error) {
+                        throw new Error(result.error || "老虎機旋轉失敗");
+                    }
+
+                    self.setSpinningState(false);
+                    if (String(result.settlementStatus || "").toLowerCase() === "settled") {
+                        self.showSettledResult(result);
+                    } else {
+                        self.showPendingResult(result);
+                    }
+                });
+            })
+            .catch(function (error) {
+                clearInterval(spinInterval);
+                if (window.audioManager && spinSoundId) window.audioManager.stop("slot_reel", spinSoundId);
+
+                console.error("Slots spin failed:", error);
+                self.setSettlingState(false);
                 self.setSpinningState(false);
-                self.showPendingResult(result);
+                self.renderBoard(null, false);
+                self.updateDisplayedBalance(displayedBalanceBeforeSpin, 12000, "slots-spin-error");
+                self.setStatus("押注扣款失敗", true, false);
+                self.setResultState("交易失敗", "這筆旋轉沒有完成扣款，餘額已同步。", "is-error");
+                self.updateTxLog("", "", error.message);
+                setTimeout(syncAuthoritativeChainBalance, 1000);
             });
-        })
-        .catch(function(error) {
-            clearInterval(spinInterval);
-            if (window.audioManager && spinSoundId) window.audioManager.stop('slot_reel', spinSoundId);
-
-            console.error("Slots spin failed:", error);
-            self.setSettlingState(false);
-            self.setSpinningState(false);
-            self.renderBoard(null, false);
-            
-            // Rollback the balance
-            self.updateDisplayedBalance(displayedBalanceBeforeSpin, 12000, "slots-spin-error");
-
-            self.setStatus("❌ " + error.message, true, false);
-            self.setResultState("交易失敗", "這筆旋轉沒有完成結算，餘額已回復。", "is-error");
-            self.updateTxLog("", "", error.message);
-            
-            // Optionally sync balance from server to be safe
-            setTimeout(syncAuthoritativeChainBalance, 1000);
-        });
     }
 
     async resumePendingSettlements() {
@@ -642,7 +666,8 @@ class SlotMachine {
             this.showPendingResult(newestPendingSpin, {
                 skipRegister: true,
                 fromSync: true,
-                skipPollingKickoff: true
+                skipPollingKickoff: true,
+                preserveDisplayedBalance: true
             });
             this.scheduleSettlementPolling(400);
         } catch (_) {
@@ -668,61 +693,68 @@ class SlotMachine {
         this.drawPaylines(result.winLines || []);
         this.setSettlingState(true);
         this.setSettlementPendingState();
+        updateUI({
+            totalBet: result.totalBet,
+            level: result.level || result.vipLevel,
+            betLimit: result.betLimit || result.maxBet
+        });
+
         var pendingView = this.buildPendingOutcome(result);
-        this.setStatus(pendingView.statusText + "，可直接再轉。餘額以鏈上為準。", false, false);
+        this.setStatus(pendingView.statusText, false, false);
         this.setResultState(pendingView.resultLabel, pendingView.resultCopy, pendingView.resultTone);
         if (!currentOptions.preserveDisplayedBalance) {
             this.refreshPendingBalanceView("slots-pending");
         }
-        this.updateTxLog("", pendingView.lineSummary || "", pendingView.resultCopy || "開獎已完成");
+        this.updateTxLog({
+            betTxHash: result.betTxHash,
+            payoutTxHash: result.payoutTxHash
+        }, pendingView.lineSummary || "", pendingView.resultCopy || "開獎已完成");
         if (!currentOptions.skipPollingKickoff) {
             this.scheduleSettlementPolling(250);
         }
     }
 
     showSettledResult(result) {
-        var statusText = "💀 沒有連線，下次好運！";
-        var resultLabel = "未中獎";
-        var resultCopy = "本局沒有命中有效連線，鏈上已完成結算。";
-        var resultTone = "";
         var totalMultiplier = Number(result.totalMultiplier || result.multiplier || 0);
         var tripleCount = Number(result.tripleCount || 0);
         var doubleCount = Number(result.doubleCount || 0);
         var lineSummary = this.buildLineSummary(result.lineWins);
+        var resultLabel = "本局結算完成";
+        var resultCopy = "本局已完成鏈上結算。";
+        var resultTone = "";
 
         updateUI({
             totalBet: result.totalBet,
-            level: result.level,
-            betLimit: result.betLimit
+            level: result.level || result.vipLevel,
+            betLimit: result.betLimit || result.maxBet
         });
 
         if (totalMultiplier > 0) {
             if (tripleCount > 0) {
-                statusText = "🏆 命中 " + tripleCount + " 條三連";
-                if (doubleCount > 0) {
-                    statusText += "，外加 " + doubleCount + " 條雙連";
-                }
-                statusText += "，總派彩 " + totalMultiplier + "x 已入帳！";
-                resultLabel = tripleCount > 1 || doubleCount > 0 ? "組合派彩" : "三連中獎";
-                resultCopy = "本局共命中三連 " + tripleCount + " 條、雙連 " + doubleCount + " 條，總倍率 " + totalMultiplier + "x，鏈上已完成入帳。";
+                resultLabel = tripleCount > 1 || doubleCount > 0 ? "組合派彩已入帳" : "三連已入帳";
+                resultCopy = "本局命中三連 " + tripleCount + " 條、雙連 " + doubleCount + " 條，總倍率 " + totalMultiplier + "x，已完成入帳。";
                 resultTone = "is-win";
-            if (window.audioManager) window.audioManager.play(totalMultiplier >= 10 ? 'win_big' : 'win_small');
+                if (window.audioManager) window.audioManager.play(totalMultiplier >= 10 ? "win_big" : "win_small");
             } else {
-                statusText = "⭐ 命中 " + doubleCount + " 條雙連，總返還 " + totalMultiplier + "x 已入帳";
-                resultLabel = doubleCount > 1 ? "多線雙連" : "雙連退還";
-                resultCopy = "雙連依條數累加，本局共命中 " + doubleCount + " 條雙連，總返還 " + totalMultiplier + "x，鏈上已完成入帳。";
+                resultLabel = doubleCount > 1 ? "多線雙連已入帳" : "雙連已入帳";
+                resultCopy = "本局命中雙連 " + doubleCount + " 條，總返還 " + totalMultiplier + "x，已完成入帳。";
                 resultTone = totalMultiplier >= 1 ? "is-win" : "is-refund";
             }
+        } else {
+            resultLabel = "本局未中";
+            resultCopy = "本局沒有命中有效連線，押注已正常扣除。";
         }
 
         this.setSettlingState(hasPendingSlotsSettlements());
-        this.setStatus(statusText, false, false);
+        this.setSpinningState(false);
+        this.setStatus("押注已扣，派彩完成", false, false);
         this.setResultState(resultLabel, resultCopy, resultTone);
-        this.updateTxLog(
-            result.txHash,
-            lineSummary || (result.winLines && result.winLines.length ? ("中獎線: " + result.winLines.join(", ")) : ""),
-            resultCopy
-        );
-        setTimeout(refreshBalance, 6000);
+        this.updateTxLog({
+            betTxHash: result.betTxHash || result.txHash,
+            payoutTxHash: result.payoutTxHash
+        }, lineSummary || "", resultCopy);
+        setTimeout(refreshBalance, 2000);
     }
 }
+
+window.SlotMachine = SlotMachine;

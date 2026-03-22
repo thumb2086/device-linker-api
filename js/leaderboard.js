@@ -15,24 +15,24 @@ var config = {
             total: {
                 action: "total_bet",
                 title: "總下注排行榜",
-                valueLabel: "總下注",
+                valueLabel: "累積下注",
                 emptyText: "目前還沒有下注紀錄。"
             },
             weekly: {
                 action: "weekly_bet",
-                title: "本週下注排行榜",
+                title: "週下注排行榜",
                 valueLabel: "本週下注",
                 emptyText: "本週還沒有下注紀錄。"
             },
             monthly: {
                 action: "monthly_bet",
-                title: "本月下注排行榜",
+                title: "月下注排行榜",
                 valueLabel: "本月下注",
                 emptyText: "本月還沒有下注紀錄。"
             },
             season: {
                 action: "season_bet",
-                title: "本賽季下注排行榜",
+                title: "賽季下注排行榜",
                 valueLabel: "本賽季下注",
                 emptyText: "本賽季還沒有下注紀錄。"
             }
@@ -52,12 +52,18 @@ var config = {
 };
 
 var championCardOrder = ["totalBet", "weeklyBet", "monthlyBet", "seasonBet", "netWorth"];
+var hallOfFameCardOrder = ["weeklyBet", "monthlyBet", "seasonBet"];
 var championMeta = {
-    totalBet: { label: "總下注榜一", metricLabel: "總下注" },
-    weeklyBet: { label: "本週榜一", metricLabel: "本週下注" },
-    monthlyBet: { label: "本月榜一", metricLabel: "本月下注" },
-    seasonBet: { label: "本賽季榜一", metricLabel: "本賽季下注" },
+    totalBet: { label: "總下注榜一", metricLabel: "累積下注" },
+    weeklyBet: { label: "週榜榜一", metricLabel: "本週下注" },
+    monthlyBet: { label: "月榜榜一", metricLabel: "本月下注" },
+    seasonBet: { label: "賽季榜一", metricLabel: "本賽季下注" },
     netWorth: { label: "總資產榜一", metricLabel: "總資產" }
+};
+var hallOfFameMeta = {
+    weeklyBet: { label: "週榜王", metricLabel: "累計正式榜一" },
+    monthlyBet: { label: "月榜王", metricLabel: "累計正式榜一" },
+    seasonBet: { label: "賽季榜王", metricLabel: "累計正式榜一" }
 };
 
 function getLeaderboardConfig() {
@@ -99,7 +105,11 @@ function fmtRank(rank) {
 }
 
 function formatLeaderboardValue(value) {
-    return formatCompactZh(Number(value || 0), 2) + " 金幣";
+    return formatCompactZh(Number(value || 0), 2) + " 子熙幣";
+}
+
+function formatCountValue(value) {
+    return "累計 " + formatDisplayNumber(Number(value || 0), 0) + " 次";
 }
 
 function getCurrentUserAddress() {
@@ -115,6 +125,13 @@ function setLeaderboardStatus(text, isError) {
 
 function setChampionMetaText(text, isError) {
     var el = document.getElementById("leaderboard-champion-meta");
+    if (!el) return;
+    el.innerText = text || "";
+    el.style.color = isError ? "#ff7b7b" : "#96a1b7";
+}
+
+function setHallOfFameMetaText(text, isError) {
+    var el = document.getElementById("leaderboard-hof-meta");
     if (!el) return;
     el.innerText = text || "";
     el.style.color = isError ? "#ff7b7b" : "#96a1b7";
@@ -183,7 +200,7 @@ function renderMyRank(data) {
     if (totalEl) totalEl.innerText = formatDisplayNumber(Number(data.totalPlayers || 0), 0);
 
     if (!data.myRank) {
-        if (myRankEl) myRankEl.innerText = "尚未上榜";
+        if (myRankEl) myRankEl.innerText = "未上榜";
         if (myBetEl) {
             var fallbackValue = leaderboardType === "balance" ? 0 : Number(data.myPeriodBet || 0);
             myBetEl.innerText = formatLeaderboardValue(fallbackValue);
@@ -255,7 +272,7 @@ function renderLeaderboardRows(items) {
             '<span class="addr-col" title="' + escapeHtml(item.address) + '">' +
             avatarSpan + title + '<span class="leaderboard-name">' + escapeHtml(displayName) + (isMine ? " (你)" : "") + "</span></span>" +
             '<span class="bet-col">' + formatLeaderboardValue(value) + "</span>" +
-            '<span class="vip-col">' + escapeHtml(item.level || item.vipLevel || "-") + "</span>" +
+            '<span class="vip-col">' + escapeHtml(item.level || item.vipLevel || "-") + '</span>' +
             "</div>";
     });
 
@@ -269,7 +286,7 @@ function renderPeriodInfo(period) {
         return;
     }
     if (!period || !period.startAt || !period.endAt) {
-        periodEl.innerText = "目前沒有期間資訊。";
+        periodEl.innerText = "目前沒有週期資料。";
         return;
     }
 
@@ -298,12 +315,21 @@ function buildChampionSubtitle(item) {
         end.toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" });
 }
 
-function renderChampionSkeleton() {
-    var container = document.getElementById("leaderboard-champion-grid");
-    if (!container) return;
-    var html = "";
+function buildChampionStreakText(item) {
+    var count = Number(item && item.streakCount || 0);
+    if (count > 1) return "連冠 " + formatDisplayNumber(count, 0) + " 次";
+    if (count === 1) return "首冠";
+    return "";
+}
 
-    championCardOrder.forEach(function () {
+function buildHallOfFameSubtitle(item) {
+    if (!item || !item.lastSettledPeriodId) return "";
+    return "最近奪冠期別 " + item.lastSettledPeriodId;
+}
+
+function buildSkeletonCards(count) {
+    var html = "";
+    for (var index = 0; index < count; index += 1) {
         html += '<div class="leaderboard-champion-card is-skeleton">' +
             '<span class="champion-label skeleton-line short"></span>' +
             '<strong class="champion-value skeleton-line"></strong>' +
@@ -313,9 +339,20 @@ function renderChampionSkeleton() {
             '<span class="skeleton-line medium"></span>' +
             '<span class="skeleton-line short"></span>' +
             "</div></div></div>";
-    });
+    }
+    return html;
+}
 
-    container.innerHTML = html;
+function renderChampionSkeleton() {
+    var container = document.getElementById("leaderboard-champion-grid");
+    if (!container) return;
+    container.innerHTML = buildSkeletonCards(championCardOrder.length);
+}
+
+function renderHallOfFameSkeleton() {
+    var container = document.getElementById("leaderboard-hof-grid");
+    if (!container) return;
+    container.innerHTML = buildSkeletonCards(hallOfFameCardOrder.length);
 }
 
 function renderChampionCards(champions) {
@@ -326,15 +363,16 @@ function renderChampionCards(champions) {
     championCardOrder.forEach(function (key) {
         var item = champions && champions[key] ? champions[key] : null;
         var fallback = championMeta[key] || { label: "榜一", metricLabel: "數值" };
-        var label = item && item.label ? item.label : fallback.label;
-        var metricLabel = item && item.metricLabel ? item.metricLabel : fallback.metricLabel;
+        var label = fallback.label;
+        var metricLabel = fallback.metricLabel;
         var subtitle = buildChampionSubtitle(item);
+        var streakText = buildChampionStreakText(item);
 
         if (!item || !item.hasChampion) {
             html += '<div class="leaderboard-champion-card is-empty">' +
                 '<span class="champion-label">' + escapeHtml(label) + "</span>" +
                 '<strong class="champion-value">尚無資料</strong>' +
-                '<div class="champion-empty-copy">目前還沒有玩家佔據這個榜單。</div>' +
+                '<div class="champion-empty-copy">目前還沒有產生榜一資料。</div>' +
                 "</div>";
             return;
         }
@@ -346,7 +384,7 @@ function renderChampionCards(champions) {
             : "";
         var avatar = item.avatar && item.avatar.icon
             ? '<span class="champion-avatar"' + avatarAttr + ">" + escapeHtml(item.avatar.icon) + "</span>"
-            : '<span class="champion-avatar champion-avatar-fallback">榜</span>';
+            : '<span class="champion-avatar champion-avatar-fallback">榜一</span>';
         var displayName = item.displayName || item.maskedAddress || item.address;
         var valueText = formatLeaderboardValue(item.value);
 
@@ -354,11 +392,59 @@ function renderChampionCards(champions) {
             '<span class="champion-label">' + escapeHtml(label) + "</span>" +
             '<strong class="champion-value">' + escapeHtml(valueText) + "</strong>" +
             '<div class="champion-metric">' + escapeHtml(metricLabel) + (subtitle ? " | " + escapeHtml(subtitle) : "") + "</div>" +
+            (streakText ? '<div class="champion-streak">' + escapeHtml(streakText) + "</div>" : "") +
             '<div class="champion-player">' + avatar +
             '<div class="champion-player-copy">' +
             titleChip +
             '<span class="champion-name">' + escapeHtml(displayName) + "</span>" +
-            '<span class="champion-address">' + escapeHtml(item.maskedAddress || item.address || "-") + " · VIP " + escapeHtml(item.level || "-") + "</span>" +
+            '<span class="champion-address">' + escapeHtml(item.maskedAddress || item.address || "-") + " | VIP " + escapeHtml(item.level || "-") + "</span>" +
+            "</div></div>" +
+            "</button>";
+    });
+
+    container.innerHTML = html;
+}
+
+function renderHallOfFameCards(hallOfFame) {
+    var container = document.getElementById("leaderboard-hof-grid");
+    if (!container) return;
+
+    var html = "";
+    hallOfFameCardOrder.forEach(function (key) {
+        var item = hallOfFame && hallOfFame[key] ? hallOfFame[key] : null;
+        var fallback = hallOfFameMeta[key] || { label: "榜王", metricLabel: "累計正式榜一" };
+        var label = fallback.label;
+        var metricLabel = fallback.metricLabel;
+        var subtitle = buildHallOfFameSubtitle(item);
+
+        if (!item || !item.hasChampion) {
+            html += '<div class="leaderboard-champion-card is-empty">' +
+                '<span class="champion-label">' + escapeHtml(label) + "</span>" +
+                '<strong class="champion-value">尚無資料</strong>' +
+                '<div class="champion-empty-copy">目前還沒有已結算冠軍歷史。</div>' +
+                "</div>";
+            return;
+        }
+
+        var titleAttr = item.title && item.title.description ? (' title="' + escapeHtml(item.title.description) + '"') : "";
+        var avatarAttr = item.avatar && item.avatar.description ? (' title="' + escapeHtml(item.avatar.description) + '"') : "";
+        var titleChip = item.title && item.title.name
+            ? '<span class="leaderboard-title-chip champion-title-chip"' + titleAttr + ">" + escapeHtml(item.title.name) + "</span>"
+            : "";
+        var avatar = item.avatar && item.avatar.icon
+            ? '<span class="champion-avatar"' + avatarAttr + ">" + escapeHtml(item.avatar.icon) + "</span>"
+            : '<span class="champion-avatar champion-avatar-fallback">榜王</span>';
+        var displayName = item.displayName || item.maskedAddress || item.address;
+
+        html += '<button type="button" class="leaderboard-champion-card" data-type="total-bet" data-scope="' + escapeHtml(item.viewScope || "total") + '">' +
+            '<span class="champion-label">' + escapeHtml(label) + "</span>" +
+            '<strong class="champion-value">' + escapeHtml(formatCountValue(item.count)) + "</strong>" +
+            '<div class="champion-metric">' + escapeHtml(metricLabel) + (subtitle ? " | " + escapeHtml(subtitle) : "") + "</div>" +
+            '<div class="champion-player">' + avatar +
+            '<div class="champion-player-copy">' +
+            titleChip +
+            '<span class="champion-name">' + escapeHtml(displayName) + "</span>" +
+            '<span class="champion-address">' + escapeHtml(item.maskedAddress || item.address || "-") + " | VIP " + escapeHtml(item.level || "-") + "</span>" +
             "</div></div>" +
             "</button>";
     });
@@ -372,14 +458,18 @@ function loadChampionSummary(silent, forceRefresh) {
     var now = Date.now();
     if (!forceRefresh && championCache && (now - championCacheTimestamp < CACHE_DURATION_MS)) {
         renderChampionCards(championCache.champions);
-        setChampionMetaText("榜一資料已使用頁內快取", false);
+        renderHallOfFameCards(championCache.hallOfFame);
+        setChampionMetaText("目前榜一使用頁內快取。", false);
+        setHallOfFameMetaText("歷史榜王使用頁內快取。", false);
         return Promise.resolve();
     }
 
     championBusy = true;
     if (!silent) {
         renderChampionSkeleton();
-        setChampionMetaText("榜一資料載入中...", false);
+        renderHallOfFameSkeleton();
+        setChampionMetaText("目前榜一讀取中...", false);
+        setHallOfFameMetaText("歷史榜王讀取中...", false);
     }
 
     return fetch("/api/stats", {
@@ -402,7 +492,7 @@ function loadChampionSummary(silent, forceRefresh) {
         .then(function (result) {
             var data = result.data;
             if (!data || !data.success) {
-                throw new Error((data && data.error) || "榜一資料讀取失敗。");
+                throw new Error((data && data.error) || "榜一資料載入失敗");
             }
             if (!data.generatedAt && result.generatedAt) {
                 data.generatedAt = result.generatedAt;
@@ -410,10 +500,14 @@ function loadChampionSummary(silent, forceRefresh) {
             championCache = data;
             championCacheTimestamp = Date.now();
             renderChampionCards(data.champions);
-            setChampionMetaText(buildLeaderboardStatusText(result.cacheStatus, data.generatedAt) || "榜一資料已更新", false);
+            renderHallOfFameCards(data.hallOfFame);
+            var metaText = buildLeaderboardStatusText(result.cacheStatus, data.generatedAt) || "榜一資料已更新";
+            setChampionMetaText(metaText, false);
+            setHallOfFameMetaText(metaText, false);
         })
         .catch(function (error) {
-            setChampionMetaText("榜一資料讀取失敗: " + error.message, true);
+            setChampionMetaText("榜一資料載入失敗: " + error.message, true);
+            setHallOfFameMetaText("歷史榜王載入失敗: " + error.message, true);
         })
         .finally(function () {
             championBusy = false;
@@ -430,13 +524,13 @@ function loadLeaderboard(silent, forceRefresh) {
         renderMyRank(cachedData);
         renderLeaderboardRows(cachedData.leaderboard);
         renderPeriodInfo(cachedData.period);
-        setLeaderboardStatus("已使用頁內快取", false);
+        setLeaderboardStatus("頁內快取回應。", false);
         return Promise.resolve();
     }
 
     leaderboardBusy = true;
     if (!silent) {
-        setLeaderboardStatus("排行榜載入中...", false);
+        setLeaderboardStatus("排行榜讀取中...", false);
         renderSkeleton();
     }
 
@@ -462,7 +556,7 @@ function loadLeaderboard(silent, forceRefresh) {
         .then(function (result) {
             var data = result.data;
             if (!data || !data.success) {
-                throw new Error((data && data.error) || "排行榜讀取失敗。");
+                throw new Error((data && data.error) || "排行榜載入失敗");
             }
             if (!data.generatedAt && result.generatedAt) {
                 data.generatedAt = result.generatedAt;
@@ -477,7 +571,7 @@ function loadLeaderboard(silent, forceRefresh) {
             setLeaderboardStatus(buildLeaderboardStatusText(result.cacheStatus, data.generatedAt) || "排行榜已更新", false);
         })
         .catch(function (error) {
-            setLeaderboardStatus("載入失敗: " + error.message, true);
+            setLeaderboardStatus("排行榜載入失敗: " + error.message, true);
         })
         .finally(function () {
             leaderboardBusy = false;
@@ -492,12 +586,14 @@ function refreshLeaderboard() {
 }
 
 function bindChampionCardClicks() {
-    var container = document.getElementById("leaderboard-champion-grid");
-    if (!container) return;
-    container.addEventListener("click", function (event) {
-        var card = event.target.closest(".leaderboard-champion-card[data-type]");
-        if (!card) return;
-        jumpToLeaderboard(card.getAttribute("data-type"), card.getAttribute("data-scope"));
+    ["leaderboard-champion-grid", "leaderboard-hof-grid"].forEach(function (containerId) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        container.addEventListener("click", function (event) {
+            var card = event.target.closest(".leaderboard-champion-card[data-type]");
+            if (!card) return;
+            jumpToLeaderboard(card.getAttribute("data-type"), card.getAttribute("data-scope"));
+        });
     });
 }
 

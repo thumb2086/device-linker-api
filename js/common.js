@@ -896,8 +896,40 @@ function ensureGlobalChatScriptLoaded() {
     document.head.appendChild(script);
 }
 
+function bootstrapGlobalAudio() {
+    if (window.__zixiGlobalAudioBootstrapped) return;
+    window.__zixiGlobalAudioBootstrapped = true;
+
+    ensureAudioManagerScript();
+    ensureGlobalAudioBindings();
+
+    var kick = function (force) {
+        try {
+            ensureGlobalBgmPlayback(force === true);
+        } catch (error) {
+            console.log('Global BGM bootstrap failed');
+        }
+    };
+
+    kick(true);
+    setTimeout(function () { kick(false); }, 350);
+    setTimeout(function () { kick(false); }, 1200);
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            kick(false);
+        }
+    });
+
+    window.addEventListener('focus', function () {
+        kick(false);
+    });
+}
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', ensureGlobalChatScriptLoaded);
+    document.addEventListener('DOMContentLoaded', bootstrapGlobalAudio);
 } else {
     ensureGlobalChatScriptLoaded();
+    bootstrapGlobalAudio();
 }

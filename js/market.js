@@ -5,7 +5,6 @@ var marketRefreshBusy = false;
 var marketRefreshTimerId = null;
 var marketHasRendered = false;
 
-var MARKET_CACHE_DURATION_MS = 10 * 1000;
 var MARKET_PERSISTED_CACHE_KEY = "zixi_market_persisted_cache_v1";
 
 function fmt(value, digits) {
@@ -182,6 +181,33 @@ function safeHistoryStringify(value) {
     }
 }
 
+function sparklineSvg(prices, width, height, cls) {
+    if (!prices || prices.length === 0) return "";
+
+    var w = width || 120;
+    var h = height || 36;
+    var min = Math.min.apply(null, prices);
+    var max = Math.max.apply(null, prices);
+
+    if (!isFinite(min) || !isFinite(max)) return "";
+    if (min === max) max = min + 1;
+
+    var len = prices.length;
+    var step = len > 1 ? w / (len - 1) : w;
+    var points = "";
+
+    for (var i = 0; i < len; i += 1) {
+        var x = i * step;
+        var value = prices[i];
+        var y = h - ((value - min) / (max - min)) * h;
+        points += x.toFixed(2) + "," + y.toFixed(2) + " ";
+    }
+
+    return '<svg class="sparkline ' + (cls || "") + '" viewBox="0 0 ' + w + " " + h + '" preserveAspectRatio="none">' +
+        '<polyline points="' + points.trim() + '"></polyline>' +
+        "</svg>";
+}
+
 function renderMarketTable(market) {
     var table = document.getElementById("market-table");
     if (!table || !market || !market.symbols) return;
@@ -206,30 +232,6 @@ function renderMarketTable(market) {
     table.innerHTML = html;
 }
 
-function sparklineSvg(prices, width, height, cls) {
-    if (!prices || prices.length === 0) return "";
-    var w = width || 120;
-    var h = height || 36;
-    var min = Math.min.apply(null, prices);
-    var max = Math.max.apply(null, prices);
-    if (!isFinite(min) || !isFinite(max)) return "";
-    if (min === max) max = min + 1;
-
-    var len = prices.length;
-    var step = len > 1 ? w / (len - 1) : w;
-    var points = "";
-    for (var i = 0; i < len; i += 1) {
-        var x = i * step;
-        var value = prices[i];
-        var y = h - ((value - min) / (max - min)) * h;
-        points += x.toFixed(2) + "," + y.toFixed(2) + " ";
-    }
-
-    return '<svg class="sparkline ' + (cls || "") + '" viewBox="0 0 ' + w + " " + h + '" preserveAspectRatio="none">' +
-        '<polyline points="' + points.trim() + '"></polyline>' +
-        "</svg>";
-}
-
 function renderFutures(account) {
     var list = document.getElementById("futures-list");
     if (!list) return;
@@ -245,10 +247,10 @@ function renderFutures(account) {
         html += '<div class="position-item">' +
             "<div>" +
             "<strong>" + escapeMarketHtml(pos.symbol) + " " + (pos.side === "short" ? "做空" : "做多") + " x" + fmt(pos.leverage, 0) + "</strong>" +
-            '<div class="meta">名目價值: ' + fmt(pos.notional, 2) + " 子熙幣 | 保證金: " + fmt(pos.margin, 2) + " 子熙幣</div>" +
+            '<div class="meta">名目價值 ' + fmt(pos.notional, 2) + " 子熙幣 | 保證金 " + fmt(pos.margin, 2) + " 子熙幣</div>" +
             '<div class="meta">進場價 ' + fmt(pos.entryPrice, 4) + " | 現價 " + fmt(pos.markPrice, 4) + " | 強平價 " + fmt(pos.liquidationPrice, 4) + "</div>" +
             "</div>" +
-            '<div class="' + pnlClass + '">PnL ' + fmt(pos.unrealizedPnl, 2) + " (" + fmt(pos.roiPct, 2) + "%)</div>" +
+            '<div class="' + pnlClass + '">未實現 ' + fmt(pos.unrealizedPnl, 2) + " 子熙幣 (" + fmt(pos.roiPct, 2) + "%)</div>" +
             '<button class="btn-secondary" onclick="closeFuturesPosition(\'' + escapeMarketHtml(pos.id) + '\')">平倉</button>' +
             "</div>";
     });
@@ -256,7 +258,7 @@ function renderFutures(account) {
     list.innerHTML = html;
 }
 
-function renderStocks(account) {
+function renderStocks(account, market) {
     var list = document.getElementById("stock-holdings");
     if (!list) return;
 
@@ -267,13 +269,25 @@ function renderStocks(account) {
 
     var html = "";
     account.stockPositions.forEach(function (pos) {
+        var currentQuote = market && market.symbols ? market.symbols[pos.symbol] : null;
+        var avgPrice = Number(pos.avgPrice || 0);
+        var price = Number(pos.price || 0);
+        var quantity = Number(pos.quantity || 0);
+        var unrealizedPnl = (price - avgPrice) * quantity;
+        var roiPct = avgPrice > 0 ? ((price - avgPrice) / avgPrice) * 100 : 0;
+        var pnlClass = unrealizedPnl >= 0 ? "change-up" : "change-down";
+        var dayChangePct = currentQuote ? Number(currentQuote.changePct || 0) : 0;
+        var dayChangeClass = dayChangePct >= 0 ? "change-up" : "change-down";
+        var dayChangePrefix = dayChangePct >= 0 ? "+" : "";
+
         html += '<div class="position-item">' +
             "<div>" +
             "<strong>" + escapeMarketHtml(pos.symbol) + "</strong>" +
             '<div class="meta">持有 ' + fmt(pos.quantity, 4) + " 股 | 均價 " + fmt(pos.avgPrice, 4) + " | 現價 " + fmt(pos.price, 4) + "</div>" +
+            '<div class="meta ' + dayChangeClass + '">今日漲跌 ' + dayChangePrefix + fmt(dayChangePct, 2) + "%</div>" +
             "</div>" +
+            '<div class="' + pnlClass + '">未實現 ' + fmt(unrealizedPnl, 2) + " 子熙幣 (" + fmt(roiPct, 2) + "%)</div>" +
             "<div>市值 " + fmt(pos.marketValue, 2) + " 子熙幣</div>" +
-            "<div></div>" +
             "</div>";
     });
 
@@ -307,10 +321,9 @@ function renderLiquidations(events) {
         return;
     }
 
-    var text = "已觸發強平: " + events.map(function (event) {
+    el.innerText = "已觸發強平: " + events.map(function (event) {
         return event.symbol + " #" + event.positionId;
     }).join("、");
-    el.innerText = text;
 }
 
 function loadSymbolOptions(symbols) {
@@ -368,7 +381,7 @@ function renderOverview(payload) {
     }, { skipGlobalHooks: true });
 
     renderMarketTable(market);
-    renderStocks(account);
+    renderStocks(account, market);
     renderFutures(account);
     renderHistory(account);
     renderLiquidations(payload.liquidationEvents || []);

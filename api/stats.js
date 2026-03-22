@@ -726,13 +726,22 @@ async function loadHallOfFameSnapshot(type) {
         }
     }
 
-    const best = Array.from(winners.values()).sort(compareHallOfFameCandidate)[0] || null;
+    const sorted = Array.from(winners.values()).sort(compareHallOfFameCandidate);
+    const best = sorted[0] || null;
+    const ties = best
+        ? sorted.filter((entry) => Number(entry.count || 0) === Number(best.count || 0))
+        : [];
     return {
         generatedAt: new Date().toISOString(),
         type,
         address: best ? best.address : "",
         count: best ? Number(best.count || 0) : 0,
-        lastSettledPeriodId: best ? String(best.lastSettledPeriodId || "") : ""
+        lastSettledPeriodId: best ? String(best.lastSettledPeriodId || "") : "",
+        ties: ties.map((entry) => ({
+            address: String(entry.address || "").toLowerCase(),
+            count: Number(entry.count || 0),
+            lastSettledPeriodId: String(entry.lastSettledPeriodId || "")
+        }))
     };
 }
 
@@ -786,6 +795,7 @@ function buildHallOfFamePayload(config, snapshot, generatedAt, displayNameMap, r
     const totalBet = address ? Number(totalBetMap.get(address) || 0) : 0;
     const vipStatus = address ? buildVipStatus(totalBet) : { vipLevel: "-" };
     const rewardDisplay = address ? (rewardDisplayMap.get(address) || {}) : {};
+    const tieEntries = Array.isArray(snapshot && snapshot.ties) ? snapshot.ties : [];
     return {
         key: config.key,
         label: config.label,
@@ -799,6 +809,23 @@ function buildHallOfFamePayload(config, snapshot, generatedAt, displayNameMap, r
         displayName: address ? (displayNameMap.get(address) || "") : "",
         count: Number(snapshot && snapshot.count || 0),
         lastSettledPeriodId: String(snapshot && snapshot.lastSettledPeriodId || ""),
+        tieCount: tieEntries.length,
+        ties: tieEntries.map((entry) => {
+            const tieAddress = String(entry && entry.address || "").toLowerCase();
+            const tieTotalBet = tieAddress ? Number(totalBetMap.get(tieAddress) || 0) : 0;
+            const tieRewardDisplay = tieAddress ? (rewardDisplayMap.get(tieAddress) || {}) : {};
+            const tieVipStatus = tieAddress ? buildVipStatus(tieTotalBet) : { vipLevel: "-" };
+            return {
+                address: tieAddress,
+                maskedAddress: tieAddress ? maskAddress(tieAddress) : "-",
+                displayName: tieAddress ? (displayNameMap.get(tieAddress) || "") : "",
+                count: Number(entry && entry.count || 0),
+                lastSettledPeriodId: String(entry && entry.lastSettledPeriodId || ""),
+                level: tieVipStatus.vipLevel,
+                avatar: tieRewardDisplay.avatar || null,
+                title: tieRewardDisplay.title || null
+            };
+        }),
         level: vipStatus.vipLevel,
         avatar: rewardDisplay.avatar || null,
         title: rewardDisplay.title || null
@@ -876,6 +903,10 @@ export default async function handler(req, res) {
                 championSources
                     .map((source) => String(source.entry?.address || "").trim().toLowerCase())
                     .concat(hallOfFameSources.map((source) => String(source.snapshot?.address || "").trim().toLowerCase()))
+                    .concat(hallOfFameSources.flatMap((source) => {
+                        const ties = Array.isArray(source.snapshot?.ties) ? source.snapshot.ties : [];
+                        return ties.map((entry) => String(entry && entry.address || "").trim().toLowerCase());
+                    }))
                     .filter(Boolean)
             ));
             const totalBetMap = await loadTotalBetMap(championAddresses);

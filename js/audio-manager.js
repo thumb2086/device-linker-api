@@ -130,6 +130,13 @@ class AudioManager {
     }
 
     _loadSounds() {
+        if (typeof Howler !== "undefined") {
+            Howler.autoUnlock = true;
+            if (typeof Howler.html5PoolSize === "number" && Howler.html5PoolSize < 12) {
+                Howler.html5PoolSize = 12;
+            }
+        }
+
         var entries = Object.entries(this.soundConfig);
         for (var i = 0; i < entries.length; i += 1) {
             var key = entries[i][0];

@@ -370,6 +370,19 @@ function buildNetWorthValueMap(entries) {
     return totals;
 }
 
+function collectRequestedLeaderboardAddresses(entries, currentAddress, limit) {
+    const result = new Set();
+    const normalizedCurrent = String(currentAddress || "").trim().toLowerCase();
+    const topEntries = Array.isArray(entries) ? entries.slice(0, Math.max(1, Number(limit) || 50)) : [];
+    for (const entry of topEntries) {
+        if (entry && entry.address) result.add(String(entry.address).toLowerCase());
+    }
+    if (normalizedCurrent && Array.isArray(entries) && entries.some((entry) => entry.address === normalizedCurrent)) {
+        result.add(normalizedCurrent);
+    }
+    return Array.from(result);
+}
+
 async function loadTotalBetSnapshot() {
     const entries = await loadTotalBetEntries();
     return {
@@ -445,9 +458,9 @@ export default async function handler(req, res) {
             applyStatsReadHeaders(res, cached.meta);
             const entries = (cached.value.entries || []).map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
             const totalBetMap = buildTotalBetValueMap(entries);
-            const entryAddresses = entries.map((entry) => entry.address);
-            const displayNameMap = await buildDisplayNameMap(entryAddresses);
-            const rewardDisplayMap = await buildRewardDisplayMap(entryAddresses, (address) => totalBetMap.get(address) || 0);
+            const requestedAddresses = collectRequestedLeaderboardAddresses(entries, currentAddress, limit);
+            const displayNameMap = await buildDisplayNameMap(requestedAddresses);
+            const rewardDisplayMap = await buildRewardDisplayMap(requestedAddresses, (address) => totalBetMap.get(address) || 0);
             const leaderboard = entries.slice(0, limit).map((entry, index) => {
                 const vipStatus = buildVipStatus(entry.totalBet);
                 const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
@@ -469,10 +482,10 @@ export default async function handler(req, res) {
             });
             applyStatsReadHeaders(res, cached.meta);
             const entries = (cached.value.entries || []).map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
-            const addresses = entries.map((entry) => entry.address);
-            const totalBetMap = await loadTotalBetMap(addresses);
-            const displayNameMap = await buildDisplayNameMap(addresses);
-            const rewardDisplayMap = await buildRewardDisplayMap(addresses, (address) => totalBetMap.get(address) || 0);
+            const requestedAddresses = collectRequestedLeaderboardAddresses(entries, currentAddress, limit);
+            const totalBetMap = await loadTotalBetMap(requestedAddresses);
+            const displayNameMap = await buildDisplayNameMap(requestedAddresses);
+            const rewardDisplayMap = await buildRewardDisplayMap(requestedAddresses, (address) => totalBetMap.get(address) || 0);
             const leaderboard = entries.slice(0, limit).map((entry, index) => {
                 const vipStatus = buildVipStatus(totalBetMap.get(entry.address) || 0);
                 const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
@@ -521,10 +534,10 @@ export default async function handler(req, res) {
             });
             applyStatsReadHeaders(res, cached.meta);
             const entries = (cached.value.entries || []).map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
-            const addresses = entries.map((entry) => entry.address);
-            const totalBetMap = await loadTotalBetMap(addresses);
-            const displayNameMap = await buildDisplayNameMap(addresses);
-            const rewardDisplayMap = await buildRewardDisplayMap(addresses, (address) => totalBetMap.get(address) || 0);
+            const requestedAddresses = collectRequestedLeaderboardAddresses(entries, currentAddress, limit);
+            const totalBetMap = await loadTotalBetMap(requestedAddresses);
+            const displayNameMap = await buildDisplayNameMap(requestedAddresses);
+            const rewardDisplayMap = await buildRewardDisplayMap(requestedAddresses, (address) => totalBetMap.get(address) || 0);
             const leaderboard = entries.slice(0, limit).map((entry, index) => {
                 const vipStatus = buildVipStatus(totalBetMap.get(entry.address) || 0);
                 const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
@@ -573,10 +586,10 @@ export default async function handler(req, res) {
             });
             applyStatsReadHeaders(res, cached.meta);
             const entries = (cached.value.entries || []).map((entry) => ({ address: entry.address, totalBet: Number(entry.totalBet || 0) }));
-            const addresses = entries.map((entry) => entry.address);
-            const totalBetMap = await loadTotalBetMap(addresses);
-            const displayNameMap = await buildDisplayNameMap(addresses);
-            const rewardDisplayMap = await buildRewardDisplayMap(addresses, (address) => totalBetMap.get(address) || 0);
+            const requestedAddresses = collectRequestedLeaderboardAddresses(entries, currentAddress, limit);
+            const totalBetMap = await loadTotalBetMap(requestedAddresses);
+            const displayNameMap = await buildDisplayNameMap(requestedAddresses);
+            const rewardDisplayMap = await buildRewardDisplayMap(requestedAddresses, (address) => totalBetMap.get(address) || 0);
             const leaderboard = entries.slice(0, limit).map((entry, index) => {
                 const vipStatus = buildVipStatus(totalBetMap.get(entry.address) || 0);
                 const rewardDisplay = rewardDisplayMap.get(entry.address) || {};
@@ -632,9 +645,10 @@ export default async function handler(req, res) {
                     entries.sort((left, right) => { if (right.netWorth !== left.netWorth) return right.netWorth - left.netWorth; return left.address.localeCompare(right.address); });
                 }
             }
-            const displayNameMap = await buildDisplayNameMap(entries.map((entry) => entry.address));
+            const requestedAddresses = collectRequestedLeaderboardAddresses(entries, currentAddress, limit);
+            const displayNameMap = await buildDisplayNameMap(requestedAddresses);
             const totalBetMap = buildNetWorthValueMap(entries);
-            const rewardDisplayMap = await buildRewardDisplayMap(entries.map((entry) => entry.address), (address) => totalBetMap.get(address) || 0);
+            const rewardDisplayMap = await buildRewardDisplayMap(requestedAddresses, (address) => totalBetMap.get(address) || 0);
             const leaderboard = entries.slice(0, limit).map((entry, index) => {
                 const vipStatus = buildVipStatus(entry.totalBet);
                 const rewardDisplay = rewardDisplayMap.get(entry.address) || {};

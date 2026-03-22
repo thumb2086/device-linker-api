@@ -1,26 +1,63 @@
 var leaderboardBusy = false;
+var championBusy = false;
 var leaderboardType = "total-bet";
 var leaderboardScope = "total";
 var leaderboardCache = {};
+var championCache = null;
 var cacheTimestamps = {};
+var championCacheTimestamp = 0;
 var CACHE_DURATION_MS = 10 * 1000;
 
 var config = {
     "total-bet": {
-        title: "投注排行榜",
+        title: "下注排行榜",
         scopes: {
-            total: { action: "total_bet", title: "總投注排行榜", valueLabel: "總投注", emptyText: "目前還沒有投注資料" },
-            weekly: { action: "weekly_bet", title: "週投注排行榜", valueLabel: "本週投注", emptyText: "本週還沒有投注資料" },
-            monthly: { action: "monthly_bet", title: "月投注排行榜", valueLabel: "本月投注", emptyText: "本月還沒有投注資料" },
-            season: { action: "season_bet", title: "賽季投注排行榜", valueLabel: "賽季投注", emptyText: "本賽季還沒有投注資料" }
+            total: {
+                action: "total_bet",
+                title: "總下注排行榜",
+                valueLabel: "總下注",
+                emptyText: "目前還沒有下注紀錄。"
+            },
+            weekly: {
+                action: "weekly_bet",
+                title: "本週下注排行榜",
+                valueLabel: "本週下注",
+                emptyText: "本週還沒有下注紀錄。"
+            },
+            monthly: {
+                action: "monthly_bet",
+                title: "本月下注排行榜",
+                valueLabel: "本月下注",
+                emptyText: "本月還沒有下注紀錄。"
+            },
+            season: {
+                action: "season_bet",
+                title: "本賽季下注排行榜",
+                valueLabel: "本賽季下注",
+                emptyText: "本賽季還沒有下注紀錄。"
+            }
         }
     },
     balance: {
-        title: "淨值排行榜",
+        title: "資產排行榜",
         scopes: {
-            total: { action: "net_worth", title: "淨值排行榜", valueLabel: "淨值", emptyText: "目前還沒有淨值資料" }
+            total: {
+                action: "net_worth",
+                title: "總資產排行榜",
+                valueLabel: "總資產",
+                emptyText: "目前還沒有資產排行資料。"
+            }
         }
     }
+};
+
+var championCardOrder = ["totalBet", "weeklyBet", "monthlyBet", "seasonBet", "netWorth"];
+var championMeta = {
+    totalBet: { label: "總下注榜一", metricLabel: "總下注" },
+    weeklyBet: { label: "本週榜一", metricLabel: "本週下注" },
+    monthlyBet: { label: "本月榜一", metricLabel: "本月下注" },
+    seasonBet: { label: "本賽季榜一", metricLabel: "本賽季下注" },
+    netWorth: { label: "總資產榜一", metricLabel: "總資產" }
 };
 
 function getLeaderboardConfig() {
@@ -28,21 +65,59 @@ function getLeaderboardConfig() {
     return typeCfg.scopes[leaderboardScope] || typeCfg.scopes.total;
 }
 
-function setType(type) {
-    if (!config[type] || leaderboardBusy) return;
-    leaderboardType = type;
-    leaderboardScope = "total";
-    updateControlsUI();
-    loadLeaderboard(false, false);
+function escapeHtml(text) {
+    return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }
 
-function setScope(scopeKey) {
-    if (leaderboardBusy) return;
-    var typeCfg = config[leaderboardType] || config["total-bet"];
-    if (!typeCfg.scopes[scopeKey]) return;
-    leaderboardScope = scopeKey;
-    updateControlsUI();
-    loadLeaderboard(false, false);
+function formatGeneratedTime(rawValue) {
+    var parsed = Date.parse(String(rawValue || ""));
+    if (!Number.isFinite(parsed)) return "";
+    return new Date(parsed).toLocaleTimeString("zh-TW", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+    });
+}
+
+function buildLeaderboardStatusText(cacheStatus, generatedAt) {
+    var parts = [];
+    if (cacheStatus) parts.push("快取 " + cacheStatus);
+    var generatedTime = formatGeneratedTime(generatedAt);
+    if (generatedTime) parts.push("生成於 " + generatedTime);
+    return parts.join(" | ");
+}
+
+function fmtRank(rank) {
+    var parsed = Number(rank || 0);
+    if (!Number.isFinite(parsed) || parsed <= 0) return "-";
+    return "#" + formatDisplayNumber(parsed, 0);
+}
+
+function formatLeaderboardValue(value) {
+    return formatCompactZh(Number(value || 0), 2) + " 金幣";
+}
+
+function getCurrentUserAddress() {
+    return String((window.user && window.user.address) || "").trim().toLowerCase();
+}
+
+function setLeaderboardStatus(text, isError) {
+    var el = document.getElementById("leaderboard-status");
+    if (!el) return;
+    el.innerText = text || "";
+    el.style.color = isError ? "#ff7b7b" : "#d9b75f";
+}
+
+function setChampionMetaText(text, isError) {
+    var el = document.getElementById("leaderboard-champion-meta");
+    if (!el) return;
+    el.innerText = text || "";
+    el.style.color = isError ? "#ff7b7b" : "#96a1b7";
 }
 
 function updateControlsUI() {
@@ -73,26 +148,30 @@ function updateControlsUI() {
     document.title = (lconfig.title || "排行榜") + " | Casino";
 }
 
-function setLeaderboardStatus(text, isError) {
-    var el = document.getElementById("leaderboard-status");
-    if (!el) return;
-    el.innerText = text || "";
-    el.style.color = isError ? "#ff7b7b" : "#d9b75f";
+function setType(type) {
+    if (!config[type] || leaderboardBusy) return;
+    leaderboardType = type;
+    leaderboardScope = "total";
+    updateControlsUI();
+    loadLeaderboard(false, false);
 }
 
-function escapeHtml(text) {
-    return String(text || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
+function setScope(scopeKey) {
+    if (leaderboardBusy) return;
+    var typeCfg = config[leaderboardType] || config["total-bet"];
+    if (!typeCfg.scopes[scopeKey]) return;
+    leaderboardScope = scopeKey;
+    updateControlsUI();
+    loadLeaderboard(false, false);
 }
 
-function fmtRank(rank) {
-    var parsed = Number(rank || 0);
-    if (!Number.isFinite(parsed) || parsed <= 0) return "-";
-    return "#" + formatDisplayNumber(parsed, 0);
+function jumpToLeaderboard(type, scope) {
+    if (!config[type] || leaderboardBusy) return;
+    var typeCfg = config[type];
+    leaderboardType = type;
+    leaderboardScope = typeCfg.scopes[scope] ? scope : "total";
+    updateControlsUI();
+    loadLeaderboard(false, false);
 }
 
 function renderMyRank(data) {
@@ -104,18 +183,18 @@ function renderMyRank(data) {
     if (totalEl) totalEl.innerText = formatDisplayNumber(Number(data.totalPlayers || 0), 0);
 
     if (!data.myRank) {
-        if (myRankEl) myRankEl.innerText = "未上榜";
+        if (myRankEl) myRankEl.innerText = "尚未上榜";
         if (myBetEl) {
             var fallbackValue = leaderboardType === "balance" ? 0 : Number(data.myPeriodBet || 0);
-            myBetEl.innerText = formatCompactZh(fallbackValue, 2) + " 金幣";
+            myBetEl.innerText = formatLeaderboardValue(fallbackValue);
         }
         if (myNameEl) myNameEl.innerText = "-";
         return;
     }
 
-    var rankValue = leaderboardType === "balance" ? data.myRank.netWorth : data.myRank.totalBet;
+    var rankValue = leaderboardType === "balance" ? Number(data.myRank.netWorth || 0) : Number(data.myRank.totalBet || 0);
     if (myRankEl) myRankEl.innerText = fmtRank(data.myRank.rank);
-    if (myBetEl) myBetEl.innerText = formatCompactZh(rankValue, 2) + " 金幣";
+    if (myBetEl) myBetEl.innerText = formatLeaderboardValue(rankValue);
     if (myNameEl) {
         var titleText = data.myRank.title && data.myRank.title.name ? ("[" + data.myRank.title.name + "] ") : "";
         var avatarText = data.myRank.avatar && data.myRank.avatar.icon ? (data.myRank.avatar.icon + " ") : "";
@@ -153,7 +232,7 @@ function renderLeaderboardRows(items) {
         return;
     }
 
-    var currentAddress = String((window.user && user.address) || "").trim().toLowerCase();
+    var currentAddress = getCurrentUserAddress();
     var html = '<div class="leaderboard-row leaderboard-head">' +
         "<span>排名</span><span>玩家</span><span>" + escapeHtml(lconfig.valueLabel) + "</span><span>VIP</span>" +
         "</div>";
@@ -161,16 +240,21 @@ function renderLeaderboardRows(items) {
     items.forEach(function (item) {
         var isMine = item.address === currentAddress;
         var displayName = item.displayName || item.maskedAddress || item.address;
-        var value = leaderboardType === "balance" ? item.netWorth : item.totalBet;
+        var value = leaderboardType === "balance" ? Number(item.netWorth || 0) : Number(item.totalBet || 0);
         var titleAttr = item.title && item.title.description ? (' title="' + escapeHtml(item.title.description) + '"') : "";
         var avatarAttr = item.avatar && item.avatar.description ? (' title="' + escapeHtml(item.avatar.description) + '"') : "";
-        var title = item.title && item.title.name ? '<span class="leaderboard-title-chip"' + titleAttr + ">" + escapeHtml(item.title.name) + "</span>" : "";
-        var avatarSpan = item.avatar && item.avatar.icon ? '<span class="leaderboard-avatar"' + avatarAttr + ">" + escapeHtml(item.avatar.icon) + "</span>" : "";
+        var title = item.title && item.title.name
+            ? '<span class="leaderboard-title-chip"' + titleAttr + ">" + escapeHtml(item.title.name) + "</span>"
+            : "";
+        var avatarSpan = item.avatar && item.avatar.icon
+            ? '<span class="leaderboard-avatar"' + avatarAttr + ">" + escapeHtml(item.avatar.icon) + "</span>"
+            : "";
 
         html += '<div class="leaderboard-row' + (isMine ? " is-me" : "") + '">' +
             '<span class="rank-col">' + fmtRank(item.rank) + "</span>" +
-            '<span class="addr-col" title="' + escapeHtml(item.address) + '">' + avatarSpan + title + '<span class="leaderboard-name">' + escapeHtml(displayName) + (isMine ? " (你)" : "") + "</span></span>" +
-            '<span class="bet-col">' + formatCompactZh(value, 2) + " 金幣</span>" +
+            '<span class="addr-col" title="' + escapeHtml(item.address) + '">' +
+            avatarSpan + title + '<span class="leaderboard-name">' + escapeHtml(displayName) + (isMine ? " (你)" : "") + "</span></span>" +
+            '<span class="bet-col">' + formatLeaderboardValue(value) + "</span>" +
             '<span class="vip-col">' + escapeHtml(item.level || item.vipLevel || "-") + "</span>" +
             "</div>";
     });
@@ -185,30 +269,155 @@ function renderPeriodInfo(period) {
         return;
     }
     if (!period || !period.startAt || !period.endAt) {
-        periodEl.innerText = "期間資訊載入中";
+        periodEl.innerText = "目前沒有期間資訊。";
         return;
     }
 
     var start = new Date(period.startAt);
     var end = new Date(period.endAt);
-    var startText = start.toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit" }) + " " +
-        start.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
-    var endText = end.toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit" }) + " " +
-        end.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
+    var startText = start.toLocaleDateString("zh-TW", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }) + " " + start.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
+    var endText = end.toLocaleDateString("zh-TW", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }) + " " + end.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
     var idText = period.id ? ("期別: " + period.id + " | ") : "";
     periodEl.innerText = idText + startText + " ~ " + endText;
 }
 
-function buildLeaderboardStatusText(cacheStatus, generatedAt) {
-    var parts = [];
-    if (cacheStatus) parts.push("快取 " + cacheStatus);
-    if (generatedAt) {
-        var ts = Date.parse(generatedAt);
-        if (Number.isFinite(ts)) {
-            parts.push("生成於 " + new Date(ts).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+function buildChampionSubtitle(item) {
+    if (!item || !item.period || !item.period.startAt || !item.period.endAt) return "";
+    var start = new Date(item.period.startAt);
+    var end = new Date(item.period.endAt);
+    return start.toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" }) +
+        " - " +
+        end.toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" });
+}
+
+function renderChampionSkeleton() {
+    var container = document.getElementById("leaderboard-champion-grid");
+    if (!container) return;
+    var html = "";
+
+    championCardOrder.forEach(function () {
+        html += '<div class="leaderboard-champion-card is-skeleton">' +
+            '<span class="champion-label skeleton-line short"></span>' +
+            '<strong class="champion-value skeleton-line"></strong>' +
+            '<div class="champion-player">' +
+            '<span class="champion-avatar skeleton-bubble"></span>' +
+            '<div class="champion-player-copy">' +
+            '<span class="skeleton-line medium"></span>' +
+            '<span class="skeleton-line short"></span>' +
+            "</div></div></div>";
+    });
+
+    container.innerHTML = html;
+}
+
+function renderChampionCards(champions) {
+    var container = document.getElementById("leaderboard-champion-grid");
+    if (!container) return;
+
+    var html = "";
+    championCardOrder.forEach(function (key) {
+        var item = champions && champions[key] ? champions[key] : null;
+        var fallback = championMeta[key] || { label: "榜一", metricLabel: "數值" };
+        var label = item && item.label ? item.label : fallback.label;
+        var metricLabel = item && item.metricLabel ? item.metricLabel : fallback.metricLabel;
+        var subtitle = buildChampionSubtitle(item);
+
+        if (!item || !item.hasChampion) {
+            html += '<div class="leaderboard-champion-card is-empty">' +
+                '<span class="champion-label">' + escapeHtml(label) + "</span>" +
+                '<strong class="champion-value">尚無資料</strong>' +
+                '<div class="champion-empty-copy">目前還沒有玩家佔據這個榜單。</div>' +
+                "</div>";
+            return;
         }
+
+        var titleAttr = item.title && item.title.description ? (' title="' + escapeHtml(item.title.description) + '"') : "";
+        var avatarAttr = item.avatar && item.avatar.description ? (' title="' + escapeHtml(item.avatar.description) + '"') : "";
+        var titleChip = item.title && item.title.name
+            ? '<span class="leaderboard-title-chip champion-title-chip"' + titleAttr + ">" + escapeHtml(item.title.name) + "</span>"
+            : "";
+        var avatar = item.avatar && item.avatar.icon
+            ? '<span class="champion-avatar"' + avatarAttr + ">" + escapeHtml(item.avatar.icon) + "</span>"
+            : '<span class="champion-avatar champion-avatar-fallback">榜</span>';
+        var displayName = item.displayName || item.maskedAddress || item.address;
+        var valueText = formatLeaderboardValue(item.value);
+
+        html += '<button type="button" class="leaderboard-champion-card" data-type="' + escapeHtml(item.viewType || "") + '" data-scope="' + escapeHtml(item.viewScope || "") + '">' +
+            '<span class="champion-label">' + escapeHtml(label) + "</span>" +
+            '<strong class="champion-value">' + escapeHtml(valueText) + "</strong>" +
+            '<div class="champion-metric">' + escapeHtml(metricLabel) + (subtitle ? " | " + escapeHtml(subtitle) : "") + "</div>" +
+            '<div class="champion-player">' + avatar +
+            '<div class="champion-player-copy">' +
+            titleChip +
+            '<span class="champion-name">' + escapeHtml(displayName) + "</span>" +
+            '<span class="champion-address">' + escapeHtml(item.maskedAddress || item.address || "-") + " · VIP " + escapeHtml(item.level || "-") + "</span>" +
+            "</div></div>" +
+            "</button>";
+    });
+
+    container.innerHTML = html;
+}
+
+function loadChampionSummary(silent, forceRefresh) {
+    if (championBusy) return Promise.resolve();
+
+    var now = Date.now();
+    if (!forceRefresh && championCache && (now - championCacheTimestamp < CACHE_DURATION_MS)) {
+        renderChampionCards(championCache.champions);
+        setChampionMetaText("榜一資料已使用頁內快取", false);
+        return Promise.resolve();
     }
-    return parts.join(" | ");
+
+    championBusy = true;
+    if (!silent) {
+        renderChampionSkeleton();
+        setChampionMetaText("榜一資料載入中...", false);
+    }
+
+    return fetch("/api/stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            action: "champions",
+            sessionId: user.sessionId
+        })
+    })
+        .then(function (res) {
+            return res.json().then(function (data) {
+                return {
+                    data: data,
+                    cacheStatus: res.headers.get("X-Cache"),
+                    generatedAt: res.headers.get("X-Generated-At")
+                };
+            });
+        })
+        .then(function (result) {
+            var data = result.data;
+            if (!data || !data.success) {
+                throw new Error((data && data.error) || "榜一資料讀取失敗。");
+            }
+            if (!data.generatedAt && result.generatedAt) {
+                data.generatedAt = result.generatedAt;
+            }
+            championCache = data;
+            championCacheTimestamp = Date.now();
+            renderChampionCards(data.champions);
+            setChampionMetaText(buildLeaderboardStatusText(result.cacheStatus, data.generatedAt) || "榜一資料已更新", false);
+        })
+        .catch(function (error) {
+            setChampionMetaText("榜一資料讀取失敗: " + error.message, true);
+        })
+        .finally(function () {
+            championBusy = false;
+        });
 }
 
 function loadLeaderboard(silent, forceRefresh) {
@@ -221,7 +430,7 @@ function loadLeaderboard(silent, forceRefresh) {
         renderMyRank(cachedData);
         renderLeaderboardRows(cachedData.leaderboard);
         renderPeriodInfo(cachedData.period);
-        setLeaderboardStatus("使用頁面快取", false);
+        setLeaderboardStatus("已使用頁內快取", false);
         return Promise.resolve();
     }
 
@@ -253,11 +462,12 @@ function loadLeaderboard(silent, forceRefresh) {
         .then(function (result) {
             var data = result.data;
             if (!data || !data.success) {
-                throw new Error((data && data.error) || "排行榜讀取失敗");
+                throw new Error((data && data.error) || "排行榜讀取失敗。");
             }
             if (!data.generatedAt && result.generatedAt) {
                 data.generatedAt = result.generatedAt;
             }
+
             leaderboardCache[cacheKey] = data;
             cacheTimestamps[cacheKey] = Date.now();
 
@@ -267,7 +477,7 @@ function loadLeaderboard(silent, forceRefresh) {
             setLeaderboardStatus(buildLeaderboardStatusText(result.cacheStatus, data.generatedAt) || "排行榜已更新", false);
         })
         .catch(function (error) {
-            setLeaderboardStatus("錯誤: " + error.message, true);
+            setLeaderboardStatus("載入失敗: " + error.message, true);
         })
         .finally(function () {
             leaderboardBusy = false;
@@ -275,7 +485,20 @@ function loadLeaderboard(silent, forceRefresh) {
 }
 
 function refreshLeaderboard() {
-    return loadLeaderboard(false, true);
+    return Promise.allSettled([
+        loadChampionSummary(false, true),
+        loadLeaderboard(false, true)
+    ]);
+}
+
+function bindChampionCardClicks() {
+    var container = document.getElementById("leaderboard-champion-grid");
+    if (!container) return;
+    container.addEventListener("click", function (event) {
+        var card = event.target.closest(".leaderboard-champion-card[data-type]");
+        if (!card) return;
+        jumpToLeaderboard(card.getAttribute("data-type"), card.getAttribute("data-scope"));
+    });
 }
 
 function initLeaderboardPage() {
@@ -297,7 +520,9 @@ function initLeaderboardPage() {
         });
     }
 
+    bindChampionCardClicks();
     updateControlsUI();
+    loadChampionSummary(false, false);
     loadLeaderboard(false, false);
 }
 

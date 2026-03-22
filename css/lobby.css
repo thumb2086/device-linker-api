@@ -2,7 +2,7 @@
 
 body.lobby-body {
     justify-content: flex-start;
-    padding: 20px 40px;
+    padding: 20px var(--page-gutter);
     min-height: 100vh;
 }
 
@@ -68,7 +68,7 @@ body.lobby-body {
 
 .auth-announcements-panel {
     width: 100%;
-    max-width: 860px;
+    max-width: none;
     margin: 24px auto 0;
     padding: 26px;
     border-radius: 28px;
@@ -114,7 +114,7 @@ body.lobby-body {
 /* --- 大廳容器 --- */
 .lobby-container {
     width: 100%;
-    max-width: 1400px;
+    max-width: none;
     padding: 20px 0 40px;
     animation: fadeInUp 0.5s ease;
 }

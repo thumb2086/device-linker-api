@@ -9,6 +9,7 @@
     --diamond-blue: #00bfff;
     --win-green: #00ff88;
     --lose-red: #ff4444;
+    --page-gutter: clamp(12px, 2vw, 24px);
 }
 
 * {
@@ -41,8 +42,8 @@ body {
     border: 1px solid var(--border);
     border-radius: 35px;
     padding: 40px;
-    width: 100%;
-    max-width: 800px;
+    width: min(calc(100vw - (var(--page-gutter) * 2)), 100%) !important;
+    max-width: none !important;
     text-align: center;
     box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
     transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -69,8 +70,8 @@ h1 {
 
 /* --- 頁面標題列 --- */
 .page-header {
-    width: 100%;
-    max-width: 800px;
+    width: min(calc(100vw - (var(--page-gutter) * 2)), 100%) !important;
+    max-width: none !important;
     display: flex;
     align-items: center;
     justify-content: space-between;

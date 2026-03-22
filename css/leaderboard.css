@@ -4,7 +4,7 @@ body.leaderboard-body {
 }
 
 #main-card {
-    max-width: 980px;
+    max-width: none;
     margin-bottom: 24px;
 }
 

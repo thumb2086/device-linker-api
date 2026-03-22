@@ -3,6 +3,15 @@ body.market-body {
     padding: 20px;
 }
 
+.market-body .page-header {
+    max-width: 980px;
+}
+
+.market-body .header-stats {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 #main-card {
     max-width: 980px;
     margin-bottom: 24px;

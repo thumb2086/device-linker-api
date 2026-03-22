@@ -17,6 +17,7 @@
         <div class="header-stats">
             <span class="vip" id="header-vip">-</span>
             <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="settings-btn" id="header-settings-btn" type="button" onclick="openUserSettings()">設定</button>
             <button class="logout-btn" onclick="logoutUser()">登出</button>
         </div>
     </div>
@@ -62,7 +63,7 @@
                 <h2>市場行情</h2>
                 <div id="market-cache-meta" class="market-cache-meta"></div>
             </div>
-            <p class="market-note">行情依目前系統參數自動模擬，頁面會定時同步最新快照。</p>
+            <p class="market-note">會先顯示最近一次成功快照，再於背景同步最新行情。</p>
             <div id="market-table" class="market-table"></div>
         </div>
 
@@ -79,7 +80,7 @@
 
         <div class="section-block">
             <h2>期貨倉位</h2>
-            <p class="market-note">多空都可開倉，單次保證金上限為 <strong id="futures-max-bet">-</strong></p>
+            <p class="market-note">多空皆可開倉，單次保證金上限為 <strong id="futures-max-bet">-</strong></p>
             <div class="form-row">
                 <select id="futures-symbol"></select>
                 <select id="futures-side">

@@ -6,7 +6,7 @@ body.rewards-body {
 }
 
 .rewards-shell {
-    max-width: 1240px;
+    max-width: none;
 }
 
 .rewards-header-section {

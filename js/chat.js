@@ -192,7 +192,7 @@ function ensureGlobalChatUi() {
             '<div class="chat-header-actions">',
             '<div id="chat-status" class="chat-status">聊天室連線中...</div>',
             '<select id="chat-room-select" class="text-input chat-room-select" onchange="onChatRoomChange()"></select>',
-            '<button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="false">展開</button>',
+            '<button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="false" aria-label="展開聊天室" title="展開聊天室">💬</button>',
             "</div>",
             "</div>",
             '<div id="chat-room-note" class="chat-room-note"></div>',
@@ -262,13 +262,17 @@ function applyLobbyChatWidgetState() {
     if (chatWidgetCollapsed) {
         body.classList.add("hidden");
         widget.classList.add("chat-widget-collapsed");
-        btn.innerText = "展開";
+        btn.innerText = "💬";
         btn.setAttribute("aria-expanded", "false");
+        btn.setAttribute("aria-label", "展開聊天室");
+        btn.setAttribute("title", "展開聊天室");
     } else {
         body.classList.remove("hidden");
         widget.classList.remove("chat-widget-collapsed");
-        btn.innerText = "收合";
+        btn.innerText = "−";
         btn.setAttribute("aria-expanded", "true");
+        btn.setAttribute("aria-label", "收合聊天室");
+        btn.setAttribute("title", "收合聊天室");
         scrollChatToLatest();
     }
 }

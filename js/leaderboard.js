@@ -7,6 +7,7 @@ var championCache = null;
 var cacheTimestamps = {};
 var championCacheTimestamp = 0;
 var CACHE_DURATION_MS = 10 * 1000;
+var PERSISTED_CACHE_KEY = "zixi_leaderboard_persisted_cache_v1";
 
 var config = {
     "total-bet": {
@@ -114,6 +115,54 @@ function formatCountValue(value) {
 
 function getCurrentUserAddress() {
     return String((window.user && window.user.address) || "").trim().toLowerCase();
+}
+
+function getLeaderboardStorage() {
+    try {
+        return window.localStorage;
+    } catch (error) {
+        return null;
+    }
+}
+
+function readPersistedLeaderboardCache() {
+    var storage = getLeaderboardStorage();
+    if (!storage) return {};
+    try {
+        var raw = storage.getItem(PERSISTED_CACHE_KEY);
+        if (!raw) return {};
+        var parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function writePersistedLeaderboardCache(nextValue) {
+    var storage = getLeaderboardStorage();
+    if (!storage) return;
+    try {
+        storage.setItem(PERSISTED_CACHE_KEY, JSON.stringify(nextValue || {}));
+    } catch (error) {
+        console.log("Failed to persist leaderboard cache");
+    }
+}
+
+function persistLeaderboardSnapshot(cacheKey, payload) {
+    if (!cacheKey || !payload) return;
+    var current = readPersistedLeaderboardCache();
+    current[cacheKey] = {
+        savedAt: new Date().toISOString(),
+        payload: payload
+    };
+    writePersistedLeaderboardCache(current);
+}
+
+function loadPersistedLeaderboardSnapshot(cacheKey) {
+    if (!cacheKey) return null;
+    var current = readPersistedLeaderboardCache();
+    if (!current || !current[cacheKey] || !current[cacheKey].payload) return null;
+    return current[cacheKey].payload;
 }
 
 function setLeaderboardStatus(text, isError) {
@@ -500,10 +549,18 @@ function loadChampionSummary(silent, forceRefresh) {
 
     championBusy = true;
     if (!silent) {
-        renderChampionSkeleton();
-        renderHallOfFameSkeleton();
-        setChampionMetaText("目前榜一讀取中...", false);
-        setHallOfFameMetaText("歷史榜王讀取中...", false);
+        var persistedChampionData = !forceRefresh ? loadPersistedLeaderboardSnapshot("champions") : null;
+        if (persistedChampionData && persistedChampionData.champions) {
+            renderChampionCards(persistedChampionData.champions);
+            renderHallOfFameCards(persistedChampionData.hallOfFame);
+            setChampionMetaText("先顯示上次榜一快照，背景更新中...", false);
+            setHallOfFameMetaText("先顯示上次榜王快照，背景更新中...", false);
+        } else {
+            renderChampionSkeleton();
+            renderHallOfFameSkeleton();
+            setChampionMetaText("目前榜一讀取中...", false);
+            setHallOfFameMetaText("歷史榜王讀取中...", false);
+        }
     }
 
     return fetch("/api/stats", {
@@ -533,6 +590,7 @@ function loadChampionSummary(silent, forceRefresh) {
             }
             championCache = data;
             championCacheTimestamp = Date.now();
+            persistLeaderboardSnapshot("champions", data);
             renderChampionCards(data.champions);
             renderHallOfFameCards(data.hallOfFame);
             var metaText = buildLeaderboardStatusText(result.cacheStatus, data.generatedAt) || "榜一資料已更新";
@@ -564,8 +622,16 @@ function loadLeaderboard(silent, forceRefresh) {
 
     leaderboardBusy = true;
     if (!silent) {
-        setLeaderboardStatus("排行榜讀取中...", false);
-        renderSkeleton();
+        var persistedData = !forceRefresh ? loadPersistedLeaderboardSnapshot(cacheKey) : null;
+        if (persistedData && persistedData.leaderboard) {
+            renderMyRank(persistedData);
+            renderLeaderboardRows(persistedData.leaderboard);
+            renderPeriodInfo(persistedData.period);
+            setLeaderboardStatus("先顯示上次排行榜快照，背景更新中...", false);
+        } else {
+            setLeaderboardStatus("排行榜讀取中...", false);
+            renderSkeleton();
+        }
     }
 
     var lconfig = getLeaderboardConfig();
@@ -598,6 +664,7 @@ function loadLeaderboard(silent, forceRefresh) {
 
             leaderboardCache[cacheKey] = data;
             cacheTimestamps[cacheKey] = Date.now();
+            persistLeaderboardSnapshot(cacheKey, data);
 
             renderMyRank(data);
             renderLeaderboardRows(data.leaderboard);

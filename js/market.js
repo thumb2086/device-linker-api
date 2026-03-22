@@ -632,6 +632,11 @@ function initMarketPage() {
 function initMarketApp() {
     checkGameAuth(function (data) {
         updateUI(data);
+        ensureSupportShortcut();
+        ensureAudioManagerScript();
+        ensureGlobalAudioBindings();
+        ensureGlobalBgmPlayback(true);
+        ensureSettingsButton();
         startBalanceRefresh();
         initMarketPage();
     });

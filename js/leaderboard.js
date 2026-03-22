@@ -377,18 +377,26 @@ function buildHallOfFameSubtitle(item) {
 }
 
 function buildHallOfFameTieText(item) {
-    var tieCount = Number(item && item.tieCount || 0);
-    if (tieCount > 1) {
-        return "並列 " + formatDisplayNumber(tieCount, 0) + " 人";
+    var ties = item && Array.isArray(item.ties) ? item.ties : [];
+    var primaryAddress = String(item && item.address || "").trim().toLowerCase();
+    var otherTies = ties.filter(function (entry) {
+        return String(entry && entry.address || "").trim().toLowerCase() !== primaryAddress;
+    });
+    if (otherTies.length > 0) {
+        return "另有 " + formatDisplayNumber(otherTies.length, 0) + " 人並列";
     }
     return "";
 }
 
 function renderHallOfFameTieList(item) {
     var ties = item && Array.isArray(item.ties) ? item.ties : [];
-    if (!ties.length) return "";
+    var primaryAddress = String(item && item.address || "").trim().toLowerCase();
+    var otherTies = ties.filter(function (entry) {
+        return String(entry && entry.address || "").trim().toLowerCase() !== primaryAddress;
+    });
+    if (!otherTies.length) return "";
 
-    return '<div class="champion-ties">' + ties.map(function (entry) {
+    return '<div class="champion-ties">' + otherTies.map(function (entry) {
         var avatar = entry.avatar && entry.avatar.icon
             ? '<span class="champion-tie-avatar">' + escapeHtml(entry.avatar.icon) + '</span>'
             : "";

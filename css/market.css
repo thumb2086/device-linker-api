@@ -49,6 +49,24 @@ body.market-body {
     font-size: 1.05rem;
 }
 
+.section-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.section-header-row h2 {
+    margin-bottom: 0;
+}
+
+.market-cache-meta {
+    color: #96a1b7;
+    font-size: 0.82rem;
+    text-align: right;
+}
+
 .market-note {
     margin: 0 0 10px;
     color: #a8a8a8;
@@ -64,6 +82,10 @@ body.market-body {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
     margin-bottom: 10px;
+}
+
+.market-action-row {
+    grid-template-columns: minmax(160px, 220px);
 }
 
 .form-row select,
@@ -210,6 +232,15 @@ body.market-body {
 
     .position-item {
         grid-template-columns: 1fr;
+    }
+
+    .section-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .market-cache-meta {
+        text-align: left;
     }
 }
 

@@ -167,7 +167,7 @@ export default async function handler(req, res) {
             const cached = await readThroughCache({
                 namespace: "market-snapshot",
                 keyParts: [userAddress],
-                tier: "user-live",
+                tier: "market-snapshot",
                 loader: async () => buildSnapshotPayload(userAddress)
             });
             applyMarketReadHeaders(res, cached.meta);

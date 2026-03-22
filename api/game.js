@@ -8,6 +8,8 @@ import sicboHandler from "../lib/game-handlers/sicbo.js";
 import bingoHandler from "../lib/game-handlers/bingo.js";
 import crashHandler from "../lib/game-handlers/crash.js";
 import duelHandler from "../lib/game-handlers/duel.js";
+import pokerHandler from "../lib/game-handlers/poker.js";
+import bluffdiceHandler from "../lib/game-handlers/bluffdice.js";
 import { kv } from "@vercel/kv";
 import { getSession } from "../lib/session-store.js";
 import { randomUUID } from "crypto";
@@ -29,7 +31,9 @@ const GAME_HANDLERS = {
     sicbo: sicboHandler,
     bingo: bingoHandler,
     crash: crashHandler,
-    duel: duelHandler
+    duel: duelHandler,
+    poker: pokerHandler,
+    bluffdice: bluffdiceHandler
 };
 
 const MAINTENANCE_MODE = ["1", "true", "yes", "on"].includes(String(process.env.MAINTENANCE_MODE || "").trim().toLowerCase());
@@ -190,6 +194,8 @@ async function appendWinnerBarrage({ session, game, requestBody, responseBody })
         sicbo: "骰寶",
         bingo: "賓果",
         crash: "暴漲"
+        ,poker: "德州撲克",
+        bluffdice: "吹牛骰子"
     };
     const label = gameLabelMap[String(game || "")] || "遊戲";
     const winnerAmount = resolveWinnerAmount(requestBody, responseBody, game);

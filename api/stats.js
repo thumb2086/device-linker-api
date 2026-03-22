@@ -25,6 +25,13 @@ const PERIOD_TITLES = {
     monthly: "monthly_champion",
     season: "season_king"
 };
+const HALL_OF_FAME_CACHE_TIER = {
+    l1FreshSeconds: 60,
+    l1StaleSeconds: 24 * 60 * 60,
+    l2FreshSeconds: 60 * 60,
+    l2StaleSeconds: 7 * 24 * 60 * 60,
+    persistLastValue: true
+};
 
 async function getDecimals() {
     return settlementService.getDecimals();
@@ -854,7 +861,7 @@ export default async function handler(req, res) {
             const hallOfFameResults = await Promise.all(HALL_OF_FAME_CONFIGS.map((config) => readThroughCache({
                 namespace: "leaderboard_hof",
                 keyParts: [config.cacheKey],
-                tier: "public-heavy",
+                tier: HALL_OF_FAME_CACHE_TIER,
                 loader: async () => loadHallOfFameSnapshot(config.historyType)
             })));
             const aggregateMeta = mergeReadCacheMeta(sourceResults.map((result) => result.meta).concat(hallOfFameResults.map((result) => result.meta)));

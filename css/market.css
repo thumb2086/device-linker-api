@@ -4,22 +4,23 @@ body.market-body {
 }
 
 .market-body .page-header {
-    max-width: 980px;
+    max-width: 1080px;
 }
 
 .market-body .header-stats {
     flex-wrap: wrap;
     justify-content: flex-end;
+    gap: 10px;
 }
 
 #main-card {
-    max-width: 980px;
+    max-width: 1080px;
     margin-bottom: 24px;
 }
 
 .sim-overview {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
     margin: 16px 0 24px;
 }
@@ -39,8 +40,9 @@ body.market-body {
 }
 
 .sim-item strong {
-    font-size: 1.2rem;
+    font-size: 1.08rem;
     color: #fff;
+    line-height: 1.35;
 }
 
 .section-block {
@@ -66,8 +68,12 @@ body.market-body {
     margin-bottom: 10px;
 }
 
-.section-header-row h2 {
-    margin-bottom: 0;
+.market-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .market-cache-meta {
@@ -86,6 +92,29 @@ body.market-body {
     color: #fff;
 }
 
+.sector-board {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.sector-chip {
+    min-width: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sector-chip strong {
+    color: inherit;
+}
+
 .form-row {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -93,13 +122,10 @@ body.market-body {
     margin-bottom: 10px;
 }
 
-.market-action-row {
-    grid-template-columns: minmax(160px, 220px);
-}
-
 .form-row select,
 .form-row input,
-.form-row button {
+.form-row button,
+.batch-trade-box textarea {
     width: 100%;
 }
 
@@ -119,6 +145,33 @@ body.market-body {
     border-radius: 10px;
 }
 
+.batch-trade-box {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.batch-trade-box label {
+    color: var(--gold);
+    font-size: 0.9rem;
+}
+
+.batch-trade-box textarea {
+    min-height: 120px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(0, 0, 0, 0.28);
+    color: #fff;
+    padding: 12px;
+    resize: vertical;
+    font: inherit;
+}
+
+.batch-trade-help {
+    color: #9aa6c0;
+    font-size: 0.82rem;
+}
+
 .market-table {
     display: grid;
     gap: 8px;
@@ -126,18 +179,34 @@ body.market-body {
 
 .market-row {
     display: grid;
-    grid-template-columns: 1.2fr 1fr 1fr 1fr 140px;
+    grid-template-columns: 1.2fr 0.8fr 0.7fr 0.7fr 0.8fr 140px;
     gap: 8px;
     padding: 10px;
     border-radius: 10px;
     background: rgba(0, 0, 0, 0.2);
     font-size: 0.92rem;
+    align-items: center;
+}
+
+.market-row span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.market-row small {
+    color: #8f9bb4;
+    font-size: 0.76rem;
 }
 
 .market-row.header {
     background: rgba(255, 204, 0, 0.1);
     color: var(--gold);
     font-weight: 700;
+}
+
+.market-row.header span {
+    flex-direction: row;
 }
 
 .change-up {
@@ -178,10 +247,11 @@ body.market-body {
 .position-item {
     display: grid;
     grid-template-columns: 2fr 1fr auto;
-    gap: 8px;
-    padding: 10px;
+    gap: 10px;
+    padding: 12px;
     border-radius: 10px;
     background: rgba(0, 0, 0, 0.2);
+    align-items: center;
 }
 
 .position-item .meta {
@@ -189,24 +259,38 @@ body.market-body {
     font-size: 0.78rem;
 }
 
-.position-item button {
-    padding: 8px 10px;
-    border-radius: 10px;
-    font-size: 0.85rem;
+.holding-actions {
+    display: grid;
+    gap: 8px;
+    justify-items: end;
 }
 
 .history-log {
-    max-height: 220px;
+    max-height: 260px;
     overflow: auto;
     display: grid;
-    gap: 6px;
+    gap: 8px;
 }
 
 .history-item {
-    font-size: 0.82rem;
-    color: #bbb;
+    padding: 10px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    padding-bottom: 6px;
+}
+
+.history-item.empty {
+    color: #8b94ab;
+    border-bottom: 0;
+}
+
+.history-main {
+    color: #f0f3fa;
+    font-size: 0.9rem;
+}
+
+.history-meta {
+    color: #8f9bb4;
+    font-size: 0.78rem;
+    margin-top: 4px;
 }
 
 #status-msg {
@@ -215,8 +299,13 @@ body.market-body {
     color: #ffd36a;
 }
 
-#liquidation-log {
+.liquidation-log {
     margin-top: 10px;
+    display: grid;
+    gap: 6px;
+}
+
+.liquidation-item {
     color: #ff7d7d;
     font-size: 0.85rem;
 }
@@ -226,12 +315,8 @@ body.market-body {
     color: #fff;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 980px) {
     .sim-overview {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .form-row {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -243,9 +328,23 @@ body.market-body {
         grid-template-columns: 1fr;
     }
 
+    .holding-actions {
+        justify-items: start;
+    }
+}
+
+@media (max-width: 760px) {
+    .form-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .section-header-row {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .market-header-actions {
+        justify-content: flex-start;
     }
 
     .market-cache-meta {
@@ -254,15 +353,16 @@ body.market-body {
 }
 
 @media (max-width: 520px) {
-    .sim-overview {
-        grid-template-columns: 1fr;
-    }
-
     body.market-body {
         padding: 12px;
     }
 
     #main-card {
         padding: 24px 14px;
+    }
+
+    .sim-overview,
+    .form-row {
+        grid-template-columns: 1fr;
     }
 }

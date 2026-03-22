@@ -5,16 +5,22 @@ var marketRefreshBusy = false;
 var marketRefreshTimerId = null;
 var marketHasRendered = false;
 
-var MARKET_PERSISTED_CACHE_KEY = "zixi_market_persisted_cache_v1";
+var MARKET_PERSISTED_CACHE_KEY = "zixi_market_persisted_cache_v2";
 
 function fmt(value, digits) {
     return formatDisplayNumber(Number(value || 0), digits === undefined ? 2 : digits);
 }
 
-function fmtPercent(value) {
+function fmtSigned(value, digits) {
+    var num = Number(value || 0);
+    var prefix = num > 0 ? "+" : "";
+    return prefix + fmt(num, digits === undefined ? 2 : digits);
+}
+
+function fmtRatePercent(value) {
     var num = Number(value || 0);
     if (!isFinite(num)) num = 0;
-    return num.toLocaleString(undefined, {
+    return (num * 100).toLocaleString(undefined, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
     }) + "%";
@@ -33,7 +39,14 @@ function setStatus(text, isError) {
     var el = document.getElementById("status-msg");
     if (!el) return;
     el.innerText = text || "";
-    el.style.color = isError ? "#ff6666" : "#ffd36a";
+    el.style.color = isError ? "#ff7d7d" : "#ffd36a";
+}
+
+function setMarketCacheMeta(text, isError) {
+    var el = document.getElementById("market-cache-meta");
+    if (!el) return;
+    el.innerText = text || "";
+    el.style.color = isError ? "#ff8d8d" : "#96a1b7";
 }
 
 function formatGeneratedTime(rawValue) {
@@ -60,13 +73,6 @@ function formatSignedMarketDelta(value, pctValue) {
     var amountPrefix = amount > 0 ? "+" : "";
     var percentPrefix = percent > 0 ? "+" : "";
     return amountPrefix + fmt(amount, 2) + " 子熙幣 (" + percentPrefix + fmt(percent, 2) + "%)";
-}
-
-function setMarketCacheMeta(text, isError) {
-    var el = document.getElementById("market-cache-meta");
-    if (!el) return;
-    el.innerText = text || "";
-    el.style.color = isError ? "#ff8d8d" : "#96a1b7";
 }
 
 function getMarketStorage() {
@@ -108,7 +114,6 @@ function persistMarketSnapshot(payload) {
     if (!payload || !payload.account || !payload.market) return;
     var cacheKey = getMarketCacheKey();
     if (!cacheKey) return;
-
     var current = readPersistedMarketCache();
     current[cacheKey] = {
         savedAt: new Date().toISOString(),
@@ -120,14 +125,13 @@ function persistMarketSnapshot(payload) {
 function loadPersistedMarketSnapshot() {
     var cacheKey = getMarketCacheKey();
     if (!cacheKey) return null;
-
     var current = readPersistedMarketCache();
     if (!current || !current[cacheKey] || !current[cacheKey].payload) return null;
     return current[cacheKey];
 }
 
 function withBusy(task) {
-    if (marketBusy) return Promise.reject(new Error("目前還有其他操作進行中"));
+    if (marketBusy) return Promise.reject(new Error("上一筆市場操作尚未完成"));
     marketBusy = true;
     return task().finally(function () {
         marketBusy = false;
@@ -146,7 +150,7 @@ function callMarket(action, payload) {
         });
     }
 
-    return fetch("/api/market-sim", {
+    return fetch("/api/market", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
@@ -156,7 +160,7 @@ function callMarket(action, payload) {
 }
 
 function fetchMarketSnapshot() {
-    return fetch("/api/market-sim", {
+    return fetch("/api/market", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -172,21 +176,6 @@ function fetchMarketSnapshot() {
             };
         });
     });
-}
-
-function safeHistoryStringify(value) {
-    var seen = [];
-    try {
-        return JSON.stringify(value, function (key, nextValue) {
-            if (nextValue && typeof nextValue === "object") {
-                if (seen.indexOf(nextValue) >= 0) return "[Circular]";
-                seen.push(nextValue);
-            }
-            return nextValue;
-        });
-    } catch (error) {
-        return "[資料過大，無法完整顯示]";
-    }
 }
 
 function sparklineSvg(prices, width, height, cls) {
@@ -220,7 +209,7 @@ function renderMarketTable(market) {
     var table = document.getElementById("market-table");
     if (!table || !market || !market.symbols) return;
 
-    var html = '<div class="market-row header"><span>商品</span><span>價格</span><span>漲跌幅</span><span>類型</span><span>走勢</span></div>';
+    var html = '<div class="market-row header"><span>標的</span><span>現價</span><span>漲跌</span><span>類型</span><span>板塊</span><span>趨勢</span></div>';
 
     Object.keys(market.symbols).forEach(function (symbol) {
         var item = market.symbols[symbol];
@@ -229,10 +218,11 @@ function renderMarketTable(market) {
         var history = market.history && market.history[symbol] ? market.history[symbol] : [];
 
         html += '<div class="market-row">' +
-            "<span>" + escapeMarketHtml(symbol) + " <small>(" + escapeMarketHtml(item.name) + ")</small></span>" +
+            "<span><strong>" + escapeMarketHtml(symbol) + "</strong><small>" + escapeMarketHtml(item.name) + "</small></span>" +
             "<span>" + fmt(item.price, 4) + "</span>" +
-            '<span class="' + cls + '">' + sign + fmt(item.changePct, 3) + "%</span>" +
+            '<span class="' + cls + '">' + sign + fmt(item.changePct, 2) + "%</span>" +
             "<span>" + escapeMarketHtml(item.type) + "</span>" +
+            "<span>" + escapeMarketHtml(item.sector) + "</span>" +
             "<span>" + sparklineSvg(history, 120, 36, cls) + "</span>" +
             "</div>";
     });
@@ -240,12 +230,33 @@ function renderMarketTable(market) {
     table.innerHTML = html;
 }
 
+function renderSectorBoard(market) {
+    var el = document.getElementById("sector-board");
+    if (!el) return;
+    var sectors = market && Array.isArray(market.sectorSummary) ? market.sectorSummary : [];
+    if (sectors.length === 0) {
+        el.innerHTML = "";
+        return;
+    }
+
+    var html = "";
+    sectors.slice(0, 6).forEach(function (sector) {
+        var cls = Number(sector.avgChangePct || 0) >= 0 ? "change-up" : "change-down";
+        var sign = Number(sector.avgChangePct || 0) >= 0 ? "+" : "";
+        html += '<div class="sector-chip ' + cls + '">' +
+            '<span>' + escapeMarketHtml(sector.sector) + '</span>' +
+            '<strong>' + sign + fmt(sector.avgChangePct, 2) + '%</strong>' +
+            "</div>";
+    });
+    el.innerHTML = html;
+}
+
 function renderFutures(account) {
     var list = document.getElementById("futures-list");
     if (!list) return;
 
     if (!account || !account.futuresPositions || account.futuresPositions.length === 0) {
-        list.innerHTML = '<div class="history-item">目前沒有期貨倉位</div>';
+        list.innerHTML = '<div class="history-item empty">目前沒有期貨倉位</div>';
         return;
     }
 
@@ -254,9 +265,9 @@ function renderFutures(account) {
         var pnlClass = pos.unrealizedPnl >= 0 ? "change-up" : "change-down";
         html += '<div class="position-item">' +
             "<div>" +
-            "<strong>" + escapeMarketHtml(pos.symbol) + " " + (pos.side === "short" ? "做空" : "做多") + " x" + fmt(pos.leverage, 0) + "</strong>" +
-            '<div class="meta">名目價值 ' + fmt(pos.notional, 2) + " 子熙幣 | 保證金 " + fmt(pos.margin, 2) + " 子熙幣</div>" +
-            '<div class="meta">進場價 ' + fmt(pos.entryPrice, 4) + " | 現價 " + fmt(pos.markPrice, 4) + " | 強平價 " + fmt(pos.liquidationPrice, 4) + "</div>" +
+            "<strong>" + escapeMarketHtml(pos.symbol) + " " + (pos.side === "short" ? "空單" : "多單") + " x" + fmt(pos.leverage, 0) + "</strong>" +
+            '<div class="meta">名目 ' + fmt(pos.notional, 2) + " 子熙幣 | 保證金 " + fmt(pos.margin, 2) + " 子熙幣</div>" +
+            '<div class="meta">進場 ' + fmt(pos.entryPrice, 4) + " | 現價 " + fmt(pos.markPrice, 4) + " | 爆倉 " + fmt(pos.liquidationPrice, 4) + "</div>" +
             "</div>" +
             '<div class="' + pnlClass + '">' + formatSignedMarketDelta(pos.unrealizedPnl, pos.roiPct) + "</div>" +
             '<button class="btn-secondary" onclick="closeFuturesPosition(\'' + escapeMarketHtml(pos.id) + '\')">平倉</button>' +
@@ -266,36 +277,37 @@ function renderFutures(account) {
     list.innerHTML = html;
 }
 
-function renderStocks(account, market) {
+function queueHoldingForBatchSell(symbol, quantity) {
+    var area = document.getElementById("batch-stock-orders");
+    if (!area) return;
+    var current = String(area.value || "").trim();
+    var line = String(symbol || "").toUpperCase() + "," + Number(quantity || 0);
+    area.value = current ? current + "\n" + line : line;
+}
+
+function renderStocks(account) {
     var list = document.getElementById("stock-holdings");
     if (!list) return;
 
     if (!account || !account.stockPositions || account.stockPositions.length === 0) {
-        list.innerHTML = '<div class="history-item">目前沒有股票持倉</div>';
+        list.innerHTML = '<div class="history-item empty">目前沒有現股持倉</div>';
         return;
     }
 
     var html = "";
     account.stockPositions.forEach(function (pos) {
-        var currentQuote = market && market.symbols ? market.symbols[pos.symbol] : null;
-        var avgPrice = Number(pos.avgPrice || 0);
-        var price = Number(pos.price || 0);
-        var quantity = Number(pos.quantity || 0);
-        var unrealizedPnl = (price - avgPrice) * quantity;
-        var roiPct = avgPrice > 0 ? ((price - avgPrice) / avgPrice) * 100 : 0;
-        var pnlClass = unrealizedPnl >= 0 ? "change-up" : "change-down";
-        var dayChangePct = currentQuote ? Number(currentQuote.changePct || 0) : 0;
-        var dayChangeClass = dayChangePct >= 0 ? "change-up" : "change-down";
-        var dayChangePrefix = dayChangePct >= 0 ? "+" : "";
+        var pnlClass = pos.unrealizedPnl >= 0 ? "change-up" : "change-down";
+        var dayChangeClass = pos.dayChangePct >= 0 ? "change-up" : "change-down";
+        var dayPrefix = pos.dayChangePct >= 0 ? "+" : "";
 
         html += '<div class="position-item">' +
             "<div>" +
-            "<strong>" + escapeMarketHtml(pos.symbol) + "</strong>" +
+            "<strong>" + escapeMarketHtml(pos.symbol) + " <small>" + escapeMarketHtml(pos.name || "") + "</small></strong>" +
             '<div class="meta">持有 ' + fmt(pos.quantity, 4) + " 股 | 均價 " + fmt(pos.avgPrice, 4) + " | 現價 " + fmt(pos.price, 4) + "</div>" +
-            '<div class="meta ' + dayChangeClass + '">今日漲跌 ' + dayChangePrefix + fmt(dayChangePct, 2) + "%</div>" +
+            '<div class="meta ' + dayChangeClass + '">今日漲跌 ' + dayPrefix + fmt(pos.dayChangePct, 2) + "%</div>" +
             "</div>" +
-            '<div class="' + pnlClass + '">' + formatSignedMarketDelta(unrealizedPnl, roiPct) + "</div>" +
-            "<div>市值 " + fmt(pos.marketValue, 2) + " 子熙幣</div>" +
+            '<div class="' + pnlClass + '">' + formatSignedMarketDelta(pos.unrealizedPnl, pos.roiPct) + "</div>" +
+            '<div class="holding-actions"><div>市值 ' + fmt(pos.marketValue, 2) + ' 子熙幣</div><button class="btn-secondary" onclick="queueHoldingForBatchSell(\'' + escapeMarketHtml(pos.symbol) + '\', ' + Number(pos.quantity || 0) + ')">加入批次賣出</button></div>' +
             "</div>";
     });
 
@@ -307,14 +319,16 @@ function renderHistory(account) {
     if (!el) return;
 
     if (!account || !account.history || account.history.length === 0) {
-        el.innerHTML = '<div class="history-item">目前沒有操作紀錄</div>';
+        el.innerHTML = '<div class="history-item empty">目前沒有操作紀錄</div>';
         return;
     }
 
     var html = "";
-    account.history.forEach(function (item) {
-        var payloadText = safeHistoryStringify(item);
-        html += '<div class="history-item">[' + escapeMarketHtml(item.at) + "] " + escapeMarketHtml(item.type) + " " + escapeMarketHtml(payloadText) + "</div>";
+    account.history.slice(0, 20).forEach(function (item) {
+        html += '<div class="history-item">' +
+            '<div class="history-main">' + escapeMarketHtml(item.summary || item.type || "市場操作") + "</div>" +
+            '<div class="history-meta">' + escapeMarketHtml(formatGeneratedTime(item.at) || item.at || "") + " | " + escapeMarketHtml(item.type || "") + "</div>" +
+            "</div>";
     });
 
     el.innerHTML = html;
@@ -323,15 +337,15 @@ function renderHistory(account) {
 function renderLiquidations(events) {
     var el = document.getElementById("liquidation-log");
     if (!el) return;
-
     if (!events || events.length === 0) {
         el.innerHTML = "";
         return;
     }
-
-    el.innerText = "已觸發強平: " + events.map(function (event) {
-        return event.symbol + " #" + event.positionId;
-    }).join("、");
+    var html = "";
+    events.forEach(function (event) {
+        html += '<div class="liquidation-item">強制平倉：' + escapeMarketHtml(event.symbol) + " #" + escapeMarketHtml(event.positionId) + "</div>";
+    });
+    el.innerHTML = html;
 }
 
 function loadSymbolOptions(symbols) {
@@ -367,6 +381,8 @@ function renderOverview(payload) {
     var simNet = document.getElementById("sim-net");
     var marketVol = document.getElementById("market-vol");
     var fgIndex = document.getElementById("fg-index");
+    var marketTrend = document.getElementById("market-trend");
+    var marketBreadth = document.getElementById("market-breadth");
     var bankRateLabel = document.getElementById("bank-rate-label");
     var loanRateLabel = document.getElementById("loan-rate-label");
     var futuresMaxBetEl = document.getElementById("futures-max-bet");
@@ -377,8 +393,10 @@ function renderOverview(payload) {
     if (simNet) simNet.innerText = fmt(account.netWorth, 2);
     if (marketVol) marketVol.innerText = fmt(market.marketVolatilityPct, 2) + "%";
     if (fgIndex) fgIndex.innerText = String(market.fearGreedIndex || 0);
-    if (bankRateLabel && payload.params) bankRateLabel.innerText = fmtPercent(payload.params.bankAnnualRate || 0);
-    if (loanRateLabel && payload.params) loanRateLabel.innerText = fmtPercent(payload.params.loanAnnualRate || 0);
+    if (marketTrend) marketTrend.innerText = String(market.marketTrendLabel || "震盪") + " " + fmtSigned(market.marketTrendPct || 0, 2) + "%";
+    if (marketBreadth) marketBreadth.innerText = String(market.advancers || 0) + " 上漲 / " + String(market.decliners || 0) + " 下跌";
+    if (bankRateLabel && payload.params) bankRateLabel.innerText = fmtRatePercent(payload.params.bankAnnualRate || 0);
+    if (loanRateLabel && payload.params) loanRateLabel.innerText = fmtRatePercent(payload.params.loanAnnualRate || 0);
     if (futuresMaxBetEl && betLimit !== undefined) futuresMaxBetEl.innerText = formatDisplayNumber(betLimit, 2) + " 子熙幣";
 
     updateUI({
@@ -388,8 +406,9 @@ function renderOverview(payload) {
         betLimit: betLimit
     }, { skipGlobalHooks: true });
 
+    renderSectorBoard(market);
     renderMarketTable(market);
-    renderStocks(account, market);
+    renderStocks(account);
     renderFutures(account);
     renderHistory(account);
     renderLiquidations(payload.liquidationEvents || []);
@@ -411,8 +430,8 @@ function refreshMarket(silent, options) {
     if (!silent) {
         if (persisted && persisted.payload && !marketHasRendered) {
             renderOverview(persisted.payload);
-            setStatus("先顯示上次金融市場快照，背景更新中...", false);
-            setMarketCacheMeta(buildMarketStatusText("STALE", persisted.payload.generatedAt || persisted.savedAt) || "已載入上次快照", false);
+            setStatus("先顯示上次快照，正在背景同步最新市場資料...", false);
+            setMarketCacheMeta(buildMarketStatusText("STALE", persisted.payload.generatedAt || persisted.savedAt) || "快取快照", false);
         } else if (!marketHasRendered) {
             setStatus("載入中...", false);
         }
@@ -423,7 +442,7 @@ function refreshMarket(silent, options) {
         .then(function (result) {
             var data = result.data;
             if (!data || !data.success) {
-                throw new Error((data && data.error) || "金融市場資料載入失敗");
+                throw new Error((data && data.error) || "市場快照載入失敗");
             }
 
             if (!data.generatedAt && result.generatedAt) {
@@ -434,21 +453,31 @@ function refreshMarket(silent, options) {
             persistMarketSnapshot(data);
 
             if (!silent) {
-                setStatus("金融市場已同步", false);
+                setStatus("市場資料已同步", false);
             }
-            setMarketCacheMeta(buildMarketStatusText(result.cacheStatus, data.generatedAt) || "金融市場已更新", false);
+            setMarketCacheMeta(buildMarketStatusText(result.cacheStatus, data.generatedAt) || "市場資料已同步", false);
         })
         .catch(function (error) {
             if (marketHasRendered) {
-                setStatus("同步失敗，暫時保留目前快照: " + error.message, true);
+                setStatus("刷新失敗，保留目前快照：" + error.message, true);
             } else {
-                setStatus("載入失敗: " + error.message, true);
+                setStatus("載入失敗：" + error.message, true);
             }
-            setMarketCacheMeta("金融市場載入失敗", true);
+            setMarketCacheMeta("市場快照同步失敗", true);
         })
         .finally(function () {
             marketRefreshBusy = false;
         });
+}
+
+function handleMarketMutation(data, successText, toastText) {
+    if (!data || !data.success) throw new Error((data && data.error) || "市場操作失敗");
+    renderOverview(data);
+    persistMarketSnapshot(data);
+    setStatus(successText, false);
+    setMarketCacheMeta("已使用最新市場資料", false);
+    if (toastText) showUserToast(toastText);
+    if (window.audioManager) window.audioManager.play("win_small");
 }
 
 function submitStock(action) {
@@ -464,23 +493,98 @@ function submitStock(action) {
     }
 
     if (window.audioManager) window.audioManager.play("bet");
-    setStatus(action === "buy_stock" ? "買入中..." : "賣出中...", false);
+    setStatus(action === "buy_stock" ? "送出買單..." : "送出賣單...", false);
 
     withBusy(function () {
-        return callMarket(action, {
-            symbol: symbol,
-            quantity: quantity
-        }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || "股票交易失敗");
-            renderOverview(data);
-            persistMarketSnapshot(data);
-            setStatus("股票交易完成", false);
-            setMarketCacheMeta("已套用最新交易結果", false);
-            showUserToast("股票交易成功");
-            if (window.audioManager) window.audioManager.play("win_small");
-        });
+        return callMarket(action, { symbol: symbol, quantity: quantity })
+            .then(function (data) {
+                handleMarketMutation(data, "股票交易完成", "股票交易已完成");
+            });
     }).catch(function (error) {
-        setStatus("操作失敗: " + error.message, true);
+        setStatus("股票交易失敗：" + error.message, true);
+        showUserToast(error.message, true);
+    }).finally(function () {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = oldText;
+        }
+    });
+}
+
+function parseBatchOrders(rawValue) {
+    var lines = String(rawValue || "").split(/\r?\n/);
+    var orders = [];
+    for (var i = 0; i < lines.length; i += 1) {
+        var line = String(lines[i] || "").trim();
+        if (!line) continue;
+
+        var csv = line.split(",");
+        if (csv.length >= 2) {
+            orders.push({
+                side: csv[2] ? String(csv[2]).trim().toLowerCase() : "sell",
+                symbol: String(csv[0] || "").trim().toUpperCase(),
+                quantity: Number(String(csv[1] || "").trim())
+            });
+            continue;
+        }
+
+        var parts = line.split(/\s+/);
+        if (parts.length < 2) throw new Error("批次格式請用 SYMBOL,數量 或 buy/sell SYMBOL 數量");
+        if (parts.length === 2) {
+            orders.push({
+                side: "sell",
+                symbol: String(parts[0] || "").trim().toUpperCase(),
+                quantity: Number(parts[1] || 0)
+            });
+            continue;
+        }
+        orders.push({
+            side: String(parts[0] || "").trim().toLowerCase(),
+            symbol: String(parts[1] || "").trim().toUpperCase(),
+            quantity: Number(parts[2] || 0)
+        });
+    }
+
+    var filtered = orders.filter(function (order) {
+        return order.symbol && Number(order.quantity || 0) > 0;
+    });
+    if (filtered.length === 0) {
+        throw new Error("沒有可送出的批次委託");
+    }
+    return filtered;
+}
+
+function submitBatchStockTrades() {
+    var input = document.getElementById("batch-stock-orders");
+    if (!input) return;
+
+    var orders;
+    try {
+        orders = parseBatchOrders(input.value);
+    } catch (error) {
+        setStatus(error.message, true);
+        showUserToast(error.message, true);
+        return;
+    }
+
+    var btn = event && event.target && event.target.tagName === "BUTTON" ? event.target : null;
+    var oldText = btn ? btn.innerText : "";
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "處理中...";
+    }
+
+    if (window.audioManager) window.audioManager.play("bet");
+    setStatus("送出批次股票交易...", false);
+
+    withBusy(function () {
+        return callMarket("trade_stock_batch", { orders: orders })
+            .then(function (data) {
+                handleMarketMutation(data, "批次股票交易完成", "批次股票交易已完成");
+                input.value = "";
+            });
+    }).catch(function (error) {
+        setStatus("批次股票交易失敗：" + error.message, true);
         showUserToast(error.message, true);
     }).finally(function () {
         if (btn) {
@@ -504,7 +608,7 @@ function openFuturesPosition() {
     }
 
     if (window.audioManager) window.audioManager.play("bet");
-    setStatus("期貨開倉中...", false);
+    setStatus("送出期貨委託...", false);
 
     withBusy(function () {
         return callMarket("open_futures", {
@@ -513,16 +617,10 @@ function openFuturesPosition() {
             margin: margin,
             leverage: leverage
         }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || "期貨開倉失敗");
-            renderOverview(data);
-            persistMarketSnapshot(data);
-            setStatus("期貨開倉完成", false);
-            setMarketCacheMeta("已套用最新交易結果", false);
-            showUserToast("期貨開倉成功");
-            if (window.audioManager) window.audioManager.play("win_small");
+            handleMarketMutation(data, "期貨倉位已建立", "期貨倉位已建立");
         });
     }).catch(function (error) {
-        setStatus("操作失敗: " + error.message, true);
+        setStatus("期貨委託失敗：" + error.message, true);
         showUserToast(error.message, true);
     }).finally(function () {
         if (btn) {
@@ -534,7 +632,6 @@ function openFuturesPosition() {
 
 function closeFuturesPosition(positionId) {
     if (!positionId) return;
-
     var btn = event && event.target && event.target.tagName === "BUTTON" ? event.target : null;
     if (btn) {
         btn.disabled = true;
@@ -542,20 +639,15 @@ function closeFuturesPosition(positionId) {
     }
 
     if (window.audioManager) window.audioManager.play("bet");
-    setStatus("平倉中...", false);
+    setStatus("送出平倉...", false);
 
     withBusy(function () {
-        return callMarket("close_futures", { positionId: positionId }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || "期貨平倉失敗");
-            renderOverview(data);
-            persistMarketSnapshot(data);
-            setStatus("平倉完成", false);
-            setMarketCacheMeta("已套用最新交易結果", false);
-            showUserToast("期貨平倉成功");
-            if (window.audioManager) window.audioManager.play("win_small");
-        });
+        return callMarket("close_futures", { positionId: positionId })
+            .then(function (data) {
+                handleMarketMutation(data, "期貨倉位已平倉", "期貨倉位已平倉");
+            });
     }).catch(function (error) {
-        setStatus("操作失敗: " + error.message, true);
+        setStatus("平倉失敗：" + error.message, true);
         showUserToast(error.message, true);
     }).finally(function () {
         if (btn) {
@@ -576,19 +668,16 @@ function submitBank(action) {
         btn.innerText = "處理中...";
     }
 
-    if (window.audioManager) window.audioManager.play("chip");
-    setStatus(action === "bank_deposit" ? "存入銀行中..." : "銀行提款中...", false);
+    if (window.audioManager) window.audioManager.play("bet");
+    setStatus(action === "bank_deposit" ? "處理銀行存入..." : "處理銀行提領...", false);
 
     withBusy(function () {
         return callMarket(action, { amount: amount }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || "銀行操作失敗");
-            renderOverview(data);
-            persistMarketSnapshot(data);
-            setStatus("銀行操作完成", false);
-            setMarketCacheMeta("已套用最新交易結果", false);
+            handleMarketMutation(data, "銀行操作完成", "銀行操作已完成");
         });
     }).catch(function (error) {
-        setStatus("操作失敗: " + error.message, true);
+        setStatus("銀行操作失敗：" + error.message, true);
+        showUserToast(error.message, true);
     }).finally(function () {
         if (btn) {
             btn.disabled = false;
@@ -608,19 +697,16 @@ function submitLoan(action) {
         btn.innerText = "處理中...";
     }
 
-    if (window.audioManager) window.audioManager.play("chip");
-    setStatus(action === "borrow" ? "借款中..." : "還款中...", false);
+    if (window.audioManager) window.audioManager.play("bet");
+    setStatus(action === "borrow" ? "處理貸款..." : "處理還款...", false);
 
     withBusy(function () {
         return callMarket(action, { amount: amount }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || "貸款操作失敗");
-            renderOverview(data);
-            persistMarketSnapshot(data);
-            setStatus("貸款操作完成", false);
-            setMarketCacheMeta("已套用最新交易結果", false);
+            handleMarketMutation(data, "貸款操作完成", "貸款操作已完成");
         });
     }).catch(function (error) {
-        setStatus("操作失敗: " + error.message, true);
+        setStatus("貸款操作失敗：" + error.message, true);
+        showUserToast(error.message, true);
     }).finally(function () {
         if (btn) {
             btn.disabled = false;

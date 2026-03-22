@@ -11,6 +11,8 @@ class AudioManager {
         this.masterVolume = this.sfxVolume;
         this.initialized = false;
         this.loadingHowler = false;
+        this.initializing = false;
+        this.pendingBgmReplay = false;
 
         this.soundConfig = {
             click: "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
@@ -106,10 +108,11 @@ class AudioManager {
     }
 
     init() {
-        if (this.initialized) return;
+        if (this.initialized || this.initializing) return;
 
         if (typeof Howl === "undefined") {
             if (this.loadingHowler) return;
+            this.initializing = true;
             this.loadingHowler = true;
             var script = document.createElement("script");
             script.src = "https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js";
@@ -117,15 +120,21 @@ class AudioManager {
                 this.loadingHowler = false;
                 this._loadSounds();
                 this.initialized = true;
+                this.initializing = false;
+                this._flushPendingBgmReplay();
             };
             script.onerror = () => {
                 this.loadingHowler = false;
+                this.initializing = false;
                 console.log("Failed to load howler.js");
             };
             document.head.appendChild(script);
         } else {
+            this.initializing = true;
             this._loadSounds();
             this.initialized = true;
+            this.initializing = false;
+            this._flushPendingBgmReplay();
         }
     }
 
@@ -145,8 +154,18 @@ class AudioManager {
         }
 
         if (this.pendingBgmKey && this.bgmEnabled && !this.isMuted) {
-            this.playBGM(this.pendingBgmKey);
+            this.pendingBgmReplay = true;
         }
+    }
+
+    _flushPendingBgmReplay() {
+        if (!this.pendingBgmReplay) return;
+        if (!this.pendingBgmKey || !this.bgmEnabled || this.isMuted) {
+            this.pendingBgmReplay = false;
+            return;
+        }
+        this.pendingBgmReplay = false;
+        this.playBGM(this.pendingBgmKey);
     }
 
     play(key, options = {}) {
@@ -196,6 +215,10 @@ class AudioManager {
         var key = this._normalizeBgmKey(trackName);
         this.pendingBgmKey = key;
         if (!this.initialized) this.init();
+        if (this.initializing) {
+            this.pendingBgmReplay = true;
+            return null;
+        }
         if (this.isMuted || !this.bgmEnabled) return null;
 
         if (this.currentBgmKey && this.currentBgmKey !== key) {

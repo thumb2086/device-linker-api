@@ -12,13 +12,14 @@ import {
     buildMarketSnapshot,
     normalizeMarketAccount,
     settleLiquidations
-} from "../lib/market-sim.js";
+} from "../lib/market.js";
 
 const TOTAL_BET_PREFIX = "total_bet:";
 const WEEK_BET_PREFIX = "total_bet_week:";
 const MONTH_BET_PREFIX = "total_bet_month:";
 const SEASON_BET_PREFIX = "total_bet_season:";
-const MARKET_SIM_PREFIX = "market_sim:";
+const MARKET_PREFIX = "market:";
+const LEGACY_MARKET_PREFIX = "market_sim:";
 const MAX_LIMIT = 100;
 const PERIOD_TITLES = {
     weekly: "weekly_champion",
@@ -306,11 +307,13 @@ async function loadKnownUsers(currentAddress) {
         addressSet.add(address);
         totalBetMap.set(address, totalBet);
     });
-    for await (const key of kv.scanIterator({ match: `${MARKET_SIM_PREFIX}*`, count: 1000 })) {
-        const address = key.slice(MARKET_SIM_PREFIX.length).toLowerCase();
-        if (!address) continue;
-        addressSet.add(address);
-        if (!totalBetMap.has(address)) totalBetMap.set(address, 0);
+    for (const prefix of [MARKET_PREFIX, LEGACY_MARKET_PREFIX]) {
+        for await (const key of kv.scanIterator({ match: `${prefix}*`, count: 1000 })) {
+            const address = key.slice(prefix.length).toLowerCase();
+            if (!address) continue;
+            addressSet.add(address);
+            if (!totalBetMap.has(address)) totalBetMap.set(address, 0);
+        }
     }
     if (currentAddress) {
         addressSet.add(currentAddress);
@@ -333,7 +336,7 @@ async function loadBalanceEntries(addresses, totalBetMap) {
             try {
                 const [balanceWei, marketDataRaw] = await Promise.all([
                     contract.balanceOf(address),
-                    kv.get(`${MARKET_SIM_PREFIX}${address}`)
+                    kv.get(`${MARKET_PREFIX}${address}`).then((value) => value !== null ? value : kv.get(`${LEGACY_MARKET_PREFIX}${address}`))
                 ]);
                 const walletBalance = Number(ethers.formatUnits(balanceWei, decimals));
                 const marketAccount = normalizeMarketAccount(marketDataRaw, nowTs);

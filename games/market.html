@@ -8,7 +8,6 @@
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/market.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
 </head>
 
 <body class="market-body">
@@ -27,21 +26,21 @@
 
         <div class="user-stats">
             <span id="vip-badge">等級載入中</span>
-            <div class="stat-row">可用資金: <span id="balance-val">0.00</span> 子熙幣</div>
-            <div class="stat-row">累計下注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">可用子熙幣：<span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">總下注累計：<span id="total-bet-val">0.00</span> 子熙幣</div>
         </div>
 
         <div class="sim-overview">
             <div class="sim-item">
-                <span>模擬現金</span>
+                <span>可用資金</span>
                 <strong id="sim-cash">0.00</strong>
             </div>
             <div class="sim-item">
-                <span>銀行存款</span>
+                <span>銀行餘額</span>
                 <strong id="sim-bank">0.00</strong>
             </div>
             <div class="sim-item">
-                <span>貸款本金</span>
+                <span>貸款餘額</span>
                 <strong id="sim-loan">0.00</strong>
             </div>
             <div class="sim-item">
@@ -49,38 +48,56 @@
                 <strong id="sim-net">0.00</strong>
             </div>
             <div class="sim-item">
+                <span>大盤趨勢</span>
+                <strong id="market-trend">-</strong>
+            </div>
+            <div class="sim-item">
+                <span>漲跌家數</span>
+                <strong id="market-breadth">-</strong>
+            </div>
+            <div class="sim-item">
                 <span>市場波動</span>
                 <strong id="market-vol">0.00%</strong>
             </div>
             <div class="sim-item">
-                <span>恐懼貪婪指數</span>
+                <span>恐懼貪婪</span>
                 <strong id="fg-index">0</strong>
             </div>
         </div>
 
         <div class="section-block">
             <div class="section-header-row">
-                <h2>市場行情</h2>
-                <div id="market-cache-meta" class="market-cache-meta"></div>
+                <h2>市場看板</h2>
+                <div class="market-header-actions">
+                    <div id="market-cache-meta" class="market-cache-meta"></div>
+                    <button class="btn-secondary" type="button" onclick="refreshMarket(false, { forceRefresh: true })">更新市場</button>
+                </div>
             </div>
-            <p class="market-note">會先顯示最近一次成功快照，再於背景同步最新行情。</p>
+            <p class="market-note">先顯示快照、背景同步最新行情。板塊與大盤趨勢會一起帶動個股，不再是各走各的。</p>
+            <div id="sector-board" class="sector-board"></div>
             <div id="market-table" class="market-table"></div>
         </div>
 
         <div class="section-block">
-            <h2>股票交易</h2>
+            <h2>現股交易</h2>
             <div class="form-row">
                 <select id="stock-symbol"></select>
                 <input type="number" id="stock-qty" min="0.0001" step="0.0001" value="1">
                 <button class="btn-primary" onclick="submitStock('buy_stock')">買入</button>
                 <button class="btn-secondary" onclick="submitStock('sell_stock')">賣出</button>
             </div>
+            <div class="batch-trade-box">
+                <label for="batch-stock-orders">批次交易</label>
+                <textarea id="batch-stock-orders" rows="5" placeholder="AAPL,10&#10;NVDA,3&#10;buy TSM 5"></textarea>
+                <div class="batch-trade-help">格式支援 `SYMBOL,數量` 預設賣出，或 `buy/sell SYMBOL 數量`。可一次送多支股票。</div>
+                <button class="btn-primary" type="button" onclick="submitBatchStockTrades()">送出批次交易</button>
+            </div>
             <div id="stock-holdings" class="position-list"></div>
         </div>
 
         <div class="section-block">
             <h2>期貨倉位</h2>
-            <p class="market-note">多空皆可開倉，單次保證金上限為 <strong id="futures-max-bet">-</strong></p>
+            <p class="market-note">目前最大保證金上限：<strong id="futures-max-bet">-</strong></p>
             <div class="form-row">
                 <select id="futures-symbol"></select>
                 <select id="futures-side">
@@ -96,26 +113,23 @@
 
         <div class="section-block">
             <h2>銀行與貸款</h2>
-            <p class="market-note">銀行年利率 <strong id="bank-rate-label">2%</strong>，貸款年利率 <strong id="loan-rate-label">4%</strong>。</p>
+            <p class="market-note">銀行年利率 <strong id="bank-rate-label">2%</strong>，貸款年利率 <strong id="loan-rate-label">4%</strong></p>
             <div class="form-row">
                 <input type="number" id="bank-amount" min="0.000001" step="0.000001" value="100">
                 <button class="btn-primary" onclick="submitBank('bank_deposit')">存入銀行</button>
-                <button class="btn-secondary" onclick="submitBank('bank_withdraw')">銀行提款</button>
+                <button class="btn-secondary" onclick="submitBank('bank_withdraw')">提領銀行</button>
             </div>
             <div class="form-row">
                 <input type="number" id="loan-amount" min="0.000001" step="0.000001" value="100">
-                <button class="btn-primary" onclick="submitLoan('borrow')">借款</button>
-                <button class="btn-secondary" onclick="submitLoan('repay')">還款</button>
+                <button class="btn-primary" onclick="submitLoan('borrow')">申請貸款</button>
+                <button class="btn-secondary" onclick="submitLoan('repay')">償還貸款</button>
             </div>
         </div>
 
         <div class="section-block">
             <h2>同步狀態</h2>
-            <div class="form-row market-action-row">
-                <button class="btn-primary" onclick="refreshMarket(false, { forceRefresh: true })">重新整理</button>
-            </div>
             <p id="status-msg">載入中...</p>
-            <div id="liquidation-log"></div>
+            <div id="liquidation-log" class="liquidation-log"></div>
         </div>
 
         <div class="section-block">

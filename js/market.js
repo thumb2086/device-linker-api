@@ -54,6 +54,14 @@ function buildMarketStatusText(cacheStatus, generatedAt) {
     return parts.join(" | ");
 }
 
+function formatSignedMarketDelta(value, pctValue) {
+    var amount = Number(value || 0);
+    var percent = Number(pctValue || 0);
+    var amountPrefix = amount > 0 ? "+" : "";
+    var percentPrefix = percent > 0 ? "+" : "";
+    return amountPrefix + fmt(amount, 2) + " 子熙幣 (" + percentPrefix + fmt(percent, 2) + "%)";
+}
+
 function setMarketCacheMeta(text, isError) {
     var el = document.getElementById("market-cache-meta");
     if (!el) return;
@@ -250,7 +258,7 @@ function renderFutures(account) {
             '<div class="meta">名目價值 ' + fmt(pos.notional, 2) + " 子熙幣 | 保證金 " + fmt(pos.margin, 2) + " 子熙幣</div>" +
             '<div class="meta">進場價 ' + fmt(pos.entryPrice, 4) + " | 現價 " + fmt(pos.markPrice, 4) + " | 強平價 " + fmt(pos.liquidationPrice, 4) + "</div>" +
             "</div>" +
-            '<div class="' + pnlClass + '">未實現 ' + fmt(pos.unrealizedPnl, 2) + " 子熙幣 (" + fmt(pos.roiPct, 2) + "%)</div>" +
+            '<div class="' + pnlClass + '">' + formatSignedMarketDelta(pos.unrealizedPnl, pos.roiPct) + "</div>" +
             '<button class="btn-secondary" onclick="closeFuturesPosition(\'' + escapeMarketHtml(pos.id) + '\')">平倉</button>' +
             "</div>";
     });
@@ -286,7 +294,7 @@ function renderStocks(account, market) {
             '<div class="meta">持有 ' + fmt(pos.quantity, 4) + " 股 | 均價 " + fmt(pos.avgPrice, 4) + " | 現價 " + fmt(pos.price, 4) + "</div>" +
             '<div class="meta ' + dayChangeClass + '">今日漲跌 ' + dayChangePrefix + fmt(dayChangePct, 2) + "%</div>" +
             "</div>" +
-            '<div class="' + pnlClass + '">未實現 ' + fmt(unrealizedPnl, 2) + " 子熙幣 (" + fmt(roiPct, 2) + "%)</div>" +
+            '<div class="' + pnlClass + '">' + formatSignedMarketDelta(unrealizedPnl, roiPct) + "</div>" +
             "<div>市值 " + fmt(pos.marketValue, 2) + " 子熙幣</div>" +
             "</div>";
     });

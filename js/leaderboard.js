@@ -327,6 +327,37 @@ function buildHallOfFameSubtitle(item) {
     return "最近奪冠期別 " + item.lastSettledPeriodId;
 }
 
+function buildHallOfFameTieText(item) {
+    var tieCount = Number(item && item.tieCount || 0);
+    if (tieCount > 1) {
+        return "並列 " + formatDisplayNumber(tieCount, 0) + " 人";
+    }
+    return "";
+}
+
+function renderHallOfFameTieList(item) {
+    var ties = item && Array.isArray(item.ties) ? item.ties : [];
+    if (!ties.length) return "";
+
+    return '<div class="champion-ties">' + ties.map(function (entry) {
+        var avatar = entry.avatar && entry.avatar.icon
+            ? '<span class="champion-tie-avatar">' + escapeHtml(entry.avatar.icon) + '</span>'
+            : "";
+        var title = entry.title && entry.title.name
+            ? '<span class="leaderboard-title-chip champion-tie-title">' + escapeHtml(entry.title.name) + '</span>'
+            : "";
+        var displayName = entry.displayName || entry.maskedAddress || entry.address || "-";
+        return '<div class="champion-tie-row">' +
+            avatar +
+            '<div class="champion-tie-copy">' +
+            title +
+            '<span class="champion-tie-name">' + escapeHtml(displayName) + '</span>' +
+            '<span class="champion-tie-meta">' + escapeHtml(entry.maskedAddress || entry.address || "-") + ' | VIP ' + escapeHtml(entry.level || "-") + '</span>' +
+            '</div>' +
+            '</div>';
+    }).join("") + "</div>";
+}
+
 function buildSkeletonCards(count) {
     var html = "";
     for (var index = 0; index < count; index += 1) {
@@ -416,6 +447,7 @@ function renderHallOfFameCards(hallOfFame) {
         var label = fallback.label;
         var metricLabel = fallback.metricLabel;
         var subtitle = buildHallOfFameSubtitle(item);
+        var tieText = buildHallOfFameTieText(item);
 
         if (!item || !item.hasChampion) {
             html += '<div class="leaderboard-champion-card is-empty">' +
@@ -440,12 +472,14 @@ function renderHallOfFameCards(hallOfFame) {
             '<span class="champion-label">' + escapeHtml(label) + "</span>" +
             '<strong class="champion-value">' + escapeHtml(formatCountValue(item.count)) + "</strong>" +
             '<div class="champion-metric">' + escapeHtml(metricLabel) + (subtitle ? " | " + escapeHtml(subtitle) : "") + "</div>" +
+            (tieText ? '<div class="champion-streak">' + escapeHtml(tieText) + "</div>" : "") +
             '<div class="champion-player">' + avatar +
             '<div class="champion-player-copy">' +
             titleChip +
             '<span class="champion-name">' + escapeHtml(displayName) + "</span>" +
             '<span class="champion-address">' + escapeHtml(item.maskedAddress || item.address || "-") + " | VIP " + escapeHtml(item.level || "-") + "</span>" +
             "</div></div>" +
+            renderHallOfFameTieList(item) +
             "</button>";
     });
 

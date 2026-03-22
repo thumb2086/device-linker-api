@@ -10,6 +10,7 @@ class AudioManager {
         this.bgmVolume = this._readVolume("casino_bgm_volume", 0.35);
         this.masterVolume = this.sfxVolume;
         this.initialized = false;
+        this.loadingHowler = false;
 
         this.soundConfig = {
             click: "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
@@ -108,15 +109,24 @@ class AudioManager {
         if (this.initialized) return;
 
         if (typeof Howl === "undefined") {
+            if (this.loadingHowler) return;
+            this.loadingHowler = true;
             var script = document.createElement("script");
             script.src = "https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js";
-            script.onload = () => this._loadSounds();
+            script.onload = () => {
+                this.loadingHowler = false;
+                this._loadSounds();
+                this.initialized = true;
+            };
+            script.onerror = () => {
+                this.loadingHowler = false;
+                console.log("Failed to load howler.js");
+            };
             document.head.appendChild(script);
         } else {
             this._loadSounds();
+            this.initialized = true;
         }
-
-        this.initialized = true;
     }
 
     _loadSounds() {
@@ -263,6 +273,12 @@ class AudioManager {
 
 window.audioManager = new AudioManager();
 
-document.addEventListener("click", function () {
+function ensureAudioReadyFromUserGesture() {
     window.audioManager.init();
-}, { once: true });
+    if (window.audioManager.pendingBgmKey && window.audioManager.bgmEnabled && !window.audioManager.isMuted) {
+        window.audioManager.playBGM(window.audioManager.pendingBgmKey);
+    }
+}
+
+document.addEventListener("click", ensureAudioReadyFromUserGesture, { once: true });
+document.addEventListener("touchstart", ensureAudioReadyFromUserGesture, { once: true });

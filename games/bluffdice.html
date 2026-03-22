@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>吹牛骰子 | 子熙模擬器</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/table-games.css">
+</head>
+
+<body class="casino-body">
+    <div class="page-header">
+        <a href="/games/casino.html" class="back-btn">返回賭場</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <main class="casino-card table-game-shell" id="main-card">
+        <section class="table-game-hero">
+            <div>
+                <p class="table-game-kicker">Liar's Dice</p>
+                <h1>吹牛骰子</h1>
+                <p class="table-game-subtitle">支援多位真人同桌，空位由 bot 補位；1 位真人也可開局。你可以喊骰或直接質疑上一口。</p>
+            </div>
+            <div class="table-toolbar">
+                <select id="bluff-table-select" class="text-input"></select>
+                <button class="btn-primary" id="bluff-join-btn" onclick="joinBluffTable()">入座</button>
+                <button class="btn-secondary" id="bluff-leave-btn" onclick="leaveBluffTable()">離桌</button>
+                <button class="btn-secondary" id="bluff-start-btn" onclick="startBluffRound()">開新局</button>
+            </div>
+        </section>
+
+        <section class="table-panel">
+            <div class="table-panel-head">
+                <div>
+                    <h2 id="bluff-table-title">公共桌</h2>
+                    <div class="table-status-note" id="bluff-status-note">讀取中...</div>
+                </div>
+                <div class="table-pill" id="bluff-bid-pill">尚未喊骰</div>
+            </div>
+            <div class="table-result" id="bluff-result"></div>
+        </section>
+
+        <section class="table-panel">
+            <div class="table-panel-head">
+                <h2>桌上座位</h2>
+                <div class="table-status-note" id="bluff-turn-note">等待同步...</div>
+            </div>
+            <div class="seat-grid" id="bluff-seat-grid"></div>
+        </section>
+
+        <section class="table-panel">
+            <div class="table-panel-head">
+                <h2>你的操作</h2>
+            </div>
+            <div class="table-bid-row">
+                <input id="bluff-bid-quantity" class="text-input" type="number" min="1" value="1" placeholder="數量">
+                <input id="bluff-bid-face" class="text-input" type="number" min="1" max="6" value="2" placeholder="點數">
+                <button class="btn-primary" id="bluff-bid-btn" onclick="submitBluffBid()">喊骰</button>
+                <button class="btn-secondary" id="bluff-challenge-btn" onclick="challengeBluffBid()">質疑</button>
+            </div>
+        </section>
+
+        <section class="table-panel">
+            <div class="table-panel-head">
+                <h2>本桌紀錄</h2>
+            </div>
+            <div class="table-log" id="bluff-log"></div>
+        </section>
+    </main>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/bluffdice.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initBluffPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

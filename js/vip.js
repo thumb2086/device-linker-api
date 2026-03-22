@@ -23,18 +23,18 @@ function renderVipPage(yjcVip) {
     var roomMetaEl = document.getElementById('vip-room-meta');
 
     var tierLabel = tier.label || '一般會員';
-    var roomText = '公共大廳';
-    var roomMeta = '尚未解鎖 VIP 房，可先前往活動與商店兌換佑戩幣。';
-    var desc = '目前尚未達到 VIP 房門檻。';
+    var roomText = '公共大廳、公共桌';
+    var roomMeta = '尚未解鎖 VIP 大廳與 VIP 桌，可先前往活動與商店兌換佑戩幣。';
+    var desc = '目前尚未達到 YJC VIP 房門檻。';
 
     if (tier.key === 'vip1') {
-        roomText = 'VIP 一號桌';
-        roomMeta = '已解鎖 VIP 一號桌，可直接進入對應房間。';
-        desc = '已解鎖 VIP 1，可使用一號桌權限。';
+        roomText = 'VIP 大廳、VIP 一號桌';
+        roomMeta = '已解鎖 VIP 大廳與 VIP 一號桌，可直接進入對應房間。';
+        desc = '已解鎖 VIP 1，可使用 VIP 聊天室與一號桌權限。';
     } else if (tier.key === 'vip2') {
-        roomText = 'VIP 一號桌、二號桌';
-        roomMeta = '已解鎖 VIP 2，享有二號桌與零手續費規則。';
-        desc = '已達最高 VIP 房門檻，可進入二號桌。';
+        roomText = 'VIP 大廳、VIP 一號桌、二號桌';
+        roomMeta = '已解鎖 VIP 2，享有 VIP 大廳、二號桌與零手續費規則。';
+        desc = '已達最高 VIP 房門檻，可進入 VIP 二號桌。';
     }
 
     if (data.available === false && data.source === 'missing_contract') {

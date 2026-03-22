@@ -1,6 +1,6 @@
 /* === 子熙賭場 - 共用 UI 工具 === */
 
-var user = { address: '', publicKey: '', sessionId: '', displayName: '', balance: 0, chainBalance: 0, totalBet: 0, level: '', betLimit: 0 };
+var user = { address: '', publicKey: '', sessionId: '', displayName: '', balance: 0, chainBalance: 0, totalBet: 0, level: '', betLimit: 0, yjcVip: null };
 var userToastTimerSeq = 0;
 var BALANCE_OVERRIDE_KEY = 'zixi_balance_override';
 var BALANCE_OVERRIDE_ENABLED = true;
@@ -725,6 +725,10 @@ function updateUI(data, options) {
 
     if (data.rewardProfile) {
         renderIdentity(data.rewardProfile);
+    }
+
+    if (data.yjcVip !== undefined) {
+        user.yjcVip = data.yjcVip || null;
     }
 
     if (!opts.skipGlobalHooks) {

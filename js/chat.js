@@ -107,7 +107,7 @@ function renderRoomSelectOptions() {
         : [{ id: "public", label: "公共大廳", requiredLevel: null }];
 
     select.innerHTML = options.map(function (room) {
-        var requirement = room.requiredLevel ? " VIP " + room.requiredLevel : "";
+        var requirement = room.requiredLevel ? (" | 需 " + room.requiredLevel) : "";
         return '<option value="' + escapeChatHtml(room.id) + '">' + escapeChatHtml((room.label || room.id) + requirement) + "</option>";
     }).join("");
 
@@ -124,7 +124,7 @@ function renderRoomSelectOptions() {
     }) || options[0];
     if (note && activeRoom) {
         var requirementText = activeRoom.requiredLevel
-            ? ("限 VIP " + activeRoom.requiredLevel + " 以上")
+            ? ("限 " + activeRoom.requiredLevel + " 以上")
             : "所有玩家皆可加入";
         var token = activeRoom.bettingToken || null;
         var tokenText = "";

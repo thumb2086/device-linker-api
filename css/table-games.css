@@ -1,0 +1,149 @@
+.table-game-shell {
+    display: grid;
+    gap: 20px;
+}
+
+.table-game-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.table-game-kicker {
+    margin: 0 0 8px;
+    color: #ffd36a;
+    font-size: 0.82rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.table-game-subtitle {
+    margin: 8px 0 0;
+    color: #a7b7c8;
+    max-width: 900px;
+}
+
+.table-toolbar,
+.table-action-row,
+.table-bid-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.table-panel {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 22px;
+    padding: 20px;
+}
+
+.table-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.table-status-note {
+    color: #9fb0c1;
+    font-size: 0.92rem;
+}
+
+.seat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.seat-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 18px;
+    padding: 16px;
+}
+
+.seat-card.bot {
+    opacity: 0.78;
+}
+
+.seat-name {
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.seat-meta {
+    margin-top: 6px;
+    color: #a8b7c7;
+    font-size: 0.88rem;
+}
+
+.seat-cards,
+.community-cards,
+.dice-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.card-chip,
+.dice-chip,
+.table-pill {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: rgba(255, 255, 255, 0.05);
+    color: #f7fbff;
+}
+
+.card-chip {
+    min-width: 42px;
+    text-align: center;
+    border-radius: 12px;
+}
+
+.seat-card.winner {
+    border-color: rgba(85, 255, 166, 0.55);
+    box-shadow: 0 0 0 1px rgba(85, 255, 166, 0.18);
+}
+
+.seat-card.loser {
+    border-color: rgba(255, 127, 127, 0.4);
+}
+
+.table-log {
+    display: grid;
+    gap: 10px;
+}
+
+.table-log-item {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+    padding: 12px 14px;
+    color: #dce8f4;
+}
+
+.table-result {
+    font-size: 1rem;
+    color: #ffd36a;
+}
+
+@media (max-width: 720px) {
+    .table-game-hero {
+        flex-direction: column;
+    }
+
+    .table-toolbar,
+    .table-action-row,
+    .table-bid-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

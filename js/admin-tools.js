@@ -273,8 +273,9 @@ function renderTxHealthDashboard(dashboard) {
     var totalEl = document.getElementById('tx-health-total');
     var successRateEl = document.getElementById('tx-health-success-rate');
     var failureRateEl = document.getElementById('tx-health-failure-rate');
-    var successCountEl = document.getElementById('tx-health-success-count');
-    var failureCountEl = document.getElementById('tx-health-failure-count');
+    var chainFailureCountEl = document.getElementById('tx-health-chain-failure-count');
+    var apiFailureCountEl = document.getElementById('tx-health-api-failure-count');
+    var pendingCountEl = document.getElementById('tx-health-pending-count');
     var windowEl = document.getElementById('tx-health-window');
     var topErrorsEl = document.getElementById('tx-health-top-errors');
     var recentListEl = document.getElementById('tx-health-recent-list');
@@ -283,8 +284,9 @@ function renderTxHealthDashboard(dashboard) {
     if (totalEl) totalEl.innerText = String(data.totalCount || 0);
     if (successRateEl) successRateEl.innerText = String((Number(data.successRate || 0)).toFixed(2)) + '%';
     if (failureRateEl) failureRateEl.innerText = String((Number(data.failureRate || 0)).toFixed(2)) + '%';
-    if (successCountEl) successCountEl.innerText = String(data.successCount || 0);
-    if (failureCountEl) failureCountEl.innerText = String(data.failureCount || 0);
+    if (chainFailureCountEl) chainFailureCountEl.innerText = String(data.chainTxFailureCount || 0);
+    if (apiFailureCountEl) apiFailureCountEl.innerText = String(data.apiFailureCount || 0);
+    if (pendingCountEl) pendingCountEl.innerText = String(data.pendingCount || 0);
     if (windowEl) windowEl.innerText = String(data.hours || 24) + 'h';
 
     if (topErrorsEl) {
@@ -294,7 +296,7 @@ function renderTxHealthDashboard(dashboard) {
             topErrorsEl.innerHTML = data.topErrors.map(function (item) {
                 return '<div class="announcement-admin-card">' +
                     '<div class="announcement-admin-head">' +
-                        '<strong>' + escapeHtml(item.message || '未知錯誤') + '</strong>' +
+                        '<strong>' + escapeHtml(item.message || '未分類錯誤') + '</strong>' +
                         '<span class="state-chip warn">' + escapeHtml(String(item.count || 0)) + ' 次</span>' +
                     '</div>' +
                     '</div>';
@@ -313,8 +315,8 @@ function renderTxHealthDashboard(dashboard) {
                             '<strong>' + escapeHtml(item.source || 'unknown') + '</strong>' +
                             '<div class="issue-report-meta">' +
                                 '<span>總數 ' + escapeHtml(String(item.totalCount || 0)) + '</span>' +
-                                '<span>成功 ' + escapeHtml(String(item.successCount || 0)) + '</span>' +
-                                '<span>失敗 ' + escapeHtml(String(item.failureCount || 0)) + '</span>' +
+                                '<span>鏈上失敗 ' + escapeHtml(String(item.chainTxFailureCount || 0)) + '</span>' +
+                                '<span>API 失敗 ' + escapeHtml(String(item.apiFailureCount || 0)) + '</span>' +
                             '</div>' +
                         '</div>' +
                         '<span class="state-chip ' + (Number(item.failureCount || 0) > 0 ? 'warn' : 'ok') + '">' + escapeHtml(String(Number(item.failureRate || 0).toFixed(2))) + '% 失敗率</span>' +
@@ -326,21 +328,25 @@ function renderTxHealthDashboard(dashboard) {
 
     if (recentListEl) {
         if (!data.recent || !data.recent.length) {
-            recentListEl.innerHTML = '<div class="result-empty">目前沒有近期交易紀錄</div>';
+            recentListEl.innerHTML = '<div class="result-empty">目前沒有近期健康事件</div>';
         } else {
             recentListEl.innerHTML = data.recent.map(function (item) {
-                var statusLabel = item.status === 'success' ? '成功' : '失敗';
+                var statusLabel = item.status === 'success' ? '成功' : (item.status === 'pending' ? '待處理' : '失敗');
+                var channelLabel = item.channel === 'api_error' ? 'API 錯誤' : '鏈上交易';
                 var detail = item.status === 'success'
                     ? ('txHash: ' + (item.txHash || '-'))
-                    : (item.error || '未知錯誤');
+                    : (item.error || '未分類錯誤');
                 return '<div class="announcement-admin-card">' +
                     '<div class="announcement-admin-head">' +
                         '<div>' +
-                            '<strong>' + escapeHtml(item.method || item.kind || 'unknown') + '</strong>' +
+                            '<strong>' + escapeHtml(item.sourceLabel || item.method || item.kind || 'unknown') + '</strong>' +
                             '<div class="issue-report-meta">' +
                                 '<span>' + escapeHtml(formatTime(item.createdAt)) + '</span>' +
+                                '<span>' + escapeHtml(channelLabel) + '</span>' +
                                 '<span>' + escapeHtml(item.kind || 'unknown') + '</span>' +
-                                '<span>attempt ' + escapeHtml(String(item.attempts || 1)) + '</span>' +
+                                (item.route ? ('<span>' + escapeHtml(item.route) + '</span>') : '') +
+                                (item.requestId ? ('<span>req ' + escapeHtml(item.requestId) + '</span>') : '') +
+                                (item.attempts ? ('<span>attempt ' + escapeHtml(String(item.attempts || 1)) + '</span>') : '') +
                                 (item.nonce ? ('<span>nonce ' + escapeHtml(String(item.nonce)) + '</span>') : '') +
                             '</div>' +
                         '</div>' +
@@ -354,7 +360,7 @@ function renderTxHealthDashboard(dashboard) {
 }
 
 function refreshTxHealthDashboard() {
-    setTxHealthStatus('同步交易看板中...', false);
+    setTxHealthStatus('同步健康看板中...', false);
     withAdminBusy('txHealth', function () {
         return callAdminApi('get_tx_health_dashboard', {
             hours: String((document.getElementById('tx-health-hours') || {}).value || '24'),
@@ -363,18 +369,18 @@ function refreshTxHealthDashboard() {
             maxEvents: 2000,
             timeoutMs: 3500
         }, { timeoutMs: 8000 }).then(function (data) {
-            if (!data || !data.success) throw new Error((data && data.error) || '載入交易看板失敗');
+            if (!data || !data.success) throw new Error((data && data.error) || '載入健康看板失敗');
             renderTxHealthDashboard(data.dashboard || {});
             txHealthLoaded = true;
             if (data.dashboard && data.dashboard.truncated) {
-                setTxHealthStatus('交易看板已更新（部分資料）', false);
+                setTxHealthStatus('健康看板已更新（部分資料）', false);
             } else {
-                setTxHealthStatus('交易看板已更新', false);
+                setTxHealthStatus('健康看板已更新', false);
             }
         });
     }).catch(function (error) {
         var isAbort = error && (error.name === 'AbortError' || String(error.message || '').toLowerCase().indexOf('abort') >= 0);
-        var message = isAbort ? '載入逾時，請稍後重試' : (error.message || '載入交易看板失敗');
+        var message = isAbort ? '載入逾時，請稍後重試' : (error.message || '載入健康看板失敗');
         setTxHealthStatus('錯誤: ' + message, true);
         showAdminToast(message, true);
     });
@@ -387,7 +393,7 @@ function toggleTxHealthSection() {
 
     txHealthExpanded = !txHealthExpanded;
     body.classList.toggle('hidden', !txHealthExpanded);
-    btn.innerText = txHealthExpanded ? '收合交易看板' : '展開交易看板';
+    btn.innerText = txHealthExpanded ? '收合健康看板' : '展開健康看板';
 
     if (txHealthExpanded && !txHealthLoaded) {
         refreshTxHealthDashboard();
@@ -403,7 +409,6 @@ function toggleTxHealthSources() {
     body.classList.toggle('hidden', !txHealthSourcesExpanded);
     btn.innerText = txHealthSourcesExpanded ? '收合來源分類' : '展開來源分類';
 }
-
 function renderResetResult(data) {
     var affectedEl = document.getElementById('affected-count');
     var modeEl = document.getElementById('result-mode');

@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 import { DEFAULT_RESET_THRESHOLD, collectHighTotalBetTargets } from "../lib/ops/reset-high-total-bets.js";
-import { buildChainTxDashboard } from "../lib/tx-monitor.js";
+import { buildChainTxDashboard, logApiErrorEvent } from "../lib/tx-monitor.js";
 import { settlementService } from "../lib/settlement-service.js";
 import {
     createAnnouncement,
@@ -189,9 +189,12 @@ export default async function handler(req, res) {
         return res.status(405).json({ success: false, error: "Method Not Allowed" });
     }
 
+    const requestId = String(req.headers["x-request-id"] || "").trim();
+    let action = "";
+
     try {
         const body = getSafeBody(req);
-        const action = String(body.action || "reset_total_bets").trim().toLowerCase();
+        action = String(body.action || "reset_total_bets").trim().toLowerCase();
         const sessionId = normalizeSessionId(body.sessionId);
         const dryRun = body.dryRun === true || String(body.dryRun || "").trim().toLowerCase() === "true";
         const configuredAdminAddress = normalizeAddress(process.env.OPS_ADMIN_ADDRESS || ADMIN_WALLET_ADDRESS, "Admin wallet address");
@@ -634,6 +637,15 @@ export default async function handler(req, res) {
         }
     } catch (error) {
         console.error("Admin API Error:", error);
+        await logApiErrorEvent({
+            kind: "admin_api_error",
+            method: req.method || "POST",
+            source: `admin:${action || "unknown"}`,
+            route: "/api/admin",
+            requestId,
+            error: error.message || "Admin API failed",
+            meta: { action: action || "unknown" }
+        }).catch(() => {});
         return res.status(500).json({
             success: false,
             error: error.message || "Admin API failed"

@@ -14,6 +14,7 @@ import { kv } from "@vercel/kv";
 import { getSession } from "../lib/session-store.js";
 import { randomUUID } from "crypto";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
+import { logApiErrorEvent } from "../lib/tx-monitor.js";
 import { getDisplayName } from "../lib/user-profile.js";
 import { appendChatMessage } from "../lib/chat-store.js";
 
@@ -327,6 +328,21 @@ export default async function handler(req, res) {
             }
             : { message: String(error || "") };
         console.error("Unhandled game handler error:", { requestId, ...details });
+        await logApiErrorEvent({
+            kind: "game_handler_error",
+            method: req.method || "POST",
+            source: `game:${game || "unknown"}`,
+            route: "/api/game",
+            requestId,
+            error: details.message || "Internal server error",
+            meta: {
+                game: game || "unknown",
+                action: String(req.body && req.body.action || "").trim().toLowerCase(),
+                sessionId: String(req.body && req.body.sessionId || getSearchParam(req, "sessionId") || "").trim(),
+                address: session && session.address ? shortAddress(session.address) : "",
+                spinId: String(req.body && req.body.spinId || "").trim()
+            }
+        }).catch(() => {});
         if (res.headersSent) return;
         return res.status(500).json({
             success: false,

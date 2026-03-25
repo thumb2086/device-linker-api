@@ -22,6 +22,7 @@ import {
 import { buildVipStatus } from "../lib/level.js";
 import { applyReadCacheHeaders, invalidateReadCache, readThroughCache } from "../lib/read-cache.js";
 import { settlementService } from "../lib/settlement-service.js";
+import { logApiErrorEvent } from "../lib/tx-monitor.js";
 
 const CORS_METHODS = "POST, OPTIONS";
 const MARKET_TX_SOURCE = "market";
@@ -155,10 +156,13 @@ export default async function handler(req, res) {
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
+    const requestId = String(req.headers["x-request-id"] || "").trim();
+    let action = "";
+
     try {
         const body = getSafeBody(req);
         const sessionId = String(body.sessionId || "").trim();
-        const action = String(body.action || "snapshot").trim().toLowerCase();
+        action = String(body.action || "snapshot").trim().toLowerCase();
 
         if (!sessionId) {
             return res.status(400).json({ success: false, error: "Missing sessionId" });
@@ -335,6 +339,15 @@ export default async function handler(req, res) {
             });
         }
     } catch (error) {
+        await logApiErrorEvent({
+            kind: "market_api_error",
+            method: req.method || "POST",
+            source: `market:${action || "unknown"}`,
+            route: "/api/market",
+            requestId,
+            error: error.message || "market failed",
+            meta: { action: action || "unknown" }
+        }).catch(() => {});
         return res.status(500).json({ success: false, error: error.message || "market failed" });
     }
 }

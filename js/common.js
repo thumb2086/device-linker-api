@@ -773,14 +773,19 @@ function promptDisplayName() {
 
 function refreshBalance() {
     if (!user.address) return;
+    var payload = {
+        action: 'get_balance',
+        address: user.address
+    };
+    if (typeof window.getWalletActiveToken === 'function') {
+        var activeWalletToken = String(window.getWalletActiveToken() || '').trim().toLowerCase();
+        if (activeWalletToken) payload.token = activeWalletToken;
+    }
 
     fetch('/api/wallet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: 'get_balance',
-            address: user.address
-        })
+        body: JSON.stringify(payload)
     })
         .then(function (res) { return res.json(); })
         .then(function (data) {

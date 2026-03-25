@@ -4,6 +4,7 @@ import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
 import { buildVipStatus, getVipTierOptions } from "../lib/level.js";
 import { settlementService } from "../lib/settlement-service.js";
+import { logApiErrorEvent } from "../lib/tx-monitor.js";
 import { convertZxcToYjc, resolveYjcVipStatus } from "../lib/yjc-vip.js";
 import { yjcSettlementService } from "../lib/yjc-settlement.js";
 import {
@@ -146,9 +147,13 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") return res.status(405).json({ success: false, error: "Method Not Allowed" });
+
+    const requestId = String(req.headers["x-request-id"] || "").trim();
+    let action = "";
+
     try {
         const body = getSafeBody(req);
-        const action = normalizeAction(body.action);
+        action = normalizeAction(body.action);
         const sessionId = normalizeSessionId(body.sessionId);
         if (action === "summary" || action === "catalog") {
             if (sessionId === "public") {
@@ -319,6 +324,15 @@ export default async function handler(req, res) {
         if (error.message === "Session expired") {
             return res.status(403).json({ success: false, error: "Session expired" });
         }
+        await logApiErrorEvent({
+            kind: "rewards_api_error",
+            method: req.method || "POST",
+            source: `rewards:${action || "unknown"}`,
+            route: "/api/rewards",
+            requestId,
+            error: error.message || "Rewards API failed",
+            meta: { action: action || "unknown" }
+        }).catch(() => {});
         return res.status(500).json({ success: false, error: error.message || "Rewards API failed" });
     }
 }

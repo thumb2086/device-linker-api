@@ -497,10 +497,10 @@
 <div id="tx-health-section" class="section-block section-block-muted">
             <div class="section-heading-row">
                 <div>
-                    <h2>交易失敗率看板</h2>
-                    <p class="tool-note">預設收合，需要時再展開。看板會顯示近期鏈上交易成功率、失敗率與近期錯誤清單。</p>
+                    <h2>後端健康看板</h2>
+                    <p class="tool-note">預設收合，需要時再展開。看板會同時顯示鏈上交易狀態與後端 API 失敗，方便分辨是送鏈失敗還是後端先中斷。</p>
                 </div>
-                <button id="tx-health-toggle-btn" class="btn-secondary compact-btn" onclick="toggleTxHealthSection()">展開交易看板</button>
+                <button id="tx-health-toggle-btn" class="btn-secondary compact-btn" onclick="toggleTxHealthSection()">展開健康看板</button>
             </div>
 
             <div id="tx-health-section-body" class="collapsible-body hidden">
@@ -513,7 +513,7 @@
                     </select>
                     <button class="btn-secondary compact-btn" onclick="refreshTxHealthDashboard()">重新整理</button>
                 </div>
-                <p id="tx-health-status-msg">尚未載入交易看板</p>
+                <p id="tx-health-status-msg">尚未載入健康看板</p>
 
                 <div class="summary-grid">
                     <div class="summary-card">
@@ -532,12 +532,16 @@
 
                 <div class="summary-grid">
                     <div class="summary-card">
-                        <span>成功筆數</span>
-                        <strong id="tx-health-success-count">0</strong>
+                        <span>鏈上交易失敗</span>
+                        <strong id="tx-health-chain-failure-count">0</strong>
                     </div>
                     <div class="summary-card">
-                        <span>失敗筆數</span>
-                        <strong id="tx-health-failure-count">0</strong>
+                        <span>API 失敗</span>
+                        <strong id="tx-health-api-failure-count">0</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>待處理交易</span>
+                        <strong id="tx-health-pending-count">0</strong>
                     </div>
                     <div class="summary-card">
                         <span>統計區間</span>
@@ -565,9 +569,9 @@
                 </div>
 
                 <div class="section-block section-block-muted">
-                    <h3>近期交易紀錄</h3>
+                    <h3>近期健康事件</h3>
                     <div id="tx-health-recent-list" class="announcement-admin-list">
-                        <div class="result-empty">尚未載入近期交易</div>
+                        <div class="result-empty">尚未載入近期事件</div>
                     </div>
                 </div>
             </div>

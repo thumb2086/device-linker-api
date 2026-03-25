@@ -5,6 +5,7 @@ import { buildVipStatus } from "../lib/level.js";
 import { buildDisplayNameMap } from "../lib/user-profile.js";
 import { buildRewardDisplayMap, getRewardProfile, saveRewardProfile } from "../lib/reward-center.js";
 import { settlementService } from "../lib/settlement-service.js";
+import { logApiErrorEvent } from "../lib/tx-monitor.js";
 import { getPeriodSnapshot, formatPeriodIso } from "../lib/leaderboard-period.js";
 import { applyReadCacheHeaders, readThroughCache } from "../lib/read-cache.js";
 import {
@@ -848,9 +849,13 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") return res.status(405).json({ success: false, error: "Method Not Allowed" });
+
+    const requestId = String(req.headers["x-request-id"] || "").trim();
+    let action = "";
+
     try {
         const body = getSafeBody(req);
-        const action = String(body.action || "total_bet").trim().toLowerCase();
+        action = String(body.action || "total_bet").trim().toLowerCase();
         const sessionId = normalizeSessionId(body.sessionId);
         const limit = normalizeLimit(body.limit);
         if (!sessionId) return res.status(400).json({ success: false, error: "Missing sessionId" });
@@ -1327,6 +1332,15 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, error: `Unsupported action: ${action}`, supportedActions: ["champions", "total_bet", "weekly_bet", "monthly_bet", "season_bet", "net_worth"] });
     } catch (error) {
         console.error("Stats API Error:", error);
+        await logApiErrorEvent({
+            kind: "stats_api_error",
+            method: req.method || "POST",
+            source: `stats:${action || "unknown"}`,
+            route: "/api/stats",
+            requestId,
+            error: error.message || "Stats API failed",
+            meta: { action: action || "unknown" }
+        }).catch(() => {});
         return res.status(500).json({ success: false, error: error.message || "Stats API failed" });
     }
 }

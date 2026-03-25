@@ -2,7 +2,7 @@ import { kv } from "@vercel/kv";
 import { verify } from "crypto";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
-import { AIRDROP_HALVING_STEP } from "../lib/config.js";
+import { AIRDROP_HALVING_STEP, CONTRACT_ADDRESS, YJC_CONTRACT_ADDRESS } from "../lib/config.js";
 import {
     AIRDROP_DISTRIBUTED_TOTAL_KEY,
     calculateAirdropRewardWei,
@@ -17,8 +17,42 @@ import {
     readThroughCache
 } from "../lib/read-cache.js";
 import { settlementService } from "../lib/settlement-service.js";
+import { yjcSettlementService } from "../lib/yjc-settlement.js";
 
 const MAX_TRANSFER_AMOUNT = 100000000;
+const DEFAULT_WALLET_TOKEN = "zhixi";
+const WALLET_TOKEN_MAP = {
+    zhixi: {
+        key: "zhixi",
+        symbol: "ZHIXI",
+        label: "ZhiXi Coin",
+        contractAddress: CONTRACT_ADDRESS,
+        service: settlementService,
+        supportsAirdrop: true
+    },
+    yjc: {
+        key: "yjc",
+        symbol: "YJC",
+        label: "YouJian Coin",
+        contractAddress: YJC_CONTRACT_ADDRESS,
+        service: yjcSettlementService,
+        supportsAirdrop: false
+    }
+};
+
+function normalizeWalletToken(rawToken) {
+    const normalized = String(rawToken || DEFAULT_WALLET_TOKEN).trim().toLowerCase();
+    return WALLET_TOKEN_MAP[normalized] ? normalized : DEFAULT_WALLET_TOKEN;
+}
+
+function getWalletTokenRuntime(rawToken) {
+    const tokenKey = normalizeWalletToken(rawToken);
+    const config = WALLET_TOKEN_MAP[tokenKey];
+    if (!config || !config.contractAddress) {
+        throw new Error(`${tokenKey.toUpperCase()} token is not configured`);
+    }
+    return config;
+}
 
 function getSafeBody(req) {
     if (!req || typeof req !== "object") return {};
@@ -138,13 +172,13 @@ function applyWalletReadHeaders(res, meta) {
     applyReadCacheHeaders(res, meta);
 }
 
-async function invalidateWalletReadCaches(address) {
+async function invalidateWalletReadCaches(address, tokenKey = DEFAULT_WALLET_TOKEN) {
     const normalized = tryNormalizeAddress(address);
     if (!normalized) return;
     await Promise.all([
-        invalidateReadCache("wallet-balance", [normalized]),
-        invalidateReadCache("wallet-summary", [normalized]),
-        invalidateReadCacheByPrefix("wallet-game-history", [normalized])
+        invalidateReadCache("wallet-balance", [tokenKey, normalized]),
+        invalidateReadCache("wallet-summary", [tokenKey, normalized]),
+        invalidateReadCacheByPrefix("wallet-game-history", [tokenKey, normalized])
     ]);
 }
 
@@ -180,10 +214,12 @@ export default async function handler(req, res) {
         const body = getSafeBody(req);
         const action = normalizeAction(body.action);
         const sessionId = String(body.sessionId || "").trim();
-        
-        const decimals = await settlementService.getDecimals();
-        const contract = settlementService.contract;
-        const treasuryAddress = normalizeAddress(settlementService.lossPoolAddress, "LOSS_POOL_ADDRESS");
+        const tokenConfig = getWalletTokenRuntime(body.token);
+        const tokenKey = tokenConfig.key;
+        const tokenService = tokenConfig.service;
+        const decimals = await tokenService.getDecimals();
+        const contract = tokenService.contract;
+        const treasuryAddress = normalizeAddress(tokenService.lossPoolAddress, "LOSS_POOL_ADDRESS");
 
         // 將 session 解析延後到具體 action 內，避免不需要 session 的功能被攔截
         let _sessionInfo = null;
@@ -206,12 +242,16 @@ export default async function handler(req, res) {
             if (await blockIfBlacklisted(res, address)) return;
             const cached = await readThroughCache({
                 namespace: "wallet-balance",
-                keyParts: [address],
+                keyParts: [tokenKey, address],
                 tier: "user-live",
                 loader: async () => {
                     const balanceRaw = await contract.balanceOf(address);
                     return {
                         success: true,
+                        token: tokenKey,
+                        tokenSymbol: tokenConfig.symbol,
+                        tokenLabel: tokenConfig.label,
+                        contractAddress: tokenConfig.contractAddress,
                         balance: ethers.formatUnits(balanceRaw, decimals),
                         decimals: decimals.toString(),
                         generatedAt: new Date().toISOString()
@@ -223,6 +263,9 @@ export default async function handler(req, res) {
         }
         
         if (action === "airdrop") {
+            if (!tokenConfig.supportsAirdrop) {
+                return res.status(400).json({ success: false, error: `${tokenConfig.symbol} does not support airdrop` });
+            }
             const sInfo = await getSessionInfo();
             const targetAddress = sInfo.address || tryNormalizeAddress(body.address);
             if (!targetAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
@@ -239,10 +282,13 @@ export default async function handler(req, res) {
 
             const newDistributedWei = policy.distributedWei + policy.rewardWei;
             await kv.set(AIRDROP_DISTRIBUTED_TOTAL_KEY, newDistributedWei.toString());
-            await invalidateWalletReadCaches(targetAddress);
+            await invalidateWalletReadCaches(targetAddress, tokenKey);
             
             return res.status(200).json({ 
                 success: true, 
+                token: tokenKey,
+                tokenSymbol: tokenConfig.symbol,
+                tokenLabel: tokenConfig.label,
                 txHash: results.payoutTxHash, 
                 reward: ethers.formatUnits(policy.rewardWei, decimals), 
                 halvingCount: policy.halvingCount, 
@@ -262,13 +308,15 @@ export default async function handler(req, res) {
             const normalizedLimit = Math.max(1, Math.floor(Number(body.limit) || 20));
             const cached = await readThroughCache({
                 namespace: "wallet-game-history",
-                keyParts: [historyAddress, normalizedLimit],
+                keyParts: [tokenKey, historyAddress, normalizedLimit],
                 tier: "user-history",
                 loader: async () => {
                     const result = await listGameHistory(historyAddress, { limit: normalizedLimit });
                     return {
                         success: true,
                         action: "game_history",
+                        token: tokenKey,
+                        tokenSymbol: tokenConfig.symbol,
                         address: historyAddress,
                         total: result.total,
                         items: result.items,
@@ -287,27 +335,41 @@ export default async function handler(req, res) {
             if (await blockIfBlacklisted(res, userAddress)) return;
             const cached = await readThroughCache({
                 namespace: "wallet-summary",
-                keyParts: [userAddress],
+                keyParts: [tokenKey, userAddress],
                 tier: "user-live",
                 loader: async () => {
-                    const [userBalanceWei, treasuryBalanceWei, trackedAirdropDistributedWei] = await Promise.all([
+                    const balanceReads = [
                         contract.balanceOf(userAddress),
-                        contract.balanceOf(treasuryAddress),
-                        getTrackedAirdropDistributedWei()
-                    ]);
-                    const airdropPolicy = calculateAirdropRewardWei(decimals, trackedAirdropDistributedWei);
-                    const halvingStepWei = ethers.parseUnits(AIRDROP_HALVING_STEP, decimals);
-                    const nextHalvingAtWei = halvingStepWei > 0n ? halvingStepWei * BigInt(airdropPolicy.halvingCount + 1) : 0n;
+                        contract.balanceOf(treasuryAddress)
+                    ];
+                    if (tokenConfig.supportsAirdrop) {
+                        balanceReads.push(getTrackedAirdropDistributedWei());
+                    }
+                    const [userBalanceWei, treasuryBalanceWei, trackedAirdropDistributedWei = 0n] = await Promise.all(balanceReads);
+                    const airdropPolicy = tokenConfig.supportsAirdrop
+                        ? calculateAirdropRewardWei(decimals, trackedAirdropDistributedWei)
+                        : null;
+                    const halvingStepWei = tokenConfig.supportsAirdrop
+                        ? ethers.parseUnits(AIRDROP_HALVING_STEP, decimals)
+                        : 0n;
+                    const nextHalvingAtWei = tokenConfig.supportsAirdrop && airdropPolicy
+                        ? (halvingStepWei > 0n ? halvingStepWei * BigInt(airdropPolicy.halvingCount + 1) : 0n)
+                        : 0n;
 
                     return {
                         success: true,
                         action: "summary",
+                        token: tokenKey,
+                        tokenSymbol: tokenConfig.symbol,
+                        tokenLabel: tokenConfig.label,
+                        contractAddress: tokenConfig.contractAddress,
+                        supportsAirdrop: tokenConfig.supportsAirdrop,
                         address: userAddress,
                         treasuryAddress,
                         decimals: String(decimals),
                         userBalance: ethers.formatUnits(userBalanceWei, decimals),
                         treasuryBalance: ethers.formatUnits(treasuryBalanceWei, decimals),
-                        airdrop: {
+                        airdrop: tokenConfig.supportsAirdrop && airdropPolicy ? {
                             distributed: ethers.formatUnits(airdropPolicy.distributedWei, decimals),
                             distributedExcludingAdmin: ethers.formatUnits(airdropPolicy.distributedWei, decimals),
                             cap: null,
@@ -315,7 +377,7 @@ export default async function handler(req, res) {
                             reward: ethers.formatUnits(airdropPolicy.rewardWei, decimals),
                             halvingCount: airdropPolicy.halvingCount,
                             nextHalvingAt: ethers.formatUnits(nextHalvingAtWei, decimals)
-                        },
+                        } : null,
                         generatedAt: new Date().toISOString()
                     };
                 }
@@ -339,14 +401,14 @@ export default async function handler(req, res) {
             const userAddress = sInfo.address || tryNormalizeAddress(body.address);
             if (!userAddress) return jsonError(res, 403, sInfo.error || "Session expired or missing address");
             if (await blockIfBlacklisted(res, userAddress)) return;
-            const results = await settlementService.settle({
+            const results = await tokenService.settle({
                 userAddress,
                 betWei: 0n,
                 payoutWei: amountWei,
                 source: "wallet_import"
             });
-            await invalidateWalletReadCaches(userAddress);
-            return res.status(200).json({ success: true, action: "import", from: treasuryAddress, to: userAddress, amount: amountText, txHash: results.payoutTxHash });
+            await invalidateWalletReadCaches(userAddress, tokenKey);
+            return res.status(200).json({ success: true, action: "import", token: tokenKey, tokenSymbol: tokenConfig.symbol, from: treasuryAddress, to: userAddress, amount: amountText, txHash: results.payoutTxHash });
         }
         
         if (action === "withdraw" || action === "cashout") {
@@ -357,14 +419,14 @@ export default async function handler(req, res) {
             const userBalanceWei = await contract.balanceOf(userAddress);
             if (userBalanceWei < amountWei) return res.status(400).json({ success: false, error: "Insufficient balance" });
             
-            const results = await settlementService.settle({
+            const results = await tokenService.settle({
                 userAddress,
                 betWei: amountWei,
                 payoutWei: 0n,
                 source: "wallet_withdraw"
             });
-            await invalidateWalletReadCaches(userAddress);
-            return res.status(200).json({ success: true, action: "withdraw", from: userAddress, to: treasuryAddress, amount: amountText, txHash: results.betTxHash });
+            await invalidateWalletReadCaches(userAddress, tokenKey);
+            return res.status(200).json({ success: true, action: "withdraw", token: tokenKey, tokenSymbol: tokenConfig.symbol, from: userAddress, to: treasuryAddress, amount: amountText, txHash: results.betTxHash });
         }
         
         if (action === "secure_transfer") {
@@ -401,13 +463,13 @@ export default async function handler(req, res) {
                 if (transferWei <= 0n) return res.status(400).json({ success: false, error: "Amount is too small after fee" });
             }
             
-            const writeContract = settlementService.writeContract;
+            const writeContract = tokenService.writeContract;
             const tx = await sendManagedContractTx(writeContract, "adminTransfer", [fromAddress, toAddress, transferWei], { gasLimit: 220000, txSource: "wallet_secure_transfer" });
             await Promise.all([
-                invalidateWalletReadCaches(fromAddress),
-                invalidateWalletReadCaches(toAddress)
+                invalidateWalletReadCaches(fromAddress, tokenKey),
+                invalidateWalletReadCaches(toAddress, tokenKey)
             ]);
-            return res.status(200).json({ success: true, txHash: tx.hash, from: fromAddress, to: toAddress, amount: amountText, isPayout: payoutMode, requestedAmount: cleanAmount, transferredAmount: ethers.formatUnits(transferWei, decimals), feeAmount: ethers.formatUnits(feeWei, decimals), feeRate: payoutMode ? "0.05" : "0.00" });
+            return res.status(200).json({ success: true, token: tokenKey, tokenSymbol: tokenConfig.symbol, txHash: tx.hash, from: fromAddress, to: toAddress, amount: amountText, isPayout: payoutMode, requestedAmount: cleanAmount, transferredAmount: ethers.formatUnits(transferWei, decimals), feeAmount: ethers.formatUnits(feeWei, decimals), feeRate: payoutMode ? "0.05" : "0.00" });
         }
         
         if (action === "export" || action === "transfer") {
@@ -420,13 +482,13 @@ export default async function handler(req, res) {
             const userBalanceWei = await contract.balanceOf(userAddress);
             if (userBalanceWei < amountWei) return res.status(400).json({ success: false, error: "Insufficient balance" });
             
-            const writeContract = settlementService.writeContract;
+            const writeContract = tokenService.writeContract;
             const tx = await sendManagedContractTx(writeContract, "adminTransfer", [userAddress, toAddress, amountWei], { gasLimit: 220000, txSource: "wallet_export" });
             await Promise.all([
-                invalidateWalletReadCaches(userAddress),
-                invalidateWalletReadCaches(toAddress)
+                invalidateWalletReadCaches(userAddress, tokenKey),
+                invalidateWalletReadCaches(toAddress, tokenKey)
             ]);
-            return res.status(200).json({ success: true, action: "export", from: userAddress, to: toAddress, amount: amountText, txHash: tx.hash });
+            return res.status(200).json({ success: true, action: "export", token: tokenKey, tokenSymbol: tokenConfig.symbol, from: userAddress, to: toAddress, amount: amountText, txHash: tx.hash });
         }
         return res.status(400).json({ success: false, error: `Unsupported action: ${action}`, supportedActions: ["summary", "status", "balance", "game_history", "get_balance", "airdrop", "import", "deposit", "export", "transfer", "secure_transfer", "withdraw", "cashout"] });
     } catch (error) {

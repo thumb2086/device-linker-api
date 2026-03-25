@@ -8,9 +8,66 @@ body.wallet-body {
     margin-bottom: 24px;
 }
 
+.wallet-token-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 14px 0 18px;
+}
+
+.wallet-token-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wallet-token-label {
+    color: #c8d1db;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.wallet-token-switch select {
+    min-width: 110px;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font-weight: 700;
+    outline: none;
+}
+
+.wallet-token-switch option {
+    color: #111;
+}
+
+.wallet-token-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(255, 211, 106, 0.16);
+    border: 1px solid rgba(255, 211, 106, 0.28);
+    color: #ffd36a;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+}
+
+.wallet-token-meta {
+    color: #a7b1bc;
+    font-size: 0.9rem;
+}
+
 .wallet-overview {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
     margin: 16px 0 24px;
 }
@@ -247,6 +304,11 @@ body.wallet-body {
     color: #aaa;
 }
 
+#wallet-airdrop-note {
+    font-size: 0.86rem;
+    color: #9ea7b3;
+}
+
 #wallet-address {
     max-width: 350px;
     overflow: hidden;
@@ -257,6 +319,10 @@ body.wallet-body {
 }
 
 @media (max-width: 900px) {
+    .wallet-token-bar {
+        align-items: flex-start;
+    }
+
     .wallet-overview {
         grid-template-columns: 1fr;
     }

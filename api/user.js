@@ -1,9 +1,9 @@
 import { kv } from "@vercel/kv";
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { ethers } from "ethers";
-import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS } from "../lib/config.js";
+import { ADMIN_WALLET_ADDRESS, CONTRACT_ADDRESS, YJC_CONTRACT_ADDRESS } from "../lib/config.js";
 import { getRoundInfo } from "../lib/auto-round.js";
-import { buildVipStatus } from "../lib/vip.js";
+import { buildVipStatus } from "../lib/level.js";
 import { getSession, saveSession } from "../lib/session-store.js";
 import { ensureDisplayName, getDisplayName, setDisplayName } from "../lib/user-profile.js";
 import { buildRewardSummary } from "../lib/reward-center.js";
@@ -29,6 +29,19 @@ const CUSTODY_PASSWORD_MIN = 6;
 const CUSTODY_PASSWORD_MAX = 128;
 const CUSTODY_REGISTER_BONUS = "100000";
 const AUTH_API_BUILD = "2026-03-11-user-opt-v3";
+const DEFAULT_HISTORY_TOKEN = "zhixi";
+const HISTORY_TOKEN_MAP = {
+    zhixi: {
+        key: "zhixi",
+        symbol: "ZHIXI",
+        contractAddress: CONTRACT_ADDRESS
+    },
+    yjc: {
+        key: "yjc",
+        symbol: "YJC",
+        contractAddress: YJC_CONTRACT_ADDRESS
+    }
+};
 const MAINTENANCE_MODE = ["1", "true", "yes", "on"].includes(String(process.env.MAINTENANCE_MODE || "").trim().toLowerCase());
 const MAINTENANCE_TITLE = String(process.env.MAINTENANCE_TITLE || "系統維護中").trim();
 const MAINTENANCE_MESSAGE = String(process.env.MAINTENANCE_MESSAGE || "目前暫停登入與遊戲，請稍後再試。").trim();
@@ -172,6 +185,20 @@ function getSafeBody(req) {
         }
     }
     return typeof rawBody === "object" ? rawBody : {};
+}
+
+function normalizeHistoryToken(rawToken) {
+    const normalized = String(rawToken || DEFAULT_HISTORY_TOKEN).trim().toLowerCase();
+    return HISTORY_TOKEN_MAP[normalized] ? normalized : DEFAULT_HISTORY_TOKEN;
+}
+
+function resolveHistoryToken(rawToken) {
+    const tokenKey = normalizeHistoryToken(rawToken);
+    const config = HISTORY_TOKEN_MAP[tokenKey];
+    if (!config || !config.contractAddress) {
+        throw new Error(`${tokenKey.toUpperCase()} contract is not configured`);
+    }
+    return config;
 }
 
 function buildPendingPayload(sessionData = {}) {
@@ -578,12 +605,13 @@ export default async function handler(req, res) {
             const address = String(body.address || "").trim();
             const page = Number(body.page || 1);
             const limit = Number(body.limit || 20);
+            const historyToken = resolveHistoryToken(body.token);
             if (!address) return res.status(400).json({ success: false, error: "Missing address" });
             
             // Note: global fetch is available in Node 18+. 
             // If this fails, it means the environment is too old.
             const apiKey = process.env.ETHERSCAN_API_KEY || "";
-            const url = `https://api.etherscan.io/v2/api?chainid=11155111&module=account&action=tokentx&contractaddress=${CONTRACT_ADDRESS}&address=${address}&page=${page}&offset=${limit}&sort=desc&apikey=${apiKey}`;
+            const url = `https://api.etherscan.io/v2/api?chainid=11155111&module=account&action=tokentx&contractaddress=${historyToken.contractAddress}&address=${address}&page=${page}&offset=${limit}&sort=desc&apikey=${apiKey}`;
             const response = await fetch(url);
             const data = await response.json();
             const normalizeResText = (val) => String(val || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -592,9 +620,19 @@ export default async function handler(req, res) {
             const history = (Array.isArray(data.result) ? data.result : []).map((tx) => {
                 const isSend = tx.from.toLowerCase() === address.toLowerCase();
                 const ts = parseInt(tx.timeStamp, 10);
-                return { type: isSend ? "send" : "receive", amount: ethers.formatUnits(tx.value, 18), counterParty: isSend ? tx.to : tx.from, timestamp: ts, date: new Date(ts * 1000).toLocaleString("zh-TW", { hour12: false }), txHash: tx.hash };
+                const tokenDecimals = Number(tx.tokenDecimal || 18);
+                return {
+                    type: isSend ? "send" : "receive",
+                    token: historyToken.key,
+                    tokenSymbol: historyToken.symbol,
+                    amount: ethers.formatUnits(tx.value, tokenDecimals),
+                    counterParty: isSend ? tx.to : tx.from,
+                    timestamp: ts,
+                    date: new Date(ts * 1000).toLocaleString("zh-TW", { hour12: false }),
+                    txHash: tx.hash
+                };
             });
-            return res.status(200).json({ success: true, page, limit, count: history.length, hasMore: history.length === limit, history });
+            return res.status(200).json({ success: true, token: historyToken.key, tokenSymbol: historyToken.symbol, page, limit, count: history.length, hasMore: history.length === limit, history });
         }
 
         if (action === "authorize") {

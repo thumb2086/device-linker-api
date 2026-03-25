@@ -1,7 +1,7 @@
 import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
-import { buildVipStatus } from "../lib/vip.js";
+import { buildVipStatus } from "../lib/level.js";
 import { buildDisplayNameMap } from "../lib/user-profile.js";
 import { buildRewardDisplayMap, getRewardProfile, saveRewardProfile } from "../lib/reward-center.js";
 import { settlementService } from "../lib/settlement-service.js";

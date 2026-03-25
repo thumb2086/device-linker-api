@@ -1,4 +1,4 @@
-import { getVipTierOptions } from '../lib/vip.js';
+import { getVipTierOptions } from '../lib/level.js';
 
 function formatZhAmount(value) {
     const amount = Number(value || 0);

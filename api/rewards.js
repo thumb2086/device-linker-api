@@ -2,7 +2,7 @@ import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
 import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
-import { buildVipStatus, getVipTierOptions } from "../lib/vip.js";
+import { buildVipStatus, getVipTierOptions } from "../lib/level.js";
 import { settlementService } from "../lib/settlement-service.js";
 import { convertZxcToYjc, resolveYjcVipStatus } from "../lib/yjc-vip.js";
 import { yjcSettlementService } from "../lib/yjc-settlement.js";

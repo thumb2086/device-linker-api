@@ -19,7 +19,7 @@ import {
     settleLiquidations,
     tradeStockBatch
 } from "../lib/market.js";
-import { buildVipStatus } from "../lib/vip.js";
+import { buildVipStatus } from "../lib/level.js";
 import { applyReadCacheHeaders, invalidateReadCache, readThroughCache } from "../lib/read-cache.js";
 import { settlementService } from "../lib/settlement-service.js";
 

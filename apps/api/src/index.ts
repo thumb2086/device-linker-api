@@ -21,13 +21,21 @@ fastify.get("/health", async () => {
   return { status: "ok" };
 });
 
-const start = async () => {
-  try {
-    await fastify.listen({ port: 3000, host: "0.0.0.0" });
-  } catch (err) {
-    fastify.log.error(err);
-    process.exit(1);
-  }
-};
+// For Vercel, we export the app
+export default async (req: any, res: any) => {
+  await fastify.ready();
+  fastify.server.emit('request', req, res);
+}
 
-start();
+// For local dev
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  const start = async () => {
+    try {
+      await fastify.listen({ port: 3000, host: "0.0.0.0" });
+    } catch (err) {
+      fastify.log.error(err);
+      process.exit(1);
+    }
+  };
+  start();
+}

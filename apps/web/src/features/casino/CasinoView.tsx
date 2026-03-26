@@ -1,3 +1,6 @@
+// apps/web/src/features/casino/CasinoView.tsx
+
+import React from 'react';
 import { useParams } from 'react-router-dom';
 import { RouletteView } from './RouletteView';
 import { HorseRacingView } from './HorseRacingView';
@@ -6,6 +9,11 @@ import { CoinflipView } from './CoinflipView';
 import { SicboView } from './SicboView';
 import { BingoView } from './BingoView';
 import { DuelView } from './DuelView';
+import { BlackjackView } from './BlackjackView';
+import { DragonTigerView } from './DragonTigerView';
+import { PokerView } from './PokerView';
+import { BluffDiceView } from './BluffDiceView';
+import { CrashView } from './CrashView';
 
 export default function CasinoView() {
   const { game } = useParams();
@@ -26,6 +34,16 @@ export default function CasinoView() {
         return <BingoView />;
       case 'duel':
         return <DuelView />;
+      case 'blackjack':
+        return <BlackjackView />;
+      case 'dragon':
+        return <DragonTigerView />;
+      case 'poker':
+        return <PokerView />;
+      case 'bluffdice':
+        return <BluffDiceView />;
+      case 'crash':
+        return <CrashView />;
       default:
         return (
           <div className="p-12 text-center">

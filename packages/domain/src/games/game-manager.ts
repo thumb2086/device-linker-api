@@ -16,6 +16,8 @@ export interface GameDomain {
   resolveBlackjack(action: 'start' | 'hit' | 'stand', state: any, seed: string, bias?: number): any;
   resolveDragonTiger(action: 'gate' | 'shoot', state: any, seed: string, bias?: number): any;
   resolveCrash(elapsedSeconds: number, seed: string, bias?: number): { multiplier: number; crashed: boolean; crashPoint: number };
+  resolvePoker(action: string, state: any, seed: string): any;
+  resolveBluffdice(action: string, state: any, seed: string): any;
 }
 
 export class GameManager implements GameDomain {
@@ -367,6 +369,35 @@ export class GameManager implements GameDomain {
         multiplier: currentMultiplier,
         crashed: currentMultiplier >= crashPoint,
         crashPoint
+    };
+  }
+
+  resolvePoker(action: string, state: any, seed: string): any {
+    // Simplified Poker Hand Evaluation based on seed
+    const hash = this._fnv1a32(seed + action);
+    const winChance = hash % 100;
+    const isWin = winChance > 55; // 45% win chance for simplicity
+    return {
+        action,
+        isWin,
+        multiplier: isWin ? 2.0 : 0,
+        hand: isWin ? "Full House" : "High Card"
+    };
+  }
+
+  resolveBluffdice(action: string, state: any, seed: string): any {
+    const hash = this._fnv1a32(seed + action);
+    const dice = [
+        (hash % 6) + 1,
+        (Math.floor(hash / 6) % 6) + 1,
+        (Math.floor(hash / 36) % 6) + 1,
+        (Math.floor(hash / 216) % 6) + 1,
+        (Math.floor(hash / 1296) % 6) + 1,
+    ];
+    return {
+        action,
+        dice,
+        total: dice.reduce((a, b) => a + b, 0)
     };
   }
 

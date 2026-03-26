@@ -1,65 +1,122 @@
+// apps/api/src/routes/v1/market.ts
+
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { createApiEnvelope, MARKET_SYMBOLS } from "@repo/shared";
-import { MetaManager } from "@repo/domain";
-import { MetaRepository, OpsRepository } from "@repo/infrastructure";
+import { createApiEnvelope } from "@repo/shared";
+import { MarketManager } from "@repo/domain";
+import { SessionRepository, UserRepository, kv, OpsRepository } from "@repo/infrastructure";
 
 export async function marketRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
-  const metaManager = new MetaManager();
-  const metaRepo = new MetaRepository();
+  
+  const marketManager = new MarketManager();
+  const sessionRepo = new SessionRepository();
+  const userRepo = new UserRepository();
   const opsRepo = new OpsRepository();
-  const mockUserId = "550e8400-e29b-41d4-a716-446655440000";
 
-  typedFastify.get("/summary", async (request) => {
-    const tick = Math.floor(Date.now() / 30000);
-    const items = Object.entries(MARKET_SYMBOLS).map(([symbol, meta]) => {
-      const price = metaManager.calculatePrice(symbol as any, tick);
-      const prevPrice = metaManager.calculatePrice(symbol as any, tick - 1);
-      const change = ((price - prevPrice) / prevPrice * 100).toFixed(2);
-      return {
-        symbol,
-        name: meta.name,
-        price: price.toFixed(4),
-        change,
-      };
-    });
-    return createApiEnvelope({ items }, request.id);
+  const getContext = async (req: any) => {
+    const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
+    if (!sessionId) return null;
+    const session = await sessionRepo.getSessionById(sessionId as string);
+    if (!session || session.status !== "authorized") return null;
+    const user = await userRepo.getUserById(session.userId);
+    return { session, user };
+  };
+
+  const getAccount = async (address: string) => {
+    const raw = await kv.get<any>(`market_account:${address}`);
+    return marketManager.normalizeAccount(raw);
+  };
+
+  const saveAccount = async (address: string, account: any) => {
+    await kv.set(`market_account:${address}`, account);
+  };
+
+  // ─── Market Data ──────────────────────────────────────────────────────────
+
+  typedFastify.get("/snapshot", async (request) => {
+    const snapshot = marketManager.buildSnapshot();
+    return createApiEnvelope({ snapshot }, request.id);
   });
 
-  typedFastify.post("/orders", {
+  // ─── User Market Account ──────────────────────────────────────────────────
+
+  typedFastify.get("/me", async (request) => {
+    const ctx = await getContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+
+    const snapshot = marketManager.buildSnapshot();
+    const account = await getAccount(ctx.session.address);
+    marketManager.settleLiquidations(account, snapshot);
+    await saveAccount(ctx.session.address, account);
+
+    const summary = marketManager.buildAccountSummary(account, snapshot);
+    return createApiEnvelope({ account: summary }, request.id);
+  });
+
+  // ─── Actions (Buy, Sell, Long, Short, Bank, Loan) ─────────────────────────
+
+  typedFastify.post("/action", {
     schema: {
       body: z.object({
-        symbol: z.string(),
-        qty: z.number().positive(),
-        side: z.enum(["buy", "sell"]),
+        sessionId: z.string(),
+        type: z.enum([
+            "stock_buy", "stock_sell", 
+            "futures_open", "futures_close",
+            "bank_deposit", "bank_withdraw",
+            "loan_borrow", "loan_repay"
+        ]),
+        symbol: z.string().optional(),
+        amount: z.string().optional(),
+        quantity: z.string().optional(),
+        side: z.enum(["long", "short"]).optional(),
+        leverage: z.string().optional(),
+        margin: z.string().optional(),
+        positionId: z.string().optional(),
       }),
     },
   }, async (request) => {
-    const { symbol, qty, side } = request.body;
-    const tick = Math.floor(Date.now() / 30000);
-    const price = metaManager.calculatePrice(symbol as any, tick).toFixed(4);
+    const ctx = await getContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
 
-    const order = metaManager.createMarketOrder(mockUserId, symbol, qty, price);
-    order.status = "completed"; // Auto-fill for now
+    const { type, symbol, amount, quantity, side, leverage, margin, positionId } = request.body;
+    const address = ctx.session.address;
+    
+    const snapshot = marketManager.buildSnapshot();
+    const account = await getAccount(address);
+    marketManager.settleLiquidations(account, snapshot);
 
+    let result: any;
     try {
-      await metaRepo.saveMarketOrder(order);
-      await opsRepo.logEvent({
-          channel: "market",
-          severity: "info",
-          source: "market_api",
-          kind: "order_filled",
-          userId: mockUserId,
-          requestId: request.id,
-          message: `Market ${side} order for ${qty} ${symbol} @ ${price} filled.`,
-          meta: { symbol, qty, side, price }
-      });
-    } catch (err) {
-      fastify.log.error(err);
+      switch (type) {
+        case "stock_buy": result = marketManager.buyStock(account, snapshot, symbol, quantity); break;
+        case "stock_sell": result = marketManager.sellStock(account, snapshot, symbol, quantity); break;
+        case "futures_open": result = marketManager.openFutures(account, snapshot, { symbol, side, margin, leverage }); break;
+        case "futures_close": result = marketManager.closeFutures(account, snapshot, positionId!); break;
+        case "bank_deposit": result = marketManager.bankDeposit(account, amount); break;
+        case "bank_withdraw": result = marketManager.bankWithdraw(account, amount); break;
+        case "loan_borrow": result = marketManager.borrowLoan(account, snapshot, amount); break;
+        case "loan_repay": result = marketManager.repayLoan(account, amount); break;
+      }
+    } catch (e: any) {
+      return createApiEnvelope({ error: { message: e.message } }, request.id);
     }
 
-    return createApiEnvelope({ order }, request.id);
+    await saveAccount(address, account);
+    
+    // Log Ops
+    await opsRepo.logEvent({
+      channel: "market",
+      severity: "info",
+      source: "trading",
+      kind: type,
+      userId: ctx.user.id,
+      address,
+      message: `Market action ${type} completed`,
+      meta: result
+    });
+
+    return createApiEnvelope({ success: true, result, summary: marketManager.buildAccountSummary(account, snapshot) }, request.id);
   });
 }

@@ -34,3 +34,27 @@ export const GameActionSchema = z.object({
 });
 
 export type GameAction = z.infer<typeof GameActionSchema>;
+
+export const GameSettlementStatusSchema = z.enum(["pending", "settled", "failed"]);
+export type GameSettlementStatus = z.infer<typeof GameSettlementStatusSchema>;
+
+export const GameSettlementSchema = z.object({
+  id: z.string().uuid(),
+  roundId: z.string(),
+  userId: z.string().uuid(),
+  address: z.string(),
+  game: z.string(),
+  token: z.enum(["ZXC", "YJC"]),
+  betAmount: z.string(),
+  payoutAmount: z.string(),
+  netResult: z.string(),
+  multiplier: z.string(),
+  isWin: z.boolean(),
+  status: GameSettlementStatusSchema,
+  betTxHash: z.string().nullable().optional(),
+  payoutTxHash: z.string().nullable().optional(),
+  error: z.string().nullable().optional(),
+  settledAt: z.date(),
+});
+
+export type GameSettlement = z.infer<typeof GameSettlementSchema>;

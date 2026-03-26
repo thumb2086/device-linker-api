@@ -6,13 +6,16 @@ export interface GameDomain {
   settleRound(round: GameRound, result: any): GameRound;
   failRound(round: GameRound, error: string): GameRound;
   createAction(userId: string, roundId: string, game: string, amount: string, token: "ZXC" | "YJC", payload: any): GameAction;
-  resolveCoinflip(selection: string, seed: string): { winner: string; isWin: boolean; multiplier: number };
-  resolveRoulette(bets: any[], seed: string): { winningNumber: number; color: string; totalPayoutMultiplier: number };
-  resolveHorseRace(horseId: number, seed: string): { winnerId: number; winnerName: string; isWin: boolean; multiplier: number };
-  resolveSlots(betAmount: number, seed: string): { symbols: string[]; multiplier: number; payout: number };
-  resolveSicbo(bets: any[], seed: string): { dice: number[]; total: number; isBig: boolean; totalPayoutMultiplier: number };
-  resolveBingo(selectedNumbers: number[], seed: string): { winningNumbers: number[]; matches: number[]; multiplier: number };
+  resolveCoinflip(selection: string, seed: string, bias?: number): { winner: string; isWin: boolean; multiplier: number };
+  resolveRoulette(bets: any[], seed: string, bias?: number): { winningNumber: number; color: string; totalPayoutMultiplier: number };
+  resolveHorseRace(horseId: number, seed: string, bias?: number): { winnerId: number; winnerName: string; isWin: boolean; multiplier: number };
+  resolveSlots(betAmount: number, seed: string, bias?: number): { symbols: string[]; multiplier: number; payout: number };
+  resolveSicbo(bets: any[], seed: string, bias?: number): { dice: number[]; total: number; isBig: boolean; totalPayoutMultiplier: number };
+  resolveBingo(selectedNumbers: number[], seed: string, bias?: number): { winningNumbers: number[]; matches: number[]; multiplier: number };
   resolveDuel(p1Selection: string, p2Selection: string, seed: string): { winner: 1 | 2 | 0 };
+  resolveBlackjack(action: 'start' | 'hit' | 'stand', state: any, seed: string, bias?: number): any;
+  resolveDragonTiger(action: 'gate' | 'shoot', state: any, seed: string, bias?: number): any;
+  resolveCrash(elapsedSeconds: number, seed: string, bias?: number): { multiplier: number; crashed: boolean; crashPoint: number };
 }
 
 export class GameManager implements GameDomain {
@@ -74,16 +77,36 @@ export class GameManager implements GameDomain {
     });
   }
 
-  resolveCoinflip(selection: string, seed: string): { winner: string; isWin: boolean; multiplier: number } {
-    const hash = this._fnv1a32(seed);
+  private _applyBias(hash: number, bias: number = 0): number {
+      // If bias > 0, it increases the chance of a "better" outcome for the player
+      // This is a simple implementation: shift the hash slightly
+      if (bias === 0) return hash;
+      const shift = Math.floor(bias * 1000000);
+      return (hash + shift) >>> 0;
+  }
+
+  resolveCoinflip(selection: string, seed: string, bias: number = 0): { winner: string; isWin: boolean; multiplier: number } {
+    let hash = this._fnv1a32(seed);
+    if (bias !== 0) {
+        // Adjust hash so that it favors 'selection'
+        const isHeadsSelected = selection === 'heads';
+        const rawWinner = hash % 2 === 0 ? 'heads' : 'tails';
+        if (rawWinner !== selection && (this._fnv1a32(seed + ':bias') % 100 < bias * 100)) {
+            hash = isHeadsSelected ? 0 : 1; // Force win
+        }
+    }
     const winner = hash % 2 === 0 ? "heads" : "tails";
     const isWin = selection === winner;
     return { winner, isWin, multiplier: isWin ? 1.96 : 0 };
   }
 
-  resolveRoulette(bets: any[], seed: string): { winningNumber: number; color: string; totalPayoutMultiplier: number } {
-    const hash = this._fnv1a32(seed);
-    const winningNumber = hash % 37;
+  resolveRoulette(bets: any[], seed: string, bias: number = 0): { winningNumber: number; color: string; totalPayoutMultiplier: number } {
+    let hash = this._fnv1a32(seed);
+    let winningNumber = hash % 37;
+
+    // Bias logic for roulette would be complex if trying to favor a specific bet.
+    // For now, keep it simple or skip bias for multi-bet games.
+
     const color = winningNumber === 0 ? "green" : ([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(winningNumber) ? "red" : "black");
 
     let totalPayoutMultiplier = 0;
@@ -99,7 +122,7 @@ export class GameManager implements GameDomain {
     return { winningNumber, color, totalPayoutMultiplier };
   }
 
-  resolveHorseRace(horseId: number, seed: string): { winnerId: number; winnerName: string; isWin: boolean; multiplier: number } {
+  resolveHorseRace(horseId: number, seed: string, bias: number = 0): { winnerId: number; winnerName: string; isWin: boolean; multiplier: number } {
     const HORSES = [
       { id: 1, name: "赤焰", multiplier: 1.8 },
       { id: 2, name: "雷霆", multiplier: 2.2 },
@@ -108,8 +131,15 @@ export class GameManager implements GameDomain {
       { id: 5, name: "霜牙", multiplier: 5.8 },
       { id: 6, name: "流星", multiplier: 8.5 }
     ];
-    const hash = this._fnv1a32(seed);
-    const winnerIndex = hash % HORSES.length;
+    let hash = this._fnv1a32(seed);
+    let winnerIndex = hash % HORSES.length;
+
+    if (bias > 0 && HORSES[winnerIndex].id !== horseId) {
+        if ((this._fnv1a32(seed + ':bias') % 100) < bias * 100) {
+            winnerIndex = HORSES.findIndex(h => h.id === horseId);
+        }
+    }
+
     const winner = HORSES[winnerIndex];
     const isWin = horseId === winner.id;
     return {
@@ -120,9 +150,20 @@ export class GameManager implements GameDomain {
     };
   }
 
-  resolveSlots(betAmount: number, seed: string): { symbols: string[]; multiplier: number; payout: number } {
+  resolveSlots(betAmount: number, seed: string, bias: number = 0): { symbols: string[]; multiplier: number; payout: number } {
     const symbols = ["🍒", "🍋", "🍊", "🍇", "🔔", "💎", "7️⃣"];
-    const hash = this._fnv1a32(seed);
+    let hash = this._fnv1a32(seed);
+
+    // Very simplified slots bias: force a win if bias hits
+    if (bias > 0 && (this._fnv1a32(seed + ':bias') % 100 < bias * 100)) {
+        const winSymbolIdx = hash % symbols.length;
+        return {
+            symbols: [symbols[winSymbolIdx], symbols[winSymbolIdx], symbols[winSymbolIdx]],
+            multiplier: symbols[winSymbolIdx] === "7️⃣" ? 50 : 10,
+            payout: betAmount * (symbols[winSymbolIdx] === "7️⃣" ? 50 : 10)
+        };
+    }
+
     const result = [
       symbols[hash % symbols.length],
       symbols[Math.floor(hash / symbols.length) % symbols.length],
@@ -143,7 +184,7 @@ export class GameManager implements GameDomain {
     };
   }
 
-  resolveSicbo(bets: any[], seed: string): { dice: number[]; total: number; isBig: boolean; totalPayoutMultiplier: number } {
+  resolveSicbo(bets: any[], seed: string, bias: number = 0): { dice: number[]; total: number; isBig: boolean; totalPayoutMultiplier: number } {
     const hash = this._fnv1a32(seed);
     const dice = [
       (hash % 6) + 1,
@@ -164,7 +205,7 @@ export class GameManager implements GameDomain {
     return { dice, total, isBig, totalPayoutMultiplier };
   }
 
-  resolveBingo(selectedNumbers: number[], seed: string): { winningNumbers: number[]; matches: number[]; multiplier: number } {
+  resolveBingo(selectedNumbers: number[], seed: string, bias: number = 0): { winningNumbers: number[]; matches: number[]; multiplier: number } {
     const hash = this._fnv1a32(seed);
     const winningNumbers: number[] = [];
     let currentHash = hash;
@@ -189,6 +230,144 @@ export class GameManager implements GameDomain {
     if (p1Selection === result && p2Selection !== result) return { winner: 1 };
     if (p2Selection === result && p1Selection !== result) return { winner: 2 };
     return { winner: 0 };
+  }
+
+  resolveBlackjack(action: 'start' | 'hit' | 'stand', state: any, seed: string, bias: number = 0) {
+    const suits = ['♠', '♥', '♦', '♣'];
+    const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+    const drawCard = (index: number) => {
+        let hash = this._fnv1a32(`${seed}:${index}`);
+        // Optional bias here
+        return {
+            rank: ranks[hash % ranks.length],
+            suit: suits[Math.floor(hash / ranks.length) % suits.length]
+        };
+    };
+
+    const calcTotal = (cards: any[]) => {
+        let total = 0;
+        let aces = 0;
+        for (const card of cards) {
+            if (card.hidden) continue;
+            if (card.rank === 'A') { total += 11; aces++; }
+            else if (['J', 'Q', 'K'].includes(card.rank)) total += 10;
+            else total += parseInt(card.rank);
+        }
+        while (total > 21 && aces > 0) { total -= 10; aces--; }
+        return total;
+    };
+
+    if (action === 'start') {
+        const playerCards = [drawCard(0), drawCard(1)];
+        const dealerCards = [drawCard(2), { ...drawCard(3), hidden: true }];
+        const playerTotal = calcTotal(playerCards);
+        const status = playerTotal === 21 ? 'settled' : 'in_progress';
+        return {
+            playerCards,
+            dealerCards,
+            playerTotal,
+            dealerTotal: calcTotal(dealerCards),
+            status,
+            isWin: playerTotal === 21,
+            multiplier: playerTotal === 21 ? 1.5 : 0
+        };
+    }
+
+    if (action === 'hit') {
+        const playerCards = [...state.playerCards, drawCard(state.playerCards.length + 2)];
+        const playerTotal = calcTotal(playerCards);
+        const status = playerTotal >= 21 ? 'settled' : 'in_progress';
+        return {
+            ...state,
+            playerCards,
+            playerTotal,
+            status,
+            isWin: playerTotal === 21,
+            multiplier: playerTotal === 21 ? 1 : 0,
+            reason: playerTotal > 21 ? 'Bust' : undefined
+        };
+    }
+
+    if (action === 'stand') {
+        let dealerCards = state.dealerCards.map((c: any) => ({ ...c, hidden: false }));
+        let dealerTotal = calcTotal(dealerCards);
+        let i = 4;
+        while (dealerTotal < 17) {
+            dealerCards.push(drawCard(state.playerCards.length + i++));
+            dealerTotal = calcTotal(dealerCards);
+        }
+        const playerTotal = state.playerTotal;
+        const isWin = dealerTotal > 21 || playerTotal > dealerTotal;
+        const isPush = playerTotal === dealerTotal;
+        return {
+            ...state,
+            dealerCards,
+            dealerTotal,
+            status: 'settled',
+            isWin,
+            isPush,
+            multiplier: isWin ? 1 : 0
+        };
+    }
+  }
+
+  resolveDragonTiger(action: 'gate' | 'shoot', state: any, seed: string, bias: number = 0) {
+    const suits = ['♠', '♥', '♦', '♣'];
+    const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    const getRankValue = (rank: string) => ranks.indexOf(rank) + 1;
+
+    const drawCard = (index: number) => {
+        const hash = this._fnv1a32(`${seed}:${index}`);
+        return {
+            rank: ranks[hash % ranks.length],
+            suit: suits[Math.floor(hash / ranks.length) % suits.length]
+        };
+    };
+
+    if (action === 'gate') {
+        const left = drawCard(0);
+        const right = drawCard(1);
+        const lVal = getRankValue(left.rank);
+        const rVal = getRankValue(right.rank);
+        const range = Math.abs(lVal - rVal);
+        return {
+            gate: { left, right },
+            multiplier: range === 0 ? 0 : parseFloat((12 / range).toFixed(2)),
+            requiresSideGuess: range === 0
+        };
+    }
+
+    if (action === 'shoot') {
+        const shot = drawCard(2);
+        const sVal = getRankValue(shot.rank);
+        const lVal = getRankValue(state.gate.left.rank);
+        const rVal = getRankValue(state.gate.right.rank);
+        const min = Math.min(lVal, rVal);
+        const max = Math.max(lVal, rVal);
+
+        let resultType = 'lose';
+        if (sVal > min && sVal < max) resultType = 'win';
+        else if (sVal === min || sVal === max) resultType = 'pillar';
+
+        return {
+            ...state,
+            shot,
+            resultType,
+            isWin: resultType === 'win'
+        };
+    }
+  }
+
+  resolveCrash(elapsedSeconds: number, seed: string, bias: number = 0) {
+    const hash = this._fnv1a32(seed);
+    const crashPoint = Math.max(1.0, 0.99 / (1 - (hash % 1000000 / 1000000)) ** 0.05);
+    const currentMultiplier = Math.pow(Math.E, 0.08 * elapsedSeconds);
+    return {
+        multiplier: currentMultiplier,
+        crashed: currentMultiplier >= crashPoint,
+        crashPoint
+    };
   }
 
   private _fnv1a32(input: string): number {

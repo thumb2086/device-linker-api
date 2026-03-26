@@ -17,3 +17,18 @@ export const VIP_LEVELS = [
     { threshold: 50_000_000, label: "鑽石等級", maxBet: 2_000_000 },
     { threshold: 100_000_000_000, label: "創世等級", maxBet: 900_000_000 }
 ];
+
+export const YJC_VIP_CONFIG = {
+    VIP1: { threshold: 1, label: "VIP 1", tableAccess: [1] },
+    VIP2: { threshold: 1000, label: "VIP 2", tableAccess: [1, 2] }
+};
+
+export const YJC_EXCHANGE_RATE = 100_000_000; // 1 YJC = 100M ZXC
+
+export const GAME_INTERVALS = {
+    HORSE: 20000,
+    COINFLIP: 15000,
+    ROULETTE: 20000,
+    SICBO: 20000,
+    BINGO: 30000
+};

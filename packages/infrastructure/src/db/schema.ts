@@ -10,6 +10,16 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: uuid("user_id").references(() => users.id),
+  address: text("address"),
+  status: text("status").notNull(), // pending, authorized, expired
+  publicKey: text("public_key"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
 export const rewardGrants = pgTable("reward_grants", {
   id: uuid("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id),

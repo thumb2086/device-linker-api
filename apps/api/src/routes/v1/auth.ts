@@ -3,16 +3,28 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
 import { IdentityManager } from "@repo/domain";
-import { kv } from "@repo/infrastructure";
+import { kv, SessionRepository, UserRepository } from "@repo/infrastructure";
 
 export async function authRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   const identityManager = new IdentityManager();
+  const sessionRepo = new SessionRepository();
+  const userRepo = new UserRepository();
 
   typedFastify.post("/create-session", async (request) => {
-    const sessionId = `sess_${crypto.randomUUID().slice(0, 8)}`;
-    // Set initial session state in KV
-    await kv.set(`session:${sessionId}`, { status: "pending", createdAt: Date.now() }, { ex: 600 });
+    const sessionId = `sess_${crypto.randomUUID().slice(0, 16).replace(/-/g, '')}`;
+
+    const session = {
+      id: sessionId,
+      status: "pending",
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 600 * 1000)
+    };
+
+    await sessionRepo.saveSession(session);
+    // Backward compatibility with polling if needed via KV
+    await kv.set(`session:${sessionId}`, session, { ex: 600 });
+
     return createApiEnvelope({ sessionId }, request.id);
   });
 
@@ -24,13 +36,13 @@ export async function authRoutes(fastify: FastifyInstance) {
     },
   }, async (request) => {
     const { sessionId } = request.query;
-    const sessionData: any = await kv.get(`session:${sessionId}`);
+    const session = await sessionRepo.getSessionById(sessionId);
 
-    if (!sessionData) {
+    if (!session || new Date() > session.expiresAt) {
       return createApiEnvelope({ status: "expired" }, request.id);
     }
 
-    return createApiEnvelope({ status: sessionData.status, address: sessionData.address }, request.id);
+    return createApiEnvelope({ status: session.status, address: session.address }, request.id);
   });
 
   typedFastify.post("/authorize", {
@@ -38,20 +50,69 @@ export async function authRoutes(fastify: FastifyInstance) {
       body: z.object({
         address: z.string().length(42),
         sessionId: z.string(),
+        publicKey: z.string().optional()
       }),
     },
   }, async (request) => {
-    const { address, sessionId } = request.body;
-    const user = identityManager.createUser(address);
+    const { address, sessionId, publicKey } = request.body;
 
-    // Update session state in KV to authorized
-    await kv.set(`session:${sessionId}`, {
+    const session = await sessionRepo.getSessionById(sessionId);
+    if (!session) {
+        return createApiEnvelope({ error: { message: "Session not found" } }, request.id);
+    }
+
+    let user = await userRepo.getUserByAddress(address);
+    if (!user) {
+      user = identityManager.createUser(address);
+      await userRepo.saveUser(user);
+    }
+
+    const updatedSession = {
+      ...session,
       status: "authorized",
+      userId: user.id,
       address,
-      authorizedAt: Date.now()
-    }, { ex: 3600 });
+      publicKey: publicKey || "0x",
+      expiresAt: new Date(Date.now() + 86400 * 1000)
+    };
+
+    await sessionRepo.saveSession(updatedSession);
+    await kv.set(`session:${sessionId}`, updatedSession, { ex: 86400 });
 
     return createApiEnvelope({ user, sessionId }, request.id);
+  });
+
+  // Managed login (bypass QR)
+  typedFastify.post("/login/managed", {
+    schema: {
+        body: z.object({
+            address: z.string().length(42),
+            key: z.string()
+        })
+    }
+  }, async (request) => {
+      const { address } = request.body;
+      const sessionId = `sess_managed_${crypto.randomUUID().slice(0, 8)}`;
+
+      let user = await userRepo.getUserByAddress(address);
+      if (!user) {
+        user = identityManager.createUser(address);
+        await userRepo.saveUser(user);
+      }
+
+      const session = {
+          id: sessionId,
+          userId: user.id,
+          status: "authorized",
+          address,
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 86400 * 1000)
+      };
+
+      await sessionRepo.saveSession(session);
+      await kv.set(`session:${sessionId}`, session, { ex: 86400 });
+
+      return createApiEnvelope({ user, sessionId }, request.id);
   });
 
   typedFastify.get("/me", {
@@ -61,13 +122,11 @@ export async function authRoutes(fastify: FastifyInstance) {
       }).optional(),
     }
   }, async (request) => {
-    // In a real app, we'd check the session from cookie or header
-    // For now, allow optional sessionId query for testing
     const sessionId = (request.query as any)?.sessionId;
     if (sessionId) {
-      const sessionData: any = await kv.get(`session:${sessionId}`);
-      if (sessionData?.status === "authorized") {
-        const user = identityManager.createUser(sessionData.address);
+      const session = await sessionRepo.getSessionById(sessionId);
+      if (session?.status === "authorized" && session.userId) {
+        const user = await userRepo.getUserById(session.userId);
         return createApiEnvelope({ user }, request.id);
       }
     }

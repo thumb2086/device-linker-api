@@ -1,9 +1,10 @@
-import { User, UserSchema } from "@repo/shared";
+import { User, UserSchema, VIP_LEVELS } from "@repo/shared";
 
 export interface IdentityDomain {
   createUser(address: string, displayName?: string): User;
   updateProfile(user: User, updates: Partial<Pick<User, "displayName">>): User;
   blacklistUser(user: User): User;
+  calculateVipLevel(totalBet: number): typeof VIP_LEVELS[0];
 }
 
 export class IdentityManager implements IdentityDomain {
@@ -34,5 +35,12 @@ export class IdentityManager implements IdentityDomain {
       isBlacklisted: true,
       updatedAt: new Date(),
     });
+  }
+
+  calculateVipLevel(totalBet: number): typeof VIP_LEVELS[0] {
+    for (let i = VIP_LEVELS.length - 1; i >= 0; i--) {
+      if (totalBet >= VIP_LEVELS[i].threshold) return VIP_LEVELS[i];
+    }
+    return VIP_LEVELS[0];
   }
 }

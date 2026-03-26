@@ -21,6 +21,16 @@ export class UserRepository {
   }
 }
 
+export class MetaRepository {
+  async saveRewardGrant(grant: any) {
+    return await db.insert(schema.rewardGrants).values(grant);
+  }
+
+  async saveMarketOrder(order: any) {
+    return await db.insert(schema.marketOrders).values(order);
+  }
+}
+
 export class WalletRepository {
   async saveTxIntent(intent: any) {
     return await db.insert(schema.txIntents).values(intent);

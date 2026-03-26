@@ -1,13 +1,6 @@
-{"level":30,"time":1774484027381,"pid":12940,"hostname":"devbox","msg":"Server listening at http://0.0.0.0:3000"}
-{"level":30,"time":1774484062964,"pid":12940,"hostname":"devbox","reqId":"req-1","req":{"method":"GET","url":"/api/v1/wallet/summary?token=ZXC","hostname":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":40732},"msg":"incoming request"}
-{"level":30,"time":1774484062976,"pid":12940,"hostname":"devbox","reqId":"req-1","res":{"statusCode":200},"responseTime":11.528426999924704,"msg":"request completed"}
-{"level":30,"time":1774485130626,"pid":12940,"hostname":"devbox","reqId":"req-2","req":{"method":"POST","url":"/api/v1/games/coinflip/rounds","hostname":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":41624},"msg":"incoming request"}
-{"level":30,"time":1774485130697,"pid":12940,"hostname":"devbox","reqId":"req-2","res":{"statusCode":200},"responseTime":54.40558300004341,"msg":"request completed"}
-{"level":30,"time":1774485131015,"pid":12940,"hostname":"devbox","reqId":"req-3","req":{"method":"GET","url":"/api/v1/admin/ops/health","hostname":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":41636},"msg":"incoming request"}
-{"level":30,"time":1774485131019,"pid":12940,"hostname":"devbox","reqId":"req-3","msg":"Route GET:/api/v1/admin/ops/health not found"}
-{"level":30,"time":1774485131022,"pid":12940,"hostname":"devbox","reqId":"req-3","res":{"statusCode":404},"responseTime":4.541540999896824,"msg":"request completed"}
-{"level":30,"time":1774485191958,"pid":12940,"hostname":"devbox","reqId":"req-4","req":{"method":"POST","url":"/api/v1/games/coinflip/rounds","hostname":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":57626},"msg":"incoming request"}
-{"level":30,"time":1774485191961,"pid":12940,"hostname":"devbox","reqId":"req-4","res":{"statusCode":200},"responseTime":2.3502889999654144,"msg":"request completed"}
-{"level":30,"time":1774485192084,"pid":12940,"hostname":"devbox","reqId":"req-5","req":{"method":"GET","url":"/api/v1/admin/ops/health","hostname":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":57636},"msg":"incoming request"}
-{"level":30,"time":1774485192085,"pid":12940,"hostname":"devbox","reqId":"req-5","msg":"Route GET:/api/v1/admin/ops/health not found"}
-{"level":30,"time":1774485192086,"pid":12940,"hostname":"devbox","reqId":"req-5","res":{"statusCode":404},"responseTime":1.844139999942854,"msg":"request completed"}
+{"level":30,"time":1774487417781,"pid":76254,"hostname":"devbox","msg":"Server listening at http://0.0.0.0:3000"}
+{"level":30,"time":1774487425697,"pid":76254,"hostname":"devbox","reqId":"req-1","req":{"method":"POST","url":"/api/v1/games/coinflip/rounds","hostname":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":40392},"msg":"incoming request"}
+{"level":30,"time":1774487425706,"pid":76254,"hostname":"devbox","reqId":"req-1","res":{"statusCode":200},"responseTime":7.880491999909282,"msg":"request completed"}
+{"level":30,"time":1774487425948,"pid":76254,"hostname":"devbox","reqId":"req-2","req":{"method":"GET","url":"/api/v1/admin/ops/health","hostname":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":40396},"msg":"incoming request"}
+{"level":30,"time":1774487425948,"pid":76254,"hostname":"devbox","reqId":"req-2","msg":"Route GET:/api/v1/admin/ops/health not found"}
+{"level":30,"time":1774487425949,"pid":76254,"hostname":"devbox","reqId":"req-2","res":{"statusCode":404},"responseTime":0.7078689998015761,"msg":"request completed"}

@@ -1,4 +1,4 @@
-import { GameRound, GameRoundSchema, GameRoundStatus, GameAction, GameActionSchema } from "@repo/shared";
+import { GameRound, GameRoundSchema, GameAction, GameActionSchema } from "@repo/shared";
 
 export interface GameDomain {
   createRound(game: string, externalRoundId: string, opensAt: Date, closesAt: Date, bettingClosesAt: Date): GameRound;
@@ -86,11 +86,15 @@ export class GameManager implements GameDomain {
     const winningNumber = hash % 37;
     const color = winningNumber === 0 ? "green" : ([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(winningNumber) ? "red" : "black");
 
-    // Simplified payout calculation
     let totalPayoutMultiplier = 0;
     for (const bet of bets) {
-      if (bet.type === "number" && bet.value === winningNumber) totalPayoutMultiplier += 35;
+      if (bet.type === "number" && Number(bet.value) === winningNumber) totalPayoutMultiplier += 35;
       if (bet.type === "color" && bet.value === color) totalPayoutMultiplier += 2;
+      if (bet.type === "parity") {
+         const isOdd = winningNumber % 2 !== 0;
+         if (bet.value === "odd" && isOdd) totalPayoutMultiplier += 2;
+         if (bet.value === "even" && !isOdd && winningNumber !== 0) totalPayoutMultiplier += 2;
+      }
     }
     return { winningNumber, color, totalPayoutMultiplier };
   }
@@ -154,7 +158,7 @@ export class GameManager implements GameDomain {
     for (const bet of bets) {
       if (bet.type === "big" && isBig) totalPayoutMultiplier += 2;
       if (bet.type === "small" && isSmall) totalPayoutMultiplier += 2;
-      if (bet.type === "total" && bet.value === total) totalPayoutMultiplier += 6; // simplified
+      if (bet.type === "total" && bet.value === total) totalPayoutMultiplier += 6;
     }
 
     return { dice, total, isBig, totalPayoutMultiplier };
@@ -184,7 +188,7 @@ export class GameManager implements GameDomain {
     const result = hash % 2 === 0 ? "heads" : "tails";
     if (p1Selection === result && p2Selection !== result) return { winner: 1 };
     if (p2Selection === result && p1Selection !== result) return { winner: 2 };
-    return { winner: 0 }; // Tie or both wrong
+    return { winner: 0 };
   }
 
   private _fnv1a32(input: string): number {

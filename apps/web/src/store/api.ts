@@ -4,7 +4,7 @@ import axios, { InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from './useAuthStore';
 
 // Determine base URL based on environment
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

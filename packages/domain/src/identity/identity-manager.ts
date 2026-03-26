@@ -1,0 +1,38 @@
+import { User, UserSchema } from "@repo/shared";
+
+export interface IdentityDomain {
+  createUser(address: string, displayName?: string): User;
+  updateProfile(user: User, updates: Partial<Pick<User, "displayName">>): User;
+  blacklistUser(user: User): User;
+}
+
+export class IdentityManager implements IdentityDomain {
+  createUser(address: string, displayName?: string): User {
+    const now = new Date();
+    return UserSchema.parse({
+      id: crypto.randomUUID(),
+      address: address.toLowerCase(),
+      displayName: displayName || null,
+      isAdmin: false,
+      isBlacklisted: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  updateProfile(user: User, updates: Partial<Pick<User, "displayName">>): User {
+    return UserSchema.parse({
+      ...user,
+      ...updates,
+      updatedAt: new Date(),
+    });
+  }
+
+  blacklistUser(user: User): User {
+    return UserSchema.parse({
+      ...user,
+      isBlacklisted: true,
+      updatedAt: new Date(),
+    });
+  }
+}

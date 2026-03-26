@@ -1,0 +1,50 @@
+import { FastifyInstance } from "fastify";
+import { ZodTypeProvider } from "fastify-type-provider-zod";
+import { z } from "zod";
+import { createApiEnvelope } from "@repo/shared";
+import { GameManager } from "@repo/domain";
+
+export async function gameRoutes(fastify: FastifyInstance) {
+  const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
+  const gameManager = new GameManager();
+  const mockUserId = "550e8400-e29b-41d4-a716-446655440000";
+
+  typedFastify.post("/:game/rounds", {
+    schema: {
+      params: z.object({
+        game: z.string(),
+      }),
+    },
+  }, async (request) => {
+    const { game } = request.params;
+    const now = new Date();
+    const round = gameManager.createRound(
+      game,
+      `ext_${Date.now()}`,
+      now,
+      new Date(now.getTime() + 30000),
+      new Date(now.getTime() + 25000)
+    );
+    return createApiEnvelope({ round }, request.id);
+  });
+
+  typedFastify.post("/:game/rounds/:roundId/actions", {
+    schema: {
+      params: z.object({
+        game: z.string(),
+        roundId: z.string().uuid(),
+      }),
+      body: z.object({
+        type: z.enum(["bet"]),
+        amount: z.string(),
+        token: z.enum(["ZXC", "YJC"]),
+        payload: z.any(),
+      }),
+    },
+  }, async (request) => {
+    const { game, roundId } = request.params;
+    const { type, amount, token, payload } = request.body;
+    const action = gameManager.createAction(mockUserId, roundId, game, amount, token, payload);
+    return createApiEnvelope({ action }, request.id);
+  });
+}

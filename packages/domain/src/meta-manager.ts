@@ -1,6 +1,14 @@
-import { RewardGrant, RewardGrantSchema, MarketOrder, MarketOrderSchema, SupportTicket, SupportTicketSchema } from "@repo/shared";
+import { RewardGrant, RewardGrantSchema, MarketOrder, MarketOrderSchema, SupportTicket, SupportTicketSchema, MARKET_SYMBOLS } from "@repo/shared";
 
 export class MetaManager {
+  // ... existing methods ...
+
+  calculatePrice(symbol: keyof typeof MARKET_SYMBOLS, tick: number): number {
+    const meta = MARKET_SYMBOLS[symbol];
+    const trend = Math.sin(tick / 10 + meta.phase);
+    return meta.basePrice * (1 + trend * meta.volatility);
+  }
+
   grantReward(userId: string, rewardId: string, type: RewardGrant["type"], source: string, expiresAt?: Date): RewardGrant {
     return RewardGrantSchema.parse({
       id: crypto.randomUUID(),

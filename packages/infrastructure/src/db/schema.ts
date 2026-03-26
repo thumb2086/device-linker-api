@@ -10,6 +10,27 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const rewardGrants = pgTable("reward_grants", {
+  id: uuid("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  rewardId: text("reward_id").notNull(),
+  type: text("type").notNull(),
+  source: text("source").notNull(),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const marketOrders = pgTable("market_orders", {
+  id: uuid("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  itemId: text("item_id").notNull(),
+  quantity: numeric("quantity").notNull(),
+  price: numeric("price").notNull(),
+  total: numeric("total").notNull(),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const opsEvents = pgTable("ops_events", {
   id: uuid("id").primaryKey(),
   channel: text("channel").notNull(), // e.g., "game", "wallet", "api"

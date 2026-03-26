@@ -45,6 +45,21 @@ export async function gameRoutes(fastify: FastifyInstance) {
     const { game, roundId } = request.params;
     const { type, amount, token, payload } = request.body;
     const action = gameManager.createAction(mockUserId, roundId, game, amount, token, payload);
-    return createApiEnvelope({ action }, request.id);
+
+    // Logic to resolve and create intent
+    let result = null;
+    if (game === "coinflip") {
+      result = gameManager.resolveCoinflip(payload.selection, roundId);
+    } else if (game === "slots") {
+      result = gameManager.resolveSlots(parseFloat(amount), roundId);
+    } else if (game === "horse") {
+      result = gameManager.resolveHorseRace(payload.horseId, roundId);
+    } else if (game === "sicbo") {
+      result = gameManager.resolveSicbo(payload.bets || [], roundId);
+    } else if (game === "bingo") {
+      result = gameManager.resolveBingo(payload.numbers || [], roundId);
+    }
+
+    return createApiEnvelope({ action, result }, request.id);
   });
 }

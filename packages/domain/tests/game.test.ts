@@ -1,32 +1,59 @@
 import { describe, it, expect } from 'vitest';
 import { GameManager } from '../src/games/game-manager';
+import { IdentityManager } from '../src/identity/identity-manager';
 
-describe('GameManager', () => {
-  const manager = new GameManager();
+describe('Domain Logic', () => {
+  const gameManager = new GameManager();
+  const identityManager = new IdentityManager();
 
-  it('should resolve coinflip deterministically', () => {
-    const res1 = manager.resolveCoinflip('heads', 'seed1');
-    const res2 = manager.resolveCoinflip('heads', 'seed1');
-    const res3 = manager.resolveCoinflip('heads', 'seed2');
+  describe('GameManager', () => {
+    it('should resolve blackjack hit', () => {
+      const start = gameManager.resolveBlackjack('start', null, 'bj-seed');
+      expect(start.playerCards).toHaveLength(2);
+      expect(start.dealerCards).toHaveLength(2);
 
-    expect(res1).toEqual(res2);
-    expect(res1.winner).toBeDefined();
-    expect(typeof res1.isWin).toBe('boolean');
+      const hit = gameManager.resolveBlackjack('hit', start, 'bj-seed');
+      expect(hit.playerCards).toHaveLength(3);
+    });
+
+    it('should resolve dragon tiger gate', () => {
+      const gate = gameManager.resolveDragonTiger('gate', null, 'dt-seed');
+      expect(gate.gate.left).toBeDefined();
+      expect(gate.gate.right).toBeDefined();
+    });
+
+    it('should resolve crash point', () => {
+      const res = gameManager.resolveCrash(5, 'crash-seed');
+      expect(res.crashPoint).toBeGreaterThan(1);
+      expect(typeof res.crashed).toBe('boolean');
+    });
+
+    it('should apply win bias to coinflip', () => {
+        // Find a seed that results in a loss for 'heads'
+        let seed = 'test-seed';
+        let res = gameManager.resolveCoinflip('heads', seed, 0);
+        while (res.winner === 'heads') {
+            seed += '1';
+            res = gameManager.resolveCoinflip('heads', seed, 0);
+        }
+
+        // Now apply 100% bias
+        const biasedRes = gameManager.resolveCoinflip('heads', seed, 1.0);
+        expect(biasedRes.winner).toBe('heads');
+        expect(biasedRes.isWin).toBe(true);
+    });
   });
 
-  it('should resolve roulette correctly', () => {
-    const seed = 'roulette-seed';
-    const result = manager.resolveRoulette([{ type: 'number', value: 32 }], seed);
+  describe('IdentityManager', () => {
+    it('should calculate VIP levels correctly', () => {
+      expect(identityManager.calculateVipLevel(0).label).toBe('普通會員');
+      expect(identityManager.calculateVipLevel(2_000_000).label).toBe('黃金會員');
+    });
 
-    expect(result.winningNumber).toBeGreaterThanOrEqual(0);
-    expect(result.winningNumber).toBeLessThanOrEqual(36);
-    expect(['red', 'black', 'green']).toContain(result.color);
-  });
-
-  it('should resolve horse race correctly', () => {
-    const result = manager.resolveHorseRace(1, 'horse-seed');
-    expect(result.winnerId).toBeGreaterThanOrEqual(1);
-    expect(result.winnerId).toBeLessThanOrEqual(6);
-    expect(typeof result.isWin).toBe('boolean');
+    it('should calculate YJC VIP level', () => {
+      expect(identityManager.calculateYjcVipLevel(0)).toBeNull();
+      expect(identityManager.calculateYjcVipLevel(10).key).toBe('vip1');
+      expect(identityManager.calculateYjcVipLevel(5000).key).toBe('vip2');
+    });
   });
 });

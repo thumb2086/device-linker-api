@@ -95,10 +95,14 @@ importers:
         version: link:../../packages/shared
 
   packages/domain:
-    devDependencies:
+    dependencies:
+      '@repo/infrastructure':
+        specifier: workspace:*
+        version: link:../infrastructure
       '@repo/shared':
         specifier: workspace:*
         version: link:../shared
+    devDependencies:
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.7.5)

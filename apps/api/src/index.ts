@@ -4,7 +4,12 @@ import { authRoutes } from "./routes/v1/auth.js";
 import { walletRoutes } from "./routes/v1/wallet.js";
 import { gameRoutes } from "./routes/v1/games.js";
 import { marketRoutes } from "./routes/v1/market.js";
+import { rewardRoutes } from "./routes/v1/rewards.js";
 import { adminRoutes } from "./routes/v1/admin.js";
+import { meRoutes } from "./routes/v1/me.js";
+import { statsRoutes } from "./routes/v1/stats.js";
+import { chatRoutes, feedbackRoutes } from "./routes/v1/support.js";
+import { processIntents } from "../../worker/src/index.js";
 
 const fastify = Fastify({
   logger: true,
@@ -17,10 +22,22 @@ fastify.register(authRoutes, { prefix: "/api/v1/auth" });
 fastify.register(walletRoutes, { prefix: "/api/v1/wallet" });
 fastify.register(gameRoutes, { prefix: "/api/v1/games" });
 fastify.register(marketRoutes, { prefix: "/api/v1/market" });
+fastify.register(rewardRoutes, { prefix: "/api/v1/rewards" });
+fastify.register(meRoutes, { prefix: "/api/v1/me" });
+fastify.register(statsRoutes, { prefix: "/api/v1/stats" });
 fastify.register(adminRoutes, { prefix: "/api/v1/admin" });
+fastify.register(chatRoutes, { prefix: "/api/v1/chat" });
+fastify.register(feedbackRoutes, { prefix: "/api/v1/support/feedback" });
 
 fastify.get("/health", async () => {
   return { status: "ok" };
+});
+
+// Vercel Cron endpoint
+fastify.get("/api/cron/process-intents", async (request, reply) => {
+    // In production, verify auth header from Vercel
+    await processIntents();
+    return { success: true };
 });
 
 // For Vercel, we export the app

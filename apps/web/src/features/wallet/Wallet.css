@@ -1,0 +1,77 @@
+/* apps/web/src/features/wallet/Wallet.css */
+
+.wallet-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 2.5rem;
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  border-radius: 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.wallet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid rgba(59, 130, 246, 0.3);
+  padding-bottom: 1.5rem;
+}
+
+.address-badge {
+  background: #1e293b;
+  border: 1px solid #334155;
+  padding: 0.5rem 1rem;
+  border-radius: 2rem;
+  color: #94a3b8;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.balance-grid {
+  display: grid;
+  grid-template-cols: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.balance-card {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  padding: 1.5rem;
+  border-radius: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.balance-card:hover {
+  transform: translateY(-4px);
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.balance-card .label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.balance-card .value {
+  font-size: 2rem;
+  font-weight: 900;
+  color: white;
+  font-family: 'Outfit', sans-serif;
+}
+
+.balance-card .symbol {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #3b82f6;
+  margin-top: 0.5rem;
+}
+
+.balance-card.zhixi { border-left: 4px solid #3b82f6; }
+.balance-card.yjc { border-left: 4px solid #f59e0b; }
+.balance-card.stats { border-left: 4px solid #ef4444; }

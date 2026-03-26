@@ -1,18 +1,21 @@
 {
-  "name": "device-linker-api",
-  "version": "1.0.0",
+  "name": "device-linker-monolith",
+  "private": true,
   "type": "module",
-  "main": "api/airdrop.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "chat:realtime": "node scripts/chat-realtime-server.mjs"
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
   },
-  "engines": {
-    "node": "20.x"
-  },
-  "dependencies": {
-    "@vercel/kv": "^3.0.0",
-    "ethers": "^6.16.0",
-    "redis": "^5.11.0",
-    "ws": "^8.19.0"
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "prettier": "^3.2.0",
+    "eslint": "^8.57.0",
+    "tsx": "^4.7.0"
   }
 }

@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "pnpm -r dev",
     "build": "pnpm -r build",
+    "postbuild": "cp apps/web/dist/index.html ./index.html && cp -r apps/web/dist/assets ./assets || true",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint"
   },

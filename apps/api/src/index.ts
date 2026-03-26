@@ -8,7 +8,7 @@ import { rewardRoutes } from "./routes/v1/rewards.js";
 import { adminRoutes } from "./routes/v1/admin.js";
 import { meRoutes } from "./routes/v1/me.js";
 import { statsRoutes } from "./routes/v1/stats.js";
-import { chatRoutes, feedbackRoutes } from "./routes/v1/support.js";
+import { supportRoutes } from "./routes/v1/support.js";
 import { processIntents } from "../../worker/src/index.js";
 
 const fastify = Fastify({
@@ -26,8 +26,7 @@ fastify.register(rewardRoutes, { prefix: "/api/v1/rewards" });
 fastify.register(meRoutes, { prefix: "/api/v1/me" });
 fastify.register(statsRoutes, { prefix: "/api/v1/stats" });
 fastify.register(adminRoutes, { prefix: "/api/v1/admin" });
-fastify.register(chatRoutes, { prefix: "/api/v1/chat" });
-fastify.register(feedbackRoutes, { prefix: "/api/v1/support/feedback" });
+fastify.register(supportRoutes, { prefix: "/api/v1/support" });
 
 fastify.get("/health", async () => {
   return { status: "ok" };

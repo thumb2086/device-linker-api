@@ -1,72 +1,129 @@
+// apps/api/src/routes/v1/support.ts
+
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { kv, OpsRepository } from "@repo/infrastructure";
+import { SupportManager, IdentityManager } from "@repo/domain";
+import { SessionRepository, UserRepository, kv, OpsRepository } from "@repo/infrastructure";
 
-export async function chatRoutes(fastify: FastifyInstance) {
-    const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
-    const opsRepo = new OpsRepository();
-    const mockUserId = "550e8400-e29b-41d4-a716-446655440000";
+export async function supportRoutes(fastify: FastifyInstance) {
+  const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
+  
+  const supportManager = new SupportManager();
+  const identityManager = new IdentityManager();
+  
+  const sessionRepo = new SessionRepository();
+  const userRepo = new UserRepository();
+  const opsRepo = new OpsRepository();
 
-    typedFastify.get("/messages", async (request) => {
-        const messages = await kv.get("chat:global:messages") || [];
-        return createApiEnvelope({ messages }, request.id);
+  const getContext = async (req: any) => {
+    const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
+    if (!sessionId) return null;
+    const session = await sessionRepo.getSessionById(sessionId as string);
+    if (!session || session.status !== "authorized") return null;
+    const user = await userRepo.getUserById(session.userId);
+    return { session, user };
+  };
+
+  // ─── Announcements ────────────────────────────────────────────────────────
+
+  typedFastify.get("/announcements", async (request) => {
+    const announcements = await kv.get<any[]>("announcements:list") || [];
+    // Filter active ones for regular users
+    const active = announcements.filter(a => a.isActive).sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+    });
+    return createApiEnvelope({ announcements: active }, request.id);
+  });
+
+  // ─── Ticketing (Feedback/Reports) ────────────────────────────────────────
+
+  typedFastify.post("/tickets", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        title: z.string(),
+        category: z.string(),
+        message: z.string(),
+        contact: z.string().optional(),
+        pageUrl: z.string().optional(),
+      })
+    }
+  }, async (request) => {
+    const ctx = await getContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+
+    const input = supportManager.sanitizeIssueInput(request.body);
+    const validationError = supportManager.validateIssueInput(input);
+    if (validationError) {
+      return createApiEnvelope({ error: { message: validationError } }, request.id);
+    }
+
+    const ticket = supportManager.createTicket({
+      ...input,
+      address: ctx.session.address,
+      displayName: ctx.user.displayName,
+      platform: ctx.session.platform,
+      clientType: ctx.session.clientType,
+      deviceId: ctx.session.deviceId,
+      appVersion: ctx.session.appVersion,
+      mode: ctx.session.mode
     });
 
-    typedFastify.post("/messages", {
-        schema: {
-            body: z.object({
-                text: z.string().min(1).max(500),
-                displayName: z.string().optional()
-            })
-        }
-    }, async (request) => {
-        const { text, displayName } = request.body;
-        const newMessage = {
-            id: crypto.randomUUID(),
-            userId: mockUserId,
-            displayName: displayName || "匿名玩家",
-            text,
-            createdAt: Date.now()
-        };
+    // Save ticket (KV for now, PG repo later)
+    await kv.set(`support:ticket:${ticket.reportId}`, ticket);
+    await kv.lpush(`user:tickets:${ctx.session.address}`, ticket.reportId);
 
-        const messages: any[] = await kv.get("chat:global:messages") || [];
-        messages.push(newMessage);
-        if (messages.length > 50) messages.shift();
-
-        await kv.set("chat:global:messages", messages);
-
-        return createApiEnvelope({ message: newMessage }, request.id);
+    await opsRepo.logEvent({
+      channel: "support",
+      severity: "info",
+      source: "ticketing",
+      kind: "ticket_created",
+      userId: ctx.user.id,
+      address: ctx.session.address,
+      message: `Support ticket created: ${ticket.title}`,
+      meta: { reportId: ticket.reportId, category: ticket.category }
     });
-}
 
-export async function feedbackRoutes(fastify: FastifyInstance) {
-    const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
-    const opsRepo = new OpsRepository();
-    const mockUserId = "550e8400-e29b-41d4-a716-446655440000";
+    return createApiEnvelope({ success: true, reportId: ticket.reportId }, request.id);
+  });
 
-    typedFastify.post("/", {
-        schema: {
-            body: z.object({
-                category: z.string(),
-                content: z.string().min(1),
-                contact: z.string().optional()
-            })
-        }
-    }, async (request) => {
-        const { category, content, contact } = request.body;
+  // ─── Chat Logic ──────────────────────────────────────────────────────────
 
-        await opsRepo.logEvent({
-            channel: "support",
-            severity: "info",
-            source: "feedback_api",
-            kind: "user_feedback",
-            userId: mockUserId,
-            message: `Feedback [${category}]: ${content.slice(0, 50)}...`,
-            meta: { category, content, contact }
-        });
+  typedFastify.get("/chat/messages", async (request) => {
+    const messages = await kv.get<any[]>("chat:global:messages") || [];
+    return createApiEnvelope({ messages }, request.id);
+  });
 
-        return createApiEnvelope({ success: true, message: "感謝您的意見！" }, request.id);
-    });
+  typedFastify.post("/chat/messages", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        text: z.string().min(1).max(500),
+      })
+    }
+  }, async (request) => {
+    const ctx = await getContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+
+    const newMessage = {
+      id: crypto.randomUUID(),
+      userId: ctx.user.id,
+      address: ctx.session.address,
+      displayName: ctx.user.displayName || "匿名玩家",
+      text: request.body.text,
+      createdAt: Date.now()
+    };
+
+    const messages: any[] = await kv.get("chat:global:messages") || [];
+    messages.push(newMessage);
+    if (messages.length > 50) messages.shift();
+
+    await kv.set("chat:global:messages", messages);
+
+    return createApiEnvelope({ message: newMessage }, request.id);
+  });
 }

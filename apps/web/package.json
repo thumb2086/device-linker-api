@@ -10,18 +10,19 @@
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
+    "@tanstack/react-query": "^5.20.0",
+    "axios": "^1.13.6",
+    "lucide-react": "^0.330.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0",
-    "@tanstack/react-query": "^5.20.0",
-    "zustand": "^4.5.0",
-    "lucide-react": "^0.330.0"
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
-    "vite": "^5.1.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vite": "^5.1.0"
   }
 }

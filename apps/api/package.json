@@ -13,6 +13,8 @@
     "@repo/infrastructure": "workspace:*",
     "fastify": "^4.26.0",
     "fastify-type-provider-zod": "^1.1.0",
-    "zod": "^3.22.0"
+    "zod": "^3.22.0",
+    "ethers": "^6.10.0",
+    "@vercel/kv": "^1.0.1"
   }
 }

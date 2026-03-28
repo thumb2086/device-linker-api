@@ -9,6 +9,8 @@ import { adminRoutes } from "./routes/v1/admin.js";
 import { meRoutes } from "./routes/v1/me.js";
 import { statsRoutes } from "./routes/v1/stats.js";
 import { supportRoutes } from "./routes/v1/support.js";
+import { profileRoutes } from "./routes/v1/profile.js";
+import { announcementRoutes } from "./routes/v1/announcements.js";
 import { legacyRoutes } from "./routes/legacy/index.js";
 
 const fastify = Fastify({
@@ -29,6 +31,8 @@ fastify.register(meRoutes, { prefix: "/api/v1/me" });
 fastify.register(statsRoutes, { prefix: "/api/v1/stats" });
 fastify.register(adminRoutes, { prefix: "/api/v1/admin" });
 fastify.register(supportRoutes, { prefix: "/api/v1/support" });
+fastify.register(profileRoutes, { prefix: "/api/v1/profile" });
+fastify.register(announcementRoutes, { prefix: "/api/v1/announcements" });
 
 fastify.get("/health", async () => {
   return { status: "ok", env: process.env.NODE_ENV };

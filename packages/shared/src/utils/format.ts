@@ -1,6 +1,10 @@
-export const formatNumber = (num: number | string): string => {
+export const formatNumber = (num: number | string, mode: 'short' | 'full' = 'short'): string => {
     const n = typeof num === 'string' ? parseFloat(num) : num;
     if (isNaN(n)) return '0';
+
+    if (mode === 'full') {
+        return n.toLocaleString();
+    }
 
     // In Chinese contexts, 10,000 is '1萬'
     if (n >= 100000000) {

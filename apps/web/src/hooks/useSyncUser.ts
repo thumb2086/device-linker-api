@@ -7,24 +7,25 @@ export function useSyncUser() {
     const { address, sessionId } = useAuthStore();
     const { setAddress, setBalance } = useUserStore();
 
-    useEffect(() => {
-        setAddress(address);
-    }, [address, setAddress]);
-
-    const { data: userData } = useQuery({
-        queryKey: ['user', address],
+    const { data: userData, isLoading } = useQuery({
+        queryKey: ['user', address, sessionId],
         queryFn: async () => {
             const res = await fetch(`/api/v1/auth/me?sessionId=${sessionId}`);
             const data = await res.json();
             return data.data;
         },
-        enabled: !!address && !!sessionId,
+        enabled: !!sessionId,
         refetchInterval: 30000
     });
 
     useEffect(() => {
-        if (userData?.user?.balance) {
-            setBalance(userData.user.balance);
+        if (userData?.address) {
+            setAddress(userData.address);
         }
-    }, [userData, setBalance]);
+        if (userData?.balance) {
+            setBalance(userData.balance);
+        }
+    }, [userData, setAddress, setBalance]);
+
+    return { userData, isLoading };
 }

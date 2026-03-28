@@ -3,17 +3,18 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
+    "build": "tsc",
     "test": "vitest run"
-  },
-  "devDependencies": {
-    "vitest": "^2.1.9"
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
     "@repo/infrastructure": "workspace:*",
     "ethers": "^6.10.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
   }
 }

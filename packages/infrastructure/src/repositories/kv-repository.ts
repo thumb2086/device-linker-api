@@ -1,9 +1,10 @@
-import { kv } from "@vercel/kv";
+import { kv } from "../kv/index.js";
 import {
   IUserRepository,
   ISessionRepository,
   IWalletRepository,
   IMarketRepository,
+  IMetaRepository,
   IGameRepository,
   IOpsRepository,
   IStatsRepository
@@ -83,5 +84,15 @@ export class KVMarketRepository implements IMarketRepository {
 
   async saveMarketSnapshot(snapshot: any) {
     await kv.set("market:snapshot", snapshot);
+  }
+}
+
+export class KVMetaRepository implements IMetaRepository {
+  async saveRewardGrant(grant: any) {
+    await kv.lpush('pg_mock:reward_grants', grant);
+  }
+
+  async saveMarketOrder(order: any) {
+    await kv.lpush('pg_mock:market_orders', order);
   }
 }

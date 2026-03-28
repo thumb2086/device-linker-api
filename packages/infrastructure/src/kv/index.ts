@@ -2,30 +2,73 @@ import { createClient } from "@vercel/kv";
 
 const isTest = !process.env.KV_REST_API_URL;
 
-// Simple in-memory mock for development/testing environments without KV credentials
+// Comprehensive in-memory mock for development/testing
 class MockKV {
   private store = new Map<string, { value: any; expires: number }>();
+  private sets = new Map<string, Set<string>>();
+  private lists = new Map<string, any[]>();
 
   async get<T>(key: string): Promise<T | null> {
-    const item = (this.store as Map<string, any>).get(key);
+    const item = this.store.get(key);
     if (!item) return null;
-    const { value, expires } = item;
-    if (expires < Date.now()) {
-      (this.store as Map<string, any>).delete(key);
+    if (item.expires < Date.now()) {
+      this.store.delete(key);
       return null;
     }
-    return value as T;
+    return item.value as T;
   }
 
   async set(key: string, value: any, options?: { ex?: number }) {
     const expires = options?.ex ? Date.now() + options.ex * 1000 : 2147483647000;
-    (this.store as Map<string, any>).set(key, { value, expires });
+    this.store.set(key, { value, expires });
     return "OK";
   }
 
   async del(key: string) {
-    (this.store as Map<string, any>).delete(key);
+    this.store.delete(key);
+    this.sets.delete(key);
+    this.lists.delete(key);
     return 1;
+  }
+
+  async sadd(key: string, ...members: string[]) {
+    if (!this.sets.has(key)) this.sets.set(key, new Set());
+    const set = this.sets.get(key)!;
+    members.forEach(m => set.add(m));
+    return members.length;
+  }
+
+  async srem(key: string, ...members: string[]) {
+    const set = this.sets.get(key);
+    if (!set) return 0;
+    let count = 0;
+    members.forEach(m => { if (set.delete(m)) count++; });
+    return count;
+  }
+
+  async smembers(key: string) {
+    const set = this.sets.get(key);
+    return set ? Array.from(set) : [];
+  }
+
+  async lpush(key: string, ...values: any[]) {
+    if (!this.lists.has(key)) this.lists.set(key, []);
+    const list = this.lists.get(key)!;
+    list.unshift(...values);
+    return list.length;
+  }
+
+  async lrange<T>(key: string, start: number, stop: number) {
+    const list = this.lists.get(key) || [];
+    const end = stop === -1 ? undefined : stop + 1;
+    return list.slice(start, end) as T[];
+  }
+
+  async ltrim(key: string, start: number, stop: number) {
+    const list = this.lists.get(key) || [];
+    const end = stop === -1 ? undefined : stop + 1;
+    this.lists.set(key, list.slice(start, end));
+    return "OK";
   }
 }
 

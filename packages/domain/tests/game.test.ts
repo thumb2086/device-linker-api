@@ -29,7 +29,6 @@ describe('Domain Logic', () => {
     });
 
     it('should apply win bias to coinflip', () => {
-        // Find a seed that results in a loss for 'heads'
         let seed = 'test-seed';
         let res = gameManager.resolveCoinflip('heads', seed, 0);
         while (res.winner === 'heads') {
@@ -37,7 +36,6 @@ describe('Domain Logic', () => {
             res = gameManager.resolveCoinflip('heads', seed, 0);
         }
 
-        // Now apply 100% bias
         const biasedRes = gameManager.resolveCoinflip('heads', seed, 1.0);
         expect(biasedRes.winner).toBe('heads');
         expect(biasedRes.isWin).toBe(true);
@@ -45,15 +43,16 @@ describe('Domain Logic', () => {
   });
 
   describe('IdentityManager', () => {
-    it('should calculate VIP levels correctly', () => {
-      expect(identityManager.calculateVipLevel(0).label).toBe('普通會員');
-      expect(identityManager.calculateVipLevel(2_000_000).label).toBe('黃金會員');
+    it('should create pending session', () => {
+      const session = identityManager.createPendingSession('test-id');
+      expect(session.id).toBe('test-id');
+      expect(session.status).toBe('pending');
     });
 
-    it('should calculate YJC VIP level', () => {
-      expect(identityManager.calculateYjcVipLevel(0)).toBeNull();
-      expect(identityManager.calculateYjcVipLevel(10).key).toBe('vip1');
-      expect(identityManager.calculateYjcVipLevel(5000).key).toBe('vip2');
+    it('should normalize valid address correctly', () => {
+      // Use a valid Ethereum address for testing
+      const addr = '0x1234567890123456789012345678901234567890';
+      expect(identityManager.normalizeAddress(addr)).toBe(addr.toLowerCase());
     });
   });
 });

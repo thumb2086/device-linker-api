@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
-    "@repo/infrastructure": "workspace:*"
+    "@repo/infrastructure": "workspace:*",
+    "ethers": "^6.10.0"
   }
 }

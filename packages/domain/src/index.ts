@@ -1,4 +1,5 @@
 export * from "./identity/identity-manager.js";
+export * from "./identity/auth-manager.js";
 export * from "./wallet/wallet-manager.js";
 export * from "./wallet/airdrop-policy.js";
 export * from "./games/game-manager.js";

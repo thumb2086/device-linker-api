@@ -9,6 +9,7 @@ import { adminRoutes } from "./routes/v1/admin.js";
 import { meRoutes } from "./routes/v1/me.js";
 import { statsRoutes } from "./routes/v1/stats.js";
 import { supportRoutes } from "./routes/v1/support.js";
+import { legacyRoutes } from "./routes/legacy/index.js";
 import { processIntents } from "../../worker/src/index.js";
 
 const fastify = Fastify({
@@ -18,6 +19,10 @@ const fastify = Fastify({
 fastify.setValidatorCompiler(validatorCompiler);
 fastify.setSerializerCompiler(serializerCompiler);
 
+// Legacy routes for compatibility (e.g. /api/user.js)
+fastify.register(legacyRoutes, { prefix: "/api" });
+
+// Versioned v1 routes
 fastify.register(authRoutes, { prefix: "/api/v1/auth" });
 fastify.register(walletRoutes, { prefix: "/api/v1/wallet" });
 fastify.register(gameRoutes, { prefix: "/api/v1/games" });

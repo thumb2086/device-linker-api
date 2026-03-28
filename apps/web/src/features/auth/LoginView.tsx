@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { RefreshCw, ShieldCheck, Globe, Zap, LogIn } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Globe, Zap, LogIn, Fingerprint, QrCode, Monitor } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function LoginView() {
   const { setAuth } = useAuthStore();
@@ -37,7 +37,7 @@ export default function LoginView() {
         data = JSON.parse(text);
       } catch (e) {
         console.error("Failed to parse JSON:", text);
-        setError("API Error: Invalid Response");
+        setError("API_ERROR_INVALID_RESPONSE");
         return;
       }
 
@@ -45,10 +45,10 @@ export default function LoginView() {
         setSessionId(data.sessionId);
         setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=dlinker://login?sessionId=${data.sessionId}`);
       } else {
-        setError(data.error || "Failed to create session");
+        setError(data.error || "SESSION_CREATION_FAILED");
       }
     } catch (err: any) {
-      setError(`Connection error: ${err.message}`);
+      setError(`CONNECTION_ERROR: ${err.message}`);
     }
   };
 
@@ -85,123 +85,189 @@ export default function LoginView() {
       });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || 'Login failed');
+        setError(data.error || 'LOGIN_FAILED');
       } else {
         setAuth(data.address, data.sessionId, '0x');
       }
     } catch (err) {
-      setError('Network error');
+      setError('NETWORK_ERROR');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6 font-sans text-white">
+    <div className="min-h-screen bg-[#0e0e0e] flex flex-col items-center justify-center p-6 font-['Manrope'] text-white selection:bg-[#fcc025]/30">
+      {/* Background Glow */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#fcc025]/5 blur-[120px] rounded-full" />
+      </div>
+
       {/* Language Toggle */}
-      <div className="absolute top-6 right-6">
-        <button
+      <div className="absolute top-8 right-8 z-50">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={toggleLanguage}
-          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 rounded-xl transition-all border border-amber-500/20"
+          className="flex items-center gap-3 px-5 py-2.5 bg-[#1a1919] hover:bg-[#262626] text-[#fcc025] rounded-xl transition-all border border-[#fcc025]/20 shadow-lg"
         >
-          <Globe size={18} />
-          <span className="text-xs font-bold uppercase">{i18n.language === 'zh' ? 'English' : '中文'}</span>
-        </button>
+          <Globe size={16} />
+          <span className="text-[10px] font-bold uppercase tracking-widest">{i18n.language === 'zh' ? 'English' : '中文'}</span>
+        </motion.button>
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-[#141414] rounded-[2rem] shadow-[0_0_50px_rgba(251,191,36,0.1)] border border-amber-500/10 p-8 space-y-8"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md bg-[#1a1919] rounded-2xl shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-[#494847]/15 p-10 space-y-10 relative z-10 overflow-hidden"
       >
-        <header className="text-center space-y-2">
-            <div className="mx-auto w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center shadow-lg shadow-amber-500/20 mb-4">
-                <Zap size={40} className="text-black fill-current" />
-            </div>
-            <h1 className="text-4xl font-black text-amber-500 tracking-tighter uppercase italic">子熙模擬器</h1>
-            <p className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.3em]">ZiXi Identity Protocol</p>
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#fcc025] to-transparent opacity-40" />
+
+        <header className="text-center space-y-3">
+            <motion.div
+              initial={{ rotate: -15, scale: 0 }}
+              animate={{ rotate: 0, scale: 1 }}
+              transition={{ type: 'spring', damping: 12 }}
+              className="mx-auto w-20 h-20 bg-[#262626] rounded-2xl flex items-center justify-center border border-[#fcc025]/20 shadow-[0_0_30px_rgba(252,192,37,0.1)] mb-6"
+            >
+                <Fingerprint size={42} className="text-[#fcc025]" />
+            </motion.div>
+            <h1 className="text-4xl font-extrabold text-[#fcc025] tracking-tighter uppercase italic">ZiXi Identity</h1>
+            <p className="text-[#adaaaa] text-[10px] font-bold uppercase tracking-[0.4em] leading-relaxed">Secured Simulation Access Protocol</p>
         </header>
 
-        <div className="flex bg-black p-1.5 rounded-2xl border border-neutral-800">
+        <div className="flex bg-[#0e0e0e] p-1.5 rounded-xl border border-[#494847]/20">
           <button
             onClick={() => setTab('qr')}
-            className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${tab === 'qr' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-neutral-300'}`}
+            className={`flex-1 py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${tab === 'qr' ? 'bg-[#fcc025] text-black shadow-lg shadow-[#fcc025]/20' : 'text-[#adaaaa] hover:text-white'}`}
           >
             {t('auth.qr_login')}
           </button>
           <button
             onClick={() => setTab('custody')}
-            className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${tab === 'custody' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-neutral-300'}`}
+            className={`flex-1 py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${tab === 'custody' ? 'bg-[#fcc025] text-black shadow-lg shadow-[#fcc025]/20' : 'text-[#adaaaa] hover:text-white'}`}
           >
             {t('auth.custody_login')}
           </button>
         </div>
 
-        {tab === 'qr' ? (
-          <div className="flex flex-col items-center space-y-6">
-            <div className="relative p-6 bg-amber-500 rounded-[2rem] shadow-2xl">
-               {qrCodeUrl ? (
-                 <div className="p-2 bg-white rounded-xl">
-                    <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48" />
-                 </div>
-               ) : (
-                 <div className="w-48 h-48 flex items-center justify-center">
-                    <div className="w-10 h-10 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
-                 </div>
-               )}
-            </div>
-            <p className="text-neutral-400 text-xs text-center px-4 leading-relaxed font-bold">
-               {t('auth.qr_instruction')}
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleCustodyLogin} className="space-y-5">
-            <div className="space-y-2">
-                <label className="text-[10px] font-black text-amber-500/70 uppercase ml-2 tracking-widest">{t('auth.username')}</label>
-                <input
-                    type="text"
-                    value={username}
-                    onChange={e => setUsername(e.target.value)}
-                    placeholder="Enter Username"
-                    className="w-full bg-black border border-neutral-800 rounded-2xl px-5 py-4 text-white text-sm focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all placeholder:text-neutral-700 font-bold"
-                    required
-                />
-            </div>
-            <div className="space-y-2">
-                <label className="text-[10px] font-black text-amber-500/70 uppercase ml-2 tracking-widest">{t('auth.password')}</label>
-                <input
-                    type="password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Enter Password"
-                    className="w-full bg-black border border-neutral-800 rounded-2xl px-5 py-4 text-white text-sm focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all placeholder:text-neutral-700 font-bold"
-                    required
-                />
-            </div>
-            {error && <div className="text-rose-500 text-xs font-black text-center bg-rose-500/10 py-4 rounded-2xl border border-rose-500/20">{error}</div>}
-            <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-4 rounded-2xl shadow-xl shadow-amber-500/20 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+        <AnimatePresence mode="wait">
+          {tab === 'qr' ? (
+            <motion.div
+              key="qr"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              className="flex flex-col items-center space-y-8"
             >
-                <LogIn size={20} />
-                {loading ? t('auth.logging_in') : t('auth.login_btn')}
-            </button>
-          </form>
-        )}
+              <div className="relative p-6 bg-gradient-to-br from-[#fcc025] to-[#e6ad03] rounded-3xl shadow-[0_20px_50px_rgba(252,192,37,0.15)] group">
+                 {qrCodeUrl ? (
+                   <div className="p-3 bg-white rounded-xl group-hover:scale-105 transition-transform duration-500">
+                      <img src={qrCodeUrl} alt="QR Code" className="w-44 h-44" />
+                   </div>
+                 ) : (
+                   <div className="w-44 h-44 flex items-center justify-center">
+                      <div className="w-10 h-10 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
+                   </div>
+                 )}
+              </div>
+              <div className="text-center space-y-2 px-4">
+                 <p className="text-[#adaaaa] text-[11px] leading-relaxed font-bold uppercase tracking-tight">
+                    {t('auth.qr_instruction')}
+                 </p>
+                 <div className="flex items-center justify-center gap-2 pt-2">
+                    <QrCode size={12} className="text-[#fcc025]" />
+                    <span className="text-[9px] text-[#fcc025]/60 font-bold uppercase tracking-[0.2em]">Encrypted Session Active</span>
+                 </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.form
+              key="custody"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              onSubmit={handleCustodyLogin}
+              className="space-y-6"
+            >
+              <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-[#fcc025] uppercase ml-1 tracking-widest">{t('auth.username')}</label>
+                  <div className="relative">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#fcc025]/40">
+                      <Monitor size={16} />
+                    </div>
+                    <input
+                        type="text"
+                        value={username}
+                        onChange={e => setUsername(e.target.value)}
+                        placeholder="Operator ID"
+                        className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-xl pl-14 pr-5 py-4 text-white text-sm focus:border-[#fcc025]/50 focus:ring-4 focus:ring-[#fcc025]/5 outline-none transition-all placeholder:text-[#494847] font-bold"
+                        required
+                    />
+                  </div>
+              </div>
+              <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-[#fcc025] uppercase ml-1 tracking-widest">{t('auth.password')}</label>
+                  <div className="relative">
+                     <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#fcc025]/40">
+                        <Monitor size={16} />
+                      </div>
+                      <input
+                          type="password"
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          placeholder="Pass-Code"
+                          className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-xl pl-14 pr-5 py-4 text-white text-sm focus:border-[#fcc025]/50 focus:ring-4 focus:ring-[#fcc025]/5 outline-none transition-all placeholder:text-[#494847] font-bold"
+                          required
+                      />
+                  </div>
+              </div>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-[#ff7351] text-[10px] font-bold text-center bg-[#ff7351]/10 py-4 rounded-xl border border-[#ff7351]/20 uppercase tracking-widest"
+                >
+                  {error}
+                </motion.div>
+              )}
+              <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-br from-[#fcc025] to-[#e6ad03] text-black font-black py-4 rounded-xl shadow-[0_4px_20px_rgba(252,192,37,0.2)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 relative overflow-hidden group"
+              >
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  <LogIn size={20} className="relative z-10" />
+                  <span className="relative z-10 text-xs uppercase italic tracking-tighter">
+                    {loading ? t('auth.logging_in') : t('auth.login_btn')}
+                  </span>
+              </motion.button>
+            </motion.form>
+          )}
+        </AnimatePresence>
 
-        <div className="pt-6 border-t border-neutral-800 flex justify-between items-center px-2">
-            <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_10px_#fbbf24]"></div>
-                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest">{t('auth.system_ready')}</span>
+        <div className="pt-8 border-t border-[#494847]/10 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+                <div className="w-1.5 h-1.5 bg-[#fcc025] rounded-full animate-pulse shadow-[0_0_8px_#fcc025]"></div>
+                <span className="text-[9px] font-bold text-[#adaaaa] uppercase tracking-[0.2em]">{t('auth.system_ready')}</span>
             </div>
-            <button onClick={() => setRetryCount(c => c + 1)} className="p-2 text-neutral-600 hover:text-amber-500 transition-colors bg-neutral-900/50 rounded-xl border border-neutral-800">
+            <motion.button
+              whileHover={{ rotate: 180 }}
+              transition={{ duration: 0.5 }}
+              onClick={() => setRetryCount(c => c + 1)}
+              className="p-2.5 text-[#adaaaa] hover:text-[#fcc025] transition-colors bg-[#0e0e0e] rounded-lg border border-[#494847]/20"
+            >
                 <RefreshCw size={14} />
-            </button>
+            </motion.button>
         </div>
       </motion.div>
 
-      <p className="mt-8 text-[10px] font-black text-neutral-700 uppercase tracking-[0.5em]">Powered by Modular Monolith Infrastructure</p>
+      <p className="mt-12 text-[9px] font-bold text-[#494847] uppercase tracking-[0.5em] flex items-center gap-3">
+          <ShieldCheck size={12} className="text-[#fcc025]/30" />
+          Powered by Modular Monolith Infrastructure v4.1
+      </p>
     </div>
   );
 }

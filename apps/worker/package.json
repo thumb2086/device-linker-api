@@ -8,8 +8,11 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@repo/shared": "workspace:*",
     "@repo/domain": "workspace:*",
-    "@repo/infrastructure": "workspace:*"
+    "@repo/infrastructure": "workspace:*",
+    "@repo/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0"
   }
 }

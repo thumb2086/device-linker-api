@@ -10,11 +10,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@repo/shared": "workspace:*",
     "@repo/infrastructure": "workspace:*",
+    "@repo/shared": "workspace:*",
     "ethers": "^6.10.0"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "vitest": "^2.1.9"
   }
 }

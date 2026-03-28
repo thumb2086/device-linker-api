@@ -1,129 +1,126 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Megaphone, X, Info, AlertTriangle, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+  Megaphone,
+  AlertTriangle,
+  Info,
+  ShieldAlert,
+  ChevronRight,
+  LayoutGrid,
+  TrendingUp,
+  Wallet,
+  Settings,
+  Bell
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  type: 'info' | 'warning' | 'urgent';
-  createdAt: string;
-}
+export const AnnouncementCenter: React.FC = () => {
+  const { t } = useTranslation();
+  const [filter, setFilter] = useState('LATEST');
 
-export default function AnnouncementCenter() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isOpen, setIsOpen] = useState(false);
+  const items = [
+    { id: 1, type: 'SYSTEM', title: 'Protocol Update v4.2.1', summary: 'Simulation stability improved for high-stakes environments.', time: '2 HOURS AGO' },
+    { id: 2, type: 'SECURITY', title: 'Unusual Login Activity', summary: 'Detected unauthorized session attempt from IP 192.168.x.x.', time: '5 HOURS AGO' },
+    { id: 3, type: 'EVENT', title: 'Elite Season 4 Kickoff', summary: 'New rewards and exclusive inventory items now available.', time: 'YESTERDAY' },
+    { id: 4, type: 'MAINTENANCE', title: 'Sector 7 Maintenance', summary: 'Scheduled downtime for server optimization in Sector 7.', time: '2 DAYS AGO' },
+  ];
 
-  useEffect(() => {
-    fetch('/api/v1/announcements')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setAnnouncements(data.data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
-
-  const getTypeIcon = (type: string) => {
+  const getBadgeStyle = (type: string) => {
     switch (type) {
-      case 'urgent': return <Zap size={18} className="text-rose-500 fill-current" />;
-      case 'warning': return <AlertTriangle size={18} className="text-amber-500" />;
-      default: return <Info size={18} className="text-amber-500" />;
+      case 'SECURITY': return 'bg-red-500/10 text-red-500 border-red-500/20';
+      case 'SYSTEM': return 'bg-[#fcc025]/10 text-[#fcc025] border-[#fcc025]/20';
+      default: return 'bg-white/10 text-white border-white/20';
     }
   };
 
-  if (announcements.length === 0 && !loading) return null;
-
   return (
-    <>
-      <motion.button
-        whileHover={{ scale: 1.05, rotate: 5 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-6 w-16 h-16 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-black shadow-lg shadow-amber-500/30 z-40 border border-amber-600/50"
-      >
-        <Megaphone size={28} className="fill-current" />
-        {announcements.length > 0 && (
-          <span className="absolute -top-1 -right-1 w-6 h-6 bg-rose-600 rounded-full text-[10px] font-black flex items-center justify-center border-4 border-[#0a0a0a] text-white">
-            {announcements.length}
-          </span>
-        )}
-      </motion.button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-md"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 30 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 30 }}
-              className="relative w-full max-w-xl bg-[#141414] rounded-[2.5rem] shadow-[0_0_100px_rgba(251,191,36,0.15)] border border-amber-500/20 overflow-hidden flex flex-col max-h-[85vh]"
-            >
-              <header className="p-8 border-b border-neutral-800 flex justify-between items-center bg-black/50">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-amber-500 rounded-2xl shadow-lg shadow-amber-500/20">
-                    <Megaphone size={24} className="text-black fill-current" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-black text-amber-500 uppercase tracking-tighter italic">公告中心</h2>
-                    <p className="text-[10px] font-bold text-neutral-600 uppercase tracking-widest">Platform News & Updates</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="p-3 hover:bg-neutral-800 rounded-2xl text-neutral-500 transition-all border border-transparent hover:border-neutral-700"
-                >
-                  <X size={24} />
-                </button>
-              </header>
-
-              <div className="flex-1 overflow-y-auto p-8 space-y-6">
-                {loading ? (
-                  <div className="flex justify-center py-20">
-                    <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                ) : (
-                  announcements.map((ann, idx) => (
-                    <motion.div
-                      key={ann.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.1 }}
-                      className="p-6 bg-black rounded-3xl border border-neutral-800 hover:border-amber-500/30 transition-all group relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[40px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-amber-500/10 transition-colors" />
-
-                      <div className="flex justify-between items-start mb-4 relative z-10">
-                        <div className="flex items-center gap-3">
-                          {getTypeIcon(ann.type)}
-                          <h3 className="text-lg font-black text-white group-hover:text-amber-400 transition-colors italic tracking-tight">{ann.title}</h3>
-                        </div>
-                        <div className="bg-neutral-900 px-3 py-1 rounded-lg border border-neutral-800">
-                          <span className="text-[10px] font-black text-neutral-500 uppercase">{new Date(ann.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                      <p className="text-neutral-400 leading-relaxed font-medium relative z-10">{ann.content}</p>
-                    </motion.div>
-                  ))
-                )}
-              </div>
-
-              <footer className="p-6 bg-black/50 border-t border-neutral-800 text-center">
-                <p className="text-[10px] font-black text-neutral-700 uppercase tracking-[0.5em]">ZiXi Information Hub</p>
-              </footer>
-            </motion.div>
+    <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">
+      {/* Top Bar */}
+      <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
+        <div className="flex items-center justify-between px-6 py-4 max-w-2xl mx-auto">
+          <div className="flex items-center gap-4">
+             <Megaphone className="text-[#fcc025]" />
+             <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">{t('announcement.title')}</h1>
           </div>
-        )}
-      </AnimatePresence>
-    </>
+        </div>
+      </header>
+
+      <main className="pt-24 px-6 max-w-2xl mx-auto space-y-8">
+        {/* Critical Alert */}
+        <section className="bg-gradient-to-br from-red-600/20 to-transparent rounded-2xl p-6 border border-red-500/30 relative overflow-hidden group cursor-pointer">
+           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+              <ShieldAlert size={80} />
+           </div>
+           <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="text-red-500 animate-pulse" size={20} />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">{t('announcement.critical_alert')}</span>
+           </div>
+           <h2 className="text-2xl font-black italic tracking-tighter uppercase mb-2">System Overload Detected</h2>
+           <p className="text-xs text-[#adaaaa] font-bold uppercase leading-relaxed mb-6">Urgent: Resource allocation in sector Alpha exceeds safety thresholds. Stabilize immediate.</p>
+           <button className="bg-red-500 text-white px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-red-400 transition-colors">View Details</button>
+        </section>
+
+        {/* Section Title */}
+        <div className="flex items-center gap-2 px-2">
+           <div className="w-1 h-3 bg-[#fcc025] rounded-full" />
+           <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">{t('announcement.system_alerts')}</h3>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex bg-[#1a1919] p-1.5 rounded-xl border border-[#494847]/20">
+           {['LATEST', 'MAINTENANCE', 'EVENTS'].map(f => (
+             <button
+               key={f}
+               onClick={() => setFilter(f)}
+               className={`flex-1 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${filter === f ? 'bg-[#fcc025] text-black shadow-lg' : 'text-[#adaaaa] hover:text-white'}`}
+             >
+                {f}
+             </button>
+           ))}
+        </div>
+
+        {/* List */}
+        <section className="space-y-4">
+           {items.map(item => (
+             <div key={item.id} className="bg-[#1a1919] rounded-xl p-5 border border-[#494847]/10 flex items-center justify-between group hover:bg-[#201f1f] transition-all cursor-pointer">
+                <div className="flex flex-col gap-3 flex-1">
+                   <div className="flex items-center gap-3">
+                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-sm border ${getBadgeStyle(item.type)}`}>{item.type}</span>
+                      <span className="text-[9px] font-bold text-[#494847] uppercase tracking-widest">{item.time}</span>
+                   </div>
+                   <div>
+                      <h4 className="text-sm font-bold uppercase tracking-tight text-white group-hover:text-[#fcc025] transition-colors">{item.title}</h4>
+                      <p className="text-[10px] text-[#adaaaa] font-bold mt-1 line-clamp-1">{item.summary}</p>
+                   </div>
+                </div>
+                <ChevronRight size={16} className="text-[#494847] group-hover:text-[#fcc025] group-hover:translate-x-1 transition-all" />
+             </div>
+           ))}
+        </section>
+      </main>
+
+      {/* Bottom Nav Bar */}
+      <nav className="fixed bottom-0 left-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-2xl border-t border-[#494847]/15 h-20 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+          <div className="flex justify-around items-center h-full max-w-2xl mx-auto px-4">
+              <Link to="/app/casino/lobby" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <LayoutGrid size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.casino')}</span>
+              </Link>
+              <Link to="/app/market" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <TrendingUp size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.market')}</span>
+              </Link>
+              <Link to="/app/wallet" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <Wallet size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.vault')}</span>
+              </Link>
+              <Link to="/app/settings" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <Settings size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.settings')}</span>
+              </Link>
+          </div>
+      </nav>
+    </div>
   );
 }

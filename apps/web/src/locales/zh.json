@@ -1,4 +1,28 @@
 {
+  "common": {
+    "loading": "載入中...",
+    "success": "成功",
+    "error": "錯誤",
+    "cancel": "取消",
+    "confirm": "確認",
+    "save": "儲存",
+    "back": "返回",
+    "logout": "登出",
+    "unit_yjc": "億"
+  },
+  "nav": {
+    "dashboard": "控制面板",
+    "market": "金融市場",
+    "vault": "資金中心",
+    "casino": "娛樂大廳",
+    "vip": "貴賓中心",
+    "admin": "維運中心",
+    "settings": "個人設定",
+    "inventory": "裝備庫",
+    "leaderboard": "頂尖榜單",
+    "announcements": "公告中心",
+    "support": "支援中心"
+  },
   "auth": {
     "login": "登入",
     "qr_login": "掃描 QR 登入",
@@ -15,15 +39,78 @@
     "setup_instruction": "在開始之前，請為您的帳戶設定一個顯示名稱",
     "nickname_placeholder": "輸入您的暱稱 (2-20 字元)",
     "save_continue": "儲存並進入系統",
-    "saving": "儲存中..."
+    "saving": "儲存中...",
+    "operator_id": "操作員編號",
+    "identity_sync": "身分同步",
+    "sync_instruction": "請建立您的操作員代號以繼續模擬。"
+  },
+  "vault": {
+    "title": "資金中心",
+    "total_assets": "總資產",
+    "vault_in": "匯入資金",
+    "vault_out": "匯出資金",
+    "transactions": "交易紀錄",
+    "vip_bonus": "VIP 獲利加成"
+  },
+  "market": {
+    "title": "金融市場",
+    "buy": "買入",
+    "sell": "賣出",
+    "order_book": "掛單簿",
+    "portfolio": "我的持倉",
+    "price": "價格",
+    "amount": "數量"
+  },
+  "casino": {
+    "title": "娛樂大廳",
+    "play_now": "開始遊戲",
+    "featured": "精選推薦",
+    "active_players": "名玩家在線"
+  },
+  "leaderboard": {
+    "title": "頂尖榜單",
+    "total_winnings": "累計獲利",
+    "win_rate": "勝率",
+    "season_ends": "賽季結束倒數",
+    "rank": "排名"
   },
   "announcement": {
-    "center": "公告中心",
-    "information_center": "資訊中心"
+    "title": "公告中心",
+    "critical_alert": "重大警示",
+    "system_alerts": "系統警示",
+    "latest": "最新動態",
+    "maintenance": "維護公告",
+    "events": "活動資訊"
   },
-  "error": {
-    "session_failed": "無法建立連線階段",
-    "connection": "網路連線錯誤",
-    "login_failed": "登入失敗"
+  "settings": {
+    "title": "個人設定",
+    "audio_matrix": "音效矩陣",
+    "master_volume": "主音量",
+    "bgm": "背景音樂",
+    "sfx": "遊戲音效",
+    "notifications": "通知設定",
+    "operational_alerts": "維運警示",
+    "system_protocol": "系統協定",
+    "service_status": "服務狀態",
+    "security_protocol": "安全協定",
+    "terminate_session": "終止連線階段"
+  },
+  "inventory": {
+    "title": "裝備庫",
+    "current_operator": "目前操作員",
+    "equip": "裝備道具",
+    "rarity_legendary": "傳說",
+    "rarity_elite": "精英",
+    "rarity_rare": "稀有",
+    "rarity_common": "普通"
+  },
+  "support": {
+    "title": "支援中心",
+    "live_chat": "即時對話",
+    "system_protocols": "系統協定",
+    "submit_ticket": "提交回報",
+    "issue_category": "問題類別",
+    "description": "詳細描述",
+    "send_protocol": "發送協定"
   }
 }

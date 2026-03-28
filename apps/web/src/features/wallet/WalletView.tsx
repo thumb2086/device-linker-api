@@ -1,217 +1,156 @@
-import React, { useState } from 'react';
-import { useWallet } from './useWallet';
-import { useAuthStore } from '../../store/useAuthStore';
+import React from 'react';
+import { motion } from 'framer-motion';
+import {
+  Wallet as WalletIcon,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  History,
+  ShieldCheck,
+  Zap,
+  TrendingUp,
+  LayoutGrid
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useUserStore } from '../../store/useUserStore';
-import { Wallet, Send, Gift, History, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
-import './Wallet.css';
+import { formatNumber } from '@repo/shared';
+import { Link } from 'react-router-dom';
 
-export function WalletView() {
-  const { address } = useAuthStore();
-  const { user, balance, totalBet } = useUserStore();
-  const { airdrop, transfer } = useWallet();
+export default function WalletView() {
+  const { t } = useTranslation();
+  const { balance } = useUserStore();
 
-  const [to, setTo] = useState('');
-  const [amount, setAmount] = useState('');
-  const [activeToken, setActiveToken] = useState('zhixi');
-
-  const handleTransfer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!to || !amount) return;
-    try {
-      await transfer.mutateAsync({ to, amount, token: activeToken });
-      alert('轉帳成功！');
-      setTo('');
-      setAmount('');
-    } catch (err: any) {
-      alert(`轉帳失敗: ${err.message}`);
-    }
-  };
-
-  const handleAirdrop = async () => {
-    try {
-      const res = await airdrop.mutateAsync();
-      alert(`領取成功！獲得 ${res.reward} ZXC`);
-    } catch (err: any) {
-      alert(`領取失敗: ${err.message}`);
-    }
-  };
+  const transactions = [
+    { id: 1, type: 'DEPOSIT', amount: 25.0, status: 'SUCCESS', date: '2026-03-28' },
+    { id: 2, type: 'WITHDRAW', amount: 10.5, status: 'SUCCESS', date: '2026-03-27' },
+    { id: 3, type: 'WINNING', amount: 2.4, status: 'SUCCESS', date: '2026-03-26' },
+  ];
 
   return (
-    <div className="wallet-container max-w-4xl mx-auto p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <header className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <div className="p-2 bg-indigo-600 rounded-lg text-white">
-              <Wallet size={24} />
-            </div>
-            數位錢包
-          </h1>
-          <p className="text-slate-500 text-sm font-mono mt-1 opacity-80">{address}</p>
+    <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">
+      {/* Top Bar */}
+      <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
+        <div className="flex items-center justify-between px-6 py-4 max-w-2xl mx-auto">
+          <div className="flex items-center gap-4">
+             <WalletIcon className="text-[#fcc025]" />
+             <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">{t('vault.title')}</h1>
+          </div>
         </div>
-        <button
-          onClick={handleAirdrop}
-          disabled={airdrop.isPending}
-          className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:shadow-lg transition-all active:scale-95 disabled:opacity-50"
-        >
-          {airdrop.isPending ? <Loader2 className="animate-spin" size={18} /> : <Gift size={18} />}
-          領取每日空投
-        </button>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:scale-110 transition-transform">
-             <Wallet size={64} className="text-indigo-600" />
+      <main className="pt-24 px-6 max-w-2xl mx-auto space-y-8">
+        {/* Balance Display */}
+        <section className="bg-gradient-to-br from-[#1a1919] to-[#0e0e0e] rounded-2xl p-10 border border-[#494847]/10 shadow-[0_0_50px_rgba(252,192,37,0.05)] text-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-[#fcc025]/5 blur-[80px] rounded-full" />
+          <p className="text-[10px] font-bold text-[#adaaaa] tracking-[0.3em] uppercase mb-4">{t('vault.total_assets')}</p>
+          <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-[#fcc025] to-[#e6ad03] italic tracking-tighter uppercase">
+            {formatNumber(balance || 0)}
           </div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">子熙幣餘額 (ZXC)</p>
-          <p className="text-3xl font-black text-slate-900 tabular-nums">
-             {parseFloat(balance || '0').toLocaleString()}
-          </p>
-          <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded w-fit uppercase">
-             Live Mainnet
+          <p className="text-xl font-bold text-white mt-2 italic">{t('common.unit_yjc')}</p>
+
+          <div className="mt-8 flex items-center justify-center gap-2">
+            <ShieldCheck size={14} className="text-[#fcc025]/60" />
+            <span className="text-[9px] font-bold text-[#fcc025]/60 uppercase tracking-[0.2em]">AES-256 BANK GRADE SECURITY</span>
           </div>
+        </section>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-4">
+           <button className="flex flex-col items-center justify-center gap-3 p-6 bg-[#1a1919] rounded-2xl border border-[#494847]/20 hover:bg-[#262626] transition-all group">
+              <div className="w-12 h-12 rounded-xl bg-[#fcc025] flex items-center justify-center text-black group-hover:scale-110 transition-transform">
+                <ArrowDownCircle size={24} />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest">{t('vault.vault_in')}</span>
+           </button>
+           <button className="flex flex-col items-center justify-center gap-3 p-6 bg-[#1a1919] rounded-2xl border border-[#494847]/20 hover:bg-[#262626] transition-all group">
+              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-[#fcc025] group-hover:scale-110 transition-transform">
+                <ArrowUpCircle size={24} />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest">{t('vault.vault_out')}</span>
+           </button>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">累計投注額</p>
-          <p className="text-3xl font-black text-slate-900 tabular-nums">
-             {parseFloat(totalBet || '0').toLocaleString()}
-          </p>
-          <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-slate-400">
-             <ChevronRight size={10} /> 下一個等級: 10,000,000
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-           <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">帳戶類型</p>
-              <p className="text-xl font-bold text-slate-800">
-                 {user?.mode === 'custody' ? '受託保管帳戶' : '去中心化錢包'}
-              </p>
+        {/* VIP Bonus Card */}
+        <section className="bg-gradient-to-r from-[#1a1919] to-[#262626] rounded-2xl p-6 border border-[#fcc025]/10 flex items-center justify-between">
+           <div className="flex items-center gap-4">
+             <div className="w-12 h-12 rounded-xl bg-[#fcc025]/10 flex items-center justify-center">
+                <Zap className="text-[#fcc025]" size={24} />
+             </div>
+             <div>
+                <p className="text-[10px] font-bold text-[#adaaaa] uppercase tracking-widest">{t('vault.vip_bonus')}</p>
+                <p className="text-lg font-black text-[#fcc025] italic tracking-tight">1.5X MULTIPLIER</p>
+             </div>
            </div>
-           <p className="text-[10px] text-slate-400 mt-2 font-medium">
-              受託帳戶由平台管理私鑰，交易快速且無須手續費。
-           </p>
-        </div>
-      </div>
+           <div className="h-2 w-24 bg-white/5 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: '75%' }}
+                transition={{ duration: 1.5, ease: 'easeOut' }}
+                className="h-full bg-[#fcc025]"
+              />
+           </div>
+        </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        <section className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2">
-              <Send size={18} className="text-slate-400" />
-              快速轉帳
-            </h2>
-          </div>
-          <form onSubmit={handleTransfer} className="p-8 space-y-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">選擇代幣</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveToken('zhixi')}
-                    className={`flex-1 py-3 rounded-xl border text-sm font-bold transition-all ${activeToken === 'zhixi' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
-                  >
-                    子熙幣 (ZXC)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveToken('yjc')}
-                    className={`flex-1 py-3 rounded-xl border text-sm font-bold transition-all ${activeToken === 'yjc' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
-                  >
-                    優件幣 (YJC)
-                  </button>
-                </div>
+        {/* Transaction History */}
+        <section className="space-y-4">
+           <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-2">
+                <History size={16} className="text-[#adaaaa]" />
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">{t('vault.transactions')}</h3>
               </div>
+           </div>
 
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide">接收者地址</label>
-                <input
-                  type="text"
-                  value={to}
-                  onChange={e => setTo(e.target.value)}
-                  placeholder="0x..."
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all text-sm font-mono"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide">轉帳金額</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={amount}
-                    onChange={e => setAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all text-sm font-bold"
-                  />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                    MAX
+           <div className="space-y-3">
+              {transactions.map(tx => (
+                <div key={tx.id} className="bg-[#1a1919] rounded-xl p-5 border border-[#494847]/10 flex items-center justify-between hover:bg-[#201f1f] transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      tx.type === 'DEPOSIT' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'
+                    }`}>
+                      {tx.type === 'DEPOSIT' ? <ArrowDownCircle size={20} /> : <ArrowUpCircle size={20} />}
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-white">{tx.type}</p>
+                      <p className="text-[9px] text-[#adaaaa] font-bold uppercase">{tx.date}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-lg font-black italic tracking-tighter ${
+                      tx.type === 'DEPOSIT' || tx.type === 'WINNING' ? 'text-emerald-500' : 'text-red-500'
+                    }`}>
+                      {tx.type === 'DEPOSIT' || tx.type === 'WINNING' ? '+' : '-'}{tx.amount} 億
+                    </p>
+                    <div className="flex items-center justify-end gap-1 mt-1">
+                      <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-[#adaaaa]">{tx.status}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <button 
-              type="submit"
-              disabled={transfer.isPending}
-              className="w-full py-4 bg-slate-900 hover:bg-black text-white rounded-xl font-bold transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {transfer.isPending ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
-              確認轉帳
-            </button>
-            <p className="text-[10px] text-slate-400 text-center flex items-center justify-center gap-1">
-               <AlertCircle size={10} /> 區塊鏈轉帳不可逆，請仔細檢查地址與金額。
-            </p>
-          </form>
+              ))}
+           </div>
         </section>
+      </main>
 
-        <section className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="p-5 border-b border-slate-50 flex items-center justify-between">
-              <h2 className="font-bold text-slate-800 flex items-center gap-2">
-                <History size={18} className="text-slate-400" />
-                最近交易
-              </h2>
-            </div>
-            <div className="p-6 space-y-4">
-               {[1, 2, 3].map(i => (
-                 <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                    <div className="flex items-center gap-3">
-                       <div className="p-2 bg-slate-50 rounded-lg text-slate-400">
-                          <History size={16} />
-                       </div>
-                       <div>
-                          <p className="text-sm font-bold text-slate-800">遊戲投注</p>
-                          <p className="text-[10px] text-slate-400">2026/03/28 15:30</p>
-                       </div>
-                    </div>
-                    <p className="text-sm font-black text-red-500">-10,000</p>
-                 </div>
-               ))}
-               <button className="w-full text-center text-xs font-bold text-indigo-600 hover:text-indigo-700 pt-2 transition-colors">
-                  查看完整歷史紀錄
-               </button>
-            </div>
+      {/* Bottom Nav Bar */}
+      <nav className="fixed bottom-0 left-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-2xl border-t border-[#494847]/15 h-20 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+          <div className="flex justify-around items-center h-full max-w-2xl mx-auto px-4">
+              <Link to="/app/casino/lobby" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <LayoutGrid size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.casino')}</span>
+              </Link>
+              <Link to="/app/market" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <TrendingUp size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.market')}</span>
+              </Link>
+              <Link to="/app/wallet" className="flex flex-col items-center justify-center text-[#fcc025] drop-shadow-[0_0_8px_rgba(252,192,37,0.4)]">
+                  <WalletIcon size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.vault')}</span>
+              </Link>
+              <Link to="/app/settings" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <SettingsIcon size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.settings')}</span>
+              </Link>
           </div>
-
-          <div className="bg-indigo-900 rounded-2xl p-6 text-white relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Gift size={80} />
-             </div>
-             <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-1">VIP 進度</p>
-             <p className="text-xl font-black mb-4">黃金會員</p>
-             <div className="w-full h-2 bg-indigo-950/50 rounded-full overflow-hidden">
-                <div className="w-2/3 h-full bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full"></div>
-             </div>
-             <div className="mt-2 flex justify-between text-[10px] font-bold text-indigo-300">
-                <span>0</span>
-                <span>10,000,000</span>
-             </div>
-          </div>
-        </section>
-      </div>
+      </nav>
     </div>
   );
 }

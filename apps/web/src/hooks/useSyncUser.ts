@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 export function useSyncUser() {
     const { address, sessionId } = useAuthStore();
-    const { setAddress, setBalance } = useUserStore();
+    const { setAddress, setBalance, setUsername } = useUserStore();
 
     const { data: userData, isLoading } = useQuery({
         queryKey: ['user', address, sessionId],
@@ -25,7 +25,10 @@ export function useSyncUser() {
         if (userData?.balance) {
             setBalance(userData.balance);
         }
-    }, [userData, setAddress, setBalance]);
+        if (userData?.user?.username) {
+            setUsername(userData.user.username);
+        }
+    }, [userData, setAddress, setBalance, setUsername]);
 
     return { userData, isLoading };
 }

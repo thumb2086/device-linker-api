@@ -2,114 +2,150 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../store/api";
 import { motion } from "framer-motion";
-import { Zap, Trophy, Megaphone, TrendingUp, Wallet, ShoppingBag, Users, Activity, Settings as SettingsIcon, LogOut } from "lucide-react";
+import {
+  LayoutGrid,
+  TrendingUp,
+  Wallet as WalletIcon,
+  ShieldCheck,
+  Megaphone,
+  Trophy,
+  History,
+  Inventory,
+  Settings as SettingsIcon,
+  LogOut,
+  ChevronRight,
+  Bell
+} from "lucide-react";
 import { formatNumber } from "@repo/shared";
 import { useUserStore } from "../../store/useUserStore";
 
-const GAMES = [
-  { id: 'coinflip', name: '擲硬幣', icon: '🪙' },
-  { id: 'roulette', name: '輪盤', icon: '🎡' },
-  { id: 'horse', name: '賽馬', icon: '🏇' },
-  { id: 'slots', name: '老虎機', icon: '🎰' },
-  { id: 'blackjack', name: '21點', icon: '🃏' },
-  { id: 'dragon', name: '龍虎', icon: '🐉' },
-  { id: 'sicbo', name: '骰寶', icon: '🎲' },
-  { id: 'bingo', name: '賓果', icon: '🎱' },
-  { id: 'crash', name: '暴漲', icon: '📈' },
-  { id: 'duel', name: '對決', icon: '⚔️' },
-  { id: 'poker', name: '德州', icon: '🏙️' },
-  { id: 'bluffdice', name: '吹牛', icon: '🎲' }
-];
-
 export const LobbyView: React.FC = () => {
-    const { address, balance } = useUserStore();
+    const { address, balance, username } = useUserStore();
     const [stats, setStats] = useState<any>(null);
 
     useEffect(() => {
         api.get('/api/v1/stats/health').then(res => setStats(res.data.stats)).catch(() => {});
     }, []);
 
-    const NavCard = ({ to, icon: Icon, title, subtitle, color = "amber" }: any) => (
-      <Link to={to} className="group relative overflow-hidden bg-[#141414] hover:bg-[#1a1a1a] border border-neutral-800 p-8 rounded-[2.5rem] shadow-xl transition-all hover:-translate-y-2 active:scale-95 flex flex-col items-center text-center">
-        <div className={`w-16 h-16 bg-${color}-500/10 rounded-3xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-          <Icon size={32} className={`text-${color}-500 fill-current`} />
+    const GlassCard = ({ to, icon: Icon, title, value, subtitle, border = false, children }: any) => (
+      <Link to={to} className={`glass-card bg-[#1a1919] rounded-xl p-6 group cursor-pointer transition-all hover:bg-[#262626] active:scale-95 ${border ? 'border-l-4 border-l-[#fcc025]/40' : 'border border-[#494847]/10'}`}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="w-12 h-12 rounded-lg bg-[#262626] flex items-center justify-center border border-[#494847]/20 group-hover:border-[#fcc025]/40 transition-colors">
+            <Icon className="text-[#fcc025] w-6 h-6" />
+          </div>
+          {subtitle && <span className="text-[10px] font-bold text-[#adaaaa] tracking-widest uppercase">{subtitle}</span>}
         </div>
-        <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">{title}</h3>
-        <p className="text-[10px] text-neutral-500 font-bold mt-2 uppercase tracking-widest leading-relaxed">{subtitle}</p>
-        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-          <Icon size={64} className={`text-${color}-500`} />
-        </div>
-        <div className="mt-6">
-           <span className={`text-[10px] font-black bg-${color}-500/10 text-${color}-500 px-4 py-1.5 rounded-full border border-${color}-500/20 uppercase tracking-widest`}>開放中 OPEN</span>
-        </div>
+        <h4 className="text-white font-bold text-lg mb-2 tracking-tight uppercase">{title}</h4>
+        {value && <div className="text-2xl font-bold text-white mb-1 uppercase tracking-tighter italic">{value}</div>}
+        {children}
       </Link>
     );
 
     return (
-        <div className="space-y-10 pb-20 font-sans text-white">
-            {/* User Info Bar */}
-            <section className="bg-black/50 backdrop-blur-md border border-neutral-800 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2" />
-
-                <header className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
-                    <div className="flex flex-col items-center md:items-start text-center md:text-left">
-                        <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-2">使用者名稱 USERNAME</span>
-                        <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">{address?.slice(0, 10)}...</h2>
+        <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-24">
+            {/* Top Bar */}
+            <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
+                <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
+                    <div className="flex items-center gap-4">
+                        <motion.div whileTap={{ scale: 0.9 }}>
+                           <LayoutGrid className="text-[#fcc025] cursor-pointer" />
+                        </motion.div>
+                        <h1 className="font-extrabold tracking-tighter text-xl text-[#fcc025] uppercase italic">ZiXi Simulator</h1>
                     </div>
-                    <div className="flex flex-col items-center md:items-start text-center md:text-left">
-                        <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-2">等級 LEVEL</span>
-                        <div className="flex items-center gap-2">
-                             <Trophy size={18} className="text-amber-500" />
-                             <h2 className="text-xl font-black text-amber-500 italic tracking-tighter uppercase">至尊等級 | 單注上限 2 億 子熙幣</h2>
+                    <Link to="/app/settings" className="w-10 h-10 rounded-full border border-[#fcc025]/20 overflow-hidden shadow-[0_0_15px_rgba(252,192,37,0.1)]">
+                        <img
+                            className="w-full h-full object-cover opacity-80"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpYtYPXpLpsh0B4jeDEa_kksWMe2PpGKPXWScbGy-At5-Em7wzcfDWA8cQ9q422iOhMTcTEtaaOAixJdBRdNzsFWGKabd-JuGiJApAY-AHwfxrVd6ClRmZH5gGKn1IyL9iWEPxWWtLq1uhv_xhV23ANzCrcuFz_8p6N9PxAW0TQnV_eq5bHNgYynZU2AcBvOjJUKswDysFh-1Y1E8c5ubZuPaCtaUQq8SI1oKHhIFwUaLGZaWWXiwaFO4Pp8Zrp4C2lmllxJgfSJs"
+                            alt="Profile"
+                        />
+                    </Link>
+                </div>
+            </header>
+
+            <main className="pt-24 px-6 max-w-7xl mx-auto space-y-8">
+                {/* Hero / Operator Status */}
+                <section className="bg-gradient-to-br from-[#1a1919] to-[#0e0e0e] rounded-2xl p-8 border border-[#494847]/10 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-[#fcc025]/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2" />
+
+                    <div className="flex flex-col md:flex-row justify-between items-end gap-6 relative z-10">
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-bold text-[#fcc025] tracking-[0.3em] uppercase">Operator Identified</p>
+                            <h2 className="text-4xl font-extrabold tracking-tight uppercase italic">{username || (address ? address.slice(0, 8) : 'ANONYMOUS')}</h2>
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className="w-2 h-2 rounded-full bg-[#fcc025] animate-pulse" />
+                                <span className="text-[10px] font-bold text-[#adaaaa] tracking-widest uppercase">Encryption Active: AES-256</span>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] font-bold text-[#adaaaa] tracking-widest uppercase mb-1">Total Assets</p>
+                            <div className="text-5xl font-black text-[#fcc025] italic tracking-tighter uppercase">
+                                {formatNumber(balance || 0)} <span className="text-lg not-italic text-white">億</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-col items-center md:items-start text-center md:text-left">
-                        <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-2">餘額 BALANCE</span>
-                        <h2 className="text-3xl font-black text-white italic tracking-tighter uppercase">{formatNumber(balance || 0)} <span className="text-sm text-neutral-500 not-italic">億</span></h2>
-                    </div>
-                    <div className="flex flex-col items-center md:items-start text-center md:text-left">
-                        <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-2">累計押注 TOTAL BET</span>
-                        <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">27.82 <span className="text-sm text-neutral-500 not-italic">億</span></h2>
-                    </div>
-                </header>
-            </section>
+                </section>
 
-            {/* Main Menu Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <NavCard to="/app/announcement" icon={Megaphone} title="公告中心" subtitle="查看最新公告、維護通知與系統更新" color="rose" />
-                <NavCard to="/app/leaderboard" icon={Trophy} title="排行榜" subtitle="查看押注總額與淨資產排行榜" color="amber" />
-                <NavCard to="/app/casino/lobby" icon={Zap} title="子熙賭場" subtitle="猜硬幣、老虎機、輪盤、二十一點、賽馬、射龍門" color="emerald" />
-            </div>
+                {/* 3x3 Grid Modules */}
+                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <GlassCard to="/app/casino/lobby" icon={LayoutGrid} title="Casino Floor" value="12 Units" subtitle="Active Simulation" />
+                    <GlassCard to="/app/market" icon={TrendingUp} title="Market Terminal" value="BTC/USD +2.4%" subtitle="Live Feed" />
+                    <GlassCard to="/app/announcement" icon={Megaphone} title="Announcements" subtitle="3 New Alerts">
+                        <div className="mt-4 space-y-2">
+                            <div className="h-1 w-full bg-[#494847]/30 rounded-full overflow-hidden">
+                                <motion.div initial={{ x: '-100%' }} animate={{ x: '100%' }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} className="h-full w-1/3 bg-[#fcc025]" />
+                            </div>
+                        </div>
+                    </GlassCard>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <NavCard to="/app/market" icon={TrendingUp} title="金融市場" subtitle="比特幣與主要加密貨幣即時交易" color="blue" />
-                <NavCard to="/app/wallet" icon={Wallet} title="資金中心" subtitle="匯入、匯出、空投與代幣領取" color="emerald" />
-                <NavCard to="/app/rewards" icon={ShoppingBag} title="活動與商店" subtitle="領取活動獎勵、購買道具與特等獎" color="rose" />
-            </div>
+                    <GlassCard to="/app/leaderboard" icon={Trophy} title="Rankings" value="#128" subtitle="Global Sector" />
+                    <GlassCard to="/app/wallet" icon={WalletIcon} title="Vault" value={`${formatNumber(balance || 0)} 億`} subtitle="Secured" border={true} />
+                    <GlassCard to="/app/activity" icon={History} title="Activity" subtitle="Recent Traces">
+                        <div className="mt-4 space-y-2 opacity-60 text-[10px] uppercase font-bold tracking-wider">
+                            <div className="flex gap-2"><span className="text-[#fcc025]">●</span> Withdrawal Successful</div>
+                            <div className="flex gap-2"><span className="text-[#fcc025]">●</span> New Login: 192.168.1.1</div>
+                        </div>
+                    </GlassCard>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <NavCard to="/app/inventory" icon={Users} title="我的背包" subtitle="查看已擁有的道具、頭像與頭像框" color="amber" />
-                <NavCard to="/app/vip" icon={ShieldCheck} title="VIP 中心" subtitle="查看 VIP 等級特權與專屬福利" color="blue" />
-                <NavCard to="/app/admin" icon={Activity} title="維運工具" subtitle="系統監控、管理功能與後台操作" color="neutral" />
-            </div>
+                    <GlassCard to="/app/inventory" icon={Bell} title="Inventory" subtitle="14 Items">
+                        <div className="grid grid-cols-4 gap-2 mt-4">
+                            {[1,2,3,4].map(i => <div key={i} className="aspect-square rounded bg-[#262626] border border-[#494847]/20" />)}
+                        </div>
+                    </GlassCard>
+                    <GlassCard to="/app/vip" icon={ShieldCheck} title="VIP Protocol" subtitle="Elite Rank">
+                         <div className="mt-2 text-[10px] text-[#fcc025] font-bold tracking-widest uppercase border border-[#fcc025]/20 px-2 py-1 inline-block rounded">Tier 4 Active</div>
+                         <p className="text-[#adaaaa] text-[11px] mt-3 uppercase tracking-tight font-bold">1.5x Multiplier Enabled</p>
+                    </GlassCard>
+                    <GlassCard to="/app/admin" icon={SettingsIcon} title="Admin Override" subtitle="Authorized Only">
+                        <p className="text-[#adaaaa] text-[11px] mt-2 font-bold uppercase tracking-tight">System configuration and operator tools.</p>
+                        <div className="mt-4 flex items-center gap-2">
+                            <div className="h-1 w-1 rounded-full bg-[#fcc025] animate-pulse" />
+                            <span className="text-[10px] text-[#fcc025] font-bold tracking-widest uppercase">System Secure</span>
+                        </div>
+                    </GlassCard>
+                </section>
+            </main>
 
-            {/* Footer Stats */}
-            <footer className="bg-black border border-neutral-900 p-10 rounded-[3rem] flex flex-col md:flex-row justify-between items-center gap-8 shadow-2xl">
-                <div className="flex items-center gap-10">
-                    <div className="text-center md:text-left">
-                        <div className="text-[10px] font-black text-neutral-700 uppercase tracking-[0.3em] mb-2">TOTAL ONLINE</div>
-                        <div className="text-3xl font-black text-white italic tracking-tighter uppercase">1,248 <span className="text-sm not-italic">Players</span></div>
-                    </div>
-                    <div className="text-center md:text-left">
-                        <div className="text-[10px] font-black text-neutral-700 uppercase tracking-[0.3em] mb-2">SYSTEM UPTIME</div>
-                        <div className="text-3xl font-black text-amber-500 italic tracking-tighter uppercase">99.98%</div>
-                    </div>
+            {/* Bottom Nav Bar */}
+            <nav className="fixed bottom-0 left-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-2xl border-t border-[#494847]/15 h-20 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+                <div className="flex justify-around items-center h-full max-w-7xl mx-auto px-4">
+                    <Link to="/app/casino/lobby" className="flex flex-col items-center justify-center text-[#fcc025] drop-shadow-[0_0_8px_rgba(252,192,37,0.4)]">
+                        <LayoutGrid size={24} className="mb-1" />
+                        <span className="font-bold uppercase tracking-[0.1em] text-[10px]">Lobby</span>
+                    </Link>
+                    <Link to="/app/market" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                        <TrendingUp size={24} className="mb-1" />
+                        <span className="font-bold uppercase tracking-[0.1em] text-[10px]">Market</span>
+                    </Link>
+                    <Link to="/app/wallet" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                        <WalletIcon size={24} className="mb-1" />
+                        <span className="font-bold uppercase tracking-[0.1em] text-[10px]">Vault</span>
+                    </Link>
+                    <Link to="/app/settings" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                        <SettingsIcon size={24} className="mb-1" />
+                        <span className="font-bold uppercase tracking-[0.1em] text-[10px]">Setup</span>
+                    </Link>
                 </div>
-                <div className="flex gap-4">
-                    <Link to="/app/wallet" className="px-10 py-5 bg-neutral-900 hover:bg-neutral-800 text-white font-black uppercase italic tracking-tighter rounded-[1.5rem] border border-neutral-800 transition-all">Deposit</Link>
-                    <Link to="/app/market" className="px-10 py-5 bg-amber-500 hover:bg-amber-400 text-black font-black uppercase italic tracking-tighter rounded-[1.5rem] shadow-xl shadow-amber-500/20 transition-all">Market</Link>
-                </div>
-            </footer>
+            </nav>
         </div>
     );
 };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, ArrowRight, Zap, ShieldCheck } from 'lucide-react';
+import { User, ArrowRight, Zap, ShieldCheck, Fingerprint } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export default function ProfileSetup({ onComplete }: { onComplete: () => void }) {
@@ -12,7 +12,7 @@ export default function ProfileSetup({ onComplete }: { onComplete: () => void })
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (username.length < 2) {
-      setError('用戶名太短了');
+      setError('USERNAME_TOO_SHORT');
       return;
     }
     setLoading(true);
@@ -27,59 +27,65 @@ export default function ProfileSetup({ onComplete }: { onComplete: () => void })
       if (data.success) {
         onComplete();
       } else {
-        setError(data.error || '儲存失敗');
+        setError(data.error || 'SAVE_FAILED');
       }
     } catch (err) {
-      setError('網路連線錯誤');
+      setError('NETWORK_ERROR');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-6 font-sans text-white">
+    <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center p-6 font-['Manrope'] text-white selection:bg-[#fcc025]/30">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-[#141414] rounded-[2.5rem] p-10 shadow-[0_0_50px_rgba(251,191,36,0.1)] border border-amber-500/10"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md bg-[#1a1919] rounded-2xl p-10 shadow-[0_0_50px_rgba(252,192,37,0.05)] border border-[#494847]/10 relative overflow-hidden"
       >
-        <div className="flex flex-col items-center text-center space-y-6">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#fcc025] to-transparent opacity-50" />
+
+        <div className="flex flex-col items-center text-center space-y-8 relative z-10">
           <motion.div
-            initial={{ rotate: -20, scale: 0 }}
-            animate={{ rotate: 0, scale: 1 }}
-            transition={{ type: 'spring', damping: 12 }}
-            className="w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center shadow-lg shadow-amber-500/20"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', damping: 15 }}
+            className="w-20 h-20 bg-[#262626] rounded-2xl flex items-center justify-center border border-[#fcc025]/20 shadow-[0_0_20px_rgba(252,192,37,0.1)]"
           >
-            <Zap size={40} className="text-black fill-current" />
+            <Fingerprint size={40} className="text-[#fcc025]" />
           </motion.div>
 
           <div className="space-y-2">
-            <h1 className="text-4xl font-black text-amber-500 tracking-tighter uppercase italic">歡迎加入</h1>
-            <p className="text-neutral-500 font-bold uppercase text-xs tracking-widest">在開始之前，請為您的帳戶設定一個顯示名稱</p>
+            <h1 className="text-3xl font-extrabold text-[#fcc025] tracking-tighter uppercase italic">Identity Sync</h1>
+            <p className="text-[#adaaaa] font-bold uppercase text-[10px] tracking-[0.3em] leading-relaxed">Establish your operator designation to proceed with the simulation.</p>
           </div>
 
           <form onSubmit={handleSave} className="w-full space-y-6 pt-4">
-            <div className="relative">
-              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-amber-500/50">
-                <User size={20} />
+            <div className="space-y-2 text-left">
+              <label className="text-[10px] uppercase tracking-[0.2em] text-[#adaaaa] font-bold ml-1">Operator ID</label>
+              <div className="relative">
+                <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#fcc025]/40">
+                  <User size={18} />
+                </div>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="Enter designation..."
+                  className="w-full bg-[#0e0e0e] border border-[#494847]/20 rounded-xl pl-14 pr-6 py-5 text-white text-lg focus:border-[#fcc025]/50 focus:ring-4 focus:ring-[#fcc025]/5 outline-none transition-all placeholder:text-[#494847] font-bold tracking-tight"
+                  maxLength={20}
+                  required
+                />
               </div>
-              <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="輸入您的暱稱 (2-20 字元)"
-                className="w-full bg-black border border-neutral-800 rounded-2xl pl-14 pr-6 py-5 text-white text-lg focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all placeholder:text-neutral-700 font-bold"
-                maxLength={20}
-                required
-              />
             </div>
 
             {error && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-rose-500 text-sm font-black bg-rose-500/10 py-4 px-4 rounded-2xl border border-rose-500/20"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-[#ff7351] text-[10px] font-bold bg-[#ff7351]/10 py-4 px-4 rounded-xl border border-[#ff7351]/20 uppercase tracking-widest flex items-center gap-3"
               >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ff7351] animate-pulse" />
                 {error}
               </motion.div>
             )}
@@ -87,12 +93,18 @@ export default function ProfileSetup({ onComplete }: { onComplete: () => void })
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-5 rounded-2xl shadow-xl shadow-amber-500/20 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 group"
+              className="w-full bg-gradient-to-br from-[#fcc025] to-[#e6ad03] text-black font-black py-5 rounded-xl shadow-[0_4px_20px_rgba(252,192,37,0.2)] hover:shadow-[0_4px_25px_rgba(252,192,37,0.3)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 group overflow-hidden relative"
             >
-              <span className="text-lg uppercase italic tracking-tighter">儲存並進入系統</span>
-              <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+              <span className="text-sm uppercase italic tracking-tighter relative z-10">Initialize Connection</span>
+              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform relative z-10" />
+              <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             </button>
           </form>
+
+          <div className="pt-4 flex items-center gap-2 opacity-30">
+            <ShieldCheck size={14} className="text-[#adaaaa]" />
+            <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-[#adaaaa]">Secure Protocol Active</span>
+          </div>
         </div>
       </motion.div>
     </div>

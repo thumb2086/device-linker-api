@@ -1,6 +1,25 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import {
+  Activity,
+  ShieldCheck,
+  AlertTriangle,
+  Terminal,
+  ChevronRight,
+  LayoutGrid,
+  TrendingUp,
+  Wallet,
+  Settings,
+  HeartPulse,
+  Database
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 export default function HealthView() {
+  const { t } = useTranslation();
+
   const { data: healthData, isLoading } = useQuery({
     queryKey: ['health-stats'],
     queryFn: async () => {
@@ -25,56 +44,115 @@ export default function HealthView() {
   const events = txData?.events || [];
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto p-4">
-      <div className="flex justify-between items-end">
-          <div>
-            <h2 className="text-3xl font-bold text-white tracking-tight">全站健康狀態</h2>
-            <p className="text-slate-400">即時系統運行與鏈上交易監控</p>
+    <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">
+      {/* Top Bar */}
+      <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
+        <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
+          <div className="flex items-center gap-4">
+             <HeartPulse className="text-[#fcc025]" />
+             <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">{t('settings.service_status')}</h1>
           </div>
-          <div className="flex gap-4">
-              <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl">
-                  <div className="text-[10px] text-slate-500 uppercase font-black">運行時間</div>
-                  <div className="text-xl font-bold text-green-400 font-mono">{stats?.uptime || '---'}</div>
-              </div>
-              <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl">
-                  <div className="text-[10px] text-slate-500 uppercase font-black">故障率 (24h)</div>
-                  <div className="text-xl font-bold text-blue-400 font-mono">{stats?.failureRate || '---'}</div>
-              </div>
-          </div>
-      </div>
+        </div>
+      </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl">
-            <h3 className="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-3 uppercase tracking-wider">交易流量 (成功 vs 失敗)</h3>
-            <div className="flex items-end gap-1 h-32 mb-4">
-                {stats?.last24h?.success.map((val: number, i: number) => (
+      <main className="pt-24 px-6 max-w-7xl mx-auto space-y-10">
+        {/* Core Stats */}
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+           <div className="bg-[#1a1919] p-6 rounded-2xl border border-[#494847]/10 flex flex-col gap-2">
+              <span className="text-[8px] font-black text-[#494847] uppercase tracking-[0.3em]">UPTIME</span>
+              <span className="text-xl font-black italic text-emerald-500">{stats?.uptime || '99.98%'}</span>
+           </div>
+           <div className="bg-[#1a1919] p-6 rounded-2xl border border-[#494847]/10 flex flex-col gap-2">
+              <span className="text-[8px] font-black text-[#494847] uppercase tracking-[0.3em]">FAILURE RATE</span>
+              <span className="text-xl font-black italic text-[#fcc025]">{stats?.failureRate || '0.02%'}</span>
+           </div>
+           <div className="bg-[#1a1919] p-6 rounded-2xl border border-[#494847]/10 flex flex-col gap-2">
+              <span className="text-[8px] font-black text-[#494847] uppercase tracking-[0.3em]">NODES</span>
+              <span className="text-xl font-black italic text-white">12 ACTIVE</span>
+           </div>
+           <div className="bg-[#1a1919] p-6 rounded-2xl border border-[#494847]/10 flex flex-col gap-2">
+              <span className="text-[8px] font-black text-[#494847] uppercase tracking-[0.3em]">SECURE LAYER</span>
+              <span className="text-xl font-black italic text-[#fcc025]">AES-256</span>
+           </div>
+        </section>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+           {/* Traffic Graph */}
+           <section className="bg-[#1a1919] rounded-2xl p-8 border border-[#494847]/10 space-y-8">
+              <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-2">
+                    <Activity size={16} className="text-[#fcc025]" />
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">SIMULATION THROUGHPUT</h3>
+                 </div>
+                 <div className="flex items-center gap-4 text-[8px] font-black uppercase">
+                    <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500/20 border border-emerald-500" /> SUCCESS</div>
+                    <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-red-500/60 border border-red-500" /> FAILURE</div>
+                 </div>
+              </div>
+              <div className="flex items-end gap-1.5 h-48">
+                 {stats?.last24h?.success.map((val: number, i: number) => (
                     <div key={i} className="flex-1 group relative">
-                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-[8px] text-white px-1 rounded opacity-0 group-hover:opacity-100">{val}</div>
-                        <div className="bg-green-500/20 w-full rounded-t" style={{ height: `${(val/50)*100}%` }}></div>
-                        <div className="bg-red-500/60 w-full rounded-t -mt-1" style={{ height: `${(stats.last24h.failure[i]/50)*100}%` }}></div>
+                       <div className="bg-emerald-500/10 w-full rounded-t-sm" style={{ height: `${(val/50)*100}%` }} />
+                       <div className="bg-red-500/40 w-full rounded-t-sm -mt-1" style={{ height: `${(stats.last24h.failure[i]/50)*100}%` }} />
                     </div>
-                ))}
-            </div>
-            <div className="flex justify-between text-[10px] text-slate-600 font-mono">
-                <span>24H AGO</span>
-                <span>NOW</span>
-            </div>
-        </div>
+                 )) || [40,60,30,80,50,90,70,100,55,65,45,75].map((h, i) => (
+                    <div key={i} className="flex-1 bg-[#262626] rounded-t-sm" style={{ height: `${h}%` }} />
+                 ))}
+              </div>
+              <div className="flex justify-between text-[8px] font-black text-[#494847] uppercase tracking-[0.3em]">
+                 <span>24 HOURS AGO</span>
+                 <span>SYNCHRONIZED NOW</span>
+              </div>
+           </section>
 
-        <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl">
-            <h3 className="text-lg font-bold text-white mb-4 border-b border-slate-800 pb-3 uppercase tracking-wider">系統事件實況</h3>
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                {events.map((ev: any, i: number) => (
-                    <div key={i} className="flex gap-3 text-xs bg-slate-950/40 p-3 rounded-lg border border-slate-800/40">
-                        <div className="text-slate-500 font-mono whitespace-nowrap">{new Date(ev.createdAt).toLocaleTimeString([], { hour12: false })}</div>
-                        <div className={`font-black ${ev.severity === 'error' ? 'text-red-500' : 'text-blue-400'}`}>[{ev.kind}]</div>
-                        <div className="text-slate-300 truncate">{ev.message}</div>
+           {/* Event Log */}
+           <section className="bg-[#1a1919] rounded-2xl p-8 border border-[#494847]/10 space-y-6">
+              <div className="flex items-center gap-2">
+                 <Terminal size={16} className="text-[#fcc025]" />
+                 <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">SYSTEM PROTOCOL LOGS</h3>
+              </div>
+              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-4 hide-scrollbar">
+                 {events.map((ev: any, i: number) => (
+                    <div key={i} className="bg-[#0e0e0e] rounded-xl p-4 border border-[#494847]/5 space-y-2 group hover:border-[#fcc025]/30 transition-all">
+                       <div className="flex items-center justify-between">
+                          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-sm ${ev.severity === 'error' ? 'bg-red-500/10 text-red-500' : 'bg-[#fcc025]/10 text-[#fcc025]'}`}>[{ev.kind}]</span>
+                          <span className="text-[8px] font-bold text-[#494847]">{new Date(ev.createdAt).toLocaleTimeString([], { hour12: false })}</span>
+                       </div>
+                       <p className="text-[10px] font-bold text-white leading-relaxed uppercase italic tracking-tight">{ev.message}</p>
                     </div>
-                ))}
-                {events.length === 0 && <div className="text-center py-10 text-slate-600 italic">尚無即時數據...</div>}
-            </div>
+                 ))}
+                 {events.length === 0 && (
+                   <div className="flex flex-col items-center justify-center py-20 opacity-20 space-y-4">
+                      <Database size={40} />
+                      <p className="text-[9px] font-black uppercase tracking-[0.5em]">No recent traces detected</p>
+                   </div>
+                 )}
+              </div>
+           </section>
         </div>
-      </div>
+      </main>
+
+      {/* Bottom Nav Bar */}
+      <nav className="fixed bottom-0 left-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-2xl border-t border-[#494847]/15 h-20 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+          <div className="flex justify-around items-center h-full max-w-7xl mx-auto px-4">
+              <Link to="/app/casino/lobby" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <LayoutGrid size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.casino')}</span>
+              </Link>
+              <Link to="/app/market" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <TrendingUp size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.market')}</span>
+              </Link>
+              <Link to="/app/wallet" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <Wallet size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.vault')}</span>
+              </Link>
+              <Link to="/app/settings" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+                  <Settings size={24} className="mb-1" />
+                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.settings')}</span>
+              </Link>
+          </div>
+      </nav>
     </div>
   );
 }

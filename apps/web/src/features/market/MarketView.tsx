@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -12,7 +13,6 @@ import {
   Briefcase
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { useMarket } from './useMarket';
 import { formatNumber } from '@repo/shared';
 

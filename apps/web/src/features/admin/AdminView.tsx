@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -18,7 +19,6 @@ import {
   Power
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { api } from '../../store/api';
 
 export default function AdminView() {

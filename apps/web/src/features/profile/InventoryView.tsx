@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -15,7 +16,6 @@ import {
   Fingerprint
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { useUserStore } from '../../store/useUserStore';
 
 export default function InventoryView() {

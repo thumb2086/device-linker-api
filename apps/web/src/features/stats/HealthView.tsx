@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -14,7 +15,6 @@ import {
   Database
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
 export default function HealthView() {

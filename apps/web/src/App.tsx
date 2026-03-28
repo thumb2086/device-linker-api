@@ -11,14 +11,15 @@ import AdminView from './features/admin/AdminView';
 import InventoryView from './features/profile/InventoryView';
 import LeaderboardView from './features/stats/LeaderboardView';
 import HealthView from './features/stats/HealthView';
-import { RoomLobbyView } from './features/casino/RoomLobbyView';
-import { LobbyView } from './features/casino/LobbyView';
+import RoomLobbyView from './features/casino/RoomLobbyView';
+import LobbyView from './features/casino/LobbyView';
 import SupportView from './features/support/SupportView';
 import ProfileSetup from './features/profile/ProfileSetup';
-import { AnnouncementCenter } from './features/announcement/AnnouncementCenter';
+import AnnouncementCenter from './features/announcement/AnnouncementCenter';
 import SettingsView from './features/settings/SettingsView';
 import SoundPlayer from './components/SoundPlayer';
 import { useSyncUser } from './hooks/useSyncUser';
+import Layout from './components/Layout';
 
 const queryClient = new QueryClient();
 
@@ -26,10 +27,9 @@ function AppContent() {
   const { isAuthorized } = useAuthStore();
   const { userData, isLoading } = useSyncUser();
 
-  // If authorized but no username, show setup
   const needsProfileSetup = isAuthorized && !isLoading && userData && !userData.user?.username;
 
-  if (false && !isAuthorized) {
+  if (!isAuthorized) {
     return (
       <Router>
         <Routes>
@@ -39,7 +39,7 @@ function AppContent() {
     );
   }
 
-  if (false && needsProfileSetup) {
+  if (needsProfileSetup) {
     return <ProfileSetup onComplete={() => window.location.reload()} />;
   }
 
@@ -48,7 +48,7 @@ function AppContent() {
         <div className="relative min-h-screen bg-[#0e0e0e]">
           <SoundPlayer />
           <Routes>
-            <Route path="/app">
+            <Route path="/app" element={<Layout />}>
               <Route index element={<LobbyView />} />
               <Route path="casino/roulette" element={<RouletteView />} />
               <Route path="casino/:game" element={<CasinoView />} />
@@ -62,6 +62,7 @@ function AppContent() {
               <Route path="inventory" element={<InventoryView />} />
               <Route path="admin" element={<AdminView />} />
               <Route path="settings" element={<SettingsView />} />
+              <Route path="health" element={<HealthView />} />
             </Route>
             <Route path="/" element={<Navigate to="/app" replace />} />
           </Routes>

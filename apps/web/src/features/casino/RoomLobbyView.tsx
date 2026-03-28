@@ -15,7 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-export const RoomLobbyView: React.FC = () => {
+export default function RoomLobbyView() {
   const { t } = useTranslation();
 
   const games = [

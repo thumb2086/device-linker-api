@@ -27,9 +27,9 @@ export default function AnnouncementCenter() {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'urgent': return <Zap size={18} className="text-rose-400" />;
-      case 'warning': return <AlertTriangle size={18} className="text-amber-400" />;
-      default: return <Info size={18} className="text-blue-400" />;
+      case 'urgent': return <Zap size={18} className="text-rose-500 fill-current" />;
+      case 'warning': return <AlertTriangle size={18} className="text-amber-500" />;
+      default: return <Info size={18} className="text-amber-500" />;
     }
   };
 
@@ -38,14 +38,14 @@ export default function AnnouncementCenter() {
   return (
     <>
       <motion.button
-        whileHover={{ scale: 1.05 }}
+        whileHover={{ scale: 1.05, rotate: 5 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 z-40 border border-blue-400/30"
+        className="fixed bottom-24 right-6 w-16 h-16 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-black shadow-lg shadow-amber-500/30 z-40 border border-amber-600/50"
       >
-        <Megaphone size={24} />
+        <Megaphone size={28} className="fill-current" />
         {announcements.length > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 rounded-full text-[10px] font-black flex items-center justify-center border-2 border-[#0f172a]">
+          <span className="absolute -top-1 -right-1 w-6 h-6 bg-rose-600 rounded-full text-[10px] font-black flex items-center justify-center border-4 border-[#0a0a0a] text-white">
             {announcements.length}
           </span>
         )}
@@ -59,34 +59,37 @@ export default function AnnouncementCenter() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
             />
 
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg bg-[#1e293b] rounded-[2rem] shadow-2xl border border-slate-700/50 overflow-hidden flex flex-col max-h-[80vh]"
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              className="relative w-full max-w-xl bg-[#141414] rounded-[2.5rem] shadow-[0_0_100px_rgba(251,191,36,0.15)] border border-amber-500/20 overflow-hidden flex flex-col max-h-[85vh]"
             >
-              <header className="p-6 border-b border-slate-700/50 flex justify-between items-center bg-[#0f172a]/30">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-600/20 rounded-xl">
-                    <Megaphone size={20} className="text-blue-400" />
+              <header className="p-8 border-b border-neutral-800 flex justify-between items-center bg-black/50">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-amber-500 rounded-2xl shadow-lg shadow-amber-500/20">
+                    <Megaphone size={24} className="text-black fill-current" />
                   </div>
-                  <h2 className="text-xl font-black text-white uppercase tracking-tight">公告中心</h2>
+                  <div>
+                    <h2 className="text-2xl font-black text-amber-500 uppercase tracking-tighter italic">公告中心</h2>
+                    <p className="text-[10px] font-bold text-neutral-600 uppercase tracking-widest">Platform News & Updates</p>
+                  </div>
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-2 hover:bg-slate-700/50 rounded-xl text-slate-400 transition-colors"
+                  className="p-3 hover:bg-neutral-800 rounded-2xl text-neutral-500 transition-all border border-transparent hover:border-neutral-700"
                 >
-                  <X size={20} />
+                  <X size={24} />
                 </button>
               </header>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-8 space-y-6">
                 {loading ? (
-                  <div className="flex justify-center py-10">
-                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="flex justify-center py-20">
+                    <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 ) : (
                   announcements.map((ann, idx) => (
@@ -95,23 +98,27 @@ export default function AnnouncementCenter() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.1 }}
-                      className="p-5 bg-[#0f172a]/50 rounded-2xl border border-slate-700/30 hover:border-blue-500/30 transition-all group"
+                      className="p-6 bg-black rounded-3xl border border-neutral-800 hover:border-amber-500/30 transition-all group relative overflow-hidden"
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[40px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-amber-500/10 transition-colors" />
+
+                      <div className="flex justify-between items-start mb-4 relative z-10">
+                        <div className="flex items-center gap-3">
                           {getTypeIcon(ann.type)}
-                          <h3 className="font-bold text-white group-hover:text-blue-400 transition-colors">{ann.title}</h3>
+                          <h3 className="text-lg font-black text-white group-hover:text-amber-400 transition-colors italic tracking-tight">{ann.title}</h3>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase">{new Date(ann.createdAt).toLocaleDateString()}</span>
+                        <div className="bg-neutral-900 px-3 py-1 rounded-lg border border-neutral-800">
+                          <span className="text-[10px] font-black text-neutral-500 uppercase">{new Date(ann.createdAt).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                      <p className="text-sm text-slate-400 leading-relaxed">{ann.content}</p>
+                      <p className="text-neutral-400 leading-relaxed font-medium relative z-10">{ann.content}</p>
                     </motion.div>
                   ))
                 )}
               </div>
 
-              <footer className="p-4 bg-[#0f172a]/30 border-t border-slate-700/50 text-center">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Device Linker Information Center</p>
+              <footer className="p-6 bg-black/50 border-t border-neutral-800 text-center">
+                <p className="text-[10px] font-black text-neutral-700 uppercase tracking-[0.5em]">ZiXi Information Hub</p>
               </footer>
             </motion.div>
           </div>

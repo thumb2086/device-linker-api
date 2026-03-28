@@ -1,15 +1,36 @@
 import React, { useEffect, useState } from 'react';
-import { useUserStore } from '../store/useUserStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function SoundPlayer() {
-  const [bgm, setBgm] = useState<HTMLAudioElement | null>(null);
+  const { sessionId, isAuthorized } = useAuthStore();
+  const [prefs, setPrefs] = useState<any>(null);
 
   useEffect(() => {
-    // Initial BGM setup if needed
-    // const audio = new Audio('/assets/sounds/bgm_main.mp3');
-    // audio.loop = true;
-    // setBgm(audio);
-  }, []);
+    if (!isAuthorized) return;
 
-  return null; // Invisible component
+    const fetchPrefs = () => {
+        fetch(`/api/v1/profile/sound-prefs?sessionId=${sessionId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) setPrefs(data.data);
+          })
+          .catch(() => {});
+    };
+
+    fetchPrefs();
+    const interval = setInterval(fetchPrefs, 5000); // Sync every 5s for simple state management
+    return () => clearInterval(interval);
+  }, [sessionId, isAuthorized]);
+
+  // This is a placeholder for actual audio logic
+  // In a real app, we would use these prefs to control Tone.js or native Audio objects
+  useEffect(() => {
+    if (prefs) {
+        console.log("Sound Preferences Updated:", prefs);
+        // window.bgmVolume = prefs.volume;
+        // window.bgmEnabled = prefs.bgmEnabled;
+    }
+  }, [prefs]);
+
+  return null;
 }

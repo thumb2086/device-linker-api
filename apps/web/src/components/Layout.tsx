@@ -1,108 +1,98 @@
-// apps/web/src/components/Layout.tsx
-
 import React from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
 import ChatRoom from './ChatRoom';
-import { useAuth } from '../features/auth/useAuth';
-import { api } from '../store/api';
+import { useAuthStore } from '../store/useAuthStore';
+import { useUserStore } from '../store/useUserStore';
+import { Settings, LogOut, Zap, Trophy, Wallet, Bell, Menu } from 'lucide-react';
 
 export default function Layout() {
-  const { isAuthorized, logout, session } = useAuth();
+  const { isAuthorized, logout } = useAuthStore();
+  const { address } = useUserStore();
+  const navigate = useNavigate();
 
-  const handleAirdrop = async () => {
-    if (!isAuthorized) {
-        alert("請先登入");
-        return;
-    }
-    try {
-        const res = await api.post('/api/v1/wallet/airdrop', { sessionId: session?.id });
-        if (res.data.error) {
-            alert(res.data.error.message);
-        } else {
-            alert(`領取成功！獲得 ${res.data.reward} ZXC`);
-            window.location.reload(); // Refresh to update balance in views
-        }
-    } catch (e) {
-        alert("領取失敗，請稍後再試");
-    }
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950">
-      <header className="bg-slate-900 border-b border-slate-800 text-white p-4 flex justify-between items-center sticky top-0 z-50">
-        <Link to="/app" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black text-xl italic text-white shadow-lg shadow-blue-900/40">DL</div>
-          <h1 className="text-xl font-bold tracking-tighter text-blue-500 hidden sm:block">DEVICE LINKER</h1>
+    <div className="min-h-screen flex flex-col bg-[#0a0a0a] text-white font-sans">
+      {/* Dynamic Header */}
+      <header className="bg-black/80 backdrop-blur-xl border-b border-neutral-900 text-white p-6 flex justify-between items-center sticky top-0 z-50">
+        <Link to="/app" className="flex items-center gap-4 group">
+          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center font-black text-2xl italic text-black shadow-lg shadow-amber-500/20 group-hover:rotate-6 transition-transform">
+             <Zap size={28} className="fill-current" />
+          </div>
+          <div className="hidden sm:block">
+            <h1 className="text-2xl font-black italic tracking-tighter text-amber-500 uppercase leading-none">子熙模擬器</h1>
+            <p className="text-[8px] font-black text-neutral-600 uppercase tracking-[0.4em] mt-1">ZiXi Simulator</p>
+          </div>
         </Link>
-        <nav className="hidden lg:flex space-x-6 text-[10px] font-black uppercase tracking-widest text-slate-500">
-          <Link to="/app" className="hover:text-blue-400 transition-colors">Lobby</Link>
-          <Link to="/app/leaderboard" className="hover:text-blue-400 transition-colors">🏆 Top</Link>
-          <Link to="/app/wallet" className="hover:text-blue-400 transition-colors">Wallet</Link>
-          <Link to="/app/market" className="hover:text-blue-400 transition-colors">Market</Link>
-          <Link to="/app/rewards" className="hover:text-blue-400 transition-colors">Rewards</Link>
-          <Link to="/app/inventory" className="hover:text-blue-400 transition-colors">Backpack</Link>
-          <Link to="/app/admin" className="hover:text-blue-400 transition-colors text-red-900/40">Admin</Link>
+
+        {/* Desktop Nav */}
+        <nav className="hidden lg:flex items-center gap-10">
+          {[
+            { to: '/app', label: '大廳 LOBBY' },
+            { to: '/app/leaderboard', label: '🏆 排行榜 TOP' },
+            { to: '/app/wallet', label: '錢包 WALLET' },
+            { to: '/app/market', label: '市場 MARKET' },
+          ].map(link => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className="text-[10px] font-black uppercase tracking-widest text-neutral-500 hover:text-amber-500 transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
-        <div className="flex items-center space-x-4">
+
+        <div className="flex items-center gap-4">
            {isAuthorized && (
-               <button 
-                 onClick={handleAirdrop}
-                 className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black px-4 py-2 rounded-full shadow-lg shadow-blue-900/20 transition-all active:scale-95 uppercase tracking-widest"
+               <Link
+                 to="/app/settings"
+                 className="p-3 bg-neutral-900 hover:bg-neutral-800 text-amber-500 rounded-xl border border-neutral-800 transition-all group"
                >
-                 Claim Airdrop
-               </button>
+                 <Settings size={20} className="group-hover:rotate-45 transition-transform" />
+               </Link>
            )}
-           <div 
-             onClick={() => isAuthorized ? logout() : (window.location.href = '/login')}
-             className="w-10 h-10 bg-slate-800 rounded-full border border-slate-700 flex items-center justify-center text-xl cursor-pointer hover:bg-slate-700 transition-colors"
+           <button
+             onClick={handleLogout}
+             className="p-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl border border-rose-500/20 transition-all flex items-center gap-2"
            >
-             {isAuthorized ? '🚪' : '👤'}
-           </div>
+             <LogOut size={20} />
+             <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">登出 EXIT</span>
+           </button>
         </div>
       </header>
-      <main className="flex-1 flex flex-col md:flex-row gap-6 p-4 max-w-[1600px] mx-auto w-full relative">
-        <div className="flex-1">
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-[1600px] mx-auto w-full p-6 lg:p-10 flex flex-col lg:flex-row gap-10">
+        <div className="flex-1 min-w-0">
             <Outlet />
         </div>
-        <aside className="w-full md:w-80 space-y-4 md:sticky md:top-24 h-fit">
-            <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl">
-                 <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-800 pb-2">🎰 熱門遊戲</h4>
-                 <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: 'coinflip', name: '擲硬幣', icon: '🪙' },
-                      { id: 'roulette', name: '輪盤', icon: '🎡' },
-                      { id: 'horse', name: '賽馬', icon: '🏇' },
-                      { id: 'slots', name: '老虎機', icon: '🎰' },
-                      { id: 'blackjack', name: '21點', icon: '🃏' },
-                      { id: 'dragon', name: '龍虎', icon: '🐉' },
-                      { id: 'sicbo', name: '骰寶', icon: '🎲' },
-                      { id: 'bingo', name: '賓果', icon: '🎱' },
-                      { id: 'crash', name: '暴漲', icon: '📈' },
-                      { id: 'duel', name: '對決', icon: '⚔️' },
-                      { id: 'poker', name: '德州', icon: '🏙️' },
-                      { id: 'bluffdice', name: '吹牛', icon: '🎲' }
-                    ].map(g => (
-                      <Link key={g.id} to={`/app/casino/${g.id}`} className="flex items-center space-x-2 bg-slate-950/50 hover:bg-slate-800 p-2 rounded-lg border border-slate-800/50 transition-all text-[10px] font-bold text-slate-300">
-                        <span className="text-sm">{g.icon}</span>
-                        <span>{g.name}</span>
-                      </Link>
-                    ))}
-                 </div>
-            </div>
+
+        {/* Sidebar / Chat */}
+        <aside className="w-full lg:w-96 space-y-8 h-fit lg:sticky lg:top-32">
             <ChatRoom />
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">意見回饋</h4>
+
+            <section className="bg-black border border-neutral-900 p-8 rounded-[2.5rem] shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                    <Bell size={18} className="text-amber-500" />
+                    <h4 className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.4em]">意見回饋 FEEDBACK</h4>
+                </div>
                 <textarea
-                  placeholder="遇到問題或有新想法？"
-                  className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white mb-2 h-20 focus:outline-none focus:border-blue-500 transition-colors"
+                  placeholder="遇到問題或有新想法？說點什麼..."
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-2xl p-4 text-xs text-white mb-4 h-32 focus:outline-none focus:border-amber-500/50 transition-all placeholder:text-neutral-700 font-bold"
                 />
-                <button className="w-full bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold py-1.5 rounded transition-colors">提交回饋</button>
-            </div>
+                <button className="w-full bg-neutral-900 hover:bg-neutral-800 text-amber-500 text-[10px] font-black py-4 rounded-2xl border border-neutral-800 transition-all uppercase tracking-[0.2em]">提交回饋 SUBMIT</button>
+            </section>
+
+            <footer className="text-center py-4">
+                <p className="text-[10px] font-black text-neutral-800 uppercase tracking-[0.5em]">&copy; 2024 ZiXi Simulator • Phase 1</p>
+            </footer>
         </aside>
       </main>
-      <footer className="bg-slate-900 border-t border-slate-800 p-8 text-center text-sm text-slate-500">
-        &copy; 2024 Device Linker Monolith • Refactored Architecture
-      </footer>
     </div>
   );
 }

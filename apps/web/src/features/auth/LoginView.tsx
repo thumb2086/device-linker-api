@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { RefreshCw, ShieldCheck, Globe } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Globe, Zap, LogIn } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 
@@ -23,21 +23,32 @@ export default function LoginView() {
 
   const initSession = async () => {
     setError(null);
+    setSessionId(null);
+    setQrCodeUrl(null);
     try {
       const res = await fetch('/api/user.js?action=create_session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ platform: 'web' })
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("Failed to parse JSON:", text);
+        setError("API Error: Invalid Response");
+        return;
+      }
+
       if (data.success && data.sessionId) {
         setSessionId(data.sessionId);
         setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=dlinker://login?sessionId=${data.sessionId}`);
       } else {
-        setError(t('error.session_failed'));
+        setError(data.error || "Failed to create session");
       }
     } catch (err: any) {
-      setError(`${t('error.connection')}: ${err.message}`);
+      setError(`Connection error: ${err.message}`);
     }
   };
 
@@ -55,7 +66,8 @@ export default function LoginView() {
           if (data.success && data.status === 'authorized') {
             setAuth(data.address, sessionId, data.publicKey || '0x');
           }
-        });
+        })
+        .catch(err => console.error("Poll error:", err));
     }, 2000);
 
     return () => clearInterval(interval);
@@ -73,52 +85,53 @@ export default function LoginView() {
       });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || t('error.login_failed'));
+        setError(data.error || 'Login failed');
       } else {
         setAuth(data.address, data.sessionId, '0x');
       }
     } catch (err) {
-      setError(t('error.connection'));
+      setError('Network error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-6 font-sans">
+    <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6 font-sans text-white">
+      {/* Language Toggle */}
       <div className="absolute top-6 right-6">
         <button
           onClick={toggleLanguage}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 rounded-xl transition-all border border-slate-700/30"
+          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-amber-400 rounded-xl transition-all border border-amber-500/20"
         >
           <Globe size={18} />
-          <span className="text-xs font-black uppercase">{i18n.language === 'zh' ? 'English' : '中文'}</span>
+          <span className="text-xs font-bold uppercase">{i18n.language === 'zh' ? 'English' : '中文'}</span>
         </button>
       </div>
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-[#1e293b] rounded-[2.5rem] shadow-2xl border border-slate-700/50 p-8 space-y-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md bg-[#141414] rounded-[2rem] shadow-[0_0_50px_rgba(251,191,36,0.1)] border border-amber-500/10 p-8 space-y-8"
       >
         <header className="text-center space-y-2">
-            <div className="mx-auto w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4">
-                <ShieldCheck size={32} className="text-white" />
+            <div className="mx-auto w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center shadow-lg shadow-amber-500/20 mb-4">
+                <Zap size={40} className="text-black fill-current" />
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight uppercase">DEVICE LINKER</h1>
-            <p className="text-slate-400 text-xs font-black uppercase tracking-widest opacity-60">Identity Protocol</p>
+            <h1 className="text-4xl font-black text-amber-500 tracking-tighter uppercase italic">子熙模擬器</h1>
+            <p className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.3em]">ZiXi Identity Protocol</p>
         </header>
 
-        <div className="flex bg-[#0f172a]/50 p-1.5 rounded-2xl border border-slate-700/30">
+        <div className="flex bg-black p-1.5 rounded-2xl border border-neutral-800">
           <button
             onClick={() => setTab('qr')}
-            className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${tab === 'qr' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${tab === 'qr' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-neutral-300'}`}
           >
             {t('auth.qr_login')}
           </button>
           <button
             onClick={() => setTab('custody')}
-            className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${tab === 'custody' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${tab === 'custody' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-neutral-300'}`}
           >
             {t('auth.custody_login')}
           </button>
@@ -126,66 +139,69 @@ export default function LoginView() {
 
         {tab === 'qr' ? (
           <div className="flex flex-col items-center space-y-6">
-            <div className="relative p-4 bg-white rounded-3xl shadow-inner group overflow-hidden">
+            <div className="relative p-6 bg-amber-500 rounded-[2rem] shadow-2xl">
                {qrCodeUrl ? (
-                 <img src={qrCodeUrl} alt="QR Code" className="w-52 h-52 group-hover:scale-110 transition-transform duration-500" />
+                 <div className="p-2 bg-white rounded-xl">
+                    <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48" />
+                 </div>
                ) : (
-                 <div className="w-52 h-52 bg-slate-100 flex items-center justify-center rounded-2xl">
-                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                 <div className="w-48 h-48 flex items-center justify-center">
+                    <div className="w-10 h-10 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
                  </div>
                )}
             </div>
-            <p className="text-slate-400 text-xs text-center px-8 leading-relaxed font-medium">
+            <p className="text-neutral-400 text-xs text-center px-4 leading-relaxed font-bold">
                {t('auth.qr_instruction')}
             </p>
           </div>
         ) : (
-          <form onSubmit={handleCustodyLogin} className="space-y-4">
-            <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-tighter">{t('auth.username')}</label>
+          <form onSubmit={handleCustodyLogin} className="space-y-5">
+            <div className="space-y-2">
+                <label className="text-[10px] font-black text-amber-500/70 uppercase ml-2 tracking-widest">{t('auth.username')}</label>
                 <input
                     type="text"
                     value={username}
                     onChange={e => setUsername(e.target.value)}
-                    placeholder={t('auth.username')}
-                    className="w-full bg-[#0f172a] border border-slate-700/50 rounded-2xl px-5 py-4 text-white text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-600"
+                    placeholder="Enter Username"
+                    className="w-full bg-black border border-neutral-800 rounded-2xl px-5 py-4 text-white text-sm focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all placeholder:text-neutral-700 font-bold"
                     required
                 />
             </div>
-            <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-tighter">{t('auth.password')}</label>
+            <div className="space-y-2">
+                <label className="text-[10px] font-black text-amber-500/70 uppercase ml-2 tracking-widest">{t('auth.password')}</label>
                 <input
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    placeholder={t('auth.password')}
-                    className="w-full bg-[#0f172a] border border-slate-700/50 rounded-2xl px-5 py-4 text-white text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-600"
+                    placeholder="Enter Password"
+                    className="w-full bg-black border border-neutral-800 rounded-2xl px-5 py-4 text-white text-sm focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all placeholder:text-neutral-700 font-bold"
                     required
                 />
             </div>
-            {error && <div className="text-rose-400 text-xs font-bold text-center bg-rose-500/10 py-3 rounded-xl border border-rose-500/20">{error}</div>}
+            {error && <div className="text-rose-500 text-xs font-black text-center bg-rose-500/10 py-4 rounded-2xl border border-rose-500/20">{error}</div>}
             <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] disabled:opacity-50 mt-2"
+                className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-4 rounded-2xl shadow-xl shadow-amber-500/20 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
             >
+                <LogIn size={20} />
                 {loading ? t('auth.logging_in') : t('auth.login_btn')}
             </button>
           </form>
         )}
 
-        <div className="pt-6 border-t border-slate-700/30 flex justify-between items-center px-2">
+        <div className="pt-6 border-t border-neutral-800 flex justify-between items-center px-2">
             <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span className="text-[10px] font-black text-slate-500 uppercase">{t('auth.system_ready')}</span>
+                <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_10px_#fbbf24]"></div>
+                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest">{t('auth.system_ready')}</span>
             </div>
-            <button onClick={() => setRetryCount(c => c + 1)} className="p-2 text-slate-500 hover:text-white transition-colors bg-slate-800/30 rounded-lg">
+            <button onClick={() => setRetryCount(c => c + 1)} className="p-2 text-neutral-600 hover:text-amber-500 transition-colors bg-neutral-900/50 rounded-xl border border-neutral-800">
                 <RefreshCw size={14} />
             </button>
         </div>
       </motion.div>
 
-      <p className="mt-8 text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">Powered by Modular Monolith Infrastructure</p>
+      <p className="mt-8 text-[10px] font-black text-neutral-700 uppercase tracking-[0.5em]">Powered by Modular Monolith Infrastructure</p>
     </div>
   );
 }

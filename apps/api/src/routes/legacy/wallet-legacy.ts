@@ -1,11 +1,12 @@
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { kv, SessionRepository, UserRepository } from "@repo/infrastructure";
+import { SessionRepository, WalletRepository, kv } from "@repo/infrastructure";
 
 export async function walletLegacyRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   const sessionRepo = new SessionRepository();
+  const walletRepo = new WalletRepository();
 
   typedFastify.all("/wallet.js", async (request) => {
     const query = request.query as any;
@@ -21,7 +22,7 @@ export async function walletLegacyRoutes(fastify: FastifyInstance) {
     const address = session.address;
 
     if (act === "get_balance") {
-        const balance = await kv.get<string>(`balance:${address}`) || "0";
+        const balance = await walletRepo.getBalance(address);
         return { balance, success: true };
     }
 
@@ -35,24 +36,25 @@ export async function walletLegacyRoutes(fastify: FastifyInstance) {
     if (act === "transfer") {
         const amount = body.amount;
         const target = body.to;
+        const token = body.token || "zhixi";
         if (!amount || !target) return { success: false, error: "INVALID_PARAMS" };
 
-        const balanceStr = await kv.get<string>(`balance:${address}`) || "0";
+        const balanceStr = await walletRepo.getBalance(address, token);
         const balanceNum = Number(balanceStr);
         const amountNum = Number(amount);
 
         if (balanceNum < amountNum) return { success: false, error: "INSUFFICIENT_BALANCE" };
 
-        const nextBalance = balanceNum - amountNum;
-        await kv.set(`balance:${address}`, nextBalance.toString());
+        const nextBalance = (balanceNum - amountNum).toString();
+        await walletRepo.updateBalance(address, nextBalance, token);
 
-        const targetBalanceStr = await kv.get<string>(`balance:${target}`) || "0";
+        const targetBalanceStr = await walletRepo.getBalance(target, token);
         const targetBalanceNum = Number(targetBalanceStr);
-        await kv.set(`balance:${target}`, (targetBalanceNum + amountNum).toString());
+        await walletRepo.updateBalance(target, (targetBalanceNum + amountNum).toString(), token);
 
         return {
             success: true,
-            newBalance: nextBalance.toString()
+            newBalance: nextBalance
         };
     }
 

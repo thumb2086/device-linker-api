@@ -6,6 +6,7 @@ import {
   IUserRepository,
   ISessionRepository,
   IWalletRepository,
+  IMarketRepository,
   IGameRepository,
   IOpsRepository,
   IStatsRepository
@@ -75,25 +76,24 @@ export class SessionRepository implements ISessionRepository {
   }
 }
 
-export class MetaRepository {
-  async saveRewardGrant(grant: any) {
-    if (!isPostgresReady) {
-      await kv.lpush('pg_mock:reward_grants', grant);
-      return;
-    }
-    return await db.insert(schema.rewardGrants).values(grant);
-  }
-
-  async saveMarketOrder(order: any) {
-    if (!isPostgresReady) {
-      await kv.lpush('pg_mock:market_orders', order);
-      return;
-    }
-    return await db.insert(schema.marketTrades).values(order);
-  }
-}
-
 export class WalletRepository implements IWalletRepository {
+  async getBalance(address: string, token: string = "zhixi") {
+    if (!isPostgresReady) {
+        const key = token === "yjc" ? `balance_yjc:${address.toLowerCase()}` : `balance:${address.toLowerCase()}`;
+        return await kv.get<string>(key) || "0";
+    }
+    return "0";
+  }
+
+  async updateBalance(address: string, amount: string, token: string = "zhixi") {
+    if (!isPostgresReady) {
+        const key = token === "yjc" ? `balance_yjc:${address.toLowerCase()}` : `balance:${address.toLowerCase()}`;
+        await kv.set(key, amount);
+        return amount;
+    }
+    return amount;
+  }
+
   async saveTxIntent(intent: any) {
     if (!isPostgresReady) {
       await kv.set(`pg_mock:tx_intent:${intent.id}`, intent);
@@ -121,6 +121,45 @@ export class WalletRepository implements IWalletRepository {
       where: (txIntents: any, { eq }: any) => eq(txIntents.status, "pending"),
     });
   }
+}
+
+export class MarketRepository implements IMarketRepository {
+    async getAccount(address: string) {
+        if (!isPostgresReady) {
+            return await kv.get<any>(`market_account:${address.toLowerCase()}`);
+        }
+        return await db.query.marketAccounts.findFirst({
+            where: (accounts: any, { eq }: any) => eq(accounts.address, address.toLowerCase()),
+        });
+    }
+
+    async saveAccount(address: string, account: any) {
+        if (!isPostgresReady) {
+            await kv.set(`market_account:${address.toLowerCase()}`, account);
+            return;
+        }
+        await db.insert(schema.marketAccounts).values({
+            address: address.toLowerCase(),
+            data: account,
+            updatedAt: new Date(),
+        }).onConflictDoUpdate({
+            target: schema.marketAccounts.address,
+            set: { data: account, updatedAt: new Date() },
+        });
+    }
+
+    async getMarketSnapshot() {
+        if (!isPostgresReady) {
+            return await kv.get<any>("market:snapshot");
+        }
+        return null;
+    }
+
+    async saveMarketSnapshot(snapshot: any) {
+        if (!isPostgresReady) {
+            await kv.set("market:snapshot", snapshot);
+        }
+    }
 }
 
 export class GameRepository implements IGameRepository {

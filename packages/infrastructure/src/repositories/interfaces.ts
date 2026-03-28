@@ -10,8 +10,17 @@ export interface ISessionRepository {
 }
 
 export interface IWalletRepository {
+  getBalance(address: string, token?: string): Promise<string>;
+  updateBalance(address: string, amount: string, token?: string): Promise<string>;
   saveTxIntent(intent: any): Promise<void>;
   getPendingIntents(): Promise<any[]>;
+}
+
+export interface IMarketRepository {
+  getAccount(address: string): Promise<any>;
+  saveAccount(address: string, account: any): Promise<void>;
+  getMarketSnapshot(): Promise<any>;
+  saveMarketSnapshot(snapshot: any): Promise<void>;
 }
 
 export interface IGameRepository {

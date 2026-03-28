@@ -6,10 +6,19 @@ import {
   ICustodyRepository
 } from "./interfaces.js";
 
-const sql = neon(process.env.DATABASE_URL!);
+// Lazy initialize neon only when used to avoid crash if env is missing
+let sqlInstance: any = null;
+const getSql = () => {
+  if (!sqlInstance) {
+    if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is missing");
+    sqlInstance = neon(process.env.DATABASE_URL);
+  }
+  return sqlInstance;
+};
 
 export class PostgresUserRepository implements IUserRepository {
   async saveUser(user: any) {
+    const sql = getSql();
     await sql`
       INSERT INTO users (id, address, display_name, created_at, updated_at)
       VALUES (${user.id}, ${user.address.toLowerCase()}, ${user.displayName || null}, ${user.createdAt}, NOW())
@@ -18,11 +27,13 @@ export class PostgresUserRepository implements IUserRepository {
   }
 
   async getUserById(id: string) {
+    const sql = getSql();
     const rows = await sql`SELECT * FROM users WHERE id = ${id} LIMIT 1`;
     return rows[0] || null;
   }
 
   async getUserByAddress(address: string) {
+    const sql = getSql();
     const rows = await sql`SELECT * FROM users WHERE address = ${address.toLowerCase()} LIMIT 1`;
     return rows[0] || null;
   }
@@ -30,6 +41,7 @@ export class PostgresUserRepository implements IUserRepository {
 
 export class PostgresSessionRepository implements ISessionRepository {
   async saveSession(session: any) {
+    const sql = getSql();
     await sql`
       INSERT INTO sessions (id, status, user_id, address, public_key, mode, account_id, platform, client_type, device_id, app_version, authorized_at, expires_at, created_at)
       VALUES (
@@ -47,6 +59,7 @@ export class PostgresSessionRepository implements ISessionRepository {
   }
 
   async getSessionById(id: string) {
+    const sql = getSql();
     const rows = await sql`SELECT * FROM sessions WHERE id = ${id} LIMIT 1`;
     return rows[0] || null;
   }

@@ -1,11 +1,9 @@
-// apps/api/src/routes/v1/market.ts
-
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
 import { MarketManager } from "@repo/domain";
-import { SessionRepository, UserRepository, kv, OpsRepository } from "@repo/infrastructure";
+import { SessionRepository, UserRepository, MarketRepository, OpsRepository } from "@repo/infrastructure";
 
 export async function marketRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -13,6 +11,7 @@ export async function marketRoutes(fastify: FastifyInstance) {
   const marketManager = new MarketManager();
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
+  const marketRepo = new MarketRepository();
   const opsRepo = new OpsRepository();
 
   const getContext = async (req: any) => {
@@ -25,12 +24,12 @@ export async function marketRoutes(fastify: FastifyInstance) {
   };
 
   const getAccount = async (address: string) => {
-    const raw = await kv.get<any>(`market_account:${address}`);
+    const raw = await marketRepo.getAccount(address);
     return marketManager.normalizeAccount(raw);
   };
 
   const saveAccount = async (address: string, account: any) => {
-    await kv.set(`market_account:${address}`, account);
+    await marketRepo.saveAccount(address, account);
   };
 
   // ─── Market Data ──────────────────────────────────────────────────────────

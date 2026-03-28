@@ -3,6 +3,7 @@ import {
   IUserRepository,
   ISessionRepository,
   IWalletRepository,
+  IMarketRepository,
   IGameRepository,
   IOpsRepository,
   IStatsRepository
@@ -36,6 +37,17 @@ export class KVSessionRepository implements ISessionRepository {
 }
 
 export class KVWalletRepository implements IWalletRepository {
+  async getBalance(address: string, token: string = "zhixi") {
+    const key = token === "yjc" ? `balance_yjc:${address.toLowerCase()}` : `balance:${address.toLowerCase()}`;
+    return await kv.get<string>(key) || "0";
+  }
+
+  async updateBalance(address: string, amount: string, token: string = "zhixi") {
+    const key = token === "yjc" ? `balance_yjc:${address.toLowerCase()}` : `balance:${address.toLowerCase()}`;
+    await kv.set(key, amount);
+    return amount;
+  }
+
   async saveTxIntent(intent: any) {
     await kv.set(`pg_mock:tx_intent:${intent.id}`, intent);
     if (intent.status === "pending") {
@@ -53,5 +65,23 @@ export class KVWalletRepository implements IWalletRepository {
       if (intent) intents.push(intent);
     }
     return intents;
+  }
+}
+
+export class KVMarketRepository implements IMarketRepository {
+  async getAccount(address: string) {
+    return await kv.get<any>(`market_account:${address.toLowerCase()}`);
+  }
+
+  async saveAccount(address: string, account: any) {
+    await kv.set(`market_account:${address.toLowerCase()}`, account);
+  }
+
+  async getMarketSnapshot() {
+    return await kv.get<any>("market:snapshot");
+  }
+
+  async saveMarketSnapshot(snapshot: any) {
+    await kv.set("market:snapshot", snapshot);
   }
 }

@@ -5,6 +5,7 @@ import {
   IUserRepository,
   ISessionRepository,
   IWalletRepository,
+  IMarketRepository,
   IGameRepository,
   IOpsRepository,
   IStatsRepository
@@ -47,5 +48,53 @@ export class DBSessionRepository implements ISessionRepository {
     return await db.query.sessions.findFirst({
       where: (sessions: any, { eq }: any) => eq(sessions.id, id),
     });
+  }
+}
+
+export class DBWalletRepository implements IWalletRepository {
+  async getBalance(address: string, token: string = "zhixi") {
+    // In real DB, we would query a balances table.
+    // For now, this is a placeholder interface implementation.
+    return "0";
+  }
+
+  async updateBalance(address: string, amount: string, token: string = "zhixi") {
+    return amount;
+  }
+
+  async saveTxIntent(intent: any) {
+    return await db.insert(schema.txIntents).values(intent);
+  }
+
+  async getPendingIntents() {
+    return await db.query.txIntents.findMany({
+      where: (txIntents: any, { eq }: any) => eq(txIntents.status, "pending"),
+    });
+  }
+}
+
+export class DBMarketRepository implements IMarketRepository {
+  async getAccount(address: string) {
+    return await db.query.marketAccounts.findFirst({
+        where: (accounts: any, { eq }: any) => eq(accounts.address, address.toLowerCase()),
+    });
+  }
+
+  async saveAccount(address: string, account: any) {
+    await db.insert(schema.marketAccounts).values({
+        address: address.toLowerCase(),
+        data: account,
+        updatedAt: new Date(),
+    }).onConflictDoUpdate({
+        target: schema.marketAccounts.address,
+        set: { data: account, updatedAt: new Date() },
+    });
+  }
+
+  async getMarketSnapshot() {
+    return null;
+  }
+
+  async saveMarketSnapshot(snapshot: any) {
   }
 }

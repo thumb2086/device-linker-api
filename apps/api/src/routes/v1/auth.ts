@@ -55,18 +55,50 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   typedFastify.post("/custody/login", {
-    schema: { body: z.object({ username: z.string(), password: z.string() }) },
+    schema: {
+      body: z.object({
+        username: z.string(),
+        password: z.string(),
+        platform: z.string().optional(),
+        clientType: z.string().optional(),
+        deviceId: z.string().optional(),
+        appVersion: z.string().optional()
+      })
+    },
   }, async (request) => {
-    const result = await authManager.loginCustody(request.body);
+    const { username, password, platform, clientType, deviceId, appVersion } = request.body;
+    const result = await authManager.loginCustody({
+      username,
+      password,
+      platform,
+      clientType,
+      deviceId,
+      appVersion
+    });
     if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
     return createApiEnvelope(result, request.id);
   });
 
   typedFastify.post("/custody/register", {
-    schema: { body: z.object({ username: z.string(), password: z.string() }) },
+    schema: {
+      body: z.object({
+        username: z.string(),
+        password: z.string(),
+        platform: z.string().optional(),
+        clientType: z.string().optional(),
+        deviceId: z.string().optional(),
+        appVersion: z.string().optional()
+      })
+    },
   }, async (request) => {
+    const { username, password, platform, clientType, deviceId, appVersion } = request.body;
     const result = await authManager.registerCustody({
-      ...request.body,
+      username,
+      password,
+      platform,
+      clientType,
+      deviceId,
+      appVersion,
       bonusAmount: CUSTODY_REGISTER_BONUS
     });
     if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
@@ -88,7 +120,6 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     const user = await userRepo.getUserById(session.userId);
     const balance = await walletRepo.getBalance(session.address);
-    // Note: totalBet might still need a dedicated field in User or Wallet Repo
     const totalBet = "0";
 
     return createApiEnvelope({

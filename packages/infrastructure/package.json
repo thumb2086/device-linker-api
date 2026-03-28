@@ -9,14 +9,15 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
     "@repo/shared": "workspace:*",
-    "drizzle-orm": "^0.30.0",
-    "postgres": "^3.4.0",
-    "ethers": "^6.10.0",
     "@vercel/kv": "^1.0.0",
-    "@neondatabase/serverless": "^0.10.4"
+    "drizzle-orm": "^0.30.0",
+    "ethers": "^6.10.0",
+    "postgres": "^3.4.0"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "drizzle-kit": "^0.20.0"
   }
 }

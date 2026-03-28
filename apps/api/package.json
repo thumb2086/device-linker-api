@@ -10,14 +10,17 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@repo/shared": "workspace:*",
+    "@neondatabase/serverless": "^0.10.4",
     "@repo/domain": "workspace:*",
     "@repo/infrastructure": "workspace:*",
+    "@repo/shared": "workspace:*",
+    "@vercel/kv": "^1.0.1",
+    "ethers": "^6.10.0",
     "fastify": "^4.26.0",
     "fastify-type-provider-zod": "^1.1.0",
-    "zod": "^3.22.0",
-    "ethers": "^6.10.0",
-    "@vercel/kv": "^1.0.1",
-    "@neondatabase/serverless": "^0.10.4"
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0"
   }
 }

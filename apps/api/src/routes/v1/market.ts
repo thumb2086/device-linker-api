@@ -7,7 +7,6 @@ import { SessionRepository, UserRepository, MarketRepository, OpsRepository } fr
 
 export async function marketRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
-  
   const marketManager = new MarketManager();
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
@@ -23,99 +22,44 @@ export async function marketRoutes(fastify: FastifyInstance) {
     return { session, user };
   };
 
-  const getAccount = async (address: string) => {
-    const raw = await marketRepo.getAccount(address);
-    return marketManager.normalizeAccount(raw);
-  };
-
-  const saveAccount = async (address: string, account: any) => {
-    await marketRepo.saveAccount(address, account);
-  };
-
-  // ─── Market Data ──────────────────────────────────────────────────────────
-
-  typedFastify.get("/snapshot", async (request) => {
-    const snapshot = marketManager.buildSnapshot();
-    return createApiEnvelope({ snapshot }, request.id);
-  });
-
-  // ─── User Market Account ──────────────────────────────────────────────────
-
   typedFastify.get("/me", async (request) => {
     const ctx = await getContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
-
     const snapshot = marketManager.buildSnapshot();
-    const account = await getAccount(ctx.session.address);
-    marketManager.settleLiquidations(account, snapshot);
-    await saveAccount(ctx.session.address, account);
-
-    const summary = marketManager.buildAccountSummary(account, snapshot);
-    return createApiEnvelope({ account: summary }, request.id);
+    const account = await marketRepo.getAccount(ctx.session.address);
+    const normalized = marketManager.normalizeAccount(account);
+    marketManager.settleLiquidations(normalized, snapshot);
+    await marketRepo.saveAccount(ctx.session.address, ctx.user.id, normalized);
+    return createApiEnvelope({ account: marketManager.buildAccountSummary(normalized, snapshot) }, request.id);
   });
-
-  // ─── Actions (Buy, Sell, Long, Short, Bank, Loan) ─────────────────────────
 
   typedFastify.post("/action", {
     schema: {
       body: z.object({
         sessionId: z.string(),
-        type: z.enum([
-            "stock_buy", "stock_sell", 
-            "futures_open", "futures_close",
-            "bank_deposit", "bank_withdraw",
-            "loan_borrow", "loan_repay"
-        ]),
+        type: z.enum(["stock_buy", "stock_sell", "bank_deposit", "bank_withdraw"]),
         symbol: z.string().optional(),
         amount: z.string().optional(),
         quantity: z.string().optional(),
-        side: z.enum(["long", "short"]).optional(),
-        leverage: z.string().optional(),
-        margin: z.string().optional(),
-        positionId: z.string().optional(),
       }),
     },
   }, async (request) => {
     const ctx = await getContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
-
-    const { type, symbol, amount, quantity, side, leverage, margin, positionId } = request.body;
-    const address = ctx.session.address;
-    
+    const { type, symbol, amount, quantity } = request.body;
     const snapshot = marketManager.buildSnapshot();
-    const account = await getAccount(address);
-    marketManager.settleLiquidations(account, snapshot);
+    const account = marketManager.normalizeAccount(await marketRepo.getAccount(ctx.session.address));
 
     let result: any;
     try {
-      switch (type) {
-        case "stock_buy": result = marketManager.buyStock(account, snapshot, symbol, quantity); break;
-        case "stock_sell": result = marketManager.sellStock(account, snapshot, symbol, quantity); break;
-        case "futures_open": result = marketManager.openFutures(account, snapshot, { symbol, side, margin, leverage }); break;
-        case "futures_close": result = marketManager.closeFutures(account, snapshot, positionId!); break;
-        case "bank_deposit": result = marketManager.bankDeposit(account, amount); break;
-        case "bank_withdraw": result = marketManager.bankWithdraw(account, amount); break;
-        case "loan_borrow": result = marketManager.borrowLoan(account, snapshot, amount); break;
-        case "loan_repay": result = marketManager.repayLoan(account, amount); break;
-      }
+      if (type === "stock_buy") result = marketManager.buyStock(account, snapshot, symbol, quantity);
+      else if (type === "stock_sell") result = marketManager.sellStock(account, snapshot, symbol, quantity);
+      else if (type === "bank_deposit") result = marketManager.bankDeposit(account, amount);
+      else if (type === "bank_withdraw") result = marketManager.bankWithdraw(account, amount);
+      await marketRepo.saveAccount(ctx.session.address, ctx.user.id, account);
+      return createApiEnvelope({ success: true, result }, request.id);
     } catch (e: any) {
-      return createApiEnvelope({ error: { message: e.message } }, request.id);
+      return createApiEnvelope(null, request.id, false, e.message);
     }
-
-    await saveAccount(address, account);
-    
-    // Log Ops
-    await opsRepo.logEvent({
-      channel: "market",
-      severity: "info",
-      source: "trading",
-      kind: type,
-      userId: ctx.user.id,
-      address,
-      message: `Market action ${type} completed`,
-      meta: result
-    });
-
-    return createApiEnvelope({ success: true, result, summary: marketManager.buildAccountSummary(account, snapshot) }, request.id);
   });
 }

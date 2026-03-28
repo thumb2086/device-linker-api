@@ -3,7 +3,13 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope, CUSTODY_REGISTER_BONUS } from "@repo/shared";
 import { IdentityManager, AuthManager } from "@repo/domain";
-import { kv, SessionRepository, UserRepository } from "@repo/infrastructure";
+import {
+  kv,
+  SessionRepository,
+  UserRepository,
+  CustodyRepository,
+  WalletRepository
+} from "@repo/infrastructure";
 import { randomUUID } from "crypto";
 
 export async function authRoutes(fastify: FastifyInstance) {
@@ -11,7 +17,16 @@ export async function authRoutes(fastify: FastifyInstance) {
   const identityManager = new IdentityManager();
   const userRepo = new UserRepository();
   const sessionRepo = new SessionRepository();
-  const authManager = new AuthManager(userRepo, sessionRepo, kv);
+  const custodyRepo = new CustodyRepository();
+  const walletRepo = new WalletRepository();
+
+  const authManager = new AuthManager(
+    userRepo,
+    sessionRepo,
+    custodyRepo,
+    walletRepo,
+    kv
+  );
 
   typedFastify.post("/create-session", async (request) => {
     try {
@@ -45,5 +60,44 @@ export async function authRoutes(fastify: FastifyInstance) {
     const result = await authManager.loginCustody(request.body);
     if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
     return createApiEnvelope(result, request.id);
+  });
+
+  typedFastify.post("/custody/register", {
+    schema: { body: z.object({ username: z.string(), password: z.string() }) },
+  }, async (request) => {
+    const result = await authManager.registerCustody({
+      ...request.body,
+      bonusAmount: CUSTODY_REGISTER_BONUS
+    });
+    if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
+    return createApiEnvelope(result, request.id);
+  });
+
+  typedFastify.get("/me", {
+    schema: {
+      querystring: z.object({ sessionId: z.string().optional() }).optional(),
+    },
+  }, async (request) => {
+    const sessionId = (request.query as any)?.sessionId;
+    if (!sessionId) return createApiEnvelope({ user: null }, request.id);
+
+    const session = await kv.get<any>(`session:${sessionId}`) || await sessionRepo.getSessionById(sessionId);
+    if (!session || session.status !== "authorized") {
+      return createApiEnvelope({ user: null }, request.id);
+    }
+
+    const user = await userRepo.getUserById(session.userId);
+    const balance = await walletRepo.getBalance(session.address);
+    // Note: totalBet might still need a dedicated field in User or Wallet Repo
+    const totalBet = "0";
+
+    return createApiEnvelope({
+      user,
+      address: session.address,
+      mode: session.mode,
+      username: session.accountId,
+      balance,
+      totalBet,
+    }, request.id);
   });
 }

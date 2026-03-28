@@ -1,16 +1,12 @@
 import { IdentityManager, CustodyUser, SessionData } from "./identity-manager.js";
 import { randomUUID } from "crypto";
-
-export interface IUserRepository {
-  saveUser(user: any): Promise<void>;
-  getUserByAddress(address: string): Promise<any>;
-  getUserById(id: string): Promise<any>;
-}
-
-export interface ISessionRepository {
-  saveSession(session: any): Promise<void>;
-  getSessionById(id: string): Promise<any>;
-}
+import {
+  IUserRepository,
+  ISessionRepository,
+  ICustodyRepository,
+  IWalletRepository,
+  KVClient
+} from "@repo/infrastructure";
 
 export interface AuthResult {
   success: boolean;
@@ -26,21 +22,23 @@ export class AuthManager {
   private identityManager: IdentityManager;
   private userRepo: IUserRepository;
   private sessionRepo: ISessionRepository;
-  private kv: any;
+  private custodyRepo: ICustodyRepository;
+  private walletRepo: IWalletRepository;
+  private kv: KVClient;
 
   constructor(
     userRepo: IUserRepository,
     sessionRepo: ISessionRepository,
-    kv: any
+    custodyRepo: ICustodyRepository,
+    walletRepo: IWalletRepository,
+    kv: KVClient
   ) {
     this.identityManager = new IdentityManager();
     this.userRepo = userRepo;
     this.sessionRepo = sessionRepo;
+    this.custodyRepo = custodyRepo;
+    this.walletRepo = walletRepo;
     this.kv = kv;
-  }
-
-  private custodyUserKey(username: string) {
-    return `custody_user:${username.toLowerCase()}`;
   }
 
   async registerCustody(params: {
@@ -65,19 +63,18 @@ export class AuthManager {
       return { success: false, error: { code: "INVALID_PASSWORD", message: passwordError } };
     }
 
-    const existingKV = await this.kv.get(this.custodyUserKey(normalizedUsername));
-    if (existingKV) {
+    const existing = await this.custodyRepo.getCustodyUser(normalizedUsername);
+    if (existing) {
       return { success: false, error: { code: "USERNAME_TAKEN", message: "Username already taken" } };
     }
 
     const custodyUser = this.identityManager.createCustodyUser(normalizedUsername, password);
-    await this.kv.set(this.custodyUserKey(normalizedUsername), { ...custodyUser, username: normalizedUsername });
+    await this.custodyRepo.saveCustodyUser(normalizedUsername, { ...custodyUser, username: normalizedUsername });
 
     if (bonusAmount) {
-      const bonusKey = `balance:${custodyUser.address}`;
-      const existing = await this.kv.get(bonusKey);
-      if (!existing) {
-        await this.kv.set(bonusKey, bonusAmount);
+      const balance = await this.walletRepo.getBalance(custodyUser.address);
+      if (parseFloat(balance) === 0) {
+        await this.walletRepo.updateBalance(custodyUser.address, bonusAmount);
       }
     }
 
@@ -105,13 +102,7 @@ export class AuthManager {
 
     const sessionWithUser = { ...session, userId: user.id };
 
-    await this.sessionRepo.saveSession({
-      ...sessionWithUser,
-      authorizedAt: new Date(),
-      createdAt: new Date(),
-      expiresAt: session.expiresAt ? new Date(session.expiresAt) : null
-    });
-
+    await this.sessionRepo.saveSession(sessionWithUser);
     await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
 
     return { success: true, sessionId, user };
@@ -128,7 +119,7 @@ export class AuthManager {
     const { username, password, platform, clientType, deviceId, appVersion } = params;
     const normalizedUsername = username.trim().toLowerCase();
 
-    const custodyUser = await this.kv.get(this.custodyUserKey(normalizedUsername));
+    const custodyUser = await this.custodyRepo.getCustodyUser(normalizedUsername);
     if (!custodyUser || !custodyUser.address) {
       return { success: false, error: { code: "INVALID_CREDENTIALS", message: "Invalid username or password" } };
     }
@@ -139,15 +130,10 @@ export class AuthManager {
       return { success: false, error: { code: "INVALID_CREDENTIALS", message: "Invalid username or password" } };
     }
 
-    const blacklisted = await this.kv.get(`blacklist:${completed.address}`);
-    if (blacklisted) {
-      return { success: false, error: { code: "BLACKLISTED", message: "This account is restricted" } };
-    }
-
-    let user = await userRepo.getUserByAddress(completed.address);
+    let user = await this.userRepo.getUserByAddress(completed.address);
     if (!user) {
       user = { id: randomUUID(), address: completed.address, createdAt: new Date(), updatedAt: new Date() };
-      await userRepo.saveUser(user);
+      await this.userRepo.saveUser(user);
     }
 
     const sessionId = `sess_custody_${randomUUID().slice(0, 12)}`;
@@ -163,12 +149,7 @@ export class AuthManager {
 
     const sessionWithUser = { ...session, userId: user.id };
 
-    await this.sessionRepo.saveSession({
-      ...sessionWithUser,
-      authorizedAt: new Date(),
-      createdAt: new Date(),
-      expiresAt: session.expiresAt ? new Date(session.expiresAt) : null
-    });
+    await this.sessionRepo.saveSession(sessionWithUser);
     await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
 
     return { success: true, sessionId, user };
@@ -176,7 +157,7 @@ export class AuthManager {
 
   async changePassword(username: string, current: string, next: string): Promise<AuthResult> {
     const normalizedUsername = username.trim().toLowerCase();
-    const custodyUser = await this.kv.get(this.custodyUserKey(normalizedUsername));
+    const custodyUser = await this.custodyRepo.getCustodyUser(normalizedUsername);
     if (!custodyUser) {
       return { success: false, error: { code: "NOT_FOUND", message: "Account not found" } };
     }
@@ -192,7 +173,7 @@ export class AuthManager {
     }
 
     const updated = this.identityManager.resetCustodyPassword(custodyUser, next);
-    await this.kv.set(this.custodyUserKey(normalizedUsername), { ...updated, username: normalizedUsername });
+    await this.custodyRepo.saveCustodyUser(normalizedUsername, { ...updated, username: normalizedUsername });
 
     return { success: true };
   }

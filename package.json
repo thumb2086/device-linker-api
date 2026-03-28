@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "pnpm -r dev",
-    "build": "pnpm -r build",
+    "build": "pnpm -r --filter \"@repo/*\" build && pnpm -r --filter \"api\" build && pnpm -r --filter \"web\" build",
     "postbuild": "shx cp apps/web/dist/index.html ./index.html && shx cp -r apps/web/dist/assets ./assets || shx true",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint"

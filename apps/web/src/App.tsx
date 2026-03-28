@@ -17,6 +17,8 @@ import { LobbyView } from './features/casino/LobbyView';
 import { SupportView } from './features/support/SupportView';
 import ProfileSetup from './features/profile/ProfileSetup';
 import AnnouncementCenter from './features/announcement/AnnouncementCenter';
+import SettingsView from './features/settings/SettingsView';
+import SoundPlayer from './components/SoundPlayer';
 import { useSyncUser } from './hooks/useSyncUser';
 import { useState } from 'react';
 
@@ -25,7 +27,6 @@ const queryClient = new QueryClient();
 function AppContent() {
   const { isAuthorized, sessionId } = useAuthStore();
   const { userData, isLoading } = useSyncUser();
-  const [showSetup, setShowSetup] = useState(false);
 
   // If authorized but no username, show setup
   const needsProfileSetup = isAuthorized && !isLoading && userData && !userData.user?.username;
@@ -46,7 +47,8 @@ function AppContent() {
 
   return (
       <Router>
-        <div className="relative min-h-screen bg-[#0f172a]">
+        <div className="relative min-h-screen bg-[#0a0a0a]">
+          <SoundPlayer />
           <AnnouncementCenter />
           <Routes>
             <Route path="/app" element={<Layout />}>
@@ -63,6 +65,7 @@ function AppContent() {
               <Route path="profile" element={<div>Profile</div>} />
               <Route path="inventory" element={<InventoryView />} />
               <Route path="admin" element={<AdminView />} />
+              <Route path="settings" element={<SettingsView />} />
             </Route>
             <Route path="/" element={<Navigate to="/app" replace />} />
           </Routes>

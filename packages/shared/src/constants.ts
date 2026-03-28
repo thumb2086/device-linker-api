@@ -177,3 +177,11 @@ export const DEFAULT_MAINTENANCE_MESSAGE = "目前暫停登入與遊戲，請稍
 
 // ─── Airdrop KV Key ───────────────────────────────────────────────────────────
 export const AIRDROP_DISTRIBUTED_TOTAL_KEY = "airdrop:distributed_total";
+
+// ─── Market Symbols ──────────────────────────────────────────────────────────
+export const MARKET_SYMBOLS = {
+  "BTC/USD": { basePrice: 50000, volatility: 0.05, phase: 0 },
+  "ETH/USD": { basePrice: 3000, volatility: 0.08, phase: 1 },
+  "SOL/USD": { basePrice: 100, volatility: 0.12, phase: 2 },
+  "YJC/USD": { basePrice: 0.1, volatility: 0.2, phase: 3 },
+};

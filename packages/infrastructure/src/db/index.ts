@@ -2,6 +2,14 @@ import { kv } from "@vercel/kv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema.js";
+import {
+  IUserRepository,
+  ISessionRepository,
+  IWalletRepository,
+  IGameRepository,
+  IOpsRepository,
+  IStatsRepository
+} from "../repositories/interfaces.js";
 
 const connectionString = process.env.DATABASE_URL;
 const isPostgresReady = !!connectionString && connectionString !== "postgres://localhost:5432/db";
@@ -15,7 +23,7 @@ if (isPostgresReady) {
   console.log(`[DB] No DATABASE_URL found. Using VERCEL KV as fallback backend.`);
 }
 
-export class UserRepository {
+export class UserRepository implements IUserRepository {
   async saveUser(user: any) {
     if (!isPostgresReady) {
       await kv.set(`pg_mock:user:${user.id}`, user);
@@ -47,7 +55,7 @@ export class UserRepository {
   }
 }
 
-export class SessionRepository {
+export class SessionRepository implements ISessionRepository {
   async saveSession(session: any) {
     if (!isPostgresReady) {
       await kv.set(`pg_mock:session:${session.id}`, session, { ex: 86400 * 7 });
@@ -85,7 +93,7 @@ export class MetaRepository {
   }
 }
 
-export class WalletRepository {
+export class WalletRepository implements IWalletRepository {
   async saveTxIntent(intent: any) {
     if (!isPostgresReady) {
       await kv.set(`pg_mock:tx_intent:${intent.id}`, intent);
@@ -115,7 +123,7 @@ export class WalletRepository {
   }
 }
 
-export class GameRepository {
+export class GameRepository implements IGameRepository {
   async saveRound(round: any) {
     if (!isPostgresReady) {
       await kv.set(`pg_mock:game_round:${round.id}`, round, { ex: 86400 * 30 });
@@ -135,7 +143,7 @@ export class GameRepository {
   }
 }
 
-export class OpsRepository {
+export class OpsRepository implements IOpsRepository {
   async logEvent(event: any) {
     const log = { ...event, id: crypto.randomUUID(), createdAt: new Date() };
     if (!isPostgresReady) {
@@ -160,7 +168,7 @@ export class OpsRepository {
   }
 }
 
-export class StatsRepository {
+export class StatsRepository implements IStatsRepository {
   async getLeaderboard(type: "total_bet" | "balance") {
     if (!isPostgresReady) {
       // Mocked for KV-fallback

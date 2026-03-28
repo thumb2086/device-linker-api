@@ -15,6 +15,7 @@ import {
   IStatsRepository,
   ICustodyRepository
 } from "../repositories/interfaces.js";
+import { eq, and, desc } from "drizzle-orm";
 
 const connectionString = process.env.DATABASE_URL;
 const isPostgresReady = !!connectionString &&
@@ -67,7 +68,13 @@ export class SessionRepository implements ISessionRepository {
     }
     await db.insert(schema.sessions).values(session).onConflictDoUpdate({
       target: schema.sessions.id,
-      set: { status: session.status, userId: session.userId, address: session.address, publicKey: session.publicKey },
+      set: {
+        status: session.status,
+        userId: session.userId,
+        address: session.address,
+        publicKey: session.publicKey,
+        authorizedAt: session.authorizedAt
+      },
     });
   }
   async getSessionById(id: string) {
@@ -78,13 +85,41 @@ export class SessionRepository implements ISessionRepository {
 
 export class WalletRepository implements IWalletRepository {
   async getBalance(address: string, token: string = "zhixi") {
-    const key = token === "yjc" ? `balance_yjc:${address.toLowerCase()}` : `balance:${address.toLowerCase()}`;
-    return await kv.get<string>(key) || "0";
+    if (!db) {
+      const key = token === "yjc" ? `balance_yjc:${address.toLowerCase()}` : `balance:${address.toLowerCase()}`;
+      return await kv.get<string>(key) || "0";
+    }
+    const account = await db.query.walletAccounts.findFirst({
+      where: (walletAccounts: any, { and, eq }: any) => and(
+        eq(walletAccounts.address, address.toLowerCase()),
+        eq(walletAccounts.token, token)
+      )
+    });
+    return account?.balance || "0";
   }
+
   async updateBalance(address: string, amount: string, token: string = "zhixi") {
-    const key = token === "yjc" ? `balance_yjc:${address.toLowerCase()}` : `balance:${address.toLowerCase()}`;
-    await kv.set(key, amount);
+    if (!db) {
+      const key = token === "yjc" ? `balance_yjc:${address.toLowerCase()}` : `balance:${address.toLowerCase()}`;
+      await kv.set(key, amount);
+      return;
+    }
+    // Need a userId for the record if creating new. Find user by address.
+    const user = await db.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, address.toLowerCase()) });
+    if (!user) throw new Error("User not found during balance update");
+
+    await db.insert(schema.walletAccounts).values({
+      userId: user.id,
+      address: address.toLowerCase(),
+      token: token,
+      balance: amount,
+      updatedAt: new Date()
+    }).onConflictDoUpdate({
+      target: [schema.walletAccounts.address, schema.walletAccounts.token],
+      set: { balance: amount, updatedAt: new Date() }
+    });
   }
+
   async saveTxIntent(intent: any) {
     if (!db) {
       await kv.set(`pg_mock:tx_intent:${intent.id}`, intent);
@@ -92,8 +127,12 @@ export class WalletRepository implements IWalletRepository {
       else await kv.srem("pg_mock:pending_intents", intent.id);
       return;
     }
-    await db.insert(schema.txIntents).values(intent);
+    await db.insert(schema.txIntents).values(intent).onConflictDoUpdate({
+      target: schema.txIntents.id,
+      set: { status: intent.status, txHash: intent.txHash, updatedAt: new Date() }
+    });
   }
+
   async getPendingIntents() {
     if (!db) {
       const ids = await kv.smembers("pg_mock:pending_intents") || [];
@@ -174,11 +213,39 @@ export class OpsRepository implements IOpsRepository {
 export class StatsRepository implements IStatsRepository {
   async getLeaderboard(type: "total_bet" | "balance") {
     if (!db) return [{ address: "0x1111...1111", displayName: "賭聖", value: "50000000", avatar: "👑", vipLevel: "創世等級" }];
+    // Simple placeholder for real leaderboard logic
     return await db.query.users.findMany({ limit: 10 });
   }
 }
 
 export class CustodyRepository implements ICustodyRepository {
-  async saveCustodyUser(username: string, data: any) { await kv.set(`custody_user:${username.toLowerCase()}`, data); }
-  async getCustodyUser(username: string) { return await kv.get<any>(`custody_user:${username.toLowerCase()}`); }
+  async saveCustodyUser(username: string, data: any) {
+    if (!db) {
+        await kv.set(`custody_user:${username.toLowerCase()}`, data);
+        return;
+    }
+    // Need a user ID. Find or create.
+    let user = await db.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, data.address.toLowerCase()) });
+    if (!user) {
+        const userId = crypto.randomUUID();
+        await db.insert(schema.users).values({ id: userId, address: data.address.toLowerCase(), displayName: username, createdAt: new Date(), updatedAt: new Date() });
+        user = { id: userId };
+    }
+    await db.insert(schema.custodyAccounts).values({
+        username: username.toLowerCase(),
+        passwordHash: data.passwordHash,
+        saltHex: data.saltHex,
+        address: data.address.toLowerCase(),
+        publicKey: data.publicKey || null,
+        userId: user.id,
+        updatedAt: new Date()
+    }).onConflictDoUpdate({
+        target: schema.custodyAccounts.username,
+        set: { updatedAt: new Date() }
+    });
+  }
+  async getCustodyUser(username: string) {
+    if (!db) return await kv.get<any>(`custody_user:${username.toLowerCase()}`);
+    return await db.query.custodyAccounts.findFirst({ where: (c: any, { eq }: any) => eq(c.username, username.toLowerCase()) });
+  }
 }

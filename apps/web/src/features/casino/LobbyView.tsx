@@ -19,7 +19,7 @@ import {
 import { formatNumber } from "@repo/shared";
 import { useUserStore } from "../../store/useUserStore";
 
-export const LobbyView: React.FC = () => {
+export default function LobbyView() {
     const { address, balance, username } = useUserStore();
     const [stats, setStats] = useState<any>(null);
 

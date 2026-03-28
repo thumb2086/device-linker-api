@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -13,7 +14,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '../../store/useUserStore';
 import { formatNumber } from '@repo/shared';
-import { Link } from 'react-router-dom';
 
 export default function WalletView() {
   const { t } = useTranslation();

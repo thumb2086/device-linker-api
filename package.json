@@ -10,7 +10,8 @@
     "dev": "pnpm -r dev",
     "build": "pnpm -r --filter \"@repo/*\" build && pnpm -r --filter \"api\" build && pnpm -r --filter \"web\" build",
     "postbuild": "shx cp apps/web/dist/index.html ./index.html && shx cp -r apps/web/dist/assets ./assets || shx true",
-    "migrate:neon": "tsx scripts/migrate-kv-to-neon.ts",
+    "db:push": "tsx scripts/db-push.ts",
+    "migrate:neon": "pnpm db:push && tsx scripts/migrate-kv-to-neon.ts",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint"
   },

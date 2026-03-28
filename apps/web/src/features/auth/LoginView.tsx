@@ -7,7 +7,6 @@ export default function LoginView() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
 
-  // Custody form state
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,11 +17,14 @@ export default function LoginView() {
       fetch('/api/v1/auth/create-session', { method: 'POST' })
         .then(res => res.json())
         .then(data => {
-          if (data.data?.sessionId) {
+          if (data.success && data.data?.sessionId) {
             setSessionId(data.data.sessionId);
             setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=dlinker://login?sessionId=${data.data.sessionId}`);
+          } else {
+            console.error("Failed to create session", data);
           }
-        });
+        })
+        .catch(err => console.error("Network error creating session", err));
     }
   }, [tab]);
 
@@ -33,7 +35,7 @@ export default function LoginView() {
       fetch(`/api/v1/auth/status?sessionId=${sessionId}`)
         .then(res => res.json())
         .then(data => {
-          if (data.data?.status === 'authorized') {
+          if (data.success && data.data?.status === 'authorized') {
             setAuth(data.data.address, sessionId, data.data.publicKey || '0x');
           }
         });
@@ -53,16 +55,20 @@ export default function LoginView() {
         body: JSON.stringify({ username, password })
       });
       const data = await res.json();
-      if (data.error) {
-        setError(data.error.message || 'Login failed');
+      if (!data.success) {
+        setError(data.error || 'Login failed');
       } else if (data.data?.sessionId) {
-        setAuth(data.data.address, data.data.sessionId, '0x');
+        setAuth(data.data.user.address, data.data.sessionId, '0x');
       }
     } catch (err) {
       setError('Connection error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDemoLogin = () => {
+      setAuth("0x1234567890123456789012345678901234567890", "demo_session", "0x");
   };
 
   return (
@@ -137,12 +143,15 @@ export default function LoginView() {
           >
             {loading ? '登入中...' : '立即登入'}
           </button>
-
-          <p className="text-center text-xs text-slate-400">
-            還沒有帳號？ <span className="text-blue-500 font-bold cursor-pointer hover:underline">立即註冊</span>
-          </p>
         </form>
       )}
+
+      <button
+        onClick={handleDemoLogin}
+        className="mt-4 text-[10px] text-slate-300 hover:text-slate-500 transition-colors uppercase font-bold tracking-tighter"
+      >
+        (DEBUG) Demo 快速跳過登入
+      </button>
 
       <div className="mt-8 pt-6 border-t border-slate-100 w-full">
         <div className="flex items-center justify-between px-2">

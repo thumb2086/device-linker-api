@@ -26,7 +26,7 @@ export class AuthManager {
   private identityManager: IdentityManager;
   private userRepo: IUserRepository;
   private sessionRepo: ISessionRepository;
-  private kv: any; // Using any for now to represent Vercel KV or similar
+  private kv: any;
 
   constructor(
     userRepo: IUserRepository,
@@ -103,16 +103,16 @@ export class AuthManager {
       ttlSeconds: 86400,
     });
 
+    const sessionWithUser = { ...session, userId: user.id };
+
     await this.sessionRepo.saveSession({
-      ...session,
-      userId: user.id,
+      ...sessionWithUser,
       authorizedAt: new Date(),
       createdAt: new Date(),
       expiresAt: session.expiresAt ? new Date(session.expiresAt) : null
     });
 
-    // We also keep it in KV for fast lookup if needed by middleware
-    await this.kv.set(`session:${sessionId}`, session, { ex: 86400 });
+    await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
 
     return { success: true, sessionId, user };
   }
@@ -144,10 +144,10 @@ export class AuthManager {
       return { success: false, error: { code: "BLACKLISTED", message: "This account is restricted" } };
     }
 
-    let user = await this.userRepo.getUserByAddress(completed.address);
+    let user = await userRepo.getUserByAddress(completed.address);
     if (!user) {
       user = { id: randomUUID(), address: completed.address, createdAt: new Date(), updatedAt: new Date() };
-      await this.userRepo.saveUser(user);
+      await userRepo.saveUser(user);
     }
 
     const sessionId = `sess_custody_${randomUUID().slice(0, 12)}`;
@@ -161,14 +161,15 @@ export class AuthManager {
       ttlSeconds: 86400,
     });
 
+    const sessionWithUser = { ...session, userId: user.id };
+
     await this.sessionRepo.saveSession({
-      ...session,
-      userId: user.id,
+      ...sessionWithUser,
       authorizedAt: new Date(),
       createdAt: new Date(),
       expiresAt: session.expiresAt ? new Date(session.expiresAt) : null
     });
-    await this.kv.set(`session:${sessionId}`, session, { ex: 86400 });
+    await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
 
     return { success: true, sessionId, user };
   }

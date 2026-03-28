@@ -1,0 +1,29 @@
+{
+  "auth": {
+    "login": "登入",
+    "qr_login": "掃描 QR 登入",
+    "custody_login": "受託帳號登入",
+    "username": "帳號",
+    "password": "密碼",
+    "login_btn": "立即登入系統",
+    "logging_in": "身分驗證中...",
+    "qr_instruction": "請使用手機端 Device Linker App 掃描二維碼進行身份授權",
+    "system_ready": "系統就緒"
+  },
+  "profile": {
+    "welcome": "歡迎加入",
+    "setup_instruction": "在開始之前，請為您的帳戶設定一個顯示名稱",
+    "nickname_placeholder": "輸入您的暱稱 (2-20 字元)",
+    "save_continue": "儲存並進入系統",
+    "saving": "儲存中..."
+  },
+  "announcement": {
+    "center": "公告中心",
+    "information_center": "資訊中心"
+  },
+  "error": {
+    "session_failed": "無法建立連線階段",
+    "connection": "網路連線錯誤",
+    "login_failed": "登入失敗"
+  }
+}

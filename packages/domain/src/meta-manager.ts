@@ -1,50 +1,25 @@
-import { RewardGrant, RewardGrantSchema, MarketOrder, MarketOrderSchema, SupportTicket, SupportTicketSchema, MARKET_SYMBOLS } from "@repo/shared";
+import { KVClient } from "@repo/infrastructure";
+
+export class SoundManager {
+  private PREF_KEY = "user:sound:prefs";
+
+  constructor(private kv: KVClient) {}
+
+  async getPrefs(userId: string) {
+    return await this.kv.get<any>(`${this.PREF_KEY}:${userId}`) || {
+      bgmEnabled: true,
+      sfxEnabled: true,
+      volume: 0.5
+    };
+  }
+
+  async savePrefs(userId: string, prefs: any) {
+    await this.kv.set(`${this.PREF_KEY}:${userId}`, prefs);
+  }
+}
 
 export class MetaManager {
-  // ... existing methods ...
+    constructor(private kv: KVClient) {}
 
-  calculatePrice(symbol: keyof typeof MARKET_SYMBOLS, tick: number): number {
-    const meta = MARKET_SYMBOLS[symbol];
-    const trend = Math.sin(tick / 10 + meta.phase);
-    return meta.basePrice * (1 + trend * meta.volatility);
-  }
-
-  grantReward(userId: string, rewardId: string, type: RewardGrant["type"], source: string, expiresAt?: Date): RewardGrant {
-    return RewardGrantSchema.parse({
-      id: crypto.randomUUID(),
-      userId,
-      rewardId,
-      type,
-      source,
-      expiresAt: expiresAt || null,
-      createdAt: new Date(),
-    });
-  }
-
-  createMarketOrder(userId: string, itemId: string, quantity: number, price: string): MarketOrder {
-    const total = (parseFloat(price) * quantity).toString();
-    return MarketOrderSchema.parse({
-      id: crypto.randomUUID(),
-      userId,
-      itemId,
-      quantity,
-      price,
-      total,
-      status: "pending",
-      createdAt: new Date(),
-    });
-  }
-
-  createSupportTicket(userId: string, subject: string, content: string): SupportTicket {
-    const now = new Date();
-    return SupportTicketSchema.parse({
-      id: crypto.randomUUID(),
-      userId,
-      subject,
-      content,
-      status: "open",
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+    // Add other meta/system wide logic here
 }

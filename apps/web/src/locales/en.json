@@ -1,0 +1,29 @@
+{
+  "auth": {
+    "login": "Login",
+    "qr_login": "Scan QR Login",
+    "custody_login": "Custody Login",
+    "username": "Username",
+    "password": "Password",
+    "login_btn": "Login Now",
+    "logging_in": "Authenticating...",
+    "qr_instruction": "Please use the Device Linker App to scan and authorize",
+    "system_ready": "System Ready"
+  },
+  "profile": {
+    "welcome": "Welcome",
+    "setup_instruction": "Please set a display name for your account before starting",
+    "nickname_placeholder": "Enter your nickname (2-20 chars)",
+    "save_continue": "Save and Continue",
+    "saving": "Saving..."
+  },
+  "announcement": {
+    "center": "Announcement Center",
+    "information_center": "Information Center"
+  },
+  "error": {
+    "session_failed": "Failed to create session",
+    "connection": "Connection error",
+    "login_failed": "Login failed"
+  }
+}

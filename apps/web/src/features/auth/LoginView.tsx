@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
 
 export default function LoginView() {
   const { setAuth } = useAuthStore();
+  const { t, i18n } = useTranslation();
   const [tab, setTab] = useState<'qr' | 'custody'>('qr');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
@@ -14,10 +17,13 @@ export default function LoginView() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
+  const toggleLanguage = () => {
+    i18n.changeLanguage(i18n.language === 'zh' ? 'en' : 'zh');
+  };
+
   const initSession = async () => {
     setError(null);
     try {
-      // Use legacy endpoint for better compatibility with app flows
       const res = await fetch('/api/user.js?action=create_session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -28,10 +34,10 @@ export default function LoginView() {
         setSessionId(data.sessionId);
         setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=dlinker://login?sessionId=${data.sessionId}`);
       } else {
-        setError("無法建立連線階段");
+        setError(t('error.session_failed'));
       }
     } catch (err: any) {
-      setError(`連線錯誤: ${err.message}`);
+      setError(`${t('error.connection')}: ${err.message}`);
     }
   };
 
@@ -67,26 +73,40 @@ export default function LoginView() {
       });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || '登入失敗');
+        setError(data.error || t('error.login_failed'));
       } else {
         setAuth(data.address, data.sessionId, '0x');
       }
     } catch (err) {
-      setError('網路連線錯誤');
+      setError(t('error.connection'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-md bg-[#1e293b] rounded-3xl shadow-2xl border border-slate-700/50 p-8 space-y-8">
+    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-6 font-sans">
+      <div className="absolute top-6 right-6">
+        <button
+          onClick={toggleLanguage}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 rounded-xl transition-all border border-slate-700/30"
+        >
+          <Globe size={18} />
+          <span className="text-xs font-black uppercase">{i18n.language === 'zh' ? 'English' : '中文'}</span>
+        </button>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md bg-[#1e293b] rounded-[2.5rem] shadow-2xl border border-slate-700/50 p-8 space-y-8"
+      >
         <header className="text-center space-y-2">
             <div className="mx-auto w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4">
                 <ShieldCheck size={32} className="text-white" />
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight">DEVICE LINKER</h1>
-            <p className="text-slate-400 text-sm font-medium uppercase tracking-widest">Secure Identity Protocol</p>
+            <h1 className="text-3xl font-black text-white tracking-tight uppercase">DEVICE LINKER</h1>
+            <p className="text-slate-400 text-xs font-black uppercase tracking-widest opacity-60">Identity Protocol</p>
         </header>
 
         <div className="flex bg-[#0f172a]/50 p-1.5 rounded-2xl border border-slate-700/30">
@@ -94,51 +114,51 @@ export default function LoginView() {
             onClick={() => setTab('qr')}
             className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${tab === 'qr' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}
           >
-            掃描 QR 登入
+            {t('auth.qr_login')}
           </button>
           <button
             onClick={() => setTab('custody')}
             className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${tab === 'custody' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}
           >
-            受託帳號登入
+            {t('auth.custody_login')}
           </button>
         </div>
 
         {tab === 'qr' ? (
           <div className="flex flex-col items-center space-y-6">
-            <div className="relative p-4 bg-white rounded-3xl shadow-inner">
+            <div className="relative p-4 bg-white rounded-3xl shadow-inner group overflow-hidden">
                {qrCodeUrl ? (
-                 <img src={qrCodeUrl} alt="QR Code" className="w-56 h-56" />
+                 <img src={qrCodeUrl} alt="QR Code" className="w-52 h-52 group-hover:scale-110 transition-transform duration-500" />
                ) : (
-                 <div className="w-56 h-56 bg-slate-100 flex items-center justify-center rounded-2xl">
+                 <div className="w-52 h-52 bg-slate-100 flex items-center justify-center rounded-2xl">
                     <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                  </div>
                )}
             </div>
             <p className="text-slate-400 text-xs text-center px-8 leading-relaxed font-medium">
-               請使用手機端 <span className="text-blue-400 font-bold">Device Linker App</span> 掃描二維碼進行身份授權
+               {t('auth.qr_instruction')}
             </p>
           </div>
         ) : (
           <form onSubmit={handleCustodyLogin} className="space-y-4">
             <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-tighter">Username</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-tighter">{t('auth.username')}</label>
                 <input
                     type="text"
                     value={username}
                     onChange={e => setUsername(e.target.value)}
-                    placeholder="輸入帳號"
+                    placeholder={t('auth.username')}
                     className="w-full bg-[#0f172a] border border-slate-700/50 rounded-2xl px-5 py-4 text-white text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-600"
                     required
                 />
             </div>
             <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-tighter">Password</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-tighter">{t('auth.password')}</label>
                 <input
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    placeholder="輸入密碼"
+                    placeholder={t('auth.password')}
                     className="w-full bg-[#0f172a] border border-slate-700/50 rounded-2xl px-5 py-4 text-white text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-600"
                     required
                 />
@@ -149,7 +169,7 @@ export default function LoginView() {
                 disabled={loading}
                 className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] disabled:opacity-50 mt-2"
             >
-                {loading ? '身分驗證中...' : '立即登入系統'}
+                {loading ? t('auth.logging_in') : t('auth.login_btn')}
             </button>
           </form>
         )}
@@ -157,13 +177,13 @@ export default function LoginView() {
         <div className="pt-6 border-t border-slate-700/30 flex justify-between items-center px-2">
             <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span className="text-[10px] font-black text-slate-500 uppercase">System Ready</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase">{t('auth.system_ready')}</span>
             </div>
-            <button onClick={() => setRetryCount(c => c + 1)} className="text-slate-500 hover:text-white transition-colors">
+            <button onClick={() => setRetryCount(c => c + 1)} className="p-2 text-slate-500 hover:text-white transition-colors bg-slate-800/30 rounded-lg">
                 <RefreshCw size={14} />
             </button>
         </div>
-      </div>
+      </motion.div>
 
       <p className="mt-8 text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">Powered by Modular Monolith Infrastructure</p>
     </div>

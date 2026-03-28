@@ -15,20 +15,40 @@ import HealthView from './features/stats/HealthView';
 import RoomLobbyView from './features/casino/RoomLobbyView';
 import { LobbyView } from './features/casino/LobbyView';
 import { SupportView } from './features/support/SupportView';
+import ProfileSetup from './features/profile/ProfileSetup';
+import AnnouncementCenter from './features/announcement/AnnouncementCenter';
 import { useSyncUser } from './hooks/useSyncUser';
+import { useState } from 'react';
 
 const queryClient = new QueryClient();
 
 function AppContent() {
-  const { isAuthorized } = useAuthStore();
-  useSyncUser();
+  const { isAuthorized, sessionId } = useAuthStore();
+  const { userData, isLoading } = useSyncUser();
+  const [showSetup, setShowSetup] = useState(false);
+
+  // If authorized but no username, show setup
+  const needsProfileSetup = isAuthorized && !isLoading && userData && !userData.user?.username;
+
+  if (!isAuthorized) {
+    return (
+      <Router>
+        <Routes>
+          <Route path="*" element={<LoginView />} />
+        </Routes>
+      </Router>
+    );
+  }
+
+  if (needsProfileSetup) {
+    return <ProfileSetup onComplete={() => window.location.reload()} />;
+  }
 
   return (
       <Router>
-        <Routes>
-          {!isAuthorized ? (
-            <Route path="*" element={<LoginView />} />
-          ) : (
+        <div className="relative min-h-screen bg-[#0f172a]">
+          <AnnouncementCenter />
+          <Routes>
             <Route path="/app" element={<Layout />}>
               <Route index element={<LobbyView />} />
               <Route path="casino/roulette" element={<RouletteView />} />
@@ -44,9 +64,9 @@ function AppContent() {
               <Route path="inventory" element={<InventoryView />} />
               <Route path="admin" element={<AdminView />} />
             </Route>
-          )}
-          <Route path="/" element={<Navigate to="/app" replace />} />
-        </Routes>
+            <Route path="/" element={<Navigate to="/app" replace />} />
+          </Routes>
+        </div>
       </Router>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { RefreshCw, AlertCircle } from 'lucide-react';
 
 export default function LoginView() {
   const { setAuth } = useAuthStore();
@@ -11,22 +12,35 @@ export default function LoginView() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const initSession = async () => {
+    setError(null);
+    setSessionId(null);
+    setQrCodeUrl(null);
+    try {
+      const res = await fetch('/api/v1/auth/create-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.success && data.data?.sessionId) {
+        setSessionId(data.data.sessionId);
+        setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=dlinker://login?sessionId=${data.data.sessionId}`);
+      } else {
+        setError(data.error || "無法建立連線階段");
+      }
+    } catch (err: any) {
+      setError(`連線錯誤: ${err.message}`);
+    }
+  };
 
   useEffect(() => {
     if (tab === 'qr') {
-      fetch('/api/v1/auth/create-session', { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.data?.sessionId) {
-            setSessionId(data.data.sessionId);
-            setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=dlinker://login?sessionId=${data.data.sessionId}`);
-          } else {
-            console.error("Failed to create session", data);
-          }
-        })
-        .catch(err => console.error("Network error creating session", err));
+      initSession();
     }
-  }, [tab]);
+  }, [tab, retryCount]);
 
   useEffect(() => {
     if (tab !== 'qr' || !sessionId) return;
@@ -56,12 +70,12 @@ export default function LoginView() {
       });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || 'Login failed');
+        setError(data.error || '登入失敗，請檢查帳號密碼');
       } else if (data.data?.sessionId) {
         setAuth(data.data.user.address, data.data.sessionId, '0x');
       }
     } catch (err) {
-      setError('Connection error');
+      setError('網路連線錯誤');
     } finally {
       setLoading(false);
     }
@@ -89,21 +103,33 @@ export default function LoginView() {
       </div>
 
       {tab === 'qr' ? (
-        <div className="flex flex-col items-center space-y-6 text-center">
+        <div className="flex flex-col items-center space-y-6 text-center w-full">
           <h2 className="text-2xl font-bold text-slate-800">掃碼授權</h2>
           <p className="text-slate-500 text-sm px-4">請使用 Device Linker App 掃描下方二維碼以登入此網頁端。</p>
 
-          <div className="relative group">
+          <div className="relative group w-64 h-64 flex items-center justify-center">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
             {qrCodeUrl ? (
-              <img src={qrCodeUrl} alt="QR Code" className="relative w-52 h-52 border-8 border-white rounded-2xl shadow-sm" />
+              <img src={qrCodeUrl} alt="QR Code" className="relative w-full h-full border-8 border-white rounded-2xl shadow-sm" />
             ) : (
-              <div className="relative w-52 h-52 bg-slate-50 animate-pulse rounded-2xl border-8 border-white shadow-sm" />
+              <div className="relative w-full h-full bg-slate-100 animate-pulse rounded-2xl border-8 border-white shadow-sm flex items-center justify-center">
+                 {error ? <AlertCircle className="text-rose-400" size={48} /> : <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
+              </div>
             )}
           </div>
 
-          <div className="text-[10px] font-mono text-slate-300 uppercase tracking-widest">
-            Session: {sessionId || 'Initializing...'}
+          {error && (
+             <div className="text-rose-500 text-xs bg-rose-50 p-3 rounded-xl border border-rose-100 w-full flex items-center gap-2">
+                <AlertCircle size={14} />
+                <span className="flex-1 text-left">{error}</span>
+                <button onClick={() => setRetryCount(c => c + 1)} className="p-1 hover:bg-rose-100 rounded transition-colors">
+                   <RefreshCw size={14} />
+                </button>
+             </div>
+          )}
+
+          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+            Session: {sessionId || (error ? 'FAILED' : 'Initializing...')}
           </div>
         </div>
       ) : (
@@ -148,7 +174,7 @@ export default function LoginView() {
 
       <button
         onClick={handleDemoLogin}
-        className="mt-4 text-[10px] text-slate-300 hover:text-slate-500 transition-colors uppercase font-bold tracking-tighter"
+        className="mt-6 text-[10px] text-slate-300 hover:text-slate-500 transition-colors uppercase font-bold tracking-tighter"
       >
         (DEBUG) Demo 快速跳過登入
       </button>

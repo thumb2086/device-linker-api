@@ -23,6 +23,11 @@ export interface IMarketRepository {
   saveMarketSnapshot(snapshot: any): Promise<void>;
 }
 
+export interface IMetaRepository {
+  saveRewardGrant(grant: any): Promise<void>;
+  saveMarketOrder(order: any): Promise<void>;
+}
+
 export interface IGameRepository {
   saveRound(round: any): Promise<void>;
   getRoundById(id: string): Promise<any>;

@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { kv } from "../kv/index.js";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema.js";
@@ -7,13 +7,17 @@ import {
   ISessionRepository,
   IWalletRepository,
   IMarketRepository,
+  IMetaRepository,
   IGameRepository,
   IOpsRepository,
   IStatsRepository
 } from "../repositories/interfaces.js";
 
 const connectionString = process.env.DATABASE_URL;
-const isPostgresReady = !!connectionString && connectionString !== "postgres://localhost:5432/db";
+const isPostgresReady = !!connectionString &&
+                        connectionString !== "postgres://localhost:5432/db" &&
+                        !connectionString.includes("mock") &&
+                        process.env.MOCK_DB !== "true";
 
 let db: any = null;
 if (isPostgresReady) {
@@ -21,7 +25,7 @@ if (isPostgresReady) {
   const client = postgres(connectionString as string);
   db = drizzle(client, { schema });
 } else {
-  console.log(`[DB] No DATABASE_URL found. Using VERCEL KV as fallback backend.`);
+  console.log(`[DB] Database not ready or forced to mock. Using VERCEL KV as fallback backend.`);
 }
 
 export class UserRepository implements IUserRepository {
@@ -112,7 +116,7 @@ export class WalletRepository implements IWalletRepository {
       const ids = await kv.smembers("pg_mock:pending_intents") || [];
       const intents = [];
       for (const id of ids) {
-         const intent = await kv.get(`pg_mock:tx_intent:${id}`);
+         const intent = await kv.get(`pg_mock:tx_intent:`);
          if (intent) intents.push(intent);
       }
       return intents;
@@ -160,6 +164,24 @@ export class MarketRepository implements IMarketRepository {
             await kv.set("market:snapshot", snapshot);
         }
     }
+}
+
+export class MetaRepository implements IMetaRepository {
+  async saveRewardGrant(grant: any) {
+    if (!isPostgresReady) {
+      await kv.lpush('pg_mock:reward_grants', grant);
+      return;
+    }
+    return await db.insert(schema.rewardGrants).values(grant);
+  }
+
+  async saveMarketOrder(order: any) {
+    if (!isPostgresReady) {
+      await kv.lpush('pg_mock:market_orders', order);
+      return;
+    }
+    return await db.insert(schema.marketTrades).values(order);
+  }
 }
 
 export class GameRepository implements IGameRepository {

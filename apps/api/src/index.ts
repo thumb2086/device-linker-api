@@ -10,7 +10,6 @@ import { meRoutes } from "./routes/v1/me.js";
 import { statsRoutes } from "./routes/v1/stats.js";
 import { supportRoutes } from "./routes/v1/support.js";
 import { legacyRoutes } from "./routes/legacy/index.js";
-import { processIntents } from "../../worker/src/index.js";
 
 const fastify = Fastify({
   logger: true,
@@ -19,10 +18,8 @@ const fastify = Fastify({
 fastify.setValidatorCompiler(validatorCompiler);
 fastify.setSerializerCompiler(serializerCompiler);
 
-// Legacy routes for compatibility (e.g. /api/user.js)
+// 註冊路由
 fastify.register(legacyRoutes, { prefix: "/api" });
-
-// Versioned v1 routes
 fastify.register(authRoutes, { prefix: "/api/v1/auth" });
 fastify.register(walletRoutes, { prefix: "/api/v1/wallet" });
 fastify.register(gameRoutes, { prefix: "/api/v1/games" });
@@ -34,33 +31,27 @@ fastify.register(adminRoutes, { prefix: "/api/v1/admin" });
 fastify.register(supportRoutes, { prefix: "/api/v1/support" });
 
 fastify.get("/health", async () => {
-  return { status: "ok" };
+  return { status: "ok", env: process.env.NODE_ENV };
 });
 
-// Vercel Cron endpoint
-fastify.get("/api/cron/process-intents", async (request, reply) => {
-    // In production, verify auth header from Vercel
-    await processIntents();
-    return { success: true };
-});
-
-// For Vercel, we export the app
-const handler = async (req: any, res: any) => {
+// Vercel 部署使用的 Handler
+export default async (req: any, res: any) => {
   await fastify.ready();
   fastify.server.emit('request', req, res);
 };
 
-export { handler as default };
+// 本機執行啟動
+const port = Number(process.env.PORT) || 3000;
+const start = async () => {
+  try {
+    await fastify.listen({ port, host: "0.0.0.0" });
+    console.log(`🚀 Server ready at http://localhost:${port}`);
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+};
 
-// For local dev
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  const start = async () => {
-    try {
-      await fastify.listen({ port: 3000, host: "0.0.0.0" });
-    } catch (err) {
-      fastify.log.error(err);
-      process.exit(1);
-    }
-  };
+if (!process.env.VERCEL) {
   start();
 }

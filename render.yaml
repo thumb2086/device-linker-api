@@ -6,7 +6,7 @@ services:
     plan: free
     region: oregon
     buildCommand: pnpm install && pnpm build
-    startCommand: pnpm --filter api start
+    startCommand: pnpm migrate:neon && pnpm --filter api start
     envVars:
       - key: NODE_ENV
         value: production
@@ -17,11 +17,11 @@ services:
           name: device-linker-db
           property: connectionString
       - key: KV_URL
-        value: redis://your-redis-url # Placeholder for KV
+        value: redis://your-redis-url
       - key: KV_REST_API_URL
-        value: https://your-kv-url # Placeholder for Vercel KV
+        value: https://your-kv-url
       - key: KV_REST_API_TOKEN
-        value: your-token # Placeholder for Vercel KV
+        value: your-token
 
   # Frontend Static Site
   - type: static

@@ -91,14 +91,16 @@ export const totalBetLedger = pgTable("total_bet_ledger", {
 
 export const walletAccounts = pgTable("wallet_accounts", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").notNull().references(() => users.id).unique(),
-  address: text("address").notNull().unique(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  address: text("address").notNull(),
   token: text("token").notNull().default("zhixi"),
   balance: numeric("balance").notNull().default("0"),
   lockedBalance: numeric("locked_balance").notNull().default("0"),
   airdropDistributed: numeric("airdrop_distributed").notNull().default("0"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  addrTokenIdx: uniqueIndex("wallet_addr_token_idx").on(table.address, table.token),
+}));
 
 export const walletLedgerEntries = pgTable("wallet_ledger_entries", {
   id: uuid("id").primaryKey().defaultRandom(),

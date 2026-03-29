@@ -14,7 +14,7 @@ import {
   IStatsRepository,
   ICustodyRepository
 } from "../repositories/interfaces.js";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql as drizzleSql } from "drizzle-orm";
 
 const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
@@ -482,18 +482,47 @@ export class CustodyRepository implements ICustodyRepository {
   async getCustodyUser(username: string) {
     const conn = await requireDb();
     const normalizedUsername = username.toLowerCase();
-    return await conn.query.custodyAccounts.findFirst({
-      where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
-    });
+    const rows = await conn.execute(
+      drizzleSql`
+        SELECT
+          username,
+          password_hash AS "passwordHash",
+          salt_hex AS "saltHex",
+          address,
+          public_key AS "publicKey",
+          user_id AS "userId",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM custody_accounts
+        WHERE lower(username) = ${normalizedUsername}
+        LIMIT 1
+      `
+    );
+    return rows[0] ?? null;
   }
 
   async getLegacyCustodyUser(username: string) {
     const conn = await requireDb();
     const normalizedUsername = username.toLowerCase();
+    const tableExists = await conn.execute(
+      drizzleSql`SELECT to_regclass('public.custody_users') AS "tableName"`
+    );
+    if (!tableExists[0]?.tableName) return null;
 
-    const legacy = await (conn.query as any).custodyUsers?.findFirst?.({
-      where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
-    });
+    const rows = await conn.execute(
+      drizzleSql`
+        SELECT
+          username,
+          password_hash AS "passwordHash",
+          salt_hex AS "saltHex",
+          address,
+          raw
+        FROM custody_users
+        WHERE lower(username) = ${normalizedUsername}
+        LIMIT 1
+      `
+    );
+    const legacy = rows[0];
 
     if (!legacy?.address || !legacy?.passwordHash || !legacy?.saltHex) return null;
 

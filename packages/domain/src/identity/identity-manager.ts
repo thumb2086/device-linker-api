@@ -17,6 +17,7 @@ export interface CustodyUser {
   publicKey: string;
   createdAt: string;
   updatedAt?: string;
+  userId?: string;
 }
 
 export interface SessionData {
@@ -33,6 +34,7 @@ export interface SessionData {
   authorizedAt?: string;
   expiresAt?: string | null;
   createdAt?: string;
+  userId?: string;
 }
 
 export interface CreateSessionOptions {
@@ -47,7 +49,7 @@ export class IdentityManager {
   // ─── Session ────────────────────────────────────────────────────────────────
 
   createPendingSession(sessionId: string, options: CreateSessionOptions = {}): SessionData {
-    const ttl = options.ttlSeconds ?? null;
+    const ttl = options.ttlSeconds ?? SESSION_DEFAULT_TTL_SECONDS;
     return {
       id: sessionId || `session_${randomUUID()}`,
       status: "pending",

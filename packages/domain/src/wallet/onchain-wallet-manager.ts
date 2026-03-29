@@ -17,6 +17,9 @@ export interface OnchainRuntimeConfig {
 }
 
 const ZXC_PER_YJC = 100_000_000;
+const DEFAULT_ZXC_CONTRACT_ADDRESS = "0xe3d9af5f15857cb01e0614fa281fcc3256f62050";
+const DEFAULT_YJC_CONTRACT_ADDRESS = "0x82d6adb17d58820324d86b378775350d03a071ae";
+const DEFAULT_ADMIN_WALLET_ADDRESS = "0xdbbd3c856859268e27df4874a464468f41cb542a";
 
 function normalizePrivateKey(raw: string): string {
   const trimmed = String(raw || "").trim();
@@ -40,12 +43,16 @@ export class OnchainWalletManager {
       process.env.PRC ||
       "https://ethereum-sepolia-rpc.publicnode.com"
     ).trim();
-    const adminWalletAddress = normalizeAddress(String(process.env.ADMIN_WALLET_ADDRESS || ""));
+    const adminWalletAddress = normalizeAddress(
+      String(process.env.ADMIN_WALLET_ADDRESS || DEFAULT_ADMIN_WALLET_ADDRESS)
+    );
 
     const zxcContractAddress = normalizeAddress(
-      String(process.env.ZXC_CONTRACT_ADDRESS || process.env.CONTRACT_ADDRESS || "")
+      String(process.env.ZXC_CONTRACT_ADDRESS || process.env.CONTRACT_ADDRESS || DEFAULT_ZXC_CONTRACT_ADDRESS)
     );
-    const yjcContractAddress = normalizeAddress(String(process.env.YJC_CONTRACT_ADDRESS || ""));
+    const yjcContractAddress = normalizeAddress(
+      String(process.env.YJC_CONTRACT_ADDRESS || DEFAULT_YJC_CONTRACT_ADDRESS)
+    );
 
     const zxcLossPoolAddress = normalizeAddress(
       String(process.env.LOSS_POOL_ADDRESS || adminWalletAddress || "")

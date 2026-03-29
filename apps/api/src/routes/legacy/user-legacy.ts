@@ -87,7 +87,7 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
 
         if (act === "custody_login") {
             const result = await authManager.loginCustody(body);
-            if (!result.success) return { success: false, error: result.error?.message };
+            if (!result.success) return { success: false, error: result.error?.message, debug: result.debug };
             return {
                 success: true,
                 status: "authorized",

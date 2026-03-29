@@ -11,8 +11,10 @@ import {
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
+import { useUserStore } from '../../store/useUserStore';
 import AppBottomNav from '../../components/AppBottomNav';
 import { useWallet } from './useWallet';
+import { resolvePreferredBalance } from '../../utils/balance';
 
 function AssetCard({
   label,
@@ -37,6 +39,7 @@ function AssetCard({
 export default function WalletView() {
   const { t, i18n } = useTranslation();
   const { amountDisplay } = usePreferencesStore();
+  const { balance: syncedBalance } = useUserStore();
   const { summary, airdrop, transfer, convert } = useWallet();
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
@@ -50,10 +53,20 @@ export default function WalletView() {
   const onchain = summary.data?.onchain;
   const canClaimAirdrop = summary.data?.canClaimAirdrop ?? true;
   const nextAirdropAt = summary.data?.nextAirdropAt;
-  const zxcBalance = walletSummary?.balances?.ZXC || '0';
-  const yjcBalance = walletSummary?.balances?.YJC || '0';
+  const zxcBalance = resolvePreferredBalance({
+    onchainBalance: onchain?.zxc?.balance,
+    onchainAvailable: onchain?.zxc?.available,
+    walletBalance: walletSummary?.balances?.ZXC,
+    fallbackBalance: syncedBalance,
+  });
+  const yjcBalance = resolvePreferredBalance({
+    onchainBalance: onchain?.yjc?.balance,
+    onchainAvailable: onchain?.yjc?.available,
+    walletBalance: walletSummary?.balances?.YJC,
+  });
   const marketNetWorth = assets?.market?.overlayNetWorth || assets?.market?.netWorth || '0';
   const walletOnlyTotal = (Number(zxcBalance || 0) + Number(yjcBalance || 0)).toFixed(4);
+  const totalBalance = (Number(walletOnlyTotal) + Number(marketNetWorth || 0)).toFixed(4);
 
   const zh = {
     wallet: '\u9322\u5305',
@@ -105,7 +118,7 @@ export default function WalletView() {
         <section className="rounded-[2rem] border border-[#494847]/10 bg-gradient-to-br from-[#1a1919] to-[#0e0e0e] p-8 shadow-[0_0_50px_rgba(252,192,37,0.08)]">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#adaaaa]">{t('vault.total_assets')}</p>
           <p className="mt-4 text-5xl font-black italic tracking-tighter text-[#fcc025]">
-            {formatNumber(walletSummary?.totalBalance || 0, numberMode)}
+            {formatNumber(totalBalance, numberMode)}
           </p>
           <div className="mt-4 flex flex-wrap gap-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#adaaaa]">
             <span>{isZh ? zh.wallet : 'Wallet'} {formatNumber(walletOnlyTotal, numberMode)}</span>
@@ -203,8 +216,8 @@ export default function WalletView() {
                   {convert.isPending ? (isZh ? zh.converting : 'Converting') : (isZh ? zh.startConvert : 'Convert')}
                 </button>
                 <div className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4 text-xs font-bold text-[#adaaaa]">
-                  <div>{isZh ? zh.zxcOnchain : 'ZXC on-chain'}: {formatNumber(onchain?.zxc?.balance || zxcBalance, numberMode)}</div>
-                  <div className="mt-1">{isZh ? zh.yjcOnchain : 'YJC on-chain'}: {formatNumber(onchain?.yjc?.balance || yjcBalance, numberMode)}</div>
+                  <div>{isZh ? zh.zxcOnchain : 'ZXC on-chain'}: {formatNumber(zxcBalance, numberMode)}</div>
+                  <div className="mt-1">{isZh ? zh.yjcOnchain : 'YJC on-chain'}: {formatNumber(yjcBalance, numberMode)}</div>
                   <div className="mt-1">{isZh ? zh.adminSigner : 'Admin signer'}: {onchain?.adminAddress || (isZh ? zh.notConfigured : 'not configured')}</div>
                 </div>
               </div>

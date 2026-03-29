@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useUserStore } from '../store/useUserStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
+import { resolvePreferredBalance } from '../utils/balance';
 
 export function useSyncUser() {
   const { address, sessionId } = useAuthStore();
@@ -28,11 +29,12 @@ export function useSyncUser() {
         walletData = walletPayload?.data || {};
       }
 
-      const walletBalance =
-        walletData?.onchain?.zxc?.balance ||
-        walletData?.summary?.balances?.ZXC ||
-        authData?.balance ||
-        '0';
+      const walletBalance = resolvePreferredBalance({
+        onchainBalance: walletData?.onchain?.zxc?.balance,
+        onchainAvailable: walletData?.onchain?.zxc?.available,
+        walletBalance: walletData?.summary?.balances?.ZXC,
+        fallbackBalance: authData?.balance,
+      });
 
       return {
         ...authData,

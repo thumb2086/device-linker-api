@@ -9,10 +9,16 @@ export default function PublicTransactionsView() {
     queryKey: ['public-transactions'],
     queryFn: async () => {
       const res = await axios.get('/api/v1/transactions/public', { params: { limit: 40 } });
-      return res.data.data.items as Array<any>;
+      return res.data.data as { items: Array<any>; stats: any };
     },
     refetchInterval: 15000,
   });
+
+  const items = data?.items || [];
+  const stats = data?.stats;
+  const metric = (value: number | null | undefined, suffix = '%') => (
+    typeof value === 'number' ? `${value}${suffix}` : '--'
+  );
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
@@ -24,14 +30,33 @@ export default function PublicTransactionsView() {
       </header>
 
       <main className="mx-auto max-w-4xl px-6 pt-24">
+        <section className="mb-6 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-5 shadow-2xl">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Overall Success Rate</p>
+            <p className="mt-3 text-3xl font-black italic tracking-tight text-[#fcc025]">{metric(stats?.overallSuccessRate)}</p>
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">
+              {stats?.successfulTransactions ?? 0} success / {stats?.scoredTransactions ?? 0} scored
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-5 shadow-2xl">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Wallet Execution</p>
+            <p className="mt-3 text-3xl font-black italic tracking-tight text-[#fcc025]">{metric(stats?.walletExecutionSuccessRate)}</p>
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">Confirmed wallet intents</p>
+          </div>
+          <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-5 shadow-2xl">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Market Win Rate</p>
+            <p className="mt-3 text-3xl font-black italic tracking-tight text-[#fcc025]">{metric(stats?.marketWinRate)}</p>
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">Closed/realized market outcomes</p>
+          </div>
+        </section>
         <section className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Latest Market & Wallet Activity</p>
           <div className="mt-4 space-y-3">
             {isLoading && <div className="text-sm text-[#adaaaa]">載入中...</div>}
-            {!isLoading && !data?.length && (
+            {!isLoading && !items.length && (
               <div className="rounded-xl border border-dashed border-[#494847]/20 p-4 text-sm text-[#adaaaa]">尚無公開交易資料</div>
             )}
-            {data?.map((item) => (
+            {items.map((item) => (
               <div key={item.id} className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>

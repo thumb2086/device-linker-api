@@ -19,8 +19,9 @@ export async function transactionRoutes(fastify: FastifyInstance) {
     },
   }, async (request) => {
     const limit = request.query?.limit ?? 50;
-    const [walletEntries, marketTrades] = await Promise.all([
+    const [walletEntries, walletIntents, marketTrades] = await Promise.all([
       walletRepo.listLedgerEntries({ limit }),
+      walletRepo.listTxIntents({ limit }),
       marketRepo.listTrades({ limit }),
     ]);
 
@@ -30,6 +31,12 @@ export async function transactionRoutes(fastify: FastifyInstance) {
       amount: Number(entry.amount),
     })), marketTrades, limit);
 
-    return createApiEnvelope({ items }, request.id);
+    const stats = transactionManager.buildPublicStats(walletIntents.map((intent: any) => ({
+      ...intent,
+      token: intent.token === "yjc" ? "YJC" : "ZXC",
+      amount: Number(intent.amount),
+    })), marketTrades, items.length);
+
+    return createApiEnvelope({ items, stats }, request.id);
   });
 }

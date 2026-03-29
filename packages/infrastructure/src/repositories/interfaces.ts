@@ -16,6 +16,7 @@ export interface IWalletRepository {
   updateBalance(address: string, amount: string, token?: string): Promise<void>;
   saveTxIntent(intent: any): Promise<void>;
   getPendingIntents(): Promise<any[]>;
+  listTxIntents(options?: { address?: string; limit?: number }): Promise<any[]>;
   saveTxAttempt(attempt: any): Promise<void>;
   saveTxReceipt(receipt: any): Promise<void>;
   saveLedgerEntry(entry: any): Promise<void>;

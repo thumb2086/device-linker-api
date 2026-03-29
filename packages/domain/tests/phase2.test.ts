@@ -57,6 +57,28 @@ describe('Phase 2 Domain Logic', () => {
     expect(feed[0].maskedAddress).toContain('...');
   });
 
+  it('calculates wallet execution and market win rates', () => {
+    const manager = new TransactionManager();
+    const stats = manager.buildPublicStats(
+      [
+        { id: 'tx-1', address: '0xabc', token: 'ZXC', type: 'transfer', status: 'confirmed', amount: 10, createdAt: '2026-03-29T08:00:00.000Z' },
+        { id: 'tx-2', address: '0xabc', token: 'ZXC', type: 'withdrawal', status: 'failed', amount: 5, createdAt: '2026-03-29T09:00:00.000Z' },
+      ],
+      [
+        { id: 'market-1', address: '0xabc', type: 'futures_close', pnl: 25, createdAt: '2026-03-29T10:00:00.000Z' },
+        { id: 'market-2', address: '0xabc', type: 'stock_sell', pnl: -5, createdAt: '2026-03-29T11:00:00.000Z' },
+      ],
+      4
+    );
+
+    expect(stats.totalTransactions).toBe(4);
+    expect(stats.walletExecutionSuccessRate).toBe(50);
+    expect(stats.marketWinRate).toBe(50);
+    expect(stats.overallSuccessRate).toBe(50);
+    expect(stats.successfulTransactions).toBe(2);
+    expect(stats.failedTransactions).toBe(2);
+  });
+
   it('keeps market account operations internally consistent', () => {
     const manager = new MarketManager();
     const snapshot = manager.buildSnapshot(Date.parse('2026-03-29T00:00:00.000Z'));

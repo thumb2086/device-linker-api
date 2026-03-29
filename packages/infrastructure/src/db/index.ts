@@ -476,6 +476,20 @@ export class WalletRepository implements IWalletRepository {
     } catch(e) { return []; }
   }
 
+  async listTxIntents(options: { address?: string; limit?: number } = {}) {
+    const conn = await requireDb();
+    const address = options.address?.toLowerCase();
+    try {
+      return await conn.query.txIntents.findMany({
+        where: address
+          ? (txIntents: any, { eq }: any) => eq(txIntents.address, address)
+          : undefined,
+        limit: options.limit || 50,
+        orderBy: (txIntents: any, { desc }: any) => [desc(txIntents.createdAt)],
+      });
+    } catch (e) { return []; }
+  }
+
   async saveTxAttempt(attempt: any) {
     const conn = await requireDb();
     await conn.insert((schema as any).txAttempts).values(attempt).onConflictDoNothing();

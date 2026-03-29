@@ -62,9 +62,9 @@ export const CUSTODY_PASSWORD_MAX = 128;
 export const CUSTODY_REGISTER_BONUS = "100000";
 
 // ─── Airdrop ──────────────────────────────────────────────────────────────────
-export const AIRDROP_BASE_REWARD = "100000";
-export const AIRDROP_HALVING_STEP = "1000000000";
-export const AIRDROP_MIN_REWARD = "10";
+export const AIRDROP_BASE_REWARD = "1000000";
+export const AIRDROP_HALVING_STEP = "100000000";
+export const AIRDROP_MIN_REWARD = "1000";
 
 // ─── VIP Level Tiers (from lib/level.js) ─────────────────────────────────────
 export interface LevelTier {

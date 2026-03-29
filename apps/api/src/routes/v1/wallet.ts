@@ -3,7 +3,15 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { IdentityManager, MarketManager, OnchainWalletManager, WalletManager } from "@repo/domain";
+import {
+  AIRDROP_DISTRIBUTED_TOTAL_KEY,
+  IdentityManager,
+  MarketManager,
+  OnchainWalletManager,
+  WalletManager,
+  calculateAirdropRewardWei,
+  normalizeAirdropDistributedWei,
+} from "@repo/domain";
 import {
   ChainClient,
   MarketRepository,
@@ -332,18 +340,24 @@ export async function walletRoutes(fastify: FastifyInstance) {
     try {
       const address = ctx.session.address;
       const now = Date.now();
-      const lastAirdrop = await kv.get<number>(`last_airdrop:${address}`) || 0;
+      const [lastAirdropRaw, distributedTotalRaw] = await Promise.all([
+        kv.get<number>(`last_airdrop:${address}`),
+        kv.get<string | number>(AIRDROP_DISTRIBUTED_TOTAL_KEY),
+      ]);
+      const lastAirdrop = lastAirdropRaw || 0;
 
       if (now - lastAirdrop < 24 * 60 * 60 * 1000) {
         const waitMinutes = Math.ceil((24 * 60 * 60 * 1000 - (now - lastAirdrop)) / (60 * 1000));
         return createApiEnvelope({ error: { code: "COOLDOWN", message: `Please wait ${waitMinutes} more minutes` } }, request.id);
       }
 
-      const rewardAmount = "1000";
       const token: WalletTokenKey = "zhixi";
       const { client, tokenRuntime, decimals } = await getTokenRuntime(token);
+      const distributedWei = normalizeAirdropDistributedWei(distributedTotalRaw);
+      const policy = calculateAirdropRewardWei(decimals, distributedWei);
       const fromAddress = client.getWalletAddress();
-      const amountWei = client.parseUnits(rewardAmount, decimals);
+      const amountWei = policy.rewardWei;
+      const rewardAmount = client.formatUnits(amountWei, decimals);
       const [adminBalanceWeiBefore, recipientBalanceWeiBefore] = await Promise.all([
         client.getBalance(fromAddress, tokenRuntime.contractAddress),
         client.getBalance(address, tokenRuntime.contractAddress),
@@ -362,6 +376,8 @@ export async function walletRoutes(fastify: FastifyInstance) {
         toAddress: address,
         mode: "admin_wallet_transfer",
         decimals,
+        halvingCount: policy.halvingCount,
+        distributedBefore: client.formatUnits(distributedWei, decimals),
       };
       await walletRepo.saveTxIntent(intent);
 
@@ -426,7 +442,10 @@ export async function walletRoutes(fastify: FastifyInstance) {
           },
           createdAt: new Date(),
         });
-        await kv.set(`last_airdrop:${address}`, now);
+        await Promise.all([
+          kv.set(`last_airdrop:${address}`, now),
+          kv.set(AIRDROP_DISTRIBUTED_TOTAL_KEY, (distributedWei + amountWei).toString()),
+        ]);
 
         await opsRepo.logEvent({
           channel: "wallet",
@@ -439,7 +458,13 @@ export async function walletRoutes(fastify: FastifyInstance) {
           txIntentId: intent.id,
           txHash,
           message: `Admin wallet transferred ${rewardAmount} ZXC airdrop to ${address}`,
-          meta: { fromAddress, contractAddress: tokenRuntime.contractAddress },
+          meta: {
+            fromAddress,
+            contractAddress: tokenRuntime.contractAddress,
+            halvingCount: policy.halvingCount,
+            distributedBefore: client.formatUnits(distributedWei, decimals),
+            distributedAfter: client.formatUnits(distributedWei + amountWei, decimals),
+          },
         });
 
         return createApiEnvelope({ reward: rewardAmount, txHash, balance: recipientBalanceAfter }, request.id);

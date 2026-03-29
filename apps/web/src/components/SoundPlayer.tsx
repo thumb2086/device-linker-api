@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAudio } from '../hooks/useAudio';
 
 export default function SoundPlayer() {
   const { sessionId, isAuthorized } = useAuthStore();
+  const { toggleBGM, setGlobalVolume } = useAudio();
   const [prefs, setPrefs] = useState<any>(null);
 
   useEffect(() => {
@@ -18,19 +20,16 @@ export default function SoundPlayer() {
     };
 
     fetchPrefs();
-    const interval = setInterval(fetchPrefs, 5000); // Sync every 5s for simple state management
+    const interval = setInterval(fetchPrefs, 10000);
     return () => clearInterval(interval);
   }, [sessionId, isAuthorized]);
 
-  // This is a placeholder for actual audio logic
-  // In a real app, we would use these prefs to control Tone.js or native Audio objects
   useEffect(() => {
     if (prefs) {
-        console.log("Sound Preferences Updated:", prefs);
-        // window.bgmVolume = prefs.volume;
-        // window.bgmEnabled = prefs.bgmEnabled;
+        setGlobalVolume(prefs.volume);
+        toggleBGM(prefs.bgmEnabled);
     }
-  }, [prefs]);
+  }, [prefs, toggleBGM, setGlobalVolume]);
 
   return null;
 }

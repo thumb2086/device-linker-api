@@ -1,6 +1,7 @@
 export * from "./identity/identity-manager.js";
 export * from "./identity/auth-manager.js";
 export * from "./identity/profile-manager.js";
+export * from "./identity/sound-manager.js";
 export * from "./announcement/announcement-manager.js";
 export * from "./wallet/wallet-manager.js";
 export * from "./market/market-manager.js";

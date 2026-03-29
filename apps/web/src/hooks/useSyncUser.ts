@@ -25,8 +25,11 @@ export function useSyncUser() {
         if (userData?.balance) {
             setBalance(userData.balance);
         }
-        if (userData?.user?.username) {
-            setUsername(userData.user.username);
+        // The API returns { user: { displayName, ... }, ... }
+        if (userData?.user?.displayName) {
+            setUsername(userData.user.displayName);
+        } else if (userData?.username) {
+            setUsername(userData.username);
         }
     }, [userData, setAddress, setBalance, setUsername]);
 

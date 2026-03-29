@@ -27,54 +27,48 @@ function AppContent() {
   const { isAuthorized } = useAuthStore();
   const { userData, isLoading } = useSyncUser();
 
-  const needsProfileSetup = isAuthorized && !isLoading && userData && !userData.user?.username;
-
-  if (!isAuthorized) {
-    return (
-      <Router>
-        <Routes>
-          <Route path="*" element={<LoginView />} />
-        </Routes>
-      </Router>
-    );
-  }
-
-  if (needsProfileSetup) {
-    return <ProfileSetup onComplete={() => window.location.reload()} />;
-  }
+  const needsProfileSetup = isAuthorized && !isLoading && userData && !userData.user?.displayName;
 
   return (
-      <Router>
-        <div className="relative min-h-screen bg-[#0e0e0e]">
-          <SoundPlayer />
-          <Routes>
-            <Route path="/app" element={<Layout />}>
-              <Route index element={<LobbyView />} />
-              <Route path="casino/roulette" element={<RouletteView />} />
-              <Route path="casino/:game" element={<CasinoView />} />
-              <Route path="casino/lobby" element={<RoomLobbyView />} />
-              <Route path="wallet" element={<WalletView />} />
-              <Route path="market" element={<MarketView />} />
-              <Route path="rewards" element={<RewardsView />} />
-              <Route path="leaderboard" element={<LeaderboardView />} />
-              <Route path="announcement" element={<AnnouncementCenter />} />
-              <Route path="support" element={<SupportView />} />
-              <Route path="inventory" element={<InventoryView />} />
-              <Route path="admin" element={<AdminView />} />
-              <Route path="settings" element={<SettingsView />} />
-              <Route path="health" element={<HealthView />} />
-            </Route>
+    <div className="relative min-h-screen bg-[#0e0e0e]">
+      <SoundPlayer />
+      <Routes>
+        {!isAuthorized ? (
+          <Route path="*" element={<LoginView />} />
+        ) : needsProfileSetup ? (
+          <Route path="*" element={<ProfileSetup onComplete={() => window.location.reload()} />} />
+        ) : (
+          <Route path="/app" element={<Layout />}>
+            <Route index element={<LobbyView />} />
+            <Route path="casino/roulette" element={<RouletteView />} />
+            <Route path="casino/:game" element={<CasinoView />} />
+            <Route path="casino/lobby" element={<RoomLobbyView />} />
+            <Route path="wallet" element={<WalletView />} />
+            <Route path="market" element={<MarketView />} />
+            <Route path="rewards" element={<RewardsView />} />
+            <Route path="leaderboard" element={<LeaderboardView />} />
+            <Route path="announcement" element={<AnnouncementCenter />} />
+            <Route path="support" element={<SupportView />} />
+            <Route path="inventory" element={<InventoryView />} />
+            <Route path="admin" element={<AdminView />} />
+            <Route path="settings" element={<SettingsView />} />
+            <Route path="health" element={<HealthView />} />
+          </Route>
+        )}
+        {isAuthorized && !needsProfileSetup && (
             <Route path="/" element={<Navigate to="/app" replace />} />
-          </Routes>
-        </div>
-      </Router>
+        )}
+      </Routes>
+    </div>
   );
 }
 
 function App() {
     return (
         <QueryClientProvider client={queryClient}>
-            <AppContent />
+            <Router>
+                <AppContent />
+            </Router>
         </QueryClientProvider>
     );
 }

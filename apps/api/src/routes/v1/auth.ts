@@ -51,7 +51,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     const { sessionId } = request.query;
     const session = await sessionRepo.getSessionById(sessionId);
     if (!session) return createApiEnvelope({ status: "expired" }, request.id);
-    return createApiEnvelope({ status: session.status, address: session.address }, request.id);
+    return createApiEnvelope({ status: session.status, address: session.address, publicKey: session.publicKey }, request.id);
   });
 
   typedFastify.post("/custody/login", {

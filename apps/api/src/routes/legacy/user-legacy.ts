@@ -57,6 +57,7 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
                     status: "authorized",
                     user,
                     address: session.address,
+                    publicKey: session.publicKey,
                     mode: session.mode,
                     username: session.accountId,
                     balance
@@ -91,7 +92,8 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
                 success: true,
                 status: "authorized",
                 sessionId: result.sessionId,
-                address: result.user?.address,
+                address: result.address || result.user?.address,
+                publicKey: result.publicKey || "0x",
                 username: body.username
             };
         }

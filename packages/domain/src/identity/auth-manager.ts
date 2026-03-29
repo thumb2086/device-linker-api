@@ -12,6 +12,8 @@ export interface AuthResult {
   success: boolean;
   sessionId?: string;
   user?: any;
+  address?: string;
+  publicKey?: string;
   error?: {
     code: string;
     message: string;
@@ -109,7 +111,7 @@ export class AuthManager {
         await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
     } catch (e) {}
 
-    return { success: true, sessionId, user };
+    return { success: true, sessionId, user, address: custodyUser.address, publicKey: custodyUser.publicKey };
   }
 
   async loginCustody(params: {
@@ -160,7 +162,7 @@ export class AuthManager {
         await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
     } catch (e) {}
 
-    return { success: true, sessionId, user };
+    return { success: true, sessionId, user, address: completed.address, publicKey: completed.publicKey };
   }
 
   async changePassword(username: string, current: string, next: string): Promise<AuthResult> {

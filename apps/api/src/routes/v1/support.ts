@@ -5,13 +5,14 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
 import { SupportManager, IdentityManager } from "@repo/domain";
-import { SessionRepository, UserRepository, kv, OpsRepository } from "@repo/infrastructure";
+import { AnnouncementRepository, SessionRepository, UserRepository, kv, OpsRepository } from "@repo/infrastructure";
 
 export async function supportRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   
   const supportManager = new SupportManager();
   const identityManager = new IdentityManager();
+  const announcementRepo = new AnnouncementRepository();
   
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
@@ -29,13 +30,26 @@ export async function supportRoutes(fastify: FastifyInstance) {
   // ─── Announcements ────────────────────────────────────────────────────────
 
   typedFastify.get("/announcements", async (request) => {
-    const announcements = await kv.get<any[]>("announcements:list") || [];
-    // Filter active ones for regular users
-    const active = announcements.filter(a => a.isActive).sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-    });
+    const dbAnnouncements = await announcementRepo.listActiveAnnouncements();
+    const active = dbAnnouncements.length > 0
+      ? dbAnnouncements.map((item: any) => ({
+          id: item.id,
+          announcementId: item.announcementId,
+          title: item.title,
+          content: item.content,
+          isPinned: item.isPinned ?? false,
+          isActive: item.isActive ?? true,
+          publishedBy: item.publishedBy || undefined,
+          updatedBy: item.updatedBy || undefined,
+          publishedAt: new Date(item.publishedAt || item.createdAt).toISOString(),
+          createdAt: new Date(item.createdAt).toISOString(),
+          updatedAt: new Date(item.updatedAt || item.createdAt).toISOString(),
+        }))
+      : (await kv.get<any[]>("announcements:list") || []).filter(a => a.isActive).sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+        });
     return createApiEnvelope({ announcements: active }, request.id);
   });
 

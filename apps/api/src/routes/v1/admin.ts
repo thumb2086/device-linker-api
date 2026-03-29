@@ -5,7 +5,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
 import { SupportManager, IdentityManager } from "@repo/domain";
-import { SessionRepository, UserRepository, kv, OpsRepository } from "@repo/infrastructure";
+import { AnnouncementRepository, SessionRepository, UserRepository, kv, OpsRepository } from "@repo/infrastructure";
 
 export async function adminRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -16,6 +16,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
   const opsRepo = new OpsRepository();
+  const announcementRepo = new AnnouncementRepository();
 
   const ADMIN_ADDRESS = process.env.ADMIN_ADDRESS?.toLowerCase();
 
@@ -160,6 +161,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
     const input = supportManager.sanitizeAnnouncementInput(request.body);
     const ann = supportManager.createAnnouncement({ ...input, publishedBy: ctx.session.address });
+
+    await announcementRepo.saveAnnouncement(ann);
 
     const list = await kv.get<any[]>("announcements:list") || [];
     list.unshift(ann);

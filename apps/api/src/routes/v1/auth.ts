@@ -33,7 +33,8 @@ export async function authRoutes(fastify: FastifyInstance) {
       const sessionId = `sess_${randomUUID().slice(0, 12)}`;
       const session = identityManager.createPendingSession(sessionId, {});
       await sessionRepo.saveSession(session);
-      await kv.set(`session:${sessionId}`, session, { ex: 3600 });
+      // Optional: keep kv for short term but don't fail if it hits limits
+      try { await kv.set(`session:${sessionId}`, session, { ex: 3600 }); } catch (e) {}
 
       return createApiEnvelope({
         sessionId,
@@ -49,7 +50,8 @@ export async function authRoutes(fastify: FastifyInstance) {
     schema: { querystring: z.object({ sessionId: z.string() }) },
   }, async (request) => {
     const { sessionId } = request.query;
-    const session = await kv.get<any>(`session:${sessionId}`) || await sessionRepo.getSessionById(sessionId);
+    // Prefer DB if KV is unreliable
+    const session = await sessionRepo.getSessionById(sessionId);
     if (!session) return createApiEnvelope({ status: "expired" }, request.id);
     return createApiEnvelope({ status: session.status, address: session.address }, request.id);
   });
@@ -113,7 +115,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     const sessionId = (request.query as any)?.sessionId;
     if (!sessionId) return createApiEnvelope({ user: null }, request.id);
 
-    const session = await kv.get<any>(`session:${sessionId}`) || await sessionRepo.getSessionById(sessionId);
+    const session = await sessionRepo.getSessionById(sessionId);
     if (!session || session.status !== "authorized") {
       return createApiEnvelope({ user: null }, request.id);
     }

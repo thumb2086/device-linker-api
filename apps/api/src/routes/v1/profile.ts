@@ -10,7 +10,8 @@ export async function profileRoutes(fastify: FastifyInstance) {
   const userRepo = new UserRepository();
   const sessionRepo = new SessionRepository();
   const profileManager = new ProfileManager(userRepo, sessionRepo);
-  const soundManager = new SoundManager(kv);
+  // Pass userRepo which now has sound prefs persistence
+  const soundManager = new SoundManager(userRepo);
 
   typedFastify.post("/set-username", {
     schema: {
@@ -21,7 +22,7 @@ export async function profileRoutes(fastify: FastifyInstance) {
     }
   }, async (request) => {
     const { sessionId, username } = request.body;
-    const session = await kv.get<any>(`session:${sessionId}`) || await sessionRepo.getSessionById(sessionId);
+    const session = await sessionRepo.getSessionById(sessionId);
 
     if (!session || session.status !== "authorized") {
       return createApiEnvelope(null, request.id, false, "Unauthorized");
@@ -41,11 +42,15 @@ export async function profileRoutes(fastify: FastifyInstance) {
     }
   }, async (request) => {
     const { sessionId } = request.query;
-    const session = await kv.get<any>(`session:${sessionId}`) || await sessionRepo.getSessionById(sessionId);
+    const session = await sessionRepo.getSessionById(sessionId);
     if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
 
-    const prefs = await soundManager.getPrefs(session.userId);
-    return createApiEnvelope(prefs, request.id);
+    try {
+        const prefs = await soundManager.getPrefs(session.userId);
+        return createApiEnvelope(prefs, request.id);
+    } catch (e) {
+        return createApiEnvelope({ bgmEnabled: true, sfxEnabled: true, volume: 0.5 }, request.id);
+    }
   });
 
   typedFastify.post("/sound-prefs", {
@@ -61,7 +66,7 @@ export async function profileRoutes(fastify: FastifyInstance) {
     }
   }, async (request) => {
     const { sessionId, prefs } = request.body;
-    const session = await kv.get<any>(`session:${sessionId}`) || await sessionRepo.getSessionById(sessionId);
+    const session = await sessionRepo.getSessionById(sessionId);
     if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
 
     await soundManager.savePrefs(session.userId, prefs);

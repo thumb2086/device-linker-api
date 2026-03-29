@@ -58,6 +58,20 @@ export class UserRepository implements IUserRepository {
     }
     return await db.query.users.findFirst({ where: (users: any, { eq }: any) => eq(users.address, address.toLowerCase()) });
   }
+  async getUserProfile(userId: string) {
+    if (!db) return await kv.get(`user_profile:${userId}`);
+    return await db.query.userProfiles.findFirst({ where: (p: any, { eq }: any) => eq(p.userId, userId) });
+  }
+  async saveUserProfile(userId: string, data: any) {
+    if (!db) {
+        await kv.set(`user_profile:${userId}`, data);
+        return;
+    }
+    await db.insert(schema.userProfiles).values({ userId, ...data }).onConflictDoUpdate({
+        target: schema.userProfiles.userId,
+        set: { ...data, updatedAt: new Date() }
+    });
+  }
 }
 
 export class SessionRepository implements ISessionRepository {

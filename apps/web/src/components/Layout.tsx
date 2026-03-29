@@ -7,7 +7,7 @@ import { Settings, LogOut, LayoutGrid, Trophy, Wallet, Bell, Menu, TrendingUp } 
 import { useTranslation } from 'react-i18next';
 
 export default function Layout() {
-  const { isAuthorized, logout } = useAuthStore();
+  const { isAuthorized, clearAuth: logout } = useAuthStore();
   const { address } = useUserStore();
   const { t } = useTranslation();
   const navigate = useNavigate();

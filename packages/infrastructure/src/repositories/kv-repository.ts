@@ -22,6 +22,12 @@ export class KVUserRepository implements IUserRepository {
     if (!id) return null;
     return await this.getUserById(id);
   }
+  async getUserProfile(userId: string) {
+    return await kv.get(`user_profile:${userId}`);
+  }
+  async saveUserProfile(userId: string, data: any) {
+    await kv.set(`user_profile:${userId}`, data);
+  }
 }
 
 export class KVSessionRepository implements ISessionRepository {

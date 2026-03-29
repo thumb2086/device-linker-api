@@ -62,6 +62,33 @@ export class PostgresUserRepository implements IUserRepository {
         updatedAt: row.updated_at
     };
   }
+
+  async getUserProfile(userId: string) {
+    const sql = getSql();
+    const rows = await sql`SELECT * FROM user_profiles WHERE user_id = ${userId} LIMIT 1`;
+    return rows[0] || null;
+  }
+
+  async saveUserProfile(userId: string, data: any) {
+    const sql = getSql();
+    // Simplified upsert for profile sound prefs
+    const existing = await this.getUserProfile(userId);
+    if (!existing) {
+        // Find address first
+        const user = await this.getUserById(userId);
+        if (!user) return;
+        await sql`
+            INSERT INTO user_profiles (user_id, address, sound_prefs, created_at, updated_at)
+            VALUES (${userId}, ${user.address}, ${data.soundPrefs || {}}, NOW(), NOW())
+        `;
+    } else {
+        await sql`
+            UPDATE user_profiles
+            SET sound_prefs = ${data.soundPrefs || existing.sound_prefs}, updated_at = NOW()
+            WHERE user_id = ${userId}
+        `;
+    }
+  }
 }
 
 export class PostgresSessionRepository implements ISessionRepository {

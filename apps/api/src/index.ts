@@ -95,6 +95,76 @@ fastify.get("/api/diag", async () => {
     };
 });
 
+fastify.get("/api/diag-thumb", async () => {
+    const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+    let dbStatus = "unknown";
+    let dbHost: string | null = null;
+    let dbName: string | null = null;
+    let custodyAccountsThumbCount = 0;
+    let custodyUsersThumbCount = 0;
+
+    const mask = (value: string | null) => {
+        if (!value) return null;
+        if (value.length <= 8) return value;
+        return `${value.slice(0, 4)}...${value.slice(-4)}`;
+    };
+
+    if (connectionString) {
+        try {
+            const parsed = new URL(connectionString);
+            dbHost = parsed.hostname || null;
+            dbName = parsed.pathname?.replace(/^\/+/, "") || null;
+        } catch (e) {
+            dbStatus = "error: invalid_database_url";
+        }
+    }
+
+    if (!connectionString) {
+        dbStatus = "missing_env";
+    } else {
+        try {
+            const sql = postgres(connectionString, { ssl: 'require', connect_timeout: 5 });
+            const custodyAccountRows = await sql`
+                SELECT COUNT(*)::int AS count
+                FROM custody_accounts
+                WHERE lower(username) = 'thumb'
+            `;
+
+            const legacyTable = await sql`
+                SELECT to_regclass('public.custody_users') AS table_name
+            `;
+
+            if (legacyTable[0]?.table_name) {
+                const custodyUserRows = await sql`
+                    SELECT COUNT(*)::int AS count
+                    FROM custody_users
+                    WHERE lower(username) = 'thumb'
+                `;
+                custodyUsersThumbCount = custodyUserRows[0]?.count || 0;
+            }
+
+            custodyAccountsThumbCount = custodyAccountRows[0]?.count || 0;
+            dbStatus = "connected";
+            await sql.end();
+        } catch (e: any) {
+            dbStatus = `error: ${e.message}`;
+        }
+    }
+
+    return {
+        status: "ok",
+        env: process.env.NODE_ENV,
+        timestamp: new Date().toISOString(),
+        db: {
+            status: dbStatus,
+            host: mask(dbHost),
+            database: dbName,
+            thumb_in_custody_accounts: custodyAccountsThumbCount,
+            thumb_in_custody_users: custodyUsersThumbCount
+        }
+    };
+});
+
 // 註冊路由
 fastify.register(legacyRoutes, { prefix: "/api" });
 fastify.register(authRoutes, { prefix: "/api/v1/auth" });

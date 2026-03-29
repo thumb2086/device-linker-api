@@ -39,13 +39,15 @@ function AssetCard({
 export default function WalletView() {
   const { t } = useTranslation();
   const { amountDisplay } = usePreferencesStore();
-  const { summary, airdrop, transfer } = useWallet();
+  const { summary, airdrop, transfer, convert } = useWallet();
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferToken, setTransferToken] = useState<'zhixi' | 'yjc'>('zhixi');
+  const [convertAmount, setConvertAmount] = useState('');
 
   const numberMode = amountDisplay === 'full' ? 'full' : 'short';
   const walletSummary = summary.data?.summary;
+  const onchain = summary.data?.onchain;
   const canClaimAirdrop = summary.data?.canClaimAirdrop ?? true;
   const nextAirdropAt = summary.data?.nextAirdropAt;
   const zxcBalance = walletSummary?.balances?.ZXC || '0';
@@ -138,6 +140,38 @@ export default function WalletView() {
                   <ArrowUpCircle size={16} />
                   {transfer.isPending ? '送出中' : '送出轉帳'}
                 </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <Repeat2 className="text-[#fcc025]" size={18} />
+                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">Convert ZXC to YJC</h2>
+              </div>
+              <p className="mt-3 text-sm font-bold text-[#adaaaa]">
+                100,000,000 ZXC = 1 YJC
+              </p>
+              <div className="mt-4 grid gap-3">
+                <input
+                  value={convertAmount}
+                  onChange={(event) => setConvertAmount(event.target.value)}
+                  placeholder="ZXC amount"
+                  className="rounded-xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-sm font-bold outline-none focus:border-[#fcc025]/40"
+                />
+                <button
+                  type="button"
+                  disabled={!convertAmount || convert.isPending}
+                  onClick={() => convert.mutate({ zxcAmount: convertAmount })}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#fcc025] px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-black disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Repeat2 size={16} />
+                  {convert.isPending ? 'Converting' : 'Convert'}
+                </button>
+                <div className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4 text-xs font-bold text-[#adaaaa]">
+                  <div>ZXC on-chain: {formatNumber(onchain?.zxc?.balance || zxcBalance, numberMode)}</div>
+                  <div className="mt-1">YJC on-chain: {formatNumber(onchain?.yjc?.balance || yjcBalance, numberMode)}</div>
+                  <div className="mt-1">Admin signer: {onchain?.adminAddress || 'not configured'}</div>
+                </div>
               </div>
             </div>
           </div>

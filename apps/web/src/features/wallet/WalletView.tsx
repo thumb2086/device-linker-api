@@ -52,7 +52,7 @@ export default function WalletView() {
   const nextAirdropAt = summary.data?.nextAirdropAt;
   const zxcBalance = walletSummary?.balances?.ZXC || '0';
   const yjcBalance = walletSummary?.balances?.YJC || '0';
-  const marketNetWorth = assets?.market?.netWorth || '0';
+  const marketNetWorth = assets?.market?.overlayNetWorth || assets?.market?.netWorth || '0';
   const walletOnlyTotal = (Number(zxcBalance || 0) + Number(yjcBalance || 0)).toFixed(4);
 
   const zh = {

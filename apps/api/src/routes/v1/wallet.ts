@@ -82,6 +82,16 @@ export async function walletRoutes(fastify: FastifyInstance) {
     return normalized;
   };
 
+  const isWalletBackedEmptyMarketAccount = (account: any) => (
+    Number(account?.bankBalance || 0) === 0 &&
+    Number(account?.loanPrincipal || 0) === 0 &&
+    Number(account?.bankInterestAccrued || 0) === 0 &&
+    Number(account?.loanInterestAccrued || 0) === 0 &&
+    Object.keys(account?.stockHoldings || {}).length === 0 &&
+    (account?.futuresPositions?.length || 0) === 0 &&
+    (account?.history?.length || 0) === 0
+  );
+
   const getTokenRuntime = async (token: WalletTokenKey) => {
     const { runtime, client } = getChainClient();
     const tokenRuntime = runtime.tokens[token];
@@ -258,16 +268,31 @@ export async function walletRoutes(fastify: FastifyInstance) {
       futuresUnrealizedPnl: "0",
       loanPrincipal: "0",
       netWorth: "0",
+      overlayNetWorth: "0",
     };
 
     try {
       const snapshot = marketManager.buildSnapshot();
+      const liveWalletCash = Number(balances.ZXC || 0);
       const marketAccount = await loadCompatibleMarketAccount(address, ctx.user.id);
-      if (marketAccount) {
-        const normalizedAccount = marketManager.normalizeAccount(marketAccount);
+      const normalizedAccount = marketAccount
+        ? marketManager.normalizeAccount(marketAccount)
+        : marketManager.createDefaultAccount(Date.now(), liveWalletCash);
+
+      if (isWalletBackedEmptyMarketAccount(normalizedAccount)) {
+        normalizedAccount.cash = liveWalletCash;
+      }
+
+      if (normalizedAccount) {
         marketManager.settleLiquidations(normalizedAccount, snapshot);
         await marketRepo.saveAccount(address, ctx.user.id, normalizedAccount);
         const marketSummary = marketManager.buildAccountSummary(normalizedAccount, snapshot);
+        const overlayNetWorth = (
+          Number(marketSummary.bankBalance || 0) +
+          Number(marketSummary.stockValue || 0) +
+          Number(marketSummary.futuresUnrealizedPnl || 0) -
+          Number(marketSummary.loanPrincipal || 0)
+        );
         marketAssets = {
           available: true,
           cash: String(marketSummary.cash),
@@ -276,8 +301,9 @@ export async function walletRoutes(fastify: FastifyInstance) {
           futuresUnrealizedPnl: String(marketSummary.futuresUnrealizedPnl),
           loanPrincipal: String(marketSummary.loanPrincipal),
           netWorth: String(marketSummary.netWorth),
+          overlayNetWorth: String(overlayNetWorth),
         };
-        summary.totalBalance = (Number(summary.totalBalance || 0) + Number(marketSummary.netWorth || 0)).toFixed(4);
+        summary.totalBalance = (Number(summary.totalBalance || 0) + overlayNetWorth).toFixed(4);
       }
     } catch (error) {
       request.log.warn({ error }, "wallet summary market asset hydration failed");

@@ -2,16 +2,18 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { MarketManager } from "@repo/domain";
-import { SessionRepository, UserRepository, MarketRepository, kv } from "@repo/infrastructure";
+import { MarketManager, OnchainWalletManager } from "@repo/domain";
+import { ChainClient, SessionRepository, UserRepository, MarketRepository, WalletRepository, kv } from "@repo/infrastructure";
 import { randomUUID } from "crypto";
 
 export async function marketRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   const marketManager = new MarketManager();
+  const onchainManager = new OnchainWalletManager();
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
   const marketRepo = new MarketRepository();
+  const walletRepo = new WalletRepository();
 
   const loadCompatibleAccount = async (address: string, userId: string) => {
     const dbAccount = await marketRepo.getAccount(address);
@@ -26,6 +28,68 @@ export async function marketRoutes(fastify: FastifyInstance) {
 
     const normalized = marketManager.normalizeAccount(legacy);
     await marketRepo.saveAccount(address, userId, normalized);
+    return normalized;
+  };
+
+  const isWalletBackedEmptyAccount = (account: any) => (
+    Number(account?.bankBalance || 0) === 0 &&
+    Number(account?.loanPrincipal || 0) === 0 &&
+    Number(account?.bankInterestAccrued || 0) === 0 &&
+    Number(account?.loanInterestAccrued || 0) === 0 &&
+    Object.keys(account?.stockHoldings || {}).length === 0 &&
+    (account?.futuresPositions?.length || 0) === 0 &&
+    (account?.history?.length || 0) === 0
+  );
+
+  const getLiveWalletBalance = async (address: string) => {
+    const [dbBalance, legacyBalance] = await Promise.all([
+      walletRepo.getBalance(address, "zhixi"),
+      kv.get<string | number>(`balance:${address}`),
+    ]);
+
+    const fallbackBalance = Number(dbBalance || 0) === 0 && legacyBalance !== null && legacyBalance !== undefined
+      ? String(legacyBalance)
+      : String(dbBalance || legacyBalance || "0");
+
+    if (fallbackBalance !== String(dbBalance || "0") && Number(fallbackBalance || 0) > 0) {
+      await walletRepo.updateBalance(address, fallbackBalance, "zhixi");
+    }
+
+    try {
+      const runtime = onchainManager.getRuntimeConfig();
+      const tokenRuntime = runtime.tokens.zhixi;
+      if (!runtime.rpcUrl || !runtime.adminPrivateKey || !tokenRuntime.enabled) {
+        return fallbackBalance;
+      }
+
+      const client = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
+      const decimals = await client.getDecimals(tokenRuntime.contractAddress, 18);
+      const balance = client.formatUnits(
+        await client.getBalance(address, tokenRuntime.contractAddress),
+        decimals
+      );
+      await walletRepo.updateBalance(address, balance, "zhixi");
+      return balance;
+    } catch {
+      return fallbackBalance;
+    }
+  };
+
+  const hydrateAccount = async (address: string, userId: string, nowTs = Date.now()) => {
+    const [storedAccount, liveWalletBalance] = await Promise.all([
+      loadCompatibleAccount(address, userId),
+      getLiveWalletBalance(address),
+    ]);
+
+    if (!storedAccount) {
+      return marketManager.createDefaultAccount(nowTs, Number(liveWalletBalance || 0));
+    }
+
+    const normalized = marketManager.normalizeAccount(storedAccount, nowTs);
+    if (isWalletBackedEmptyAccount(normalized)) {
+      normalized.cash = Number(liveWalletBalance || 0);
+    }
+    normalized.updatedAt = new Date(nowTs).toISOString();
     return normalized;
   };
 
@@ -47,9 +111,9 @@ export async function marketRoutes(fastify: FastifyInstance) {
   typedFastify.get("/me", async (request) => {
     const ctx = await getContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
-    const snapshot = marketManager.buildSnapshot();
-    const account = await loadCompatibleAccount(ctx.session.address, ctx.user.id);
-    const normalized = marketManager.normalizeAccount(account);
+    const nowTs = Date.now();
+    const snapshot = marketManager.buildSnapshot(nowTs);
+    const normalized = await hydrateAccount(ctx.session.address, ctx.user.id, nowTs);
     marketManager.settleLiquidations(normalized, snapshot);
     await marketRepo.saveAccount(ctx.session.address, ctx.user.id, normalized);
     return createApiEnvelope({ account: marketManager.buildAccountSummary(normalized, snapshot) }, request.id);
@@ -72,8 +136,9 @@ export async function marketRoutes(fastify: FastifyInstance) {
     const ctx = await getContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
     const { type, symbol, amount, quantity, side, leverage, positionId } = request.body;
-    const snapshot = marketManager.buildSnapshot();
-    const account = marketManager.normalizeAccount(await loadCompatibleAccount(ctx.session.address, ctx.user.id));
+    const nowTs = Date.now();
+    const snapshot = marketManager.buildSnapshot(nowTs);
+    const account = await hydrateAccount(ctx.session.address, ctx.user.id, nowTs);
     marketManager.settleLiquidations(account, snapshot);
 
     let result: any;

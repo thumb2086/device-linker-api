@@ -1,30 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUserStore } from '../store/useUserStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { api } from '../store/api';
 
 export default function ChatRoom() {
   const [inputText, setInputText] = useState('');
-  const { displayName } = useUserStore();
+  const { username } = useUserStore();
+  const { isAuthorized } = useAuthStore();
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: chatData } = useQuery({
     queryKey: ['chat-messages'],
     queryFn: async () => {
-      const res = await fetch('/api/v1/chat/messages');
-      const data = await res.json();
-      return data.data;
+      const res = await api.get('/api/v1/support/chat/messages');
+      return res.data.data;
     },
+    enabled: isAuthorized,
     refetchInterval: 3000,
   });
 
   const sendMutation = useMutation({
     mutationFn: async (text: string) => {
-      await fetch('/api/v1/chat/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, displayName }),
-      });
+      await api.post('/api/v1/support/chat/messages', { text, displayName: username });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages'] });

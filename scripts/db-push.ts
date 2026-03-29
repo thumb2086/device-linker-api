@@ -12,13 +12,10 @@ const sql = neon(connectionString);
 const db = drizzle(sql, { schema });
 
 async function main() {
-  console.log("🚀 Pushing schema to Neon...");
-  // Drizzle-orm doesn't have a direct 'push' in the runtime lib like this,
-  // usually we use drizzle-kit. But I can run the DDL manually or use a trick.
-  // Actually, I'll just create the tables manually for now to be safe and fast.
+  console.log("🚀 Initializing schema with KV support...");
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS users (
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS users (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       address TEXT NOT NULL UNIQUE,
       display_name TEXT,
@@ -29,9 +26,9 @@ async function main() {
       blacklisted_by TEXT,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
+    )`,
 
-    CREATE TABLE IF NOT EXISTS custody_accounts (
+    `CREATE TABLE IF NOT EXISTS custody_accounts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
@@ -41,9 +38,9 @@ async function main() {
       user_id UUID REFERENCES users(id),
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
+    )`,
 
-    CREATE TABLE IF NOT EXISTS sessions (
+    `CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       user_id UUID REFERENCES users(id),
       address TEXT,
@@ -58,9 +55,9 @@ async function main() {
       authorized_at TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       expires_at TIMESTAMP NOT NULL
-    );
+    )`,
 
-    CREATE TABLE IF NOT EXISTS user_profiles (
+    `CREATE TABLE IF NOT EXISTS user_profiles (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
       address TEXT NOT NULL UNIQUE,
@@ -72,11 +69,12 @@ async function main() {
       active_buffs JSONB DEFAULT '[]',
       system_title_streaks JSONB DEFAULT '{}',
       win_bias NUMERIC,
+      sound_prefs JSONB DEFAULT '{"bgmEnabled": true, "sfxEnabled": true, "volume": 0.5}',
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
+    )`,
 
-    CREATE TABLE IF NOT EXISTS wallet_accounts (
+    `CREATE TABLE IF NOT EXISTS wallet_accounts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id),
       address TEXT NOT NULL,
@@ -85,19 +83,20 @@ async function main() {
       locked_balance NUMERIC NOT NULL DEFAULT '0',
       airdrop_distributed NUMERIC NOT NULL DEFAULT '0',
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
-    CREATE UNIQUE INDEX IF NOT EXISTS wallet_addr_token_idx ON wallet_accounts (address, token);
+    )`,
 
-    CREATE TABLE IF NOT EXISTS market_accounts (
+    `CREATE UNIQUE INDEX IF NOT EXISTS wallet_addr_token_idx ON wallet_accounts (address, token)`,
+
+    `CREATE TABLE IF NOT EXISTS market_accounts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
       address TEXT NOT NULL UNIQUE,
       data JSONB NOT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
+    )`,
 
-    CREATE TABLE IF NOT EXISTS announcements (
+    `CREATE TABLE IF NOT EXISTS announcements (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       announcement_id TEXT NOT NULL UNIQUE,
       title TEXT NOT NULL,
@@ -109,9 +108,9 @@ async function main() {
       published_at TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
+    )`,
 
-    CREATE TABLE IF NOT EXISTS ops_events (
+    `CREATE TABLE IF NOT EXISTS ops_events (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       channel TEXT NOT NULL,
       severity TEXT NOT NULL,
@@ -130,9 +129,27 @@ async function main() {
       message TEXT NOT NULL,
       meta JSONB,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
-  `;
-  console.log("✅ Schema initialized.");
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS kv_store (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL,
+      expires_at TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`
+  ];
+
+  for (const statement of statements) {
+    try {
+      await sql(statement);
+      console.log(`✅ Executed: ${statement.slice(0, 40)}...`);
+    } catch (e: any) {
+      console.error(`❌ Error executing: ${statement.slice(0, 40)}...`);
+      console.error(e.message);
+    }
+  }
+
+  console.log("✨ Schema initialization complete.");
 }
 
 main().catch(console.error);

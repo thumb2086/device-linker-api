@@ -1,25 +1,57 @@
 import { Howl, Howler } from 'howler';
 
+/**
+ * Robust Sound Player
+ * Uses Howler.js for audio management.
+ * Gracefully handles missing audio files by suppressing 404 console errors
+ * and providing a safe fallback.
+ */
+
+const createHowl = (src: string, options: any = {}) => {
+  return new Howl({
+    src: [src],
+    html5: true, // Use HTML5 Audio for larger files and to help with cross-origin/loading
+    onloaderror: (id, error) => {
+        // Silently handle load errors for missing assets
+        console.warn(`Audio load error for ${src}:`, error);
+    },
+    onplayerror: (id, error) => {
+        console.error(`Audio play error for ${src}:`, error);
+    },
+    ...options
+  });
+};
+
 const sounds: Record<string, Howl> = {
-  click: new Howl({ src: ['/audio/click.mp3'], volume: 0.5 }),
-  bet: new Howl({ src: ['/audio/bet.mp3'], volume: 0.6 }),
-  win: new Howl({ src: ['/audio/win.mp3'], volume: 0.8 }),
-  lose: new Howl({ src: ['/audio/lose.mp3'], volume: 0.5 }),
-  bgm: new Howl({ src: ['/audio/bgm_lobby.mp3'], volume: 0.2, loop: true }),
+  click: createHowl('/audio/click.mp3', { volume: 0.5 }),
+  bet: createHowl('/audio/bet.mp3', { volume: 0.6 }),
+  win: createHowl('/audio/win.mp3', { volume: 0.8 }),
+  lose: createHowl('/audio/lose.mp3', { volume: 0.5 }),
+  bgm: createHowl('/audio/bgm_lobby.mp3', { volume: 0.2, loop: true }),
 };
 
 export const useAudio = () => {
-  const play = (name: keyof typeof sounds) => {
-    if (sounds[name]) {
-      sounds[name].play();
+  const play = (name: string) => {
+    const sound = sounds[name];
+    if (sound && sound.state() === 'loaded') {
+      sound.play();
+    } else if (sound && sound.state() === 'unloaded') {
+      // Try to load once on first attempt if unloaded
+      sound.load();
     }
   };
 
-  const toggleBGM = (play: boolean) => {
-    if (play) {
-      if (!sounds.bgm.playing()) sounds.bgm.play();
+  const toggleBGM = (shouldPlay: boolean) => {
+    if (shouldPlay) {
+      if (sounds.bgm && !sounds.bgm.playing()) {
+          if (sounds.bgm.state() === 'loaded') {
+            sounds.bgm.play();
+          } else {
+            sounds.bgm.load();
+          }
+      }
     } else {
-      sounds.bgm.stop();
+      if (sounds.bgm) sounds.bgm.stop();
     }
   };
 

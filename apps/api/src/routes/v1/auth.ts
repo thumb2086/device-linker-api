@@ -33,8 +33,6 @@ export async function authRoutes(fastify: FastifyInstance) {
       const sessionId = `sess_${randomUUID().slice(0, 12)}`;
       const session = identityManager.createPendingSession(sessionId, {});
       await sessionRepo.saveSession(session);
-      // Optional: keep kv for short term but don't fail if it hits limits
-      try { await kv.set(`session:${sessionId}`, session, { ex: 3600 }); } catch (e) {}
 
       return createApiEnvelope({
         sessionId,
@@ -42,6 +40,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         legacyDeepLink: identityManager.buildLegacyDeepLink(sessionId)
       }, request.id);
     } catch (e: any) {
+      request.log.error(e);
       return createApiEnvelope(null, request.id, false, e.message);
     }
   });
@@ -50,7 +49,6 @@ export async function authRoutes(fastify: FastifyInstance) {
     schema: { querystring: z.object({ sessionId: z.string() }) },
   }, async (request) => {
     const { sessionId } = request.query;
-    // Prefer DB if KV is unreliable
     const session = await sessionRepo.getSessionById(sessionId);
     if (!session) return createApiEnvelope({ status: "expired" }, request.id);
     return createApiEnvelope({ status: session.status, address: session.address }, request.id);
@@ -68,17 +66,22 @@ export async function authRoutes(fastify: FastifyInstance) {
       })
     },
   }, async (request) => {
-    const { username, password, platform, clientType, deviceId, appVersion } = request.body;
-    const result = await authManager.loginCustody({
-      username,
-      password,
-      platform,
-      clientType,
-      deviceId,
-      appVersion
-    });
-    if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
-    return createApiEnvelope(result, request.id);
+    try {
+        const { username, password, platform, clientType, deviceId, appVersion } = request.body;
+        const result = await authManager.loginCustody({
+          username,
+          password,
+          platform,
+          clientType,
+          deviceId,
+          appVersion
+        });
+        if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
+        return createApiEnvelope(result, request.id);
+    } catch (e: any) {
+        request.log.error(e);
+        return createApiEnvelope(null, request.id, false, "INTERNAL_SERVER_ERROR");
+    }
   });
 
   typedFastify.post("/custody/register", {
@@ -93,18 +96,23 @@ export async function authRoutes(fastify: FastifyInstance) {
       })
     },
   }, async (request) => {
-    const { username, password, platform, clientType, deviceId, appVersion } = request.body;
-    const result = await authManager.registerCustody({
-      username,
-      password,
-      platform,
-      clientType,
-      deviceId,
-      appVersion,
-      bonusAmount: CUSTODY_REGISTER_BONUS
-    });
-    if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
-    return createApiEnvelope(result, request.id);
+    try {
+        const { username, password, platform, clientType, deviceId, appVersion } = request.body;
+        const result = await authManager.registerCustody({
+          username,
+          password,
+          platform,
+          clientType,
+          deviceId,
+          appVersion,
+          bonusAmount: CUSTODY_REGISTER_BONUS
+        });
+        if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
+        return createApiEnvelope(result, request.id);
+    } catch (e: any) {
+        request.log.error(e);
+        return createApiEnvelope(null, request.id, false, "INTERNAL_SERVER_ERROR");
+    }
   });
 
   typedFastify.get("/me", {
@@ -112,25 +120,30 @@ export async function authRoutes(fastify: FastifyInstance) {
       querystring: z.object({ sessionId: z.string().optional() }).optional(),
     },
   }, async (request) => {
-    const sessionId = (request.query as any)?.sessionId;
-    if (!sessionId) return createApiEnvelope({ user: null }, request.id);
+    try {
+        const sessionId = (request.query as any)?.sessionId;
+        if (!sessionId) return createApiEnvelope({ user: null }, request.id);
 
-    const session = await sessionRepo.getSessionById(sessionId);
-    if (!session || session.status !== "authorized") {
-      return createApiEnvelope({ user: null }, request.id);
+        const session = await sessionRepo.getSessionById(sessionId);
+        if (!session || session.status !== "authorized") {
+          return createApiEnvelope({ user: null }, request.id);
+        }
+
+        const user = await userRepo.getUserById(session.userId);
+        const balance = await walletRepo.getBalance(session.address);
+        const totalBet = "0";
+
+        return createApiEnvelope({
+          user,
+          address: session.address,
+          mode: session.mode,
+          username: session.accountId,
+          balance,
+          totalBet,
+        }, request.id);
+    } catch (e: any) {
+        request.log.error(e);
+        return createApiEnvelope(null, request.id, false, "INTERNAL_SERVER_ERROR");
     }
-
-    const user = await userRepo.getUserById(session.userId);
-    const balance = await walletRepo.getBalance(session.address);
-    const totalBet = "0";
-
-    return createApiEnvelope({
-      user,
-      address: session.address,
-      mode: session.mode,
-      username: session.accountId,
-      balance,
-      totalBet,
-    }, request.id);
   });
 }

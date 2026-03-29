@@ -23,6 +23,16 @@ export interface MarketTransactionRecord {
   meta?: Record<string, unknown> | null;
 }
 
+export interface WalletIntentRecord {
+  id: string;
+  address: string;
+  token: string;
+  type: string;
+  status?: string | null;
+  amount?: number | null;
+  createdAt: string | Date;
+}
+
 export interface PublicTransactionItem {
   id: string;
   scope: "wallet" | "market";
@@ -39,6 +49,16 @@ export interface PublicTransactionItem {
   status: string;
   summary: string;
   createdAt: string;
+}
+
+export interface PublicTransactionStats {
+  totalTransactions: number;
+  overallSuccessRate: number | null;
+  walletExecutionSuccessRate: number | null;
+  marketWinRate: number | null;
+  successfulTransactions: number;
+  failedTransactions: number;
+  scoredTransactions: number;
 }
 
 function toIso(value: string | Date): string {
@@ -58,6 +78,11 @@ function round(value: unknown, digits = 6): number | null {
   if (!Number.isFinite(parsed)) return null;
   const factor = 10 ** digits;
   return Math.round(parsed * factor) / factor;
+}
+
+function percent(successes: number, total: number): number | null {
+  if (total <= 0) return null;
+  return round((successes / total) * 100, 2);
 }
 
 function walletSummary(tx: WalletTransactionRecord): string {
@@ -102,6 +127,36 @@ function marketSummary(tx: MarketTransactionRecord): string {
 }
 
 export class TransactionManager {
+  buildPublicStats(
+    walletIntents: WalletIntentRecord[],
+    marketTransactions: MarketTransactionRecord[],
+    totalTransactions: number
+  ): PublicTransactionStats {
+    const finalizedWalletIntents = walletIntents.filter((intent) =>
+      ["confirmed", "failed", "reverted"].includes(String(intent.status || "").toLowerCase())
+    );
+    const walletSuccesses = finalizedWalletIntents.filter((intent) => String(intent.status || "").toLowerCase() === "confirmed").length;
+
+    const scoredMarketTransactions = marketTransactions.filter((tx) =>
+      ["stock_sell", "futures_close"].includes(tx.type) && round(tx.pnl, 6) !== null
+    );
+    const marketSuccesses = scoredMarketTransactions.filter((tx) => (round(tx.pnl, 6) || 0) >= 0).length;
+
+    const successfulTransactions = walletSuccesses + marketSuccesses;
+    const failedTransactions = (finalizedWalletIntents.length - walletSuccesses) + (scoredMarketTransactions.length - marketSuccesses);
+    const scoredTransactions = finalizedWalletIntents.length + scoredMarketTransactions.length;
+
+    return {
+      totalTransactions,
+      overallSuccessRate: percent(successfulTransactions, scoredTransactions),
+      walletExecutionSuccessRate: percent(walletSuccesses, finalizedWalletIntents.length),
+      marketWinRate: percent(marketSuccesses, scoredMarketTransactions.length),
+      successfulTransactions,
+      failedTransactions,
+      scoredTransactions,
+    };
+  }
+
   buildPublicFeed(
     walletTransactions: WalletTransactionRecord[],
     marketTransactions: MarketTransactionRecord[],

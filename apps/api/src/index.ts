@@ -22,7 +22,7 @@ fastify.setSerializerCompiler(serializerCompiler);
 
 // Global Error Handler
 fastify.setErrorHandler((error, request, reply) => {
-  request.log.error(error);
+  console.error(error);
   if (error.validation) {
     reply.status(400).send({
         success: false,

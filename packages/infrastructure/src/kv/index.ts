@@ -1,6 +1,4 @@
-import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
-import { drizzle as drizzleNeon } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "../db/schema.js";
 import { eq, lte } from "drizzle-orm";
@@ -9,11 +7,8 @@ const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 let db: any = null;
 
 if (connectionString && !connectionString.includes("mock")) {
-  if (connectionString.includes("neon.tech")) {
-    db = drizzleNeon(neon(connectionString), { schema });
-  } else {
-    db = drizzlePg(postgres(connectionString), { schema });
-  }
+  const client = postgres(connectionString, { ssl: 'require' });
+  db = drizzle(client, { schema });
 }
 
 /**
@@ -51,7 +46,7 @@ class PostgresKV {
 
   async del(key: string) {
     if (!db) return 0;
-    const result = await db.delete(schema.kvStore).where(eq(schema.kvStore.key, key));
+    await db.delete(schema.kvStore).where(eq(schema.kvStore.key, key));
     return 1;
   }
 

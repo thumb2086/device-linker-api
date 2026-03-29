@@ -12,8 +12,8 @@ import {
 } from "./interfaces.js";
 
 const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-const client = postgres(connectionString as string);
-const db = drizzle(client, { schema });
+const client = connectionString ? postgres(connectionString as string) : null;
+const db = client ? drizzle(client, { schema }) : null;
 
 export class DBUserRepository implements IUserRepository {
   async saveUser(user: any) {

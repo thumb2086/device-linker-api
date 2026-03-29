@@ -11,7 +11,7 @@ type GameCard = {
   id: string;
   name: string;
   nameZh: string;
-  icon: string;
+  icon: string | string[];
 };
 
 type RoomState = {
@@ -30,7 +30,7 @@ export default function RoomLobbyView() {
     { id: 'roulette', name: 'Roulette', nameZh: '\u8f2a\u76e4', icon: '\ud83c\udfa1' },
     { id: 'blackjack', name: 'Blackjack', nameZh: '21 \u9ede', icon: '\ud83c\udccf' },
     { id: 'horse', name: 'Horse Racing', nameZh: '\u8cfd\u99ac', icon: '\ud83c\udfa0' },
-    { id: 'dragon', name: 'Dragon Tiger', nameZh: '\u9f8d\u864e', icon: '\ud83d\udc09\ud83d\udc05' },
+    { id: 'dragon', name: 'Dragon Tiger', nameZh: '\u9f8d\u864e', icon: ['\u9f8d', '\u864e'] },
     { id: 'sicbo', name: 'Sicbo', nameZh: '\u9ab0\u5bf6', icon: '\ud83c\udfb2' },
     { id: 'bingo', name: 'Bingo', nameZh: '\u8cd3\u679c', icon: '\ud83c\udfb1' },
     { id: 'crash', name: 'Crash', nameZh: '\u66b4\u885d', icon: '\ud83d\udcc8' },
@@ -131,7 +131,20 @@ export default function RoomLobbyView() {
               )}
               <div className="flex flex-col items-center space-y-4 text-center">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-[#494847]/20 bg-[#0e0e0e] text-4xl transition-transform duration-300 group-hover:scale-110">
-                  <span className="drop-shadow-[0_0_12px_rgba(252,192,37,0.2)]">{game.icon}</span>
+                  {Array.isArray(game.icon) ? (
+                    <div className="flex items-center gap-2 text-base font-black text-[#fcc025]">
+                      {game.icon.map((label) => (
+                        <span
+                          key={label}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#fcc025]/25 bg-[#161616] shadow-[0_0_12px_rgba(252,192,37,0.08)]"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="drop-shadow-[0_0_12px_rgba(252,192,37,0.2)]">{game.icon}</span>
+                  )}
                 </div>
                 <div>
                   <h3 className="text-sm font-bold uppercase tracking-tight text-white transition-colors group-hover:text-[#fcc025]">

@@ -2,16 +2,25 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { ProfileManager, SoundManager } from "@repo/domain";
-import { UserRepository, SessionRepository, kv } from "@repo/infrastructure";
+import { ProfileManager, SettingsManager, SoundManager } from "@repo/domain";
+import { UserRepository, SessionRepository } from "@repo/infrastructure";
 
 export async function profileRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   const userRepo = new UserRepository();
   const sessionRepo = new SessionRepository();
   const profileManager = new ProfileManager(userRepo, sessionRepo);
-  // Pass userRepo which now has sound prefs persistence
+  const settingsManager = new SettingsManager(userRepo);
   const soundManager = new SoundManager(userRepo);
+  const prefsSchema = z.object({
+    amountDisplay: z.enum(["compact", "full"]).optional(),
+    danmuEnabled: z.boolean().optional(),
+    masterVolume: z.number().min(0).max(1).optional(),
+    bgmEnabled: z.boolean().optional(),
+    bgmVolume: z.number().min(0).max(1).optional(),
+    sfxEnabled: z.boolean().optional(),
+    sfxVolume: z.number().min(0).max(1).optional(),
+  });
 
   typedFastify.post("/set-username", {
     schema: {
@@ -46,10 +55,9 @@ export async function profileRoutes(fastify: FastifyInstance) {
     if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
 
     try {
-        const prefs = await soundManager.getPrefs(session.userId);
-        return createApiEnvelope(prefs, request.id);
+        return createApiEnvelope(await soundManager.getPrefs(session.userId), request.id);
     } catch (e) {
-        return createApiEnvelope({ bgmEnabled: true, sfxEnabled: true, volume: 0.5 }, request.id);
+        return createApiEnvelope(null, request.id, false, "Failed to load sound prefs");
     }
   });
 
@@ -58,9 +66,12 @@ export async function profileRoutes(fastify: FastifyInstance) {
       body: z.object({
         sessionId: z.string(),
         prefs: z.object({
-          bgmEnabled: z.boolean(),
-          sfxEnabled: z.boolean(),
-          volume: z.number().min(0).max(1)
+          masterVolume: z.number().min(0).max(1).optional(),
+          bgmEnabled: z.boolean().optional(),
+          bgmVolume: z.number().min(0).max(1).optional(),
+          sfxEnabled: z.boolean().optional(),
+          sfxVolume: z.number().min(0).max(1).optional(),
+          volume: z.number().min(0).max(1).optional()
         })
       })
     }
@@ -68,11 +79,41 @@ export async function profileRoutes(fastify: FastifyInstance) {
     const { sessionId, prefs } = request.body;
     const session = await sessionRepo.getSessionById(sessionId);
     if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
-    await soundManager.savePrefs(session.userId, {
-      bgmEnabled: prefs.bgmEnabled as boolean,
-      sfxEnabled: prefs.sfxEnabled as boolean,
-      volume: prefs.volume as number
-    });
-    return createApiEnvelope({ success: true }, request.id);
+    const nextPrefs = await soundManager.savePrefs(session.userId, prefs);
+    return createApiEnvelope(nextPrefs, request.id);
+  });
+
+  typedFastify.get("/prefs", {
+    schema: {
+      querystring: z.object({
+        sessionId: z.string()
+      })
+    }
+  }, async (request) => {
+    const { sessionId } = request.query;
+    const session = await sessionRepo.getSessionById(sessionId);
+    if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
+
+    const user = await userRepo.getUserById(session.userId);
+    const prefs = await settingsManager.getSettings(session.userId);
+    return createApiEnvelope({
+      displayName: user?.displayName || null,
+      prefs,
+    }, request.id);
+  });
+
+  typedFastify.post("/prefs", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        prefs: prefsSchema,
+      }),
+    },
+  }, async (request) => {
+    const { sessionId, prefs } = request.body;
+    const session = await sessionRepo.getSessionById(sessionId);
+    if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
+    const nextPrefs = await settingsManager.saveSettings(session.userId, prefs);
+    return createApiEnvelope(nextPrefs, request.id);
   });
 }

@@ -16,6 +16,8 @@ export interface IWalletRepository {
   updateBalance(address: string, amount: string, token?: string): Promise<void>;
   saveTxIntent(intent: any): Promise<void>;
   getPendingIntents(): Promise<any[]>;
+  saveLedgerEntry(entry: any): Promise<void>;
+  listLedgerEntries(options?: { address?: string; limit?: number }): Promise<any[]>;
 }
 
 export interface IMarketRepository {
@@ -23,6 +25,8 @@ export interface IMarketRepository {
   saveAccount(address: string, userId: string, account: any): Promise<void>;
   getMarketSnapshot(): Promise<any>;
   saveMarketSnapshot(snapshot: any): Promise<void>;
+  saveTrade(trade: any): Promise<void>;
+  listTrades(options?: { address?: string; limit?: number }): Promise<any[]>;
 }
 
 export interface IMetaRepository {

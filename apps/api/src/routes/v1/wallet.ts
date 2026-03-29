@@ -1,10 +1,10 @@
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { createApiEnvelope, AIRDROP_DISTRIBUTED_TOTAL_KEY } from "@repo/shared";
+import { createApiEnvelope } from "@repo/shared";
 import { WalletManager, IdentityManager } from "@repo/domain";
 import { SessionRepository, UserRepository, WalletRepository, OpsRepository, kv } from "@repo/infrastructure";
-import { ethers } from "ethers";
+import { randomUUID } from "crypto";
 
 export async function walletRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -14,6 +14,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
   const userRepo = new UserRepository();
   const walletRepo = new WalletRepository();
   const opsRepo = new OpsRepository();
+  const tokenToSymbol = (token: "zhixi" | "yjc") => (token === "yjc" ? "YJC" : "ZXC");
 
   const getContext = async (req: any) => {
     const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
@@ -23,6 +24,38 @@ export async function walletRoutes(fastify: FastifyInstance) {
     const user = await userRepo.getUserById(session.userId);
     return { session, user };
   };
+
+  typedFastify.get("/summary", {
+    schema: {
+      querystring: z.object({
+        sessionId: z.string()
+      })
+    }
+  }, async (request) => {
+    const ctx = await getContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED", message: "Invalid session" } }, request.id);
+
+    const address = ctx.session.address;
+    const [zxcBalance, yjcBalance, ledger] = await Promise.all([
+      walletRepo.getBalance(address, "zhixi"),
+      walletRepo.getBalance(address, "yjc"),
+      walletRepo.listLedgerEntries({ address, limit: 25 }),
+    ]);
+
+    const lastAirdrop = await kv.get<number>(`last_airdrop:${address}`) || 0;
+    const nextAirdropAt = lastAirdrop ? lastAirdrop + 24 * 60 * 60 * 1000 : null;
+    const summary = walletManager.buildSummary(address, { ZXC: zxcBalance, YJC: yjcBalance }, ledger.map((entry: any) => ({
+      ...entry,
+      token: tokenToSymbol(entry.token === "yjc" ? "yjc" : "zhixi"),
+      amount: String(entry.amount),
+    })));
+
+    return createApiEnvelope({
+      summary,
+      canClaimAirdrop: !nextAirdropAt || Date.now() >= nextAirdropAt,
+      nextAirdropAt,
+    }, request.id);
+  });
 
   // ─── Airdrop ───────────────────────────────────────────────────────────────
 
@@ -49,6 +82,18 @@ export async function walletRoutes(fastify: FastifyInstance) {
     const newBalance = (parseFloat(currentBalanceStr) + parseFloat(rewardEth)).toString();
     
     await walletRepo.updateBalance(address, newBalance);
+    await walletRepo.saveLedgerEntry({
+      id: randomUUID(),
+      userId: ctx.user.id,
+      address,
+      token: "zhixi",
+      type: "airdrop",
+      amount: rewardEth,
+      balanceBefore: currentBalanceStr,
+      balanceAfter: newBalance,
+      meta: { source: "daily_airdrop" },
+      createdAt: new Date(),
+    });
     await kv.set(`last_airdrop:${address}`, now);
 
     await opsRepo.logEvent({
@@ -101,8 +146,22 @@ export async function walletRoutes(fastify: FastifyInstance) {
     await walletRepo.updateBalance(fromAddress, newFromBalance, token);
     await walletRepo.updateBalance(toAddress, newToBalance, token);
 
-    const intent = walletManager.createTxIntent(ctx.user.id, token.toUpperCase() as any, "transfer", amount);
+    const intent: any = walletManager.createTxIntent(ctx.user.id, tokenToSymbol(token), "transfer", amount);
+    intent.address = fromAddress;
     await walletRepo.saveTxIntent(intent);
+    await walletRepo.saveLedgerEntry({
+      id: randomUUID(),
+      userId: ctx.user.id,
+      address: fromAddress,
+      token,
+      type: "transfer_out",
+      amount,
+      balanceBefore: currentBalanceStr,
+      balanceAfter: newFromBalance,
+      txIntentId: intent.id,
+      meta: { counterparty: toAddress },
+      createdAt: new Date(),
+    });
 
     await opsRepo.logEvent({
       channel: "wallet",
@@ -135,9 +194,24 @@ export async function walletRoutes(fastify: FastifyInstance) {
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED", message: "Invalid session" } }, request.id);
 
     const { token, amount } = request.body;
-    const intent = walletManager.createTxIntent(ctx.user.id, token.toUpperCase() as any, "withdrawal", amount);
+    const currentBalance = await walletRepo.getBalance(ctx.session.address, token);
+    const intent: any = walletManager.createTxIntent(ctx.user.id, tokenToSymbol(token), "withdrawal", amount);
+    intent.address = ctx.session.address;
 
     await walletRepo.saveTxIntent(intent);
+    await walletRepo.saveLedgerEntry({
+      id: randomUUID(),
+      userId: ctx.user.id,
+      address: ctx.session.address,
+      token,
+      type: "withdrawal",
+      amount,
+      balanceBefore: currentBalance,
+      balanceAfter: currentBalance,
+      txIntentId: intent.id,
+      meta: { status: "pending" },
+      createdAt: new Date(),
+    });
     return createApiEnvelope({ intent }, request.id);
   });
 }

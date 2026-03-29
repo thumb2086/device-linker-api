@@ -3,7 +3,8 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
 import { MarketManager } from "@repo/domain";
-import { SessionRepository, UserRepository, MarketRepository, OpsRepository } from "@repo/infrastructure";
+import { SessionRepository, UserRepository, MarketRepository } from "@repo/infrastructure";
+import { randomUUID } from "crypto";
 
 export async function marketRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -11,7 +12,6 @@ export async function marketRoutes(fastify: FastifyInstance) {
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
   const marketRepo = new MarketRepository();
-  const opsRepo = new OpsRepository();
 
   const getContext = async (req: any) => {
     const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
@@ -21,6 +21,12 @@ export async function marketRoutes(fastify: FastifyInstance) {
     const user = await userRepo.getUserById(session.userId);
     return { session, user };
   };
+
+  typedFastify.get("/snapshot", async (request) => {
+    const snapshot = marketManager.buildSnapshot();
+    await marketRepo.saveMarketSnapshot(snapshot);
+    return createApiEnvelope({ snapshot }, request.id);
+  });
 
   typedFastify.get("/me", async (request) => {
     const ctx = await getContext(request);
@@ -37,18 +43,22 @@ export async function marketRoutes(fastify: FastifyInstance) {
     schema: {
       body: z.object({
         sessionId: z.string(),
-        type: z.enum(["stock_buy", "stock_sell", "bank_deposit", "bank_withdraw"]),
+        type: z.enum(["stock_buy", "stock_sell", "bank_deposit", "bank_withdraw", "loan_borrow", "loan_repay", "futures_open", "futures_close"]),
         symbol: z.string().optional(),
         amount: z.string().optional(),
         quantity: z.string().optional(),
+        side: z.enum(["long", "short"]).optional(),
+        leverage: z.string().optional(),
+        positionId: z.string().optional(),
       }),
     },
   }, async (request) => {
     const ctx = await getContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
-    const { type, symbol, amount, quantity } = request.body;
+    const { type, symbol, amount, quantity, side, leverage, positionId } = request.body;
     const snapshot = marketManager.buildSnapshot();
     const account = marketManager.normalizeAccount(await marketRepo.getAccount(ctx.session.address));
+    marketManager.settleLiquidations(account, snapshot);
 
     let result: any;
     try {
@@ -56,8 +66,27 @@ export async function marketRoutes(fastify: FastifyInstance) {
       else if (type === "stock_sell") result = marketManager.sellStock(account, snapshot, symbol, quantity);
       else if (type === "bank_deposit") result = marketManager.bankDeposit(account, amount);
       else if (type === "bank_withdraw") result = marketManager.bankWithdraw(account, amount);
+      else if (type === "loan_borrow") result = marketManager.borrowLoan(account, snapshot, amount);
+      else if (type === "loan_repay") result = marketManager.repayLoan(account, amount);
+      else if (type === "futures_open") result = marketManager.openFutures(account, snapshot, { symbol, side, margin: amount, leverage });
+      else if (type === "futures_close" && positionId) result = marketManager.closeFutures(account, snapshot, positionId);
+      else throw new Error("Unsupported market action payload");
       await marketRepo.saveAccount(ctx.session.address, ctx.user.id, account);
-      return createApiEnvelope({ success: true, result }, request.id);
+      await marketRepo.saveTrade({
+        id: randomUUID(),
+        userId: ctx.user.id,
+        address: ctx.session.address,
+        type,
+        symbol: result?.symbol || symbol || null,
+        quantity: result?.quantity ?? null,
+        price: result?.price ?? result?.entryPrice ?? result?.closePrice ?? null,
+        amount: result?.total ?? result?.net ?? result?.amount ?? result?.margin ?? result?.refund ?? null,
+        fee: result?.fee ?? null,
+        pnl: result?.realizedPnl ?? null,
+        meta: result,
+        createdAt: new Date(),
+      });
+      return createApiEnvelope({ success: true, result, account: marketManager.buildAccountSummary(account, snapshot) }, request.id);
     } catch (e: any) {
       return createApiEnvelope(null, request.id, false, e.message);
     }

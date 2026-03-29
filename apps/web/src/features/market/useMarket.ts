@@ -35,6 +35,7 @@ export const useMarket = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['market-me'] });
       queryClient.invalidateQueries({ queryKey: ['user-me'] });
+      queryClient.invalidateQueries({ queryKey: ['market-snapshot'] });
     }
   });
 

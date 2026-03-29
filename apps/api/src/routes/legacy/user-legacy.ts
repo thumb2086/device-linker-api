@@ -98,7 +98,7 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
 
         return { success: false, error: "UNKNOWN_ACTION", act };
     } catch (error: any) {
-        request.log.error(error);
+        console.error(error);
         return { success: false, error: "INTERNAL_SERVER_ERROR", message: error.message };
     }
   });

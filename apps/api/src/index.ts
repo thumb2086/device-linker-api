@@ -44,12 +44,32 @@ fastify.get("/api/diag", async () => {
     const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
     let dbStatus = "unknown";
     let tables: string[] = [];
+    let dbHost: string | null = null;
+    let dbName: string | null = null;
+    let sessionsExists = false;
+
+    const mask = (value: string | null) => {
+        if (!value) return null;
+        if (value.length <= 8) return value;
+        return `${value.slice(0, 4)}...${value.slice(-4)}`;
+    };
+
+    if (connectionString) {
+        try {
+            const parsed = new URL(connectionString);
+            dbHost = parsed.hostname || null;
+            dbName = parsed.pathname?.replace(/^\/+/, "") || null;
+        } catch (e) {
+            dbStatus = "error: invalid_database_url";
+        }
+    }
 
     if (connectionString) {
         try {
             const sql = postgres(connectionString, { ssl: 'require', connect_timeout: 5 });
             const result = await sql`SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'`;
             tables = result.map(r => r.tablename);
+            sessionsExists = tables.includes("sessions");
             dbStatus = "connected";
             await sql.end();
         } catch (e: any) {
@@ -66,7 +86,11 @@ fastify.get("/api/diag", async () => {
         db: {
             status: dbStatus,
             tables: tables,
-            url_present: !!connectionString
+            tables_count: tables.length,
+            sessions_exists: sessionsExists,
+            url_present: !!connectionString,
+            host: mask(dbHost),
+            database: dbName
         }
     };
 });

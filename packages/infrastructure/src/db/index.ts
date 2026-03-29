@@ -703,3 +703,58 @@ export class CustodyRepository implements ICustodyRepository {
     };
   }
 }
+
+export class AnnouncementRepository {
+  async listActiveAnnouncements() {
+    const conn = await requireDb();
+    return await conn.query.announcements.findMany({
+      where: (announcements: any, { eq }: any) => eq(announcements.isActive, true),
+      orderBy: (announcements: any, { desc }: any) => [
+        desc(announcements.isPinned),
+        desc(announcements.publishedAt),
+        desc(announcements.createdAt),
+      ],
+    });
+  }
+
+  async saveAnnouncement(announcement: {
+    id?: string;
+    announcementId: string;
+    title: string;
+    content: string;
+    isPinned?: boolean;
+    isActive?: boolean;
+    publishedBy?: string | null;
+    updatedBy?: string | null;
+    publishedAt?: string | Date | null;
+    createdAt?: string | Date | null;
+    updatedAt?: string | Date | null;
+  }) {
+    const conn = await requireDb();
+    await conn.insert(schema.announcements).values({
+      id: announcement.id || randomUUID(),
+      announcementId: announcement.announcementId,
+      title: announcement.title,
+      content: announcement.content,
+      isPinned: announcement.isPinned ?? false,
+      isActive: announcement.isActive ?? true,
+      publishedBy: announcement.publishedBy || null,
+      updatedBy: announcement.updatedBy || announcement.publishedBy || null,
+      publishedAt: announcement.publishedAt ? new Date(announcement.publishedAt) : new Date(),
+      createdAt: announcement.createdAt ? new Date(announcement.createdAt) : new Date(),
+      updatedAt: announcement.updatedAt ? new Date(announcement.updatedAt) : new Date(),
+    }).onConflictDoUpdate({
+      target: schema.announcements.announcementId,
+      set: {
+        title: announcement.title,
+        content: announcement.content,
+        isPinned: announcement.isPinned ?? false,
+        isActive: announcement.isActive ?? true,
+        publishedBy: announcement.publishedBy || null,
+        updatedBy: announcement.updatedBy || announcement.publishedBy || null,
+        publishedAt: announcement.publishedAt ? new Date(announcement.publishedAt) : new Date(),
+        updatedAt: announcement.updatedAt ? new Date(announcement.updatedAt) : new Date(),
+      }
+    });
+  }
+}

@@ -5,6 +5,7 @@ export * from "./identity/settings-manager.js";
 export * from "./identity/sound-manager.js";
 export * from "./announcement/announcement-manager.js";
 export * from "./wallet/wallet-manager.js";
+export * from "./wallet/onchain-wallet-manager.js";
 export * from "./market/market-manager.js";
 export * from "./transactions/transaction-manager.js";
 export * from "./games/game-manager.js";

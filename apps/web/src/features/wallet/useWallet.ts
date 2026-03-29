@@ -41,9 +41,22 @@ export const useWallet = () => {
     }
   });
 
+  const convertMutation = useMutation({
+    mutationFn: async (params: { zxcAmount: string }) => {
+      const res = await axios.post(`${API_BASE}/convert`, { ...params, sessionId });
+      if (res.data.error) throw new Error(res.data.error.message);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-me'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-summary', sessionId] });
+    }
+  });
+
   return {
     summary,
     airdrop: airdropMutation,
-    transfer: transferMutation
+    transfer: transferMutation,
+    convert: convertMutation
   };
 };

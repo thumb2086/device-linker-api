@@ -243,6 +243,31 @@ const ensureCoreSchema = async () => {
           )
         `;
         await sql`
+          CREATE TABLE IF NOT EXISTS tx_attempts (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tx_intent_id UUID NOT NULL REFERENCES tx_intents(id),
+            attempt_number INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            tx_hash TEXT,
+            error TEXT,
+            error_code TEXT,
+            broadcast_at TIMESTAMP,
+            confirmed_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`
+          CREATE TABLE IF NOT EXISTS tx_receipts (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tx_intent_id UUID NOT NULL UNIQUE REFERENCES tx_intents(id),
+            tx_hash TEXT NOT NULL,
+            block_number BIGINT,
+            status TEXT NOT NULL,
+            gas_used TEXT,
+            confirmed_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`
           CREATE TABLE IF NOT EXISTS market_accounts (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
@@ -449,6 +474,25 @@ export class WalletRepository implements IWalletRepository {
     try {
         return await conn.query.txIntents.findMany({ where: (txIntents: any, { eq }: any) => eq(txIntents.status, "pending") });
     } catch(e) { return []; }
+  }
+
+  async saveTxAttempt(attempt: any) {
+    const conn = await requireDb();
+    await conn.insert((schema as any).txAttempts).values(attempt).onConflictDoNothing();
+  }
+
+  async saveTxReceipt(receipt: any) {
+    const conn = await requireDb();
+    await conn.insert((schema as any).txReceipts).values(receipt).onConflictDoUpdate({
+      target: (schema as any).txReceipts.txIntentId,
+      set: {
+        txHash: receipt.txHash,
+        blockNumber: receipt.blockNumber,
+        status: receipt.status,
+        gasUsed: receipt.gasUsed,
+        confirmedAt: receipt.confirmedAt ?? new Date(),
+      }
+    });
   }
 
   async saveLedgerEntry(entry: any) {

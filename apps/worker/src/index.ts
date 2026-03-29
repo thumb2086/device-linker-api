@@ -1,4 +1,4 @@
-import { WalletManager } from "@repo/domain";
+import { OnchainWalletManager, WalletManager } from "@repo/domain";
 import { WalletRepository, OpsRepository, ChainClient } from "@repo/infrastructure";
 
 export async function processIntents() {
@@ -6,13 +6,15 @@ export async function processIntents() {
   const walletRepo = new WalletRepository();
   const opsRepo = new OpsRepository();
   const walletManager = new WalletManager();
+  const onchainManager = new OnchainWalletManager();
 
-  const rpcUrl = process.env.RPC_URL || "http://localhost:8545";
-  const privateKey = process.env.ADMIN_PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-  const zxcAddress = process.env.ZXC_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000";
-  const yjcAddress = process.env.YJC_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000";
+  const runtime = onchainManager.getRuntimeConfig();
+  if (!runtime.rpcUrl || !runtime.adminPrivateKey) {
+    console.warn("Worker skipped: on-chain runtime is not configured.");
+    return;
+  }
 
-  const chainClient = new ChainClient(rpcUrl, privateKey);
+  const chainClient = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
 
   try {
     const intents = await walletRepo.getPendingIntents();
@@ -33,13 +35,33 @@ export async function processIntents() {
           message: `Broadcasting ${intent.type} for intent ${intent.id}`
         });
 
-        const contractAddress = intent.token === "ZXC" ? zxcAddress : yjcAddress;
+        const tokenKey = intent.token === "YJC" ? "yjc" : "zhixi";
+        const tokenRuntime = runtime.tokens[tokenKey];
+        const contractAddress = tokenRuntime.contractAddress;
+        const fromAddress = String(intent.address || "").toLowerCase();
+        const meta = intent.meta && typeof intent.meta === "object" ? intent.meta : {};
+        const decimals = Number.isFinite(Number((meta as any).decimals))
+          ? Number((meta as any).decimals)
+          : await chainClient.getDecimals(contractAddress, 18);
+        const amountWei = chainClient.parseUnits(String(intent.amount || "0"), decimals);
+        const toAddress =
+          intent.type === "transfer"
+            ? String((meta as any).toAddress || "")
+            : intent.type === "withdrawal"
+              ? String(tokenRuntime.lossPoolAddress || chainClient.getWalletAddress())
+              : fromAddress;
         let txHash = `0xmock_hash_${Date.now()}`;
 
-        if (process.env.NODE_ENV === "production" && zxcAddress !== "0x" + "0".repeat(40)) {
-           const tx = await chainClient.transfer(intent.userId, BigInt(intent.amount), contractAddress);
-           txHash = tx.hash;
-           await tx.wait();
+        if (process.env.NODE_ENV === "production" && contractAddress) {
+           if (intent.type === "deposit" && (meta as any).mode === "zxc_to_yjc_mint") {
+             const tx = await chainClient.mint(fromAddress, amountWei, contractAddress);
+             txHash = tx.hash;
+             await tx.wait();
+           } else if (fromAddress && toAddress) {
+             const tx = await chainClient.adminTransfer(fromAddress, toAddress, amountWei, contractAddress);
+             txHash = tx.hash;
+             await tx.wait();
+           }
         }
 
         await walletRepo.saveTxIntent(walletManager.processTxIntent(intent, "confirmed", txHash));

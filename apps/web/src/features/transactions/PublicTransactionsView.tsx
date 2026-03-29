@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Activity, LayoutGrid, Settings, TrendingUp, Wallet } from 'lucide-react';
+import { Activity, LayoutGrid, MessageSquareText, Settings, TrendingUp, Wallet } from 'lucide-react';
 
 export default function PublicTransactionsView() {
   const { data, isLoading } = useQuery({
@@ -68,6 +68,10 @@ export default function PublicTransactionsView() {
           <Link to="/app/settings" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
             <Settings size={24} className="mb-1" />
             <span className="text-[10px] font-bold uppercase tracking-[0.1em]">Settings</span>
+          </Link>
+          <Link to="/app/transactions" className="flex flex-col items-center justify-center text-[#fcc025] drop-shadow-[0_0_8px_rgba(252,192,37,0.4)]">
+            <MessageSquareText size={24} className="mb-1" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">Feed</span>
           </Link>
         </div>
       </nav>

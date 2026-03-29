@@ -10,8 +10,9 @@ import {
 let sqlInstance: any = null;
 const getSql = () => {
   if (!sqlInstance) {
-    if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is missing");
-    sqlInstance = neon(process.env.DATABASE_URL);
+    const dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+    if (!dbUrl) throw new Error("POSTGRES_URL or DATABASE_URL is missing");
+    sqlInstance = neon(dbUrl);
   }
   return sqlInstance;
 };

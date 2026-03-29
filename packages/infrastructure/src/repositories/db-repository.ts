@@ -11,7 +11,7 @@ import {
   IStatsRepository
 } from "./interfaces.js";
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 const client = postgres(connectionString as string);
 const db = drizzle(client, { schema });
 

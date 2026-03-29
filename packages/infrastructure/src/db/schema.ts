@@ -29,6 +29,14 @@ export const custodyAccounts = pgTable("custody_accounts", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const custodyUsers = pgTable("custody_users", {
+  username: text("username").primaryKey(),
+  saltHex: text("salt_hex"),
+  passwordHash: text("password_hash"),
+  address: text("address"),
+  raw: jsonb("raw"),
+});
+
 export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
   userId: uuid("user_id").references(() => users.id),

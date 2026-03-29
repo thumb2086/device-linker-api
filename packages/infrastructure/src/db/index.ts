@@ -65,6 +65,15 @@ const ensureCoreSchema = async () => {
           )
         `;
         await sql`
+          CREATE TABLE IF NOT EXISTS custody_users (
+            username TEXT PRIMARY KEY,
+            salt_hex TEXT,
+            password_hash TEXT,
+            address TEXT,
+            raw JSONB
+          )
+        `;
+        await sql`
           CREATE TABLE IF NOT EXISTS sessions (
             id TEXT PRIMARY KEY,
             user_id UUID REFERENCES users(id),
@@ -362,27 +371,60 @@ export class StatsRepository implements IStatsRepository {
 export class CustodyRepository implements ICustodyRepository {
   async saveCustodyUser(username: string, data: any) {
     const conn = await requireDb();
-    let user = await conn.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, data.address.toLowerCase()) });
+    const normalizedUsername = username.toLowerCase();
+    const normalizedAddress = data.address.toLowerCase();
+    let user = await conn.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, normalizedAddress) });
     if (!user) {
         const userId = randomUUID();
-        await conn.insert(schema.users).values({ id: userId, address: data.address.toLowerCase(), displayName: username, createdAt: new Date(), updatedAt: new Date() });
+        await conn.insert(schema.users).values({ id: userId, address: normalizedAddress, displayName: normalizedUsername, createdAt: new Date(), updatedAt: new Date() });
         user = { id: userId };
     }
     await conn.insert(schema.custodyAccounts).values({
-        username: username.toLowerCase(),
+        username: normalizedUsername,
         passwordHash: data.passwordHash,
         saltHex: data.saltHex,
-        address: data.address.toLowerCase(),
+        address: normalizedAddress,
         publicKey: data.publicKey || null,
         userId: user.id,
         updatedAt: new Date()
     }).onConflictDoUpdate({
         target: schema.custodyAccounts.username,
-        set: { updatedAt: new Date() }
+        set: {
+          passwordHash: data.passwordHash,
+          saltHex: data.saltHex,
+          address: normalizedAddress,
+          publicKey: data.publicKey || null,
+          userId: user.id,
+          updatedAt: new Date()
+        }
     });
   }
   async getCustodyUser(username: string) {
     const conn = await requireDb();
-    return await conn.query.custodyAccounts.findFirst({ where: (c: any, { eq }: any) => eq(c.username, username.toLowerCase()) });
+    const normalizedUsername = username.toLowerCase();
+    const account = await conn.query.custodyAccounts.findFirst({
+      where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
+    });
+    if (account) return account;
+
+    const legacy = await conn.query.custodyUsers.findFirst({
+      where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
+    });
+    if (!legacy?.address || !legacy?.passwordHash || !legacy?.saltHex) return null;
+
+    const raw = legacy.raw && typeof legacy.raw === "object" ? legacy.raw : {};
+    const recovered = {
+      username: normalizedUsername,
+      passwordHash: legacy.passwordHash,
+      saltHex: legacy.saltHex,
+      address: legacy.address,
+      publicKey: raw.publicKey || raw.public_key || null,
+    };
+
+    await this.saveCustodyUser(normalizedUsername, recovered);
+
+    return await conn.query.custodyAccounts.findFirst({
+      where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
+    });
   }
 }

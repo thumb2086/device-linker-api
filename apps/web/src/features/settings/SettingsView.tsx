@@ -17,6 +17,7 @@ import { useUserStore } from '../../store/useUserStore';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
 import AppBottomNav from '../../components/AppBottomNav';
 import { useWallet } from '../wallet/useWallet';
+import { resolvePreferredBalance } from '../../utils/balance';
 
 const Toggle = ({ enabled, onClick }: { enabled: boolean; onClick: () => void }) => (
   <button
@@ -110,11 +111,12 @@ export default function SettingsView() {
     nameUpdated: '\u986f\u793a\u540d\u7a31\u5df2\u66f4\u65b0',
   };
 
-  const walletPreviewBalance =
-    walletSummaryQuery.data?.onchain?.zxc?.balance ||
-    walletSummaryQuery.data?.summary?.balances?.ZXC ||
-    balance ||
-    '0';
+  const walletPreviewBalance = resolvePreferredBalance({
+    onchainBalance: walletSummaryQuery.data?.onchain?.zxc?.balance,
+    onchainAvailable: walletSummaryQuery.data?.onchain?.zxc?.available,
+    walletBalance: walletSummaryQuery.data?.summary?.balances?.ZXC,
+    fallbackBalance: balance,
+  });
 
   useEffect(() => {
     setDisplayNameDraft(username || '');

@@ -17,6 +17,7 @@ import { formatNumber } from '@repo/shared';
 import { useUserStore } from '../../store/useUserStore';
 import AppBottomNav from '../../components/AppBottomNav';
 import { useWallet } from '../wallet/useWallet';
+import { resolvePreferredBalance } from '../../utils/balance';
 
 function GlassCard({
   to,
@@ -60,11 +61,12 @@ export default function LobbyView() {
   const { i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
   const { summary } = useWallet();
-  const liveBalance =
-    summary.data?.onchain?.zxc?.balance ||
-    summary.data?.summary?.balances?.ZXC ||
-    balance ||
-    '0';
+  const liveBalance = resolvePreferredBalance({
+    onchainBalance: summary.data?.onchain?.zxc?.balance,
+    onchainAvailable: summary.data?.onchain?.zxc?.available,
+    walletBalance: summary.data?.summary?.balances?.ZXC,
+    fallbackBalance: balance,
+  });
 
   const zh = {
     title: '\u5b50\u7199\u6a21\u64ec\u5668',

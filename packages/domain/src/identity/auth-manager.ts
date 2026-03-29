@@ -14,6 +14,7 @@ export interface AuthResult {
   user?: any;
   address?: string;
   publicKey?: string;
+  debug?: any;
   error?: {
     code: string;
     message: string;
@@ -124,13 +125,24 @@ export class AuthManager {
   }): Promise<AuthResult> {
     const { username, password, platform, clientType, deviceId, appVersion } = params;
     const normalizedUsername = username.trim().toLowerCase();
+    const debugEnabled = process.env.VERCEL_ENV !== "production";
 
     const custodyUser = await this.custodyRepo.getCustodyUser(normalizedUsername);
     const legacyCustodyUser = await this.custodyRepo.getLegacyCustodyUser(normalizedUsername);
     const primaryUser = custodyUser && custodyUser.address ? custodyUser : legacyCustodyUser;
 
     if (!primaryUser || !primaryUser.address) {
-      return { success: false, error: { code: "INVALID_CREDENTIALS", message: "Invalid username or password" } };
+      return {
+        success: false,
+        error: { code: "INVALID_CREDENTIALS", message: "Invalid username or password" },
+        debug: debugEnabled ? {
+          username: normalizedUsername,
+          passwordLength: password.length,
+          primaryFound: !!custodyUser,
+          legacyFound: !!legacyCustodyUser,
+          reason: "user_not_found"
+        } : undefined
+      };
     }
 
     const completed = this.identityManager.ensureCustodyPublicKey(primaryUser);
@@ -138,10 +150,13 @@ export class AuthManager {
       await this.custodyRepo.saveCustodyUser(normalizedUsername, completed);
     }
     let verified = this.identityManager.verifyCustodyPassword(completed, password);
+    let primaryVerified = verified;
+    let legacyVerified = false;
 
     if (!verified && custodyUser && legacyCustodyUser) {
       const legacyCompleted = this.identityManager.ensureCustodyPublicKey(legacyCustodyUser);
-      verified = this.identityManager.verifyCustodyPassword(legacyCompleted, password);
+      legacyVerified = this.identityManager.verifyCustodyPassword(legacyCompleted, password);
+      verified = legacyVerified;
       if (verified) {
         await this.custodyRepo.saveCustodyUser(normalizedUsername, legacyCompleted);
       } else {
@@ -166,7 +181,22 @@ export class AuthManager {
     }
 
     if (!verified) {
-      return { success: false, error: { code: "INVALID_CREDENTIALS", message: "Invalid username or password" } };
+      return {
+        success: false,
+        error: { code: "INVALID_CREDENTIALS", message: "Invalid username or password" },
+        debug: debugEnabled ? {
+          username: normalizedUsername,
+          passwordLength: password.length,
+          primaryFound: !!custodyUser,
+          legacyFound: !!legacyCustodyUser,
+          primaryVerified,
+          legacyVerified,
+          primaryHashLength: custodyUser ? String(custodyUser.passwordHash || "").length : 0,
+          primarySaltLength: custodyUser ? String(custodyUser.saltHex || "").length : 0,
+          legacyHashLength: legacyCustodyUser ? String(legacyCustodyUser.passwordHash || "").length : 0,
+          legacySaltLength: legacyCustodyUser ? String(legacyCustodyUser.saltHex || "").length : 0,
+        } : undefined
+      };
     }
 
     let user = await this.userRepo.getUserByAddress(completed.address);

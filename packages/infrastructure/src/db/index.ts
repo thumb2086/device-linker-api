@@ -36,9 +36,8 @@ const ensureCoreSchema = async () => {
         connect_timeout: 10,
       });
       try {
+        await sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
         await sql`
-          CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
           CREATE TABLE IF NOT EXISTS users (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             address TEXT NOT NULL UNIQUE,
@@ -50,8 +49,9 @@ const ensureCoreSchema = async () => {
             blacklisted_by TEXT,
             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );
-
+          )
+        `;
+        await sql`
           CREATE TABLE IF NOT EXISTS custody_accounts (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             username TEXT NOT NULL UNIQUE,
@@ -62,8 +62,9 @@ const ensureCoreSchema = async () => {
             user_id UUID REFERENCES users(id),
             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );
-
+          )
+        `;
+        await sql`
           CREATE TABLE IF NOT EXISTS sessions (
             id TEXT PRIMARY KEY,
             user_id UUID REFERENCES users(id),
@@ -79,8 +80,9 @@ const ensureCoreSchema = async () => {
             authorized_at TIMESTAMP,
             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
             expires_at TIMESTAMP NOT NULL
-          );
-
+          )
+        `;
+        await sql`
           CREATE TABLE IF NOT EXISTS user_profiles (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
@@ -96,8 +98,9 @@ const ensureCoreSchema = async () => {
             sound_prefs JSONB DEFAULT '{"bgmEnabled":true,"sfxEnabled":true,"volume":0.5}',
             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );
-
+          )
+        `;
+        await sql`
           CREATE TABLE IF NOT EXISTS wallet_accounts (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id UUID NOT NULL REFERENCES users(id),
@@ -107,9 +110,10 @@ const ensureCoreSchema = async () => {
             locked_balance NUMERIC NOT NULL DEFAULT '0',
             airdrop_distributed NUMERIC NOT NULL DEFAULT '0',
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );
-          CREATE UNIQUE INDEX IF NOT EXISTS wallet_addr_token_idx ON wallet_accounts (address, token);
-
+          )
+        `;
+        await sql`CREATE UNIQUE INDEX IF NOT EXISTS wallet_addr_token_idx ON wallet_accounts (address, token)`;
+        await sql`
           CREATE TABLE IF NOT EXISTS market_accounts (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
@@ -117,8 +121,9 @@ const ensureCoreSchema = async () => {
             data JSONB NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );
-
+          )
+        `;
+        await sql`
           CREATE TABLE IF NOT EXISTS ops_events (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             channel TEXT NOT NULL,
@@ -138,14 +143,15 @@ const ensureCoreSchema = async () => {
             message TEXT NOT NULL,
             meta JSONB,
             created_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );
-
+          )
+        `;
+        await sql`
           CREATE TABLE IF NOT EXISTS kv_store (
             key TEXT PRIMARY KEY,
             value JSONB NOT NULL,
             expires_at TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-          );
+          )
         `;
       } finally {
         await sql.end();

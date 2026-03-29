@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, LayoutGrid, MessageSquareText, Settings, TrendingUp, Wallet } from 'lucide-react';
+import { Home, LayoutGrid, Settings, TrendingUp, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-type NavKey = 'home' | 'casino' | 'market' | 'wallet' | 'settings' | 'feed' | 'none';
+type NavKey = 'home' | 'casino' | 'market' | 'wallet' | 'settings' | 'none';
 
 export default function AppBottomNav({ current }: { current: NavKey }) {
   const { t } = useTranslation();
@@ -14,7 +14,6 @@ export default function AppBottomNav({ current }: { current: NavKey }) {
     { key: 'market' as const, to: '/app/market', icon: TrendingUp, label: t('nav.market') },
     { key: 'wallet' as const, to: '/app/wallet', icon: Wallet, label: t('nav.vault') },
     { key: 'settings' as const, to: '/app/settings', icon: Settings, label: t('nav.settings') },
-    { key: 'feed' as const, to: '/app/transactions', icon: MessageSquareText, label: t('nav.feed') },
   ];
 
   return (

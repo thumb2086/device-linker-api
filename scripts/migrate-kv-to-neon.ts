@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { neon } from "postgres";
 import * as schema from "../packages/infrastructure/src/db/schema.js";
 import crypto from "crypto";
 

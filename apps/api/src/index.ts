@@ -12,6 +12,7 @@ import { supportRoutes } from "./routes/v1/support.js";
 import { profileRoutes } from "./routes/v1/profile.js";
 import { announcementRoutes } from "./routes/v1/announcements.js";
 import { legacyRoutes } from "./routes/legacy/index.js";
+import postgres from "postgres";
 
 const fastify = Fastify({
   logger: true,
@@ -22,7 +23,7 @@ fastify.setSerializerCompiler(serializerCompiler);
 
 // Global Error Handler
 fastify.setErrorHandler((error, request, reply) => {
-  console.error(error);
+  console.error("Global Error Handler:", error);
   if (error.validation) {
     reply.status(400).send({
         success: false,
@@ -34,18 +35,39 @@ fastify.setErrorHandler((error, request, reply) => {
   reply.status(500).send({
     success: false,
     error: "INTERNAL_SERVER_ERROR",
-    message: process.env.NODE_ENV === "production" ? "An unexpected error occurred" : error.message,
-    stack: process.env.NODE_ENV === "production" ? undefined : error.stack,
+    message: error.message,
   });
 });
 
-// Diagnostic Route
+// Enhanced Diagnostic Route
 fastify.get("/api/diag", async () => {
+    const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+    let dbStatus = "unknown";
+    let tables: string[] = [];
+
+    if (connectionString) {
+        try {
+            const sql = postgres(connectionString, { ssl: 'require', connect_timeout: 5 });
+            const result = await sql`SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'`;
+            tables = result.map(r => r.tablename);
+            dbStatus = "connected";
+            await sql.end();
+        } catch (e: any) {
+            dbStatus = `error: ${e.message}`;
+        }
+    } else {
+        dbStatus = "missing_env";
+    }
+
     return {
         status: "ok",
         env: process.env.NODE_ENV,
         timestamp: new Date().toISOString(),
-        db_url_present: !!(process.env.DATABASE_URL || process.env.POSTGRES_URL)
+        db: {
+            status: dbStatus,
+            tables: tables,
+            url_present: !!connectionString
+        }
     };
 });
 

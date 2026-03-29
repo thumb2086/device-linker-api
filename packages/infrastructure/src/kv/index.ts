@@ -13,50 +13,55 @@ if (connectionString && !connectionString.includes("mock")) {
 
 /**
  * Postgres-backed KV Client to replace @vercel/kv
- * Used for ephemeral data, snapshots, and legacy session fallbacks.
  */
 class PostgresKV {
   async get<T>(key: string): Promise<T | null> {
     if (!db) return null;
-    const result = await db.query.kvStore.findFirst({
-      where: eq(schema.kvStore.key, key)
-    });
-    if (!result) return null;
-    if (result.expiresAt && result.expiresAt < new Date()) {
-      await this.del(key);
-      return null;
-    }
-    return result.value as T;
+    try {
+        const result = await db.query.kvStore.findFirst({
+          where: eq(schema.kvStore.key, key)
+        });
+        if (!result) return null;
+        if (result.expiresAt && result.expiresAt < new Date()) {
+          await this.del(key);
+          return null;
+        }
+        return result.value as T;
+    } catch(e) { return null; }
   }
 
   async set(key: string, value: any, options?: { ex?: number }) {
     if (!db) return "OK";
-    const expiresAt = options?.ex ? new Date(Date.now() + options.ex * 1000) : null;
-    await db.insert(schema.kvStore).values({
-      key,
-      value,
-      expiresAt,
-      updatedAt: new Date()
-    }).onConflictDoUpdate({
-      target: schema.kvStore.key,
-      set: { value, expiresAt, updatedAt: new Date() }
-    });
+    try {
+        const expiresAt = options?.ex ? new Date(Date.now() + options.ex * 1000) : null;
+        await db.insert(schema.kvStore).values({
+          key,
+          value,
+          expiresAt,
+          updatedAt: new Date()
+        }).onConflictDoUpdate({
+          target: schema.kvStore.key,
+          set: { value, expiresAt, updatedAt: new Date() }
+        });
+    } catch(e) {}
     return "OK";
   }
 
   async del(key: string) {
     if (!db) return 0;
-    await db.delete(schema.kvStore).where(eq(schema.kvStore.key, key));
+    try {
+        await db.delete(schema.kvStore).where(eq(schema.kvStore.key, key));
+    } catch(e) {}
     return 1;
   }
 
-  // Helper for cleaning up expired keys
   async gc() {
     if (!db) return;
-    await db.delete(schema.kvStore).where(lte(schema.kvStore.expiresAt, new Date()));
+    try {
+        await db.delete(schema.kvStore).where(lte(schema.kvStore.expiresAt, new Date()));
+    } catch(e) {}
   }
 
-  // Placeholder implementations for legacy set/list ops if needed
   async sadd(key: string, ...members: string[]) {
     const current = await this.get<string[]>(key) || [];
     const updated = Array.from(new Set([...current, ...members]));

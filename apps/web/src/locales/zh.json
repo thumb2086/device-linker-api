@@ -112,6 +112,21 @@
     "submit_ticket": "\u63d0\u4ea4\u5de5\u55ae",
     "issue_category": "\u554f\u984c\u5206\u985e",
     "description": "\u63cf\u8ff0",
-    "send_protocol": "\u9001\u51fa"
+    "send_protocol": "\u9001\u51fa",
+    "operator_name": "\u7cfb\u7d71\u5ba2\u670d\u5c08\u54e1_72",
+    "online": "\u4e0a\u7dda\u4e2d",
+    "connecting": "\u9023\u63a5\u81f3\u5b89\u5168\u5c08\u7dda\u4e2d...",
+    "enter_message": "\u8f38\u5165\u8a0a\u606f...",
+    "report_anomalies": "\u56de\u5831\u6a21\u64ec\u7570\u5e38",
+    "category_technical": "\u6280\u8853\u932f\u8aa4",
+    "category_vault": "\u8cc7\u7522\u7570\u5e38",
+    "category_trade": "\u4ea4\u6613\u57f7\u884c",
+    "provide_details": "\u8acb\u8f38\u5165\u8a73\u7d30\u63cf\u8ff0...",
+    "protocol_1_title": "\u8cc7\u7522\u5b89\u5168\u5354\u5b9a",
+    "protocol_1_summary": "\u8aaa\u660e AES-256 \u52a0\u5bc6\u8207\u591a\u7c3d\u6388\u6b0a\u6d41\u7a0b\u3002",
+    "protocol_2_title": "\u4ea4\u6613\u57f7\u884c\u6307\u5357",
+    "protocol_2_summary": "\u8aaa\u660e\u5982\u4f55\u4f7f\u7528\u5e02\u5834\u7d42\u7aef\u9032\u884c\u4ea4\u6613\u3002",
+    "protocol_3_title": "\u5e33\u865f\u5fa9\u539f\u6b65\u9a5f",
+    "protocol_3_summary": "\u907a\u5931\u9023\u7dda\u6216\u8eab\u4efd\u8cc7\u6599\u6642\u7684\u5fa9\u539f\u8655\u7406\u6d41\u7a0b\u3002"
   }
 }

@@ -1,9 +1,5 @@
-import { Link } from "react-router-dom";
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React from 'react';
 import {
-  Headphones,
-  MessageSquare,
   FileText,
   ChevronRight,
   Send,
@@ -16,9 +12,9 @@ export default function SupportView() {
   const { t } = useTranslation();
 
   const protocols = [
-    { id: 1, title: 'Vault Security Protocol', summary: 'Information regarding AES-256 and multi-sig authorization.' },
-    { id: 2, title: 'Trading Execution Guide', summary: 'How to use the market terminal for high-frequency trading.' },
-    { id: 3, title: 'Account Recovery Steps', summary: 'Procedure for recovering identity profile if session is lost.' },
+    { id: 1, title: t('support.protocol_1_title'), summary: t('support.protocol_1_summary') },
+    { id: 2, title: t('support.protocol_2_title'), summary: t('support.protocol_2_summary') },
+    { id: 3, title: t('support.protocol_3_title'), summary: t('support.protocol_3_summary') },
   ];
 
   return (
@@ -43,23 +39,23 @@ export default function SupportView() {
                  </div>
                  <div>
                     <h3 className="text-[10px] font-bold text-[#fcc025] uppercase tracking-widest">{t('support.live_chat')}</h3>
-                    <p className="text-[11px] font-bold text-white uppercase italic">SYSTEM OPERATOR_72</p>
+                    <p className="text-[11px] font-bold text-white uppercase italic">{t('support.operator_name')}</p>
                  </div>
               </div>
               <div className="flex items-center gap-2">
                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                 <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">Online</span>
+                 <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">{t('support.online')}</span>
               </div>
            </div>
 
            <div className="bg-[#0e0e0e] rounded-xl p-4 min-h-[100px] border border-[#494847]/10 flex items-center justify-center italic text-[#494847] text-xs uppercase font-bold tracking-widest">
-              Connecting to secure line...
+              {t('support.connecting')}
            </div>
 
            <div className="relative">
               <input
                  type="text"
-                 placeholder="Enter message..."
+                 placeholder={t('support.enter_message')}
                  className="w-full bg-[#0e0e0e] border border-[#494847]/20 rounded-xl pl-5 pr-14 py-4 text-xs font-bold focus:border-[#fcc025]/50 outline-none transition-all placeholder:text-[#494847] uppercase tracking-tight"
               />
               <button className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-[#fcc025] text-black rounded-lg flex items-center justify-center hover:bg-white transition-colors">
@@ -92,23 +88,23 @@ export default function SupportView() {
         <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/10 space-y-6">
            <div className="space-y-1">
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#fcc025]">{t('support.submit_ticket')}</h3>
-              <p className="text-[10px] text-[#adaaaa] font-bold uppercase">Report simulation anomalies</p>
+              <p className="text-[10px] text-[#adaaaa] font-bold uppercase">{t('support.report_anomalies')}</p>
            </div>
 
            <div className="space-y-4">
               <div className="space-y-2">
                  <label className="text-[9px] font-bold uppercase text-[#494847] tracking-widest ml-1">{t('support.issue_category')}</label>
                  <select className="w-full bg-[#0e0e0e] border border-[#494847]/20 rounded-xl px-4 py-3 text-[10px] font-bold text-white outline-none focus:border-[#fcc025]/50 appearance-none uppercase">
-                    <option>Technical Error</option>
-                    <option>Vault Discrepancy</option>
-                    <option>Trade Execution</option>
+                    <option>{t('support.category_technical')}</option>
+                    <option>{t('support.category_vault')}</option>
+                    <option>{t('support.category_trade')}</option>
                  </select>
               </div>
               <div className="space-y-2">
                  <label className="text-[9px] font-bold uppercase text-[#494847] tracking-widest ml-1">{t('support.description')}</label>
                  <textarea
                     rows={4}
-                    placeholder="Provide details..."
+                    placeholder={t('support.provide_details')}
                     className="w-full bg-[#0e0e0e] border border-[#494847]/20 rounded-xl px-4 py-3 text-[10px] font-bold text-white outline-none focus:border-[#fcc025]/50 placeholder:text-[#494847] uppercase"
                  />
               </div>

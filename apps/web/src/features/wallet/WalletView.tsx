@@ -5,15 +5,13 @@ import {
   ArrowUpCircle,
   Gift,
   History,
-  LayoutGrid,
   Repeat2,
-  Settings as SettingsIcon,
-  TrendingUp,
   Wallet as WalletIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
+import AppBottomNav from '../../components/AppBottomNav';
 import { useWallet } from './useWallet';
 
 function AssetCard({
@@ -253,26 +251,7 @@ export default function WalletView() {
         </section>
       </main>
 
-      <nav className="fixed bottom-0 left-0 z-50 h-20 w-full border-t border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-2xl">
-        <div className="mx-auto flex h-full max-w-7xl items-center justify-around px-4">
-          <Link to="/app/casino/lobby" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
-            <LayoutGrid size={24} className="mb-1" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.casino')}</span>
-          </Link>
-          <Link to="/app/market" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
-            <TrendingUp size={24} className="mb-1" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.market')}</span>
-          </Link>
-          <Link to="/app/wallet" className="flex flex-col items-center justify-center text-[#fcc025] drop-shadow-[0_0_8px_rgba(252,192,37,0.4)]">
-            <WalletIcon size={24} className="mb-1" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.vault')}</span>
-          </Link>
-          <Link to="/app/settings" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
-            <SettingsIcon size={24} className="mb-1" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.settings')}</span>
-          </Link>
-        </div>
-      </nav>
+      <AppBottomNav current="wallet" />
     </div>
   );
 }

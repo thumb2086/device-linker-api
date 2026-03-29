@@ -458,9 +458,10 @@ export class WalletRepository implements IWalletRepository {
 
   async listLedgerEntries(options: { address?: string; limit?: number } = {}) {
     const conn = await requireDb();
+    const address = options.address?.toLowerCase();
     return await conn.query.walletLedgerEntries.findMany({
-      where: options.address
-        ? (entries: any, { eq }: any) => eq(entries.address, options.address.toLowerCase())
+      where: address
+        ? (entries: any, { eq }: any) => eq(entries.address, address)
         : undefined,
       limit: options.limit || 50,
       orderBy: (entries: any, { desc }: any) => [desc(entries.createdAt)],
@@ -487,9 +488,10 @@ export class MarketRepository implements IMarketRepository {
     }
     async listTrades(options: { address?: string; limit?: number } = {}) {
         const conn = await requireDb();
+        const address = options.address?.toLowerCase();
         return await conn.query.marketTrades.findMany({
-          where: options.address
-            ? (trades: any, { eq }: any) => eq(trades.address, options.address.toLowerCase())
+          where: address
+            ? (trades: any, { eq }: any) => eq(trades.address, address)
             : undefined,
           limit: options.limit || 50,
           orderBy: (trades: any, { desc }: any) => [desc(trades.createdAt)],

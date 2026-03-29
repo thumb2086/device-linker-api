@@ -1,21 +1,28 @@
-import { Link } from "react-router-dom";
 import React from 'react';
-import { motion } from 'framer-motion';
 import {
-  Trophy,
-  Zap,
   Calendar,
-  Star,
-  ChevronRight,
+  CheckCircle2,
   Gift,
-  CheckCircle2
+  Star,
+  Zap,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AppBottomNav from '../../components/AppBottomNav';
 
+const DAILY_REWARDS = [
+  { day: 1, amount: '0.1 ZXC', status: 'CLAIMED' },
+  { day: 2, amount: '0.2 ZXC', status: 'AVAILABLE' },
+  { day: 3, amount: '0.5 ZXC', status: 'LOCKED' },
+  { day: 4, amount: '1.0 ZXC', status: 'LOCKED' },
+  { day: 5, amount: '2.0 ZXC', status: 'LOCKED' },
+  { day: 6, amount: '5.0 ZXC', status: 'LOCKED' },
+  { day: 7, amount: '10 ZXC', status: 'LOCKED' },
+];
+
 export default function RewardsView() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isZh = i18n.language.startsWith('zh');
   const queryClient = useQueryClient();
 
   const rewardsQuery = useQuery({
@@ -43,106 +50,114 @@ export default function RewardsView() {
 
   const campaigns = rewardsQuery.data?.catalog?.campaigns || [];
 
-  const dailyRewards = [
-    { day: 1, amount: '0.1 億', status: 'CLAIMED' },
-    { day: 2, amount: '0.2 億', status: 'AVAILABLE' },
-    { day: 3, amount: '0.5 億', status: 'LOCKED' },
-    { day: 4, amount: '1.0 億', status: 'LOCKED' },
-    { day: 5, amount: '2.0 億', status: 'LOCKED' },
-    { day: 6, amount: '5.0 億', status: 'LOCKED' },
-    { day: 7, amount: '10 億', status: 'LOCKED' },
-  ];
-
   return (
-    <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">
-      {/* Top Bar */}
-      <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
-        <div className="flex items-center justify-between px-6 py-4 max-w-2xl mx-auto">
+    <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
+      <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-             <Gift className="text-[#fcc025]" />
-             <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">{t('vault.vip_bonus')}</h1>
+            <Gift className="text-[#fcc025]" />
+            <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">
+              {t('vault.vip_bonus')}
+            </h1>
           </div>
         </div>
       </header>
 
-      <main className="pt-24 px-6 max-w-2xl mx-auto space-y-10">
-        {/* Elite Badge */}
+      <main className="mx-auto max-w-2xl space-y-10 px-6 pt-24">
         <section className="flex flex-col items-center justify-center pt-4">
-           <div className="relative">
-              <motion.div
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 4, repeat: Infinity }}
-                className="w-32 h-32 rounded-full bg-[#1a1919] border-4 border-[#fcc025] flex items-center justify-center shadow-[0_0_50px_rgba(252,192,37,0.2)]"
+          <div className="flex h-32 w-32 items-center justify-center rounded-full border-4 border-[#fcc025] bg-[#1a1919] shadow-[0_0_50px_rgba(252,192,37,0.2)]">
+            <Star size={64} fill="#fcc025" className="text-[#fcc025]" />
+          </div>
+          <div className="mt-4 rounded-full bg-[#fcc025] px-4 py-1 text-[10px] font-black uppercase tracking-widest text-black shadow-xl">
+            Platinum IV
+          </div>
+          <p className="mt-8 text-[10px] font-bold uppercase tracking-[0.3em] text-[#adaaaa]">
+            {isZh ? 'VIP \u7b49\u7d1a\u9032\u5ea6' : 'VIP Tier Progress'}
+          </p>
+          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full border border-[#494847]/20 bg-[#1a1919]">
+            <div className="h-full w-[65%] bg-[#fcc025] shadow-[0_0_10px_#fcc025]" />
+          </div>
+          <div className="mt-2 flex w-full justify-between text-[9px] font-black uppercase text-[#494847]">
+            <span>Gold</span>
+            <span>Platinum</span>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 px-2">
+            <Calendar size={16} className="text-[#adaaaa]" />
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">
+              {isZh ? '\u6bcf\u65e5\u734e\u52f5' : 'Daily Rewards'}
+            </h3>
+          </div>
+          <div className="grid grid-cols-4 gap-3 md:grid-cols-7">
+            {DAILY_REWARDS.map((reward) => (
+              <div
+                key={reward.day}
+                className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all ${
+                  reward.status === 'CLAIMED'
+                    ? 'border-emerald-500/20 bg-emerald-500/5 opacity-40'
+                    : reward.status === 'AVAILABLE'
+                      ? 'border-[#fcc025] bg-[#fcc025]/10 shadow-[0_0_20px_rgba(252,192,37,0.1)]'
+                      : 'border-[#494847]/10 bg-[#1a1919]'
+                }`}
               >
-                 <Star size={64} fill="#fcc025" className="text-[#fcc025]" />
-              </motion.div>
-              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#fcc025] text-black px-4 py-1 rounded-full font-black text-[10px] uppercase tracking-widest whitespace-nowrap shadow-xl">
-                 Platinum IV
+                <span className="text-[8px] font-black uppercase text-[#adaaaa]">Day {reward.day}</span>
+                <div className="text-xs font-black italic">{reward.amount}</div>
+                {reward.status === 'CLAIMED' && <CheckCircle2 size={12} className="text-emerald-500" />}
+                {reward.status === 'AVAILABLE' && (
+                  <button type="button" className="rounded-sm bg-[#fcc025] px-1.5 py-0.5 text-[7px] font-black uppercase tracking-tighter text-black">
+                    {isZh ? '\u9818\u53d6' : 'Claim'}
+                  </button>
+                )}
               </div>
-           </div>
-           <p className="mt-8 text-[10px] font-bold text-[#adaaaa] uppercase tracking-[0.3em]">VIP TIER PROGRESS / 貴賓等級進度</p>
-           <div className="w-full h-1.5 bg-[#1a1919] rounded-full mt-4 overflow-hidden border border-[#494847]/20">
-              <motion.div initial={{ width: 0 }} animate={{ width: '65%' }} transition={{ duration: 2 }} className="h-full bg-[#fcc025] shadow-[0_0_10px_#fcc025]" />
-           </div>
-           <div className="w-full flex justify-between mt-2 text-[9px] font-black uppercase text-[#494847]">
-              <span>Gold</span>
-              <span>Platinum</span>
-           </div>
+            ))}
+          </div>
         </section>
 
-        {/* Daily Rewards */}
         <section className="space-y-4">
-           <div className="flex items-center gap-2 px-2">
-              <Calendar size={16} className="text-[#adaaaa]" />
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">DAILY REWARDS / 每日獎勵</h3>
-           </div>
-           <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
-              {dailyRewards.map(r => (
-                <div key={r.day} className={`p-4 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all ${
-                  r.status === 'CLAIMED' ? 'bg-emerald-500/5 border-emerald-500/20 opacity-40' :
-                  r.status === 'AVAILABLE' ? 'bg-[#fcc025]/10 border-[#fcc025] shadow-[0_0_20px_rgba(252,192,37,0.1)]' :
-                  'bg-[#1a1919] border-[#494847]/10'
-                }`}>
-                   <span className="text-[8px] font-black uppercase text-[#adaaaa]">Day {r.day}</span>
-                   <div className="text-xs font-black italic">{r.amount}</div>
-                   {r.status === 'CLAIMED' && <CheckCircle2 size={12} className="text-emerald-500" />}
-                   {r.status === 'AVAILABLE' && (
-                     <button className="bg-[#fcc025] text-black text-[7px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">Claim</button>
-                   )}
+          <div className="flex items-center gap-2 px-2">
+            <Zap size={16} className="text-[#adaaaa]" />
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">
+              {isZh ? '\u76ee\u524d\u4efb\u52d9' : 'Active Quests'}
+            </h3>
+          </div>
+          <div className="space-y-4">
+            {campaigns.map((campaign: any) => (
+              <div
+                key={campaign.id}
+                className="group flex items-center justify-between rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 transition-all hover:bg-[#201f1f]"
+              >
+                <div className="flex-1 space-y-2">
+                  <h4 className="text-sm font-bold uppercase tracking-tight text-white transition-colors group-hover:text-[#fcc025]">
+                    {campaign.title}
+                  </h4>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#fcc025]">
+                    Reward: {campaign.rewards.tokens} ZXC
+                  </p>
+                  <div className="mt-4 h-1 w-48 overflow-hidden rounded-full bg-[#0e0e0e]">
+                    <div className="h-full w-1/2 bg-[#fcc025]/50" />
+                  </div>
                 </div>
-              ))}
-           </div>
-        </section>
+                <button
+                  type="button"
+                  onClick={() => claimMutation.mutate(campaign.id)}
+                  className="rounded-lg bg-[#fcc025] px-6 py-2 text-[10px] font-black uppercase tracking-widest text-black transition-colors hover:bg-white"
+                >
+                  {isZh ? '\u9818\u53d6\u734e\u52f5' : 'Claim Reward'}
+                </button>
+              </div>
+            ))}
 
-        {/* Active Quests */}
-        <section className="space-y-4">
-           <div className="flex items-center gap-2 px-2">
-              <Zap size={16} className="text-[#adaaaa]" />
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">ACTIVE QUESTS / 進行中任務</h3>
-           </div>
-           <div className="space-y-4">
-              {campaigns.map((c: any) => (
-                <div key={c.id} className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/10 flex items-center justify-between group hover:bg-[#201f1f] transition-all">
-                   <div className="space-y-2 flex-1">
-                      <h4 className="text-sm font-bold uppercase tracking-tight text-white group-hover:text-[#fcc025] transition-colors">{c.title}</h4>
-                      <p className="text-[9px] font-bold text-[#fcc025] uppercase tracking-widest">Reward: {c.rewards.tokens} ZXC</p>
-                      <div className="w-48 h-1 bg-[#0e0e0e] rounded-full overflow-hidden mt-4">
-                         <div className="h-full w-1/2 bg-[#fcc025]/50" />
-                      </div>
-                   </div>
-                   <button
-                     onClick={() => claimMutation.mutate(c.id)}
-                     className="bg-[#fcc025] text-black px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white transition-colors"
-                   >
-                      {t('support.send_protocol')}
-                   </button>
-                </div>
-              ))}
-           </div>
+            {!campaigns.length && (
+              <div className="rounded-2xl border border-dashed border-[#494847]/20 p-6 text-center text-[11px] font-bold uppercase tracking-widest text-[#adaaaa]">
+                {isZh ? '\u76ee\u524d\u6c92\u6709\u555f\u7528\u4e2d\u7684\u4efb\u52d9' : 'No active reward quests'}
+              </div>
+            )}
+          </div>
         </section>
       </main>
 
-      {/* Bottom Nav Bar */}
       <AppBottomNav current="none" />
     </div>
   );

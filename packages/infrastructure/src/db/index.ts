@@ -486,4 +486,26 @@ export class CustodyRepository implements ICustodyRepository {
       where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
     });
   }
+
+  async getLegacyCustodyUser(username: string) {
+    const conn = await requireDb();
+    const normalizedUsername = username.toLowerCase();
+
+    const legacy = await (conn.query as any).custodyUsers?.findFirst?.({
+      where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
+    });
+
+    if (!legacy?.address || !legacy?.passwordHash || !legacy?.saltHex) return null;
+
+    const raw = legacy.raw && typeof legacy.raw === "object" ? legacy.raw : {};
+    return {
+      username: normalizedUsername,
+      passwordHash: legacy.passwordHash,
+      saltHex: legacy.saltHex,
+      address: legacy.address,
+      publicKey: raw.publicKey || raw.public_key || null,
+      createdAt: raw.createdAt || raw.created_at || null,
+      updatedAt: raw.updatedAt || raw.updated_at || null,
+    };
+  }
 }

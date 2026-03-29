@@ -126,15 +126,45 @@ export class AuthManager {
     const normalizedUsername = username.trim().toLowerCase();
 
     const custodyUser = await this.custodyRepo.getCustodyUser(normalizedUsername);
-    if (!custodyUser || !custodyUser.address) {
+    const legacyCustodyUser = await this.custodyRepo.getLegacyCustodyUser(normalizedUsername);
+    const primaryUser = custodyUser && custodyUser.address ? custodyUser : legacyCustodyUser;
+
+    if (!primaryUser || !primaryUser.address) {
       return { success: false, error: { code: "INVALID_CREDENTIALS", message: "Invalid username or password" } };
     }
 
-    const completed = this.identityManager.ensureCustodyPublicKey(custodyUser);
-    if (!custodyUser.publicKey && completed.publicKey) {
+    const completed = this.identityManager.ensureCustodyPublicKey(primaryUser);
+    if (!primaryUser.publicKey && completed.publicKey) {
       await this.custodyRepo.saveCustodyUser(normalizedUsername, completed);
     }
-    const verified = this.identityManager.verifyCustodyPassword(completed, password);
+    let verified = this.identityManager.verifyCustodyPassword(completed, password);
+
+    if (!verified && custodyUser && legacyCustodyUser) {
+      const legacyCompleted = this.identityManager.ensureCustodyPublicKey(legacyCustodyUser);
+      verified = this.identityManager.verifyCustodyPassword(legacyCompleted, password);
+      if (verified) {
+        await this.custodyRepo.saveCustodyUser(normalizedUsername, legacyCompleted);
+      } else {
+        console.error("Custody login verification failed", {
+          username: normalizedUsername,
+          primarySource: "custody_accounts",
+          hasLegacy: true,
+          accountHashLength: String(custodyUser.passwordHash || "").length,
+          accountSaltLength: String(custodyUser.saltHex || "").length,
+          legacyHashLength: String(legacyCustodyUser.passwordHash || "").length,
+          legacySaltLength: String(legacyCustodyUser.saltHex || "").length,
+        });
+      }
+    } else if (!verified) {
+      console.error("Custody login verification failed", {
+        username: normalizedUsername,
+        primarySource: custodyUser ? "custody_accounts" : "custody_users",
+        hasLegacy: !!legacyCustodyUser,
+        hashLength: String(primaryUser.passwordHash || "").length,
+        saltLength: String(primaryUser.saltHex || "").length,
+      });
+    }
+
     if (!verified) {
       return { success: false, error: { code: "INVALID_CREDENTIALS", message: "Invalid username or password" } };
     }

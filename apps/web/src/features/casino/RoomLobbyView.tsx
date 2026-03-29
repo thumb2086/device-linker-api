@@ -30,7 +30,7 @@ export default function RoomLobbyView() {
     { id: 'roulette', name: 'Roulette', nameZh: '\u8f2a\u76e4', icon: '\ud83c\udfa1' },
     { id: 'blackjack', name: 'Blackjack', nameZh: '21 \u9ede', icon: '\ud83c\udccf' },
     { id: 'horse', name: 'Horse Racing', nameZh: '\u8cfd\u99ac', icon: '\ud83c\udfa0' },
-    { id: 'dragon', name: 'Dragon Tiger', nameZh: '\u9f8d\u864e', icon: ['\u9f8d', '\u864e'] },
+    { id: 'dragon', name: 'Shoot Dragon Gate', nameZh: '\u5c04\u9f8d\u9580', icon: ['\u9f8d', '\u9580'] },
     { id: 'sicbo', name: 'Sicbo', nameZh: '\u9ab0\u5bf6', icon: '\ud83c\udfb2' },
     { id: 'bingo', name: 'Bingo', nameZh: '\u8cd3\u679c', icon: '\ud83c\udfb1' },
     { id: 'crash', name: 'Crash', nameZh: '\u66b4\u885d', icon: '\ud83d\udcc8' },

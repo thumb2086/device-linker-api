@@ -17,7 +17,23 @@ import { CrashView } from './CrashView';
 
 export default function CasinoView() {
   const { game } = useParams();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isZh = i18n.language.startsWith('zh');
+  const gameLabels: Record<string, { zh: string; en: string }> = {
+    roulette: { zh: '輪盤', en: 'Roulette' },
+    horse: { zh: '賽馬', en: 'Horse Racing' },
+    slots: { zh: '老虎機', en: 'Slots' },
+    coinflip: { zh: '猜硬幣', en: 'Coinflip' },
+    sicbo: { zh: '骰寶', en: 'Sicbo' },
+    bingo: { zh: '賓果', en: 'Bingo' },
+    duel: { zh: '對決', en: 'Duel' },
+    blackjack: { zh: '21點', en: 'Blackjack' },
+    dragon: { zh: '射龍門', en: 'Shoot Dragon Gate' },
+    poker: { zh: '撲克', en: 'Poker' },
+    bluffdice: { zh: '吹牛', en: 'Bluff Dice' },
+    crash: { zh: '暴衝', en: 'Crash' },
+  };
+  const currentGameLabel = game ? (isZh ? gameLabels[game]?.zh : gameLabels[game]?.en) : '';
 
   const renderGame = () => {
     switch (game) {
@@ -58,7 +74,7 @@ export default function CasinoView() {
              <div className="flex items-center gap-2">
                 <LayoutGrid size={16} className="text-[#fcc025]" />
                 <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">
-                   {t('casino.title')} <span className="text-[#494847]">/ {game}</span>
+                   {t('casino.title')} <span className="text-[#494847]">/ {currentGameLabel || game}</span>
                 </h1>
              </div>
           </div>

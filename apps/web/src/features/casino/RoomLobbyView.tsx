@@ -25,12 +25,12 @@ export default function RoomLobbyView() {
   const isZh = i18n.language.startsWith('zh');
 
   const games: GameCard[] = [
-    { id: 'coinflip', name: 'Coinflip', nameZh: '\u78b0\u78bc', icon: '\ud83e\ude99' },
+    { id: 'coinflip', name: 'Coinflip', nameZh: '\u731c\u786c\u5e63', icon: '\ud83e\ude99' },
     { id: 'slots', name: 'Slots', nameZh: '\u8001\u864e\u6a5f', icon: '\ud83c\udfb0' },
     { id: 'roulette', name: 'Roulette', nameZh: '\u8f2a\u76e4', icon: '\ud83c\udfa1' },
     { id: 'blackjack', name: 'Blackjack', nameZh: '21 \u9ede', icon: '\ud83c\udccf' },
     { id: 'horse', name: 'Horse Racing', nameZh: '\u8cfd\u99ac', icon: '\ud83c\udfa0' },
-    { id: 'dragon', name: 'Dragon Tiger', nameZh: '\u9f8d\u864e', icon: '\ud83d\udc09' },
+    { id: 'dragon', name: 'Dragon Tiger', nameZh: '\u9f8d\u864e', icon: '\ud83d\udc09\ud83d\udc05' },
     { id: 'sicbo', name: 'Sicbo', nameZh: '\u9ab0\u5bf6', icon: '\ud83c\udfb2' },
     { id: 'bingo', name: 'Bingo', nameZh: '\u8cd3\u679c', icon: '\ud83c\udfb1' },
     { id: 'crash', name: 'Crash', nameZh: '\u66b4\u885d', icon: '\ud83d\udcc8' },

@@ -1,0 +1,224 @@
+﻿body.support-body {
+    justify-content: flex-start;
+    padding: 20px;
+}
+
+#main-card {
+    max-width: none;
+    margin-bottom: 24px;
+}
+
+.support-hero {
+    text-align: left;
+    margin-bottom: 24px;
+}
+
+.support-kicker {
+    color: rgba(255, 204, 0, 0.7);
+    letter-spacing: 0.28em;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.support-hero-copy {
+    color: #aaaaaa;
+    line-height: 1.7;
+    max-width: 760px;
+}
+
+.section-block {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 22px;
+    padding: 22px;
+    margin-bottom: 16px;
+    text-align: left;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+
+.section-block h2 {
+    margin: 0 0 10px;
+    color: var(--gold);
+    font-size: 1.05rem;
+}
+
+.section-heading-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.tool-note {
+    color: #a7a7a7;
+    line-height: 1.6;
+    margin-bottom: 14px;
+}
+
+#support-status-msg {
+    margin-top: 8px;
+    font-size: 0.9rem;
+}
+
+.announcement-list,
+.report-list {
+    display: grid;
+    gap: 10px;
+}
+
+.announcement-card,
+.report-card {
+    padding: 18px;
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.announcement-head,
+.report-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.announcement-head strong,
+.report-card-head strong {
+    font-size: 1rem;
+}
+
+.announcement-head span,
+.report-meta {
+    color: #a7a7a7;
+    font-size: 0.82rem;
+}
+
+.announcement-content,
+.report-body,
+.report-update-block p {
+    line-height: 1.7;
+    color: #f4f4f4;
+}
+
+.report-update-block {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.report-update-block span {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    color: #ffcf70;
+}
+
+.support-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.support-form-grid label {
+    display: grid;
+    gap: 8px;
+    color: #ddd;
+    font-size: 0.92rem;
+}
+
+.full-span {
+    grid-column: 1 / -1;
+}
+
+.report-textarea {
+    min-height: 180px;
+    resize: vertical;
+}
+
+.text-input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.text-input::placeholder {
+    color: #7f7f7f;
+}
+
+.form-row.single-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.state-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+}
+
+.state-chip.ok {
+    background: rgba(67, 190, 123, 0.18);
+    color: #9bf1b9;
+}
+
+.state-chip.info {
+    background: rgba(84, 164, 255, 0.18);
+    color: #9fd0ff;
+}
+
+.state-chip.warn {
+    background: rgba(255, 160, 67, 0.18);
+    color: #ffd08a;
+}
+
+.result-empty {
+    padding: 20px 14px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    color: #999;
+}
+
+@media (max-width: 900px) {
+    .support-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .section-heading-row,
+    .announcement-head,
+    .report-card-head {
+        flex-direction: column;
+    }
+
+}
+
+@media (max-width: 520px) {
+    body.support-body {
+        padding: 12px;
+    }
+
+    #main-card {
+        padding: 24px 14px;
+    }
+
+    .section-block {
+        padding: 18px;
+        border-radius: 18px;
+    }
+}

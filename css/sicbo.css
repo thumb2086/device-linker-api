@@ -1,0 +1,105 @@
+﻿body.sicbo-body {
+    justify-content: flex-start;
+    padding: 16px 36px 40px;
+}
+
+.sicbo-stage {
+    margin: 16px 0;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background: rgba(0, 0, 0, 0.25);
+    text-align: center;
+}
+
+.dice-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.die {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: #111;
+    border: 2px solid #d4af37;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.round-hint {
+    color: #9ea8af;
+    font-size: 0.95rem;
+}
+
+.compact-input-group {
+    margin-bottom: 12px;
+}
+
+.bet-limit-note {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 211, 106, 0.08);
+    border: 1px solid rgba(255, 211, 106, 0.18);
+    color: #ffd36a;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.bet-panel {
+    margin: 12px 0;
+}
+
+.bet-type-grid,
+.bet-value-grid {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.bet-type-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.bet-value-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.bet-chip {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f4f4f4;
+    min-height: 42px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.bet-chip:hover {
+    transform: translateY(-1px);
+    border-color: rgba(212, 175, 55, 0.5);
+}
+
+.bet-chip.is-selected {
+    background: rgba(212, 175, 55, 0.18);
+    border-color: #d4af37;
+    color: #ffd36a;
+}
+
+@media (max-width: 720px) {
+    .bet-type-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .bet-value-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}

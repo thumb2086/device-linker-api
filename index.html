@@ -1,14 +1,386 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Device Linker Monolith</title>
-    <script type="module" crossorigin src="/assets/index-BpHpdwjx.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-D0XdSkif.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>子熙模擬器 | 子熙幣</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/lobby.css">
+    <link rel="stylesheet" href="css/announcements.css">
+    <script async src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+    <script>
+        (function () {
+            try {
+                var params = new URLSearchParams(window.location.search || '');
+                if (params.get('login') === '1') return;
+            } catch (e) { }
+        })();
+    </script>
+</head>
+
+<body class="lobby-body">
+
+    <!-- 認證區域 -->
+    <div id="auth-ui" class="casino-card auth-card hidden">
+        <h1>⚡ 子熙模擬器</h1>
+        <p class="subtitle">子熙幣</p>
+        <div id="maintenance-banner" class="maintenance-banner hidden">
+            <div class="maintenance-title">系統維護中</div>
+            <div class="maintenance-message">目前暫停登入與遊戲，請稍後再試。</div>
+        </div>
+        <p>掃描以連結你的子熙錢包與模擬器</p>
+        <div id="qr-box"><canvas id="qr-canvas"></canvas></div>
+        <div class="mobile-auth-actions">
+            <button class="btn-primary auth-action-btn" onclick="openAppAuth()">在手機 App 授權</button>
+            <button class="btn-secondary auth-action-btn hidden" id="app-quick-btn" onclick="quickAppAuth()">App 快速登入</button>
+            <div class="auth-code-line hidden" id="app-quick-meta">已記住錢包</div>
+            <button class="btn-secondary auth-action-btn hidden" id="app-clear-btn" onclick="clearAppQuickAuth()">清除 App 快速登入</button>
+            <button class="btn-secondary auth-action-btn" onclick="startCustodyAuth()">託管帳戶登入（註冊送 100,000）</button>
+            <button class="btn-secondary auth-action-btn hidden" id="custody-quick-btn" onclick="quickCustodyAuth()">使用已記住帳密快速登入</button>
+            <div class="auth-code-line hidden" id="custody-quick-meta">已記住帳號</div>
+            <button class="btn-secondary auth-action-btn hidden" id="custody-clear-btn" onclick="clearCustodyQuickAuth()">清除託管快速登入</button>
+            <button class="btn-secondary auth-action-btn" onclick="copyAuthCode()">複製授權碼</button>
+            <div class="auth-code-line">授權碼: <span id="auth-code">-</span></div>
+        </div>
+        <div class="auth-public-links">
+            <a href="/games/announcements.html" class="auth-inline-link">查看最新公告</a>
+            <a href="/games/guide.html" class="auth-inline-link">查看遊戲指南</a>
+        </div>
+        <div id="auth-msg"><span class="loader"></span> 等待硬體授權...</div>
+    </div>
+
+    <section id="auth-announcements" class="auth-announcements-panel hidden">
+        <div class="auth-announcements-head">
+            <div>
+                <p class="section-kicker">公開資訊</p>
+                <h2>公告</h2>
+                <p class="auth-announcements-copy">登入前也可以先看系統更新、活動與維護時段。</p>
+            </div>
+            <a href="/games/announcements.html" class="btn-secondary auth-announcements-link">看完整公告</a>
+        </div>
+        <div id="announcement-preview-list" class="announcement-preview-list"></div>
+    </section>
+
+    <!-- 大廳 -->
+    <div id="lobby-ui" class="hidden lobby-container">
+
+        <div class="lobby-title">
+            <div class="lobby-title-actions header-stats">
+                <button class="logout-btn" onclick="logoutUser()">登出</button>
+            </div>
+            <h1>⚡ 子熙模擬器</h1>
+            <p class="subtitle">子熙模擬器</p>
+        </div>
+
+        <div class="lobby-stats" id="main-card">
+            <div class="stat-item">
+                <span class="stat-label">使用者名稱</span>
+                <span class="stat-value" id="display-name-val">未設定</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">等級</span>
+                <span class="stat-value gold" id="vip-badge">普通會員</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">餘額</span>
+                <span class="stat-value" id="balance-val">0.00</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">累計押注</span>
+                <span class="stat-value" id="total-bet-val">0.00</span>
+            </div>
+        </div>
+
+        <div class="lobby-identity-section">
+            <div class="lobby-identity-card">
+                <div class="identity-avatar" id="identity-avatar">🪙</div>
+                <div class="identity-info-box">
+                    <div class="identity-label">目前裝備</div>
+                    <h2 id="identity-title">等級自動稱號</h2>
+                    <div id="identity-title-desc" class="identity-desc-area"></div>
+                    <p id="identity-avatar-name">經典籌碼</p>
+                    <div id="identity-avatar-desc" class="identity-desc-area" style="border-left-color: #9fd0ff; background: rgba(159, 208, 255, 0.08); color: #9fd0ff; margin-top: 4px;"></div>
+                </div>
+            </div>
+        </div>
+        <section id="lobby-campaigns-panel" class="lobby-campaigns-panel hidden">
+            <div class="lobby-campaigns-head">
+                <div>
+                    <p class="section-kicker">Live Event</p>
+                    <h2>限時活動</h2>
+                    <p class="lobby-campaigns-copy">有進行中的活動時，這裡會顯示活動卡片，點進去即可領取。</p>
+                </div>
+                <a href="games/shop.html" class="btn-secondary lobby-campaigns-link" onclick="event.preventDefault(); navigateToGameWithAuth('games/shop.html');">前往活動與商店</a>
+            </div>
+            <div id="lobby-campaign-list" class="lobby-campaign-list"></div>
+        </section>
+
+        <div class="section-title">選擇模組</div>
+
+        <div class="game-grid">
+            <a href="games/announcements.html" class="game-card">
+                <div class="game-icon">📢</div>
+                <div class="game-name">公告中心</div>
+                <div class="game-desc">查看最新公告、維護通知與系統更新</div>
+                <div class="game-tag ready">公開可看</div>
+            </a>
+
+            <a href="games/leaderboard.html" class="game-card">
+                <div class="game-icon">🏆</div>
+                <div class="game-name">排行榜</div>
+                <div class="game-desc">查看押注總額與淨資產排行</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="games/casino.html" class="game-card">
+                <div class="game-icon">🎲</div>
+                <div class="game-name">子熙賭場</div>
+                <div class="game-desc">猜硬幣、老虎機、輪盤、二十一點、賽馬、射龍門</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="games/market.html" class="game-card">
+                <div class="game-icon">📈</div>
+                <div class="game-name">金融市場</div>
+                <div class="game-desc">股票、期貨、銀行利息與貸款</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="games/wallet.html" class="game-card">
+                <div class="game-icon">💸</div>
+                <div class="game-name">資金中心</div>
+                <div class="game-desc">匯入、匯出、空投</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="games/shop.html" class="game-card">
+                <div class="game-icon">🎁</div>
+                <div class="game-name">活動與商店</div>
+                <div class="game-desc">領取活動獎勵、購買道具與稱號</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="games/inventory.html" class="game-card">
+                <div class="game-icon">🎒</div>
+                <div class="game-name">我的背包</div>
+                <div class="game-desc">管理我的道具、頭像、稱號與生效中的 Buff</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+
+            <a href="games/vip.html" class="game-card">
+                <div class="game-icon">👑</div>
+                <div class="game-name">VIP 中心</div>
+                <div class="game-desc">查看目前 VIP 身分、YJC 持有量與 VIP 房入口資訊</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="games/admin-tools.html" class="game-card" id="admin-card" style="display: none;">
+                <div class="game-icon">🛠</div>
+                <div class="game-name">維運工具</div>
+                <div class="game-desc">重製異常押注紀錄與一次性維護操作</div>
+                <div class="game-tag ready">管理用</div>
+            </a>
+        </div>
+
+        <div class="section-title">快速查閱</div>
+
+        <div class="guide-grid">
+            <a href="games/guide.html" class="guide-card">
+                <div>
+                    <p class="guide-kicker">遊戲規則</p>
+                    <h2>綜合指南</h2>
+                    <p>集中查看 等級 規則、道具效果與遊戲機率，所有資訊一次掌握。</p>
+                </div>
+                <span class="guide-link">前往查看 →</span>
+            </a>
+        </div>
+
+        <section class="lobby-chat-panel global-chat-widget" id="lobby-chat-widget">
+            <div class="lobby-chat-header">
+                <div>
+                    <p class="section-kicker">Community</p>
+                    <h2>全服聊天室</h2>
+                </div>
+                <div class="chat-header-actions">
+                    <div id="chat-status" class="chat-status">聊天室連線中...</div>
+                    <select id="chat-room-select" class="text-input chat-room-select" onchange="onChatRoomChange()"></select>
+                    <button class="chat-toggle-btn" id="chat-toggle-btn" onclick="toggleLobbyChatWidget()" aria-expanded="true" aria-label="收合聊天室" title="收合聊天室">−</button>
+                </div>
+            </div>
+            <div id="chat-room-note" class="chat-room-note"></div>
+            <div id="chat-widget-body">
+                <div id="chat-message-list" class="chat-message-list"></div>
+                <div class="chat-input-row">
+                    <input id="chat-input" class="text-input chat-input" maxlength="160" placeholder="輸入留言，所有玩家都看得到...">
+                    <button class="btn-primary" onclick="sendChatMessage('chat')">送出</button>
+                </div>
+            </div>
+        </section>
+
+        <div class="lobby-footer">POWERED BY BLOCKCHAIN</div>
+    </div>
+
+    <div id="global-barrage-layer" class="global-barrage-layer hidden"></div>
+
+    <script src="js/common.js"></script>
+    <script src="js/announcements.js"></script>
+    <script src="js/auth.js"></script>
+
+    <!-- Deep Link sessionId handler -->
+    <script>
+      (function() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const sessionId = params.get('sessionId');
+
+            if (sessionId) {
+                console.log('Deep Link: Found sessionId in URL.', sessionId);
+                localStorage.setItem('activeSessionId', sessionId);
+                // Clean the URL by removing query parameters.
+                window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+                console.log('Deep Link: SessionId stored and URL cleaned.');
+            }
+        } catch (e) {
+            console.error('Error processing deep link sessionId:', e);
+        }
+      })();
+    </script>
+
+    <script>
+        function escapeLobbyHtml(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function parseLobbyCampaignTime(value, fallback) {
+            if (!value) return fallback;
+            var ts = Date.parse(String(value || ''));
+            return Number.isFinite(ts) ? ts : fallback;
+        }
+
+        function isLobbyCampaignActive(item) {
+            if (!item || item.isActive === false) return false;
+            var now = Date.now();
+            var startAt = parseLobbyCampaignTime(item.startAt, Number.NEGATIVE_INFINITY);
+            var endAt = parseLobbyCampaignTime(item.endAt, Number.POSITIVE_INFINITY);
+            return startAt <= now && endAt >= now;
+        }
+
+        function renderLobbyCampaignCards(campaigns) {
+            var panel = document.getElementById('lobby-campaigns-panel');
+            var list = document.getElementById('lobby-campaign-list');
+            if (!panel || !list) return;
+
+            if (!campaigns || !campaigns.length) {
+                panel.classList.add('hidden');
+                list.innerHTML = '';
+                return;
+            }
+
+            panel.classList.remove('hidden');
+            list.innerHTML = campaigns.slice(0, 3).map(function (item) {
+                var rewards = [];
+                if (item.rewards && Array.isArray(item.rewards.titles)) {
+                    rewards = rewards.concat(item.rewards.titles.map(function (entry) {
+                        return typeof entry === 'string' ? entry : String(entry && entry.id || '');
+                    }));
+                }
+                if (item.rewards && Array.isArray(item.rewards.avatars)) {
+                    rewards = rewards.concat(item.rewards.avatars);
+                }
+                if (item.rewards && Array.isArray(item.rewards.items)) {
+                    rewards = rewards.concat(item.rewards.items.map(function (entry) {
+                        return String(entry.id || '') + ' x' + String(entry.qty || 1);
+                    }));
+                }
+                if (item.rewards && item.rewards.tokens) {
+                    rewards.push(formatCompactZh(item.rewards.tokens, 2) + ' 子熙幣');
+                }
+
+                return '<button class="lobby-campaign-card" onclick="navigateToGameWithAuth(\'games/shop.html\')">' +
+                    '<span class="lobby-campaign-badge">限時活動</span>' +
+                    '<strong>' + escapeLobbyHtml(item.title || '活動') + '</strong>' +
+                    '<p>' + escapeLobbyHtml(item.description || '前往獎勵中心查看活動內容') + '</p>' +
+                    '<div class="lobby-campaign-meta">獎勵：' + escapeLobbyHtml(rewards.join(' / ') || '未設定') + '</div>' +
+                    '<div class="lobby-campaign-meta">時間：' + escapeLobbyHtml(item.startAt || '即刻開始') + ' ~ ' + escapeLobbyHtml(item.endAt || '不限結束') + '</div>' +
+                    '<span class="lobby-campaign-link">點擊進入領取 →</span>' +
+                    '</button>';
+            }).join('');
+        }
+
+        function loadLobbyRewards() {
+            if (!user.sessionId) return;
+            fetch('/api/rewards', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'summary',
+                    sessionId: user.sessionId
+                })
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (!data || !data.success) throw new Error((data && data.error) || '獎勵資料載入失敗');
+                    renderLobbyCampaignCards(data.campaigns || []);
+                    if (data.profile) renderIdentity(data.profile);
+                })
+                .catch(function () {
+                    renderLobbyCampaignCards([]);
+                });
+        }
+
+        function initLobbyPage() {
+            showPageTransition('驗證登入中...');
+            initLobbyAuth(function (data) {
+                document.getElementById('auth-ui').classList.add('hidden');
+                document.getElementById('auth-announcements').classList.add('hidden');
+                document.getElementById('lobby-ui').classList.remove('hidden');
+                updateUI(data);
+                startBalanceRefresh();
+                loadLobbyRewards();
+                if (window.startLobbyChat && typeof window.startLobbyChat === 'function') {
+                    startLobbyChat();
+                } else {
+                    if (window.ensureGlobalChatScriptLoaded) ensureGlobalChatScriptLoaded();
+                    window.setTimeout(function () {
+                        if (window.startLobbyChat && typeof window.startLobbyChat === 'function') {
+                            startLobbyChat();
+                        }
+                    }, 40);
+                }
+                hidePageTransition();
+
+                // 只有管理員才顯示維運工具
+                if (data.isAdmin) {
+                    var adminCard = document.getElementById('admin-card');
+                    if (adminCard) adminCard.style.display = 'flex';
+                }
+
+                document.querySelectorAll('.game-card[href]').forEach(function (card) {
+                    card.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        navigateToGameWithAuth(card.getAttribute('href'));
+                    });
+                });
+            });
+            initAnnouncementPreview();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLobbyPage);
+        } else {
+            initLobbyPage();
+        }
+    </script>
+
+
+</body>
+
 </html>

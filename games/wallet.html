@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>資金中心 | 子希娛樂</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/wallet.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+</head>
+
+<body class="wallet-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">返回首頁</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> <span data-wallet-token-symbol>ZHIXI</span></span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>資金中心</h1>
+
+        <div class="wallet-token-bar">
+            <label class="wallet-token-switch" for="wallet-token-select">
+                <span class="wallet-token-label">Token</span>
+                <select id="wallet-token-select">
+                    <option value="zhixi">ZHIXI</option>
+                    <option value="yjc">YJC</option>
+                </select>
+            </label>
+            <span class="wallet-token-badge" id="wallet-token-badge">ZHIXI</span>
+            <span class="wallet-token-meta" id="wallet-token-meta">ZhiXi Coin (ZHIXI)</span>
+        </div>
+
+        <div class="user-stats">
+            <span id="vip-badge">VIP -</span>
+            <div class="stat-row">餘額: <span id="balance-val">0.00</span> <span data-wallet-token-symbol>ZHIXI</span></div>
+            <div class="stat-row">累積投注: <span id="total-bet-val">0.00</span> ZHIXI</div>
+            <div class="stat-row">錢包地址: <span id="wallet-address">-</span></div>
+        </div>
+
+        <div class="wallet-overview">
+            <div class="wallet-item">
+                <span>Treasury Balance</span>
+                <strong id="treasury-balance">0.00</strong>
+            </div>
+            <div class="wallet-item">
+                <span>Airdrop Reward</span>
+                <strong id="airdrop-reward">0.00</strong>
+            </div>
+            <div class="wallet-item">
+                <span>Airdrop Remaining</span>
+                <strong id="airdrop-remaining">0.00</strong>
+            </div>
+            <div class="wallet-item">
+                <span>Halving Count</span>
+                <strong id="airdrop-halving-count">0</strong>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>收款地址</h2>
+            <div class="receive-panel">
+                <div class="receive-qr-box">
+                    <canvas id="wallet-qr-canvas"></canvas>
+                </div>
+                <div class="receive-info">
+                    <div class="receive-label">Receive Address</div>
+                    <div class="receive-address" id="receive-address">-</div>
+                    <button class="btn-primary copy-btn" onclick="copyWalletAddress()">複製地址</button>
+                </div>
+            </div>
+            <p class="receive-note">可將外部錢包中的 <span data-wallet-token-symbol>ZHIXI</span> 轉入此地址，或直接掃描 QR Code。</p>
+        </div>
+
+        <div class="section-block">
+            <h2>轉出到其他地址</h2>
+            <div class="form-row form-row-wide">
+                <input type="text" id="export-to" placeholder="0x... destination address">
+                <input type="number" id="export-amount" min="0.000001" step="0.000001" value="100">
+                <button class="btn-secondary" onclick="exportFunds()">Transfer Out</button>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>提領回 Treasury</h2>
+            <div class="form-row">
+                <input type="number" id="withdraw-amount" min="0.000001" step="0.000001" value="100">
+                <button class="btn-secondary" onclick="withdrawToTreasury()">Withdraw</button>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>Airdrop</h2>
+            <div class="form-row">
+                <button class="btn-primary" id="claim-airdrop-btn" onclick="claimAirdrop()">Claim Airdrop</button>
+            </div>
+            <p id="wallet-airdrop-note">-</p>
+            <p id="airdrop-meta">-</p>
+        </div>
+
+        <div class="wallet-history-grid">
+            <div class="section-block history-block">
+                <div class="history-head">
+                    <h2><span id="game-history-title-note">Game</span> History</h2>
+                    <button class="btn-secondary history-refresh-btn" onclick="refreshWalletHistory(false)">Refresh</button>
+                </div>
+                <div id="game-history-list" class="history-list">
+                    <div class="history-empty">Loading...</div>
+                </div>
+            </div>
+
+            <div class="section-block history-block">
+                <div class="history-head">
+                    <h2>Transfer History</h2>
+                    <button class="btn-secondary history-refresh-btn" onclick="refreshWalletHistory(false)">Refresh</button>
+                </div>
+                <div id="tx-history-list" class="history-list">
+                    <div class="history-empty">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <p id="status-msg">Loading...</p>
+        <div id="tx-log"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/wallet.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initWalletPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

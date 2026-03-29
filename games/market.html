@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金融市場 | 子熙幣</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/market.css">
+</head>
+
+<body class="market-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">返回大廳</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="settings-btn" id="header-settings-btn" type="button" onclick="openUserSettings()">設定</button>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>金融市場</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">等級載入中</span>
+            <div class="stat-row">可用子熙幣：<span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">總下注累計：<span id="total-bet-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <div class="sim-overview">
+            <div class="sim-item">
+                <span>可用資金</span>
+                <strong id="sim-cash">0.00</strong>
+            </div>
+            <div class="sim-item">
+                <span>銀行餘額</span>
+                <strong id="sim-bank">0.00</strong>
+            </div>
+            <div class="sim-item">
+                <span>貸款餘額</span>
+                <strong id="sim-loan">0.00</strong>
+            </div>
+            <div class="sim-item">
+                <span>淨資產</span>
+                <strong id="sim-net">0.00</strong>
+            </div>
+            <div class="sim-item">
+                <span>大盤趨勢</span>
+                <strong id="market-trend">-</strong>
+            </div>
+            <div class="sim-item">
+                <span>漲跌家數</span>
+                <strong id="market-breadth">-</strong>
+            </div>
+            <div class="sim-item">
+                <span>市場波動</span>
+                <strong id="market-vol">0.00%</strong>
+            </div>
+            <div class="sim-item">
+                <span>恐懼貪婪</span>
+                <strong id="fg-index">0</strong>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <div class="section-header-row">
+                <h2>市場看板</h2>
+                <div class="market-header-actions">
+                    <div id="market-cache-meta" class="market-cache-meta"></div>
+                    <button class="btn-secondary" type="button" onclick="refreshMarket(false, { forceRefresh: true })">更新市場</button>
+                </div>
+            </div>
+            <p class="market-note">先顯示快照、背景同步最新行情。板塊與大盤趨勢會一起帶動個股，不再是各走各的。</p>
+            <div class="market-index-panel">
+                <div class="market-index-copy">
+                    <span>大盤指數</span>
+                    <strong id="market-index-value">100.00</strong>
+                    <div id="market-index-trend" class="market-index-trend">震盪 0%</div>
+                </div>
+                <div id="market-index-chart" class="market-index-chart"></div>
+            </div>
+            <div id="sector-board" class="sector-board"></div>
+            <div id="market-table" class="market-table"></div>
+        </div>
+
+        <div class="section-block">
+            <h2>現股交易</h2>
+            <div class="form-row">
+                <select id="stock-symbol"></select>
+                <input type="number" id="stock-qty" min="0.0001" step="0.0001" value="1">
+                <button class="btn-primary" onclick="submitStock('buy_stock')">買入</button>
+                <button class="btn-secondary" onclick="submitStock('sell_stock')">賣出</button>
+            </div>
+            <div class="market-note quick-trade-note">快速交易模式已開啟。你可以連續下單，系統會在背景依序送出，不需要每筆手動等上一筆完成。</div>
+            <div id="trade-queue-status" class="trade-queue-status hidden"></div>
+            <div id="stock-holdings" class="position-list"></div>
+        </div>
+
+        <div class="section-block">
+            <h2>期貨倉位</h2>
+            <p class="market-note">目前最大保證金上限：<strong id="futures-max-bet">-</strong></p>
+            <div class="form-row">
+                <select id="futures-symbol"></select>
+                <select id="futures-side">
+                    <option value="long">做多</option>
+                    <option value="short">做空</option>
+                </select>
+                <input type="number" id="futures-margin" min="10" step="1" value="100">
+                <input type="number" id="futures-leverage" min="1" max="20" step="1" value="5">
+                <button class="btn-primary" onclick="openFuturesPosition()">開倉</button>
+            </div>
+            <div id="futures-list" class="position-list"></div>
+        </div>
+
+        <div class="section-block">
+            <h2>銀行與貸款</h2>
+            <p class="market-note">銀行年利率 <strong id="bank-rate-label">2%</strong>，貸款年利率 <strong id="loan-rate-label">4%</strong></p>
+            <div class="form-row">
+                <input type="number" id="bank-amount" min="0.000001" step="0.000001" value="100">
+                <button class="btn-primary" onclick="submitBank('bank_deposit')">存入銀行</button>
+                <button class="btn-secondary" onclick="submitBank('bank_withdraw')">提領銀行</button>
+            </div>
+            <div class="form-row">
+                <input type="number" id="loan-amount" min="0.000001" step="0.000001" value="100">
+                <button class="btn-primary" onclick="submitLoan('borrow')">申請貸款</button>
+                <button class="btn-secondary" onclick="submitLoan('repay')">償還貸款</button>
+            </div>
+        </div>
+
+        <div class="section-block">
+            <h2>同步狀態</h2>
+            <p id="status-msg">載入中...</p>
+            <div id="liquidation-log" class="liquidation-log"></div>
+        </div>
+
+        <div class="section-block">
+            <h2>操作紀錄</h2>
+            <div id="history-log" class="history-log"></div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/audio-manager.js"></script>
+    <script src="../js/market.js"></script>
+    <script>
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMarketApp);
+        } else {
+            initMarketApp();
+        }
+    </script>
+</body>
+
+</html>

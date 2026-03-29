@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賽馬 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/horse.css">
+</head>
+
+<body class="horse-body">
+
+    <div class="page-header">
+        <a href="/games/casino.html" class="back-btn">← 返回賭場</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>🐴 賽馬</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <div class="horse-choices" id="horse-choices">
+            <button class="horse-choice active" data-horse-id="1" onclick="selectHorse(1)">1號 赤焰 <span>1.8x</span></button>
+            <button class="horse-choice" data-horse-id="2" onclick="selectHorse(2)">2號 雷霆 <span>2.2x</span></button>
+            <button class="horse-choice" data-horse-id="3" onclick="selectHorse(3)">3號 幻影 <span>2.9x</span></button>
+            <button class="horse-choice" data-horse-id="4" onclick="selectHorse(4)">4號 夜刃 <span>4.0x</span></button>
+            <button class="horse-choice" data-horse-id="5" onclick="selectHorse(5)">5號 霜牙 <span>5.8x</span></button>
+            <button class="horse-choice" data-horse-id="6" onclick="selectHorse(6)">6號 流星 <span>8.5x</span></button>
+        </div>
+
+        <div class="race-track">
+            <div class="lane"><span class="tag">1</span><div class="horse" id="horse-1">🏇</div></div>
+            <div class="lane"><span class="tag">2</span><div class="horse" id="horse-2">🏇</div></div>
+            <div class="lane"><span class="tag">3</span><div class="horse" id="horse-3">🏇</div></div>
+            <div class="lane"><span class="tag">4</span><div class="horse" id="horse-4">🏇</div></div>
+            <div class="lane"><span class="tag">5</span><div class="horse" id="horse-5">🏇</div></div>
+            <div class="lane"><span class="tag">6</span><div class="horse" id="horse-6">🏇</div></div>
+        </div>
+
+        <div class="race-hud">
+            <div class="start-lights" id="start-lights">
+                <span class="light" id="light-1"></span>
+                <span class="light" id="light-2"></span>
+                <span class="light" id="light-3"></span>
+            </div>
+            <div class="pace-meter"><div class="pace-fill" id="pace-fill"></div></div>
+            <div class="race-call" id="race-call">等待發令中...</div>
+        </div>
+        <div class="round-hint" id="round-hint">固定開獎模式：計算中...</div>
+
+        <div class="data-panel">
+            <div class="panel-title">賽馬數據面板</div>
+            <div id="track-cond" class="track-cond">場地：-</div>
+            <div id="horse-data-table" class="horse-data-table"></div>
+        </div>
+
+        <div class="data-panel">
+            <div class="panel-title">本場結果</div>
+            <div id="race-rank" class="race-rank">尚未開跑</div>
+        </div>
+
+        <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入押注金額">
+        <button class="btn-race" id="race-btn" onclick="runRace()">下注開跑</button>
+
+        <p id="status-msg">準備開始...</p>
+        <div id="tx-log"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <script src="../js/audio-manager.js"></script>
+    <script src="../js/horse.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+            });
+        };
+    </script>
+
+
+</body>
+
+</html>

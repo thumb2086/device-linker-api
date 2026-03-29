@@ -1,0 +1,443 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>綜合指南 | 子熙模擬器</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/guides.css">
+    <link rel="stylesheet" href="../css/shop.css">
+    <style>
+        /* Core Tab Styles */
+        .shop-tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        .shop-tab-content.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .guide-section-head {
+            margin: 48px 0 24px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid rgba(255, 204, 0, 0.18);
+            color: #ffd36a;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .reward-guide-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .reward-guide-card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 22px;
+            padding: 22px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .reward-guide-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255, 204, 0, 0.25);
+        }
+
+        .reward-guide-card strong {
+            display: block;
+            font-size: 1.25rem;
+            margin-bottom: 10px;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+        }
+
+        .reward-guide-type {
+            font-size: 0.72rem;
+            color: #ffd36a;
+            background: rgba(255, 204, 0, 0.12);
+            padding: 4px 12px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 14px;
+            display: inline-block;
+            font-weight: 700;
+        }
+
+        .reward-guide-desc {
+            font-size: 0.94rem;
+            color: #afc2d6;
+            line-height: 1.6;
+            margin: 12px 0 16px;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border-left: 3px solid #ffd36a;
+            border-radius: 4px 12px 12px 4px;
+            position: relative;
+        }
+
+        .reward-guide-desc::before {
+            content: "功能說明";
+            display: block;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: #ffd36a;
+            margin-bottom: 6px;
+            font-weight: 800;
+            opacity: 0.8;
+        }
+
+        .reward-guide-details {
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.88rem;
+        }
+
+        .detail-item {
+            margin-bottom: 6px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .detail-label {
+            color: #5c6c7d;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .detail-value {
+            color: #d7e5f5;
+        }
+
+        .rarity-chip {
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .rarity-epic { background: rgba(163, 53, 238, 0.2); color: #d8b4fe; border: 1px solid rgba(163, 53, 238, 0.3); }
+        .rarity-mythic { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .rarity-legendary { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
+    </style>
+</head>
+
+<body class="shop-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">← 返回首頁</a>
+    </div>
+
+    <div class="casino-card shop-card">
+        <div class="shop-header">
+            <div class="shop-header-texts">
+                <p class="section-kicker">遊戲資料</p>
+                <h1>綜合指南</h1>
+                <p class="shop-header-desc">集中查看會員規則、道具資料與遊戲機率。</p>
+            </div>
+        </div>
+
+        <div class="shop-tabs">
+            <button class="shop-tab-btn active" data-tab="vip-guide">👑 等級指南</button>
+            <button class="shop-tab-btn" data-tab="reward-guide">📦 道具與稱號</button>
+            <button class="shop-tab-btn" data-tab="odds-guide">📘 機率與倍率</button>
+        </div>
+
+        <div class="shop-content">
+            <!-- 等級 Guide Tab -->
+            <div class="shop-tab-content active" id="vip-guide-content">
+                <div class="guides-grid">
+                    <section class="guide-panel">
+                        <h2>升級門檻</h2>
+                        <div class="guide-list" id="vip-tier-guide-list"></div>
+                    </section>
+        
+                    <section class="guide-panel">
+                        <h2>單注上限</h2>
+                        <div class="guide-list" id="vip-maxbet-guide-list"></div>
+                    </section>
+        
+                    <section class="guide-panel wide">
+                        <h2>規則說明</h2>
+                        <p>VIP 等級會依你的累計下注總額自動提升，單注上限也會跟著目前等級同步調整。中高段門檻已整理成嚴格的 2 / 5 / 10 節奏，並保留 1 兆押注的神諭等級作為原始錨點；神諭之上再依相同節奏往上追加新階段，目前最高單注上限為 10 兆子熙幣。</p>
+                    </section>
+                </div>
+                <p class="guide-note">本頁僅作快速查閱，若未來規則微調，仍以系統即時計算出的 VIP 等級與單注上限為準。</p>
+            </div>
+
+            <!-- Reward Guide Tab -->
+            <div class="shop-tab-content" id="reward-guide-content">
+                <div id="guide-content">
+                    <h2 class="guide-section-head">✨ 增益道具 (Buffs)</h2>
+                    <div id="guide-buffs" class="reward-guide-grid"></div>
+        
+                    <h2 class="guide-section-head">🎁 寶箱與補給箱</h2>
+                    <div id="guide-chests" class="reward-guide-grid"></div>
+        
+                    <h2 class="guide-section-head">🏷️ 成就稱號</h2>
+                    <div id="guide-titles" class="reward-guide-grid"></div>
+        
+                    <h2 class="guide-section-head">🖼️ 頭像外觀</h2>
+                    <div id="guide-avatars" class="reward-guide-grid"></div>
+        
+                </div>
+            </div>
+
+            <!-- Odds Guide Tab -->
+            <div class="shop-tab-content" id="odds-guide-content">
+                <div class="guides-grid">
+                    <section class="guide-panel">
+                        <h2>猜硬幣</h2>
+                        <p>正反面機率各 <strong>50%</strong>，猜中總返還 <strong>1.8x</strong>。</p>
+                    </section>
+        
+                    <section class="guide-panel">
+                        <h2>骰寶</h2>
+                        <p>每 <strong>15 秒</strong> 一局。大/小/單/雙為 <strong>1x</strong>；單骰依出現次數為 <strong>1x ~ 3x</strong>；圍骰任意 <strong>24x</strong>，圍骰指定 <strong>150x</strong>。</p>
+                    </section>
+        
+                    <section class="guide-panel">
+                        <h2>老虎機</h2>
+                        <p>支援上、中、下、左、中、右與兩條斜線共 <strong>8 條線</strong>。三連中獎率固定 <strong>15%</strong>，單條派彩為 <strong>50x / 15x / 8x / 5x / 3x / 2x</strong>；雙連每條返還 <strong>0.5x</strong>，多條線會獨立累加。</p>
+                    </section>
+        
+                    <section class="guide-panel">
+                        <h2>輪盤</h2>
+                        <p>每 <strong>15 秒</strong> 一局。單號 <strong>35x</strong>；大小、單雙、紅黑為 <strong>1x</strong>；十二區為 <strong>2x</strong>。</p>
+                    </section>
+        
+                    <section class="guide-panel">
+                        <h2>賽馬</h2>
+                        <p>每 <strong>20 秒</strong> 一局。六匹馬固定權重開跑，熱門馬約 <strong>1.8x</strong>，冷門馬最高 <strong>8.5x</strong>；歷史勝率約 <strong>25% 到 7%</strong>。</p>
+                    </section>
+        
+                    <section class="guide-panel">
+                        <h2>二十一點</h2>
+                        <p>一般獲勝為 <strong>1x</strong>；天生 BlackJack 為 <strong>1.5x</strong>；平手退回 <strong>1x</strong>。</p>
+                    </section>
+        
+                    <section class="guide-panel">
+                        <h2>射龍門</h2>
+                        <p>使用<strong>單副 52 張牌不放回</strong>。一般門寬為 <strong>1.2x / 2x / 3x</strong>；若無門寬則改猜上、下，倍率依剩餘牌數動態計算。</p>
+                    </section>
+        
+                    <section class="guide-panel">
+                        <h2>賓果</h2>
+                        <p>每 <strong>25 秒</strong> 一局。選 8 號碼，開 20 號碼。命中 8/7/6/5/4 對應 <strong>50x / 10x / 3x / 1.5x / 1x</strong>。</p>
+                    </section>
+        
+                    <section class="guide-panel wide">
+                        <h2>市場利率</h2>
+                        <p>銀行存款年利率固定 <strong>2%</strong>，借貸年利率固定 <strong>4%</strong>。所有股票、BTC 與黃金報價每 <strong>30 秒</strong> 自動更新一次。</p>
+                    </section>
+                </div>
+
+                <h2 class="guide-section-head">🎲 補給箱鑰匙開箱機率</h2>
+                <div id="guide-rules" class="reward-guide-grid"></div>
+                <p class="guide-note">注意：以上一律使用倍率 `x` 顯示。遊戲實際結算為先扣本金，中獎時再補回本金加上對應倍率獎勵。</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script type="module" src="../js/guide.js"></script>
+    <script>
+        // --- Data Loading for Reward Guide ---
+        function rarityLabel(rarity) {
+            var map = {
+                common: '普通',
+                rare: '稀有',
+                super_rare: '超稀有',
+                epic: '史詩',
+                mythic: '神話',
+                legendary: '傳奇'
+            };
+            return map[String(rarity || '').toLowerCase()] || String(rarity || '普通');
+        }
+
+        function rarityClass(rarity) {
+            var r = String(rarity || '').toLowerCase();
+            if (r === 'epic' || r === 'mythic' || r === 'legendary') return 'rarity-' + r;
+            return '';
+        }
+
+        function typeLabel(type) {
+            var map = {
+                'buff': '增益道具',
+                'chest': '寶箱',
+                'key': '補給箱',
+                'title': '成就稱號',
+                'avatar': '頭像外觀'
+            };
+            return map[type] || '物品';
+        }
+
+        function sourceLabel(source) {
+            if (String(source || '').toLowerCase() === 'vip') return '';
+            var map = {
+                'shop': '商店購買',
+                'chest': '寶箱隨機獲得',
+                'campaign': '限時活動領取',
+                'admin': '官方特別授予',
+                'system': '系統成就達成',
+                'default': '預設擁有'
+            };
+            return map[source] || source || '多種途徑';
+        }
+
+        function renderBundleSummary(bundle, itemMap, avatarMap, titleMap) {
+            var parts = [];
+            if (bundle.tokens) parts.push(bundle.tokens.toLocaleString() + ' 子熙幣');
+            if (bundle.items) bundle.items.forEach(function(it) {
+                var name = itemMap[it.id] ? itemMap[it.id].name : it.id;
+                parts.push(name + ' x' + it.qty);
+            });
+            if (bundle.avatars) bundle.avatars.forEach(function(id) {
+                var name = avatarMap[id] ? avatarMap[id].name : id;
+                parts.push('頭像:' + name);
+            });
+            if (bundle.titles) bundle.titles.forEach(function(it) {
+                var id = typeof it === 'string' ? it : it.id;
+                var name = titleMap[id] ? titleMap[id].name : id;
+                parts.push('稱號:' + name);
+            });
+            return parts.join(' + ');
+        }
+
+        function renderGuide(data) {
+            var catalog = data.catalog;
+            if (!catalog) return;
+
+            var buffsHtml = '';
+            var chestsHtml = '';
+            var titlesHtml = '';
+            var avatarsHtml = '';
+            var rulesHtml = '';
+
+            var itemMap = {}; (catalog.shopItems || []).forEach(function(it) { itemMap[it.id] = it; });
+            var avatarMap = {}; (catalog.avatars || []).forEach(function(it) { avatarMap[it.id] = it; });
+            var titleMap = {}; (catalog.titles || []).forEach(function(it) { titleMap[it.id] = it; });
+
+            (catalog.shopItems || []).forEach(function (item) {
+                var html = '<div class="reward-guide-card">' +
+                    '<div class="reward-guide-type">' + typeLabel(item.type) + '</div>' +
+                    '<strong>' + item.name + '</strong>' +
+                    '<div class="reward-guide-desc">' + (item.description || '暫無說明') + '</div>' +
+                    '<div class="reward-guide-details">' +
+                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + rarityLabel(item.rarity) + '</span></div>' +
+                        (item.price ? '<div class="detail-item"><span class="detail-label">商店售價:</span><span class="detail-value">' + item.price.toLocaleString() + ' 子熙幣</span></div>' : '') +
+                    '</div>' +
+                    '</div>';
+                if (item.type === 'buff') buffsHtml += html;
+                else chestsHtml += html;
+            });
+
+            (catalog.titles || []).forEach(function (item) {
+                var titleSource = sourceLabel(item.source);
+                titlesHtml += '<div class="reward-guide-card">' +
+                    '<div class="reward-guide-type">成就稱號</div>' +
+                    '<strong>' + item.name + '</strong>' +
+                    '<div class="reward-guide-desc">' + (item.shopDescription || item.description || '更換個人顯示稱號') + '</div>' +
+                    '<div class="reward-guide-details">' +
+                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + rarityLabel(item.rarity) + '</span></div>' +
+                        (titleSource ? '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + titleSource + '</span></div>' : '') +
+                        (item.shopEnabled && item.effectiveShopPrice ? '<div class="detail-item"><span class="detail-label">商店售價:</span><span class="detail-value">' + item.effectiveShopPrice.toLocaleString() + ' 子熙幣</span></div>' : '') +
+                    '</div>' +
+                    '</div>';
+            });
+
+            (catalog.avatars || []).forEach(function (item) {
+                var avatarSource = sourceLabel(item.source);
+                avatarsHtml += '<div class="reward-guide-card">' +
+                    '<div class="reward-guide-type">頭像外觀</div>' +
+                    '<strong>' + (item.icon || '👤') + ' ' + item.name + '</strong>' +
+                    '<div class="reward-guide-desc">' + (item.description || '更換你的個人頭像顯示') + '</div>' +
+                    '<div class="reward-guide-details">' +
+                        '<div class="detail-item"><span class="detail-label">稀有度:</span><span class="detail-value rarity-chip ' + rarityClass(item.rarity) + '">' + rarityLabel(item.rarity) + '</span></div>' +
+                        (avatarSource ? '<div class="detail-item"><span class="detail-label">取得途徑:</span><span class="detail-value">' + avatarSource + '</span></div>' : '') +
+                    '</div>' +
+                    '</div>';
+            });
+
+            if (catalog.rules) {
+                var allRules = Object.assign({}, catalog.rules.chests, catalog.rules.keys);
+                Object.keys(allRules).forEach(function(id) {
+                    var rule = allRules[id];
+                    var item = itemMap[id];
+                    if (!item) return;
+
+                    var totalWeight = rule.rewards.reduce(function(sum, r) { return sum + r.weight; }, 0);
+                    var rows = rule.rewards.map(function(r) {
+                        var chance = ((r.weight / totalWeight) * 100).toFixed(1) + '%';
+                        return '<div class="detail-item"><span class="detail-label">[' + chance + '] ' + rarityLabel(r.rarity) + ':</span><span class="detail-value">' + renderBundleSummary(r.rewards, itemMap, avatarMap, titleMap) + '</span></div>';
+                    }).join('');
+
+                    rulesHtml += '<div class="reward-guide-card">' +
+                        '<div class="reward-guide-type">隨機獎勵池</div>' +
+                        '<strong>' + item.name + '</strong>' +
+                        '<div class="reward-guide-desc">開啟後隨機獲得以下內容之一。使用幸運增幅卡可提升高品質獎勵權重。</div>' +
+                        '<div class="reward-guide-details">' + rows + '</div>' +
+                        '</div>';
+                });
+            }
+
+            document.getElementById('guide-buffs').innerHTML = buffsHtml || '<div class="reward-empty">暫無資料</div>';
+            document.getElementById('guide-chests').innerHTML = chestsHtml || '<div class="reward-empty">暫無資料</div>';
+            document.getElementById('guide-titles').innerHTML = titlesHtml || '<div class="reward-empty">暫無資料</div>';
+            document.getElementById('guide-avatars').innerHTML = avatarsHtml || '<div class="reward-empty">暫無資料</div>';
+            document.getElementById('guide-rules').innerHTML = rulesHtml || '<div class="reward-empty">暫無資料</div>';
+        }
+
+        function loadRewardData() {
+             fetch('/api/rewards', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'summary', sessionId: 'public' })
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data && data.success) renderGuide(data);
+                })
+                .catch(function (e) { console.error('Guide load failed', e); });
+        }
+        
+        // --- Tab Switching Logic ---
+        function initTabs() {
+            var tabButtons = document.querySelectorAll('.shop-tab-btn');
+            var tabContents = document.querySelectorAll('.shop-tab-content');
+
+            tabButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    // Deactivate all buttons and content
+                    tabButtons.forEach(function (btn) { btn.classList.remove('active'); });
+                    tabContents.forEach(function (content) { content.classList.remove('active'); });
+
+                    // Activate clicked button and corresponding content
+                    this.classList.add('active');
+                    var tabName = this.getAttribute('data-tab');
+                    var activeContent = document.getElementById(tabName + '-content');
+                    if (activeContent) activeContent.classList.add('active');
+                });
+            });
+        }
+
+        window.onload = function () {
+            initTabs();
+            loadRewardData();
+        };
+    </script>
+</body>
+
+</html>

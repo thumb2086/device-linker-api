@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PVP 對戰 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/duel.css">
+</head>
+<body class="duel-body">
+    <div class="page-header">
+        <a href="/games/casino.html" class="back-btn">返回賭場</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card duel-card" id="main-card">
+        <div class="duel-hero">
+            <div>
+                <p class="duel-kicker">PVP DICE BATTLE</p>
+                <h1>三戰兩勝擲骰對戰</h1>
+                <p class="duel-subtitle">雙方各擲 3 顆骰子比總點數，先拿下 2 局者贏得 2 倍獎金。</p>
+            </div>
+            <div class="duel-summary">
+                <span>你的暱稱</span>
+                <strong id="my-display-name">-</strong>
+                <small>目前餘額 <span id="balance-val">0.00</span> 子熙幣</small>
+            </div>
+        </div>
+
+        <div class="duel-panel">
+            <div class="panel-title-row">
+                <h2>選擇賭注檔位</h2>
+                <span class="panel-note">同檔位配對，自動派彩</span>
+            </div>
+            <div class="stake-tier-grid">
+                <button class="stake-tier-btn active" id="stake-tier-1000" onclick="selectStakeTier(1000)">1,000</button>
+                <button class="stake-tier-btn" id="stake-tier-5000" onclick="selectStakeTier(5000)">5,000</button>
+                <button class="stake-tier-btn" id="stake-tier-10000" onclick="selectStakeTier(10000)">10,000</button>
+            </div>
+        </div>
+
+        <div class="duel-battle-grid">
+            <div class="duel-panel battle-main">
+                <div class="scoreboard">
+                    <div class="player-card">
+                        <span class="player-label">你</span>
+                        <strong id="self-name">-</strong>
+                        <div class="score-pill" id="self-score">0</div>
+                        <div class="roll-state" id="my-roll-state">尚未出骰</div>
+                    </div>
+                    <div class="versus-card">
+                        <div class="round-badge" id="round-number">第 1 局</div>
+                        <div class="versus-mark">VS</div>
+                        <div class="round-meta" id="round-meta">等待加入對戰</div>
+                        <div class="deadline" id="round-deadline">-</div>
+                    </div>
+                    <div class="player-card">
+                        <span class="player-label">對手</span>
+                        <strong id="opponent-name">等待對手</strong>
+                        <div class="score-pill" id="opponent-score">0</div>
+                        <div class="roll-state" id="opponent-roll-state">尚未出骰</div>
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-primary" id="join-btn" onclick="joinDuelQueue()">加入配對</button>
+                    <button class="btn-secondary" id="cancel-btn" onclick="cancelDuelQueue()">取消等待</button>
+                    <button class="btn-primary" id="roll-btn" onclick="rollDuelDice()">擲骰</button>
+                    <button class="btn-secondary" id="timeout-btn" onclick="claimDuelTimeout()">宣告對手超時</button>
+                    <button class="btn-primary" id="retry-btn" onclick="retryDuelPayout()">重試派彩</button>
+                </div>
+
+                <div class="duel-status" id="status-msg">等待進入 PVP 對戰...</div>
+                <div class="tx-log" id="tx-log"></div>
+            </div>
+
+            <div class="duel-panel round-panel">
+                <div class="panel-title-row">
+                    <h2>最近回合</h2>
+                    <span class="panel-note">雙方都出骰後才揭露點數</span>
+                </div>
+                <div class="round-list" id="round-list">
+                    <div class="empty-state">尚未開始對局</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="duel-panel">
+            <div class="panel-title-row">
+                <h2>對戰紀錄</h2>
+                <span class="panel-note">系統每 3 秒同步一次</span>
+            </div>
+            <div class="duel-log" id="duel-log">
+                <div class="empty-state">目前沒有對戰紀錄</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/duel.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                document.getElementById('my-display-name').innerText = data.displayName || data.address || '-';
+                startBalanceRefresh();
+                initDuelPage();
+            });
+        };
+    </script>
+</body>
+</html>

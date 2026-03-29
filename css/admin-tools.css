@@ -1,0 +1,516 @@
+﻿body.admin-tools-body {
+    justify-content: flex-start;
+    padding: 20px;
+}
+
+#main-card {
+    max-width: none;
+    margin-bottom: 24px;
+}
+
+.admin-toast-stack {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    z-index: 120;
+    display: grid;
+    gap: 10px;
+    width: min(360px, calc(100vw - 24px));
+    pointer-events: none;
+}
+
+.admin-toast {
+    padding: 14px 16px;
+    border-radius: 16px;
+    color: #fff;
+    background: rgba(17, 24, 34, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+    transform: translateY(-8px);
+    opacity: 0;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.admin-toast.visible {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.admin-toast.success {
+    border-color: rgba(91, 214, 146, 0.35);
+    background: rgba(16, 39, 28, 0.96);
+}
+
+.admin-toast.error {
+    border-color: rgba(255, 125, 125, 0.35);
+    background: rgba(56, 23, 23, 0.96);
+}
+
+.admin-toast-title {
+    display: block;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.admin-toast-copy {
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.45;
+    font-size: 0.92rem;
+}
+
+.admin-hero {
+    text-align: left;
+    margin-bottom: 24px;
+}
+
+.admin-kicker {
+    color: rgba(255, 204, 0, 0.7);
+    letter-spacing: 0.28em;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.admin-hero-copy {
+    color: #aaaaaa;
+    line-height: 1.7;
+    max-width: 760px;
+}
+
+.admin-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin: 18px 0 26px;
+}
+
+.admin-overview-card {
+    display: block;
+    text-decoration: none;
+    color: #fff;
+    padding: 18px;
+    border-radius: 20px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.admin-overview-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 204, 0, 0.28);
+}
+
+.admin-overview-card span {
+    display: block;
+    color: #9f9f9f;
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.admin-overview-card strong {
+    display: block;
+    font-size: 1.1rem;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.admin-overview-card p {
+    color: #b8b8b8;
+    line-height: 1.6;
+    font-size: 0.88rem;
+}
+
+.section-block {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 22px;
+    padding: 22px;
+    margin-bottom: 16px;
+    text-align: left;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+
+.section-block-primary {
+    border-color: rgba(255, 204, 0, 0.18);
+    background:
+        radial-gradient(circle at top right, rgba(255, 204, 0, 0.1), transparent 30%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.18);
+}
+
+.section-block-muted {
+    opacity: 0.96;
+}
+
+.section-block h2,
+.announcement-editor-card h3 {
+    margin: 0 0 10px;
+    color: var(--gold);
+    font-size: 1.05rem;
+}
+
+.section-heading-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.tool-note {
+    color: #a7a7a7;
+    line-height: 1.6;
+    margin-bottom: 14px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.form-row.single-row,
+.compact-btn {
+    width: 100%;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 16px 0 24px;
+}
+
+.issue-summary-grid,
+.announcement-summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.summary-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    padding: 12px;
+    text-align: left;
+}
+
+.summary-card span {
+    color: #888;
+    font-size: 0.78rem;
+    display: block;
+}
+
+.summary-card strong {
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+#status-msg,
+#custody-status-msg,
+#issue-status-msg,
+#announcement-admin-status-msg,
+#reward-admin-status-msg {
+    margin-top: 8px;
+    font-size: 0.9rem;
+}
+
+#status-msg {
+    color: #ffd36a;
+}
+
+#custody-status-msg,
+#announcement-admin-status-msg {
+    color: #9fd0ff;
+}
+
+#issue-status-msg {
+    color: #9bf1b9;
+}
+
+#reward-admin-status-msg {
+    color: #9bf1b9;
+}
+
+.result-list,
+.custody-user-list,
+.issue-report-list,
+.announcement-admin-list {
+    display: grid;
+    gap: 8px;
+}
+
+.result-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    color: #fff;
+}
+
+.result-head,
+.custody-user-head {
+    background: rgba(255, 204, 0, 0.08);
+    color: var(--gold);
+    font-weight: 700;
+}
+
+.result-empty {
+    padding: 20px 14px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    color: #999;
+}
+
+.custody-toolbar,
+.toolbar-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 180px;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.reward-admin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+}
+
+.collapsible-body {
+    margin-top: 14px;
+}
+
+.text-input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.text-input::placeholder {
+    color: #7f7f7f;
+}
+
+.custody-user-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr 1.3fr 1.5fr;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    color: #fff;
+    align-items: center;
+}
+
+.custody-action-cell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 8px;
+    align-items: center;
+}
+
+.password-input {
+    min-width: 0;
+}
+
+.state-chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.state-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+}
+
+.state-chip.ok {
+    background: rgba(67, 190, 123, 0.18);
+    color: #9bf1b9;
+}
+
+.state-chip.warn {
+    background: rgba(255, 160, 67, 0.18);
+    color: #ffd08a;
+}
+
+.state-chip.info {
+    background: rgba(84, 164, 255, 0.18);
+    color: #9fd0ff;
+}
+
+.mono {
+    font-family: Consolas, Monaco, monospace;
+}
+
+.issue-report-card,
+.announcement-admin-card,
+.announcement-editor-card {
+    padding: 18px;
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.issue-report-head,
+.announcement-admin-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.issue-report-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+    color: #a7a7a7;
+    font-size: 0.82rem;
+}
+
+.reward-title-meta span {
+    word-break: break-word;
+}
+
+.issue-report-message {
+    line-height: 1.7;
+    color: #f2f2f2;
+    margin-bottom: 10px;
+}
+
+.issue-report-extra {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    color: #9aa3b2;
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+}
+
+.tx-health-detail {
+    color: #c6d3df;
+    line-height: 1.55;
+    word-break: break-word;
+}
+
+.issue-editor-grid,
+.announcement-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.issue-editor-grid label,
+.announcement-form-grid label {
+    display: grid;
+    gap: 8px;
+    color: #ddd;
+    font-size: 0.92rem;
+}
+
+.full-span {
+    grid-column: 1 / -1;
+}
+
+.issue-update-textarea,
+.announcement-textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.issue-card-actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.toggle-field {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px !important;
+    padding-top: 30px;
+}
+
+.toggle-field input {
+    width: 18px;
+    height: 18px;
+}
+
+@media (max-width: 1100px) {
+    .admin-overview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .custody-user-row {
+        grid-template-columns: 1fr;
+    }
+
+    .custody-user-head {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .summary-grid,
+    .issue-summary-grid,
+    .announcement-summary-grid,
+    .custody-toolbar,
+    .toolbar-grid,
+    .reward-admin-grid,
+    .form-row,
+    .issue-editor-grid,
+    .announcement-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .section-heading-row,
+    .issue-report-head,
+    .announcement-admin-head {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 520px) {
+    body.admin-tools-body {
+        padding: 12px;
+    }
+
+    #main-card {
+        padding: 24px 14px;
+    }
+
+    .section-block {
+        padding: 18px;
+        border-radius: 18px;
+    }
+
+    .admin-overview-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .result-row,
+    .custody-action-cell,
+    .issue-card-actions {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP 中心 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/vip.css">
+</head>
+
+<body class="vip-page-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">返回首頁</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <main class="casino-card vip-shell" id="main-card">
+        <section class="vip-hero">
+            <div>
+                <p class="section-kicker">VIP Center</p>
+                <h1>VIP 中心</h1>
+                <p class="vip-subtitle">這裡提供你的 VIP 狀態、YJC 持有量，以及 VIP 房進入條件與入口。</p>
+            </div>
+            <div class="vip-hero-actions">
+                <button class="btn-primary" onclick="navigateToGameWithAuth('shop.html')">前往 VIP 兌換</button>
+                <button class="btn-secondary" onclick="navigateToGameWithAuth('guide.html#vip-guide-content')">查看完整指南</button>
+            </div>
+        </section>
+
+        <section class="vip-status-grid">
+            <article class="vip-status-card vip-status-card--accent">
+                <span class="vip-status-label">目前 VIP 身分</span>
+                <strong id="vip-tier-label">讀取中...</strong>
+                <p id="vip-tier-desc">正在同步鏈上與房間權限資訊。</p>
+            </article>
+            <article class="vip-status-card">
+                <span class="vip-status-label">目前佑戩幣</span>
+                <strong id="vip-yjc-balance">0</strong>
+                <p id="vip-yjc-meta">每 100,000,000 子熙幣可兌換 1 YJC。</p>
+            </article>
+            <article class="vip-status-card">
+                <span class="vip-status-label">目前可進房</span>
+                <strong id="vip-room-access">公共區</strong>
+                <p id="vip-room-meta">VIP 房權限會依你的 YJC 持有量同步更新。</p>
+            </article>
+        </section>
+
+        <section class="vip-rules-section">
+            <div class="section-heading">
+                <h2>VIP 房規則</h2>
+                <p>依照目前 YJC 持有量判定 VIP 房等級與可進入桌次。</p>
+            </div>
+            <div class="vip-rule-grid">
+                <article class="vip-rule-card">
+                    <div class="vip-rule-badge">一般會員</div>
+                    <h3>尚未達 VIP</h3>
+                    <ul>
+                        <li>YJC：0</li>
+                        <li>可用區域：公共大廳、公共桌</li>
+                        <li>可從活動與商店進行 YJC 兌換</li>
+                    </ul>
+                </article>
+                <article class="vip-rule-card">
+                    <div class="vip-rule-badge">VIP 1</div>
+                    <h3>一號桌權限</h3>
+                    <ul>
+                        <li>YJC：1 ~ 999</li>
+                        <li>可進入：VIP 大廳、VIP 一號桌</li>
+                        <li>適合先解鎖 VIP 房體驗</li>
+                    </ul>
+                </article>
+                <article class="vip-rule-card">
+                    <div class="vip-rule-badge">VIP 2</div>
+                    <h3>二號桌與零手續費</h3>
+                    <ul>
+                        <li>YJC：1,000 以上</li>
+                        <li>可進入：VIP 大廳、VIP 一號桌、二號桌</li>
+                        <li>享有零手續費與真人優先桌位規則</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/vip.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initVipPage(data);
+            });
+        };
+    </script>
+</body>
+
+</html>

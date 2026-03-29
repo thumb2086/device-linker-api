@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>系統維護中</title>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/lobby.css">
+  <style>
+    .maintenance-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem; /* 12px */
+        width: 100%;
+        margin-top: 1.5rem; /* 24px */
+    }
+    .maintenance-actions a.btn-primary,
+    .maintenance-actions a.btn-secondary {
+        text-decoration: none;
+        text-align: center;
+        display: block;
+        padding: 0.75rem 1rem;
+    }
+  </style>
+</head>
+<body class="lobby-body">
+  <div class="casino-card auth-card">
+    <h1>⚡ 子熙模擬器</h1>
+    <p class="subtitle">子熙幣</p>
+    <div class="maintenance-banner" style="margin-top: 1rem; padding: 1rem; border-radius: 8px;">
+        <div id="maintenance-title" class="maintenance-title">系統維護中</div>
+        <div id="maintenance-message" class="maintenance-message" style="margin-top: 0.5rem;">正在讀取維護資訊...</div>
+    </div>
+    
+    <div class="maintenance-actions">
+        <a href="/games/support.html" class="btn-secondary">意見回饋</a>
+        <a href="#" onclick="maintenanceLogout()" class="btn-primary">安全登出</a>
+    </div>
+  </div>
+  <script>
+    function maintenanceLogout() {
+      try {
+        // 只清除當前的 session，保留快速登入憑證
+        localStorage.removeItem('casino_auth');
+      } catch (e) {
+          console.error('Logout failed', e);
+      }
+      window.location.href = '/?login=1';
+    }
+
+    function fetchMaintenanceStatus() {
+        fetch('/api/user?action=get_maintenance')
+            .then(res => res.json())
+            .then(data => {
+                const titleEl = document.getElementById('maintenance-title');
+                const messageEl = document.getElementById('maintenance-message');
+
+                if (data && data.enabled) {
+                    titleEl.textContent = data.title || '系統維護中';
+                    messageEl.textContent = data.message || '目前系統正在進行例行維護，請稍後再試。';
+                } else {
+                    // Fallback for safety, don't redirect.
+                    titleEl.textContent = '系統維護中';
+                    messageEl.textContent = '目前系統正在進行例行維護，請稍後再試。';
+                }
+            })
+            .catch(err => {
+                console.error('Failed to fetch maintenance status:', err);
+                document.getElementById('maintenance-title').textContent = '系統維護中';
+                document.getElementById('maintenance-message').textContent = '無法讀取維護狀態，請稍後再試。';
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', fetchMaintenanceStatus);
+  </script>
+</body>
+</html>

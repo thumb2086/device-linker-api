@@ -1,0 +1,89 @@
+body.bingo-body {
+    justify-content: flex-start;
+    padding: 16px 36px 40px;
+}
+
+.bingo-stage {
+    margin: 16px 0;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.25);
+    text-align: center;
+}
+
+.bingo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.bingo-ball {
+    background: #101010;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #ffd36a;
+    padding: 6px 0;
+    font-size: 0.85rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.pick-summary {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+    color: #d8d8d8;
+}
+
+.pick-summary strong {
+    color: #ffd36a;
+    font-size: 0.95rem;
+}
+
+.number-pad {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.number-btn {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f3f3f3;
+    height: 38px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.number-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 211, 106, 0.55);
+}
+
+.number-btn.is-selected {
+    background: rgba(255, 211, 106, 0.2);
+    border-color: #ffd36a;
+    color: #ffd36a;
+}
+
+@media (max-width: 720px) {
+    .number-pad {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .pick-summary {
+        grid-template-columns: 1fr;
+    }
+}

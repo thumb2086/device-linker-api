@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>子熙賭場 | 子熙模擬器</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/casino.css">
+</head>
+
+<body class="casino-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">← 模擬器首頁</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>🎲 子熙賭場</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">鏈上餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <div class="section-title">選擇賭場子功能</div>
+
+        <div class="game-grid">
+            <a href="coinflip.html" class="game-card">
+                <div class="game-icon">🪙</div>
+                <div class="game-name">猜硬幣</div>
+                <div class="game-desc">正反面固定分局，1.8 倍派彩</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="sicbo.html" class="game-card">
+                <div class="game-icon">🎲</div>
+                <div class="game-name">骰寶</div>
+                <div class="game-desc">三顆骰子，多種玩法</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="slots.html" class="game-card">
+                <div class="game-icon">🎰</div>
+                <div class="game-name">老虎機</div>
+                <div class="game-desc">三連線高倍獎勵，雙連保底</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="roulette.html" class="game-card">
+                <div class="game-icon">🎡</div>
+                <div class="game-name">輪盤</div>
+                <div class="game-desc">單號、顏色、奇偶、大小下注</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="blackjack.html" class="game-card">
+                <div class="game-icon">🃏</div>
+                <div class="game-name">二十一點</div>
+                <div class="game-desc">手動回合策略對決莊家</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="horse.html" class="game-card">
+                <div class="game-icon">🐴</div>
+                <div class="game-name">賽馬</div>
+                <div class="game-desc">固定分局模擬賽道與馬匹狀態</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="dragon.html" class="game-card">
+                <div class="game-icon">🎯</div>
+                <div class="game-name">射龍門</div>
+                <div class="game-desc">門寬倍率，撞柱風險</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="bingo.html" class="game-card">
+                <div class="game-icon">🎯</div>
+                <div class="game-name">賓果</div>
+                <div class="game-desc">快速開獎，選 8 中 20</div>
+                <div class="game-tag ready">開放中</div>
+            </a>
+
+            <a href="crash.html" class="game-card">
+                <div class="game-icon">🚀</div>
+                <div class="game-name">爆點飛行</div>
+                <div class="game-desc">倍率飛升，及時兌現</div>
+                <div class="game-tag ready">新推出</div>
+            </a>
+
+            <a href="duel.html" class="game-card">
+                <div class="game-icon">⚔️</div>
+                <div class="game-name">玩家對賭</div>
+                <div class="game-desc">玩家對玩家，高額或小額自訂對賭</div>
+                <div class="game-tag ready">PVP</div>
+            </a>
+
+            <a href="poker.html" class="game-card">
+                <div class="game-icon">🃏</div>
+                <div class="game-name">德州撲克</div>
+                <div class="game-desc">支援多人同桌，空位由 bot 補位，YJC 可解鎖 VIP 桌</div>
+                <div class="game-tag ready">多人桌</div>
+            </a>
+
+            <a href="bluffdice.html" class="game-card">
+                <div class="game-icon">🎲</div>
+                <div class="game-name">吹牛骰子</div>
+                <div class="game-desc">多人喊骰與質疑輪替，空位由 bot 補位，YJC 可解鎖 VIP 桌</div>
+                <div class="game-tag ready">多人桌</div>
+            </a>
+
+        </div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script>
+        window.onload = function () {
+            showPageTransition('驗證登入中...');
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                hidePageTransition();
+
+                document.querySelectorAll('.game-card[href]').forEach(function (card) {
+                    card.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        navigateToGameWithAuth('/games/' + card.getAttribute('href'));
+                    });
+                });
+            });
+        };
+    </script>
+
+    <!-- Vercel Speed Insights -->
+</body>
+
+</html>

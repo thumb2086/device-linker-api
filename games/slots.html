@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>老虎機 | 子熙賭場</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/slots.css">
+</head>
+
+<body class="slots-body">
+
+    <div class="page-header">
+        <a href="/games/casino.html" class="back-btn">← 返回賭場</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1>🎰 老虎機</h1>
+
+        <div class="user-stats">
+            <span id="vip-badge">普通會員</span>
+            <div class="stat-row">餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累計押注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <div class="slots-machine">
+            <div class="slots-board-wrap">
+                <div class="slots-board-header">
+                    <span class="slots-board-title">主轉盤</span>
+                    <span class="slots-board-note">3x3 全線判定</span>
+                </div>
+                <div class="slots-board" id="slots-board">
+                    <div class="reels-grid" id="reels-grid"></div>
+                    <svg class="payline-svg-overlay" id="payline-svg" aria-hidden="true"></svg>
+                </div>
+                <div class="slots-result-strip">
+                    <div class="slots-result-chip" id="slots-result-type">待命中</div>
+                    <div class="slots-result-copy" id="slots-result-copy">三連、雙連與組合派彩都會顯示在這裡。</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="spin-controls">
+            <input type="number" id="bet-amount" value="10" min="1" placeholder="輸入押注金額">
+            <button class="btn-spin" id="spin-btn">🎰 旋轉</button>
+        </div>
+        <p id="max-bet-note" class="slots-helper-note">單注上限將依目前等級計算</p>
+
+        <div class="payout-panel">
+            <div class="payout-panel-head">
+                <h2>派彩與判定</h2>
+                <p>說明移到押注下方，下注時可直接對照。</p>
+            </div>
+            <div class="payout-info">
+                <div class="payout-item">
+                    <span class="payout-symbol">7️⃣7️⃣7️⃣</span>
+                    <span class="payout-mult">50x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">💎💎💎</span>
+                    <span class="payout-mult">15x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">⭐⭐⭐</span>
+                    <span class="payout-mult">8x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">🔔🔔🔔</span>
+                    <span class="payout-mult">5x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">🍋🍋🍋</span>
+                    <span class="payout-mult">3x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+                <div class="payout-item">
+                    <span class="payout-symbol">🍒🍒🍒</span>
+                    <span class="payout-mult">2x / 每條</span>
+                    <span class="payout-rate">三連獨立累加</span>
+                </div>
+            </div>
+            <p class="slots-odds-note">每一條有效線都會獨立計算。兩條三連會把兩條倍率加總；兩條雙連會變成 1.0x 總返還；三連和雙連同時出現也會一起累加。支援上、中、下、左、中、右、左上斜、右上斜共 8 條線。</p>
+        </div>
+
+        <p id="status-msg">準備開始...</p>
+
+        <div id="tx-log"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <script src="../js/audio-manager.js"></script>
+    <script src="../js/slots.js"></script>
+    <script>
+        window.onload = function () {
+            showPageTransition('驗證登入中...');
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                const slotMachine = new SlotMachine(document.getElementById('reels-grid'), document.getElementById('payline-svg'));
+                document.getElementById('spin-btn').onclick = () => slotMachine.spin();
+                slotMachine.resumePendingSettlement();
+                hidePageTransition();
+            });
+        };
+    </script>
+
+
+</body>
+
+</html>

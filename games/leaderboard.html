@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>排行榜 | Casino</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/leaderboard.css">
+</head>
+
+<body class="leaderboard-body">
+    <div class="page-header">
+        <a href="/" class="back-btn">返回首頁</a>
+        <div class="header-stats">
+            <span class="vip" id="header-vip">-</span>
+            <span><span class="balance" id="header-balance">-</span> 子熙幣</span>
+            <button class="logout-btn" onclick="logoutUser()">登出</button>
+        </div>
+    </div>
+
+    <div class="casino-card" id="main-card">
+        <h1 id="leaderboard-title">排行榜</h1>
+
+        <section class="leaderboard-champions">
+            <div class="leaderboard-section-head">
+                <div>
+                    <p class="leaderboard-kicker">Live Leaders</p>
+                    <h2>目前榜一</h2>
+                </div>
+                <span class="leaderboard-section-note" id="leaderboard-champion-meta">讀取中...</span>
+            </div>
+            <div id="leaderboard-champion-grid" class="leaderboard-champion-grid"></div>
+        </section>
+
+        <section class="leaderboard-champions">
+            <div class="leaderboard-section-head">
+                <div>
+                    <p class="leaderboard-kicker">Hall of Fame</p>
+                    <h2>歷史榜王</h2>
+                </div>
+                <span class="leaderboard-section-note" id="leaderboard-hof-meta">讀取中...</span>
+            </div>
+            <div id="leaderboard-hof-grid" class="leaderboard-champion-grid"></div>
+        </section>
+
+        <div class="leaderboard-type-selector">
+            <button class="type-btn is-active" data-type="total-bet">下注榜</button>
+            <button class="type-btn" data-type="balance">資產榜</button>
+        </div>
+
+        <div class="leaderboard-scope" id="leaderboard-scope">
+            <button class="scope-btn is-active" data-scope="total">總榜</button>
+            <button class="scope-btn" data-scope="weekly">週榜</button>
+            <button class="scope-btn" data-scope="monthly">月榜</button>
+            <button class="scope-btn" data-scope="season">賽季榜</button>
+        </div>
+        <div class="leaderboard-period" id="leaderboard-period">-</div>
+
+        <div class="user-stats">
+            <span id="vip-badge">VIP</span>
+            <div class="stat-row">目前餘額: <span id="balance-val">0.00</span> 子熙幣</div>
+            <div class="stat-row">累積下注: <span id="total-bet-val">0.00</span> 子熙幣</div>
+        </div>
+
+        <div class="leaderboard-overview">
+            <div class="overview-card">
+                <span>我的排名</span>
+                <strong id="my-rank">-</strong>
+            </div>
+            <div class="overview-card">
+                <span id="my-bet-label">累積下注</span>
+                <strong id="my-total-bet">-</strong>
+            </div>
+            <div class="overview-card">
+                <span>我的名稱</span>
+                <strong id="my-name" style="word-break: break-all;">-</strong>
+            </div>
+            <div class="overview-card">
+                <span>總玩家數</span>
+                <strong id="leaderboard-total">0</strong>
+            </div>
+        </div>
+
+        <div class="leaderboard-toolbar">
+            <button class="btn-primary" onclick="refreshLeaderboard()">更新排行榜</button>
+            <span id="leaderboard-status">讀取中...</span>
+        </div>
+
+        <div id="leaderboard-list" class="leaderboard-list"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/leaderboard.js"></script>
+    <script>
+        window.onload = function () {
+            checkGameAuth(function (data) {
+                updateUI(data);
+                startBalanceRefresh();
+                initLeaderboardPage();
+            });
+        };
+    </script>
+</body>
+
+</html>

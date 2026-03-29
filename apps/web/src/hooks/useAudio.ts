@@ -111,8 +111,8 @@ class AudioManager {
     if (this.initialized || typeof window === 'undefined' || !window.Howl) return;
     if (window.Howler) {
       window.Howler.autoUnlock = true;
-      if (typeof window.Howler.html5PoolSize === 'number' && window.Howler.html5PoolSize < 12) {
-        window.Howler.html5PoolSize = 12;
+      if (typeof window.Howler.html5PoolSize === 'number' && window.Howler.html5PoolSize < 24) {
+        window.Howler.html5PoolSize = 24;
       }
     }
     this.initialized = true;
@@ -265,7 +265,6 @@ class AudioManager {
 
     if (this.currentBgmKey && this.currentBgmKey !== key) {
       this.stop(this.currentBgmKey as SoundKey, this.currentBgmId);
-      this.releaseSound(this.currentBgmKey as SoundKey);
       this.currentBgmKey = '';
       this.currentBgmId = null;
     }
@@ -282,7 +281,6 @@ class AudioManager {
     if (!this.currentBgmKey) return;
     const currentKey = this.currentBgmKey as SoundKey;
     this.stop(currentKey, this.currentBgmId);
-    this.releaseSound(currentKey);
     this.currentBgmKey = '';
     this.currentBgmId = null;
   }

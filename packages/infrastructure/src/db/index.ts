@@ -16,58 +16,55 @@ import {
   IStatsRepository,
   ICustodyRepository
 } from "../repositories/interfaces.js";
-import { eq, and, desc } from "drizzle-orm";
 
-const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-const isPostgresReady = !!connectionString &&
-                        connectionString !== "postgres://localhost:5432/db" &&
-                        !connectionString.includes("mock") &&
-                        process.env.MOCK_DB !== "true";
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+
+if (!connectionString && process.env.NODE_ENV === "production") {
+  console.error("❌ Critical Error: DATABASE_URL is missing in production environment!");
+}
 
 let db: any = null;
-if (isPostgresReady) {
-  if (connectionString!.includes("neon.tech")) {
-    const sql = neon(connectionString!);
-    db = drizzleNeon(sql, { schema });
+
+try {
+  if (connectionString && !connectionString.includes("mock")) {
+    if (connectionString.includes("neon.tech")) {
+      const sql = neon(connectionString);
+      db = drizzleNeon(sql, { schema });
+      console.log("✅ Connected to Neon Postgres");
+    } else {
+      const client = postgres(connectionString);
+      db = drizzlePg(client, { schema });
+      console.log("✅ Connected to Standard Postgres");
+    }
   } else {
-    const client = postgres(connectionString as string);
-    db = drizzlePg(client, { schema });
+    console.warn("⚠️ No valid DATABASE_URL found. Running without DB (MOCK MODE).");
   }
+} catch (error) {
+  console.error("❌ Failed to initialize database connection:", error);
 }
 
 export class UserRepository implements IUserRepository {
   async saveUser(user: any) {
-    if (!db) {
-      await kv.set(`pg_mock:user:${user.id}`, user);
-      await kv.set(`pg_mock:user_addr:${user.address.toLowerCase()}`, user.id);
-      return;
-    }
+    if (!db) throw new Error("Database not initialized");
     await db.insert(schema.users).values(user).onConflictDoUpdate({
       target: schema.users.id,
       set: { updatedAt: new Date() },
     });
   }
   async getUserById(id: string) {
-    if (!db) return await kv.get<any>(`pg_mock:user:${id}`);
+    if (!db) throw new Error("Database not initialized");
     return await db.query.users.findFirst({ where: (users: any, { eq }: any) => eq(users.id, id) });
   }
   async getUserByAddress(address: string) {
-    if (!db) {
-       const id = await kv.get<string>(`pg_mock:user_addr:${address.toLowerCase()}`);
-       if (!id) return null;
-       return await this.getUserById(id);
-    }
+    if (!db) throw new Error("Database not initialized");
     return await db.query.users.findFirst({ where: (users: any, { eq }: any) => eq(users.address, address.toLowerCase()) });
   }
   async getUserProfile(userId: string) {
-    if (!db) return await kv.get(`user_profile:${userId}`);
+    if (!db) throw new Error("Database not initialized");
     return await db.query.userProfiles.findFirst({ where: (p: any, { eq }: any) => eq(p.userId, userId) });
   }
   async saveUserProfile(userId: string, data: any) {
-    if (!db) {
-        await kv.set(`user_profile:${userId}`, data);
-        return;
-    }
+    if (!db) throw new Error("Database not initialized");
     await db.insert(schema.userProfiles).values({ userId, ...data }).onConflictDoUpdate({
         target: schema.userProfiles.userId,
         set: { ...data, updatedAt: new Date() }
@@ -77,10 +74,7 @@ export class UserRepository implements IUserRepository {
 
 export class SessionRepository implements ISessionRepository {
   async saveSession(session: any) {
-    if (!db) {
-      await kv.set(`pg_mock:session:${session.id}`, session, { ex: 86400 * 7 });
-      return;
-    }
+    if (!db) throw new Error("Database not initialized");
     const safeSession = {
       ...session,
       createdAt: session.createdAt ? new Date(session.createdAt) : new Date(),
@@ -99,17 +93,14 @@ export class SessionRepository implements ISessionRepository {
     });
   }
   async getSessionById(id: string) {
-    if (!db) return await kv.get<any>(`pg_mock:session:${id}`);
+    if (!db) throw new Error("Database not initialized");
     return await db.query.sessions.findFirst({ where: (sessions: any, { eq }: any) => eq(sessions.id, id) });
   }
 }
 
 export class WalletRepository implements IWalletRepository {
   async getBalance(address: string, token: string = "zhixi") {
-    if (!db) {
-      const key = token === "yjc" ? `balance_yjc:${address.toLowerCase()}` : `balance:${address.toLowerCase()}`;
-      return await kv.get<string>(key) || "0";
-    }
+    if (!db) throw new Error("Database not initialized");
     const account = await db.query.walletAccounts.findFirst({
       where: (walletAccounts: any, { and, eq }: any) => and(
         eq(walletAccounts.address, address.toLowerCase()),
@@ -120,12 +111,7 @@ export class WalletRepository implements IWalletRepository {
   }
 
   async updateBalance(address: string, amount: string, token: string = "zhixi") {
-    if (!db) {
-      const key = token === "yjc" ? `balance_yjc:${address.toLowerCase()}` : `balance:${address.toLowerCase()}`;
-      await kv.set(key, amount);
-      return;
-    }
-    // Need a userId for the record if creating new. Find user by address.
+    if (!db) throw new Error("Database not initialized");
     const user = await db.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, address.toLowerCase()) });
     if (!user) throw new Error("User not found during balance update");
 
@@ -142,12 +128,7 @@ export class WalletRepository implements IWalletRepository {
   }
 
   async saveTxIntent(intent: any) {
-    if (!db) {
-      await kv.set(`pg_mock:tx_intent:${intent.id}`, intent);
-      if (intent.status === "pending") await kv.sadd("pg_mock:pending_intents", intent.id);
-      else await kv.srem("pg_mock:pending_intents", intent.id);
-      return;
-    }
+    if (!db) throw new Error("Database not initialized");
     await db.insert(schema.txIntents).values(intent).onConflictDoUpdate({
       target: schema.txIntents.id,
       set: { status: intent.status, txHash: intent.txHash, updatedAt: new Date() }
@@ -155,29 +136,18 @@ export class WalletRepository implements IWalletRepository {
   }
 
   async getPendingIntents() {
-    if (!db) {
-      const ids = await kv.smembers("pg_mock:pending_intents") || [];
-      const intents = [];
-      for (const id of ids) {
-         const intent = await kv.get(`pg_mock:tx_intent:${id}`);
-         if (intent) intents.push(intent);
-      }
-      return intents;
-    }
+    if (!db) throw new Error("Database not initialized");
     return await db.query.txIntents.findMany({ where: (txIntents: any, { eq }: any) => eq(txIntents.status, "pending") });
   }
 }
 
 export class MarketRepository implements IMarketRepository {
     async getAccount(address: string) {
-        if (!db) return await kv.get<any>(`market_account:${address.toLowerCase()}`);
+        if (!db) throw new Error("Database not initialized");
         return await db.query.marketAccounts.findFirst({ where: (accounts: any, { eq }: any) => eq(accounts.address, address.toLowerCase()) });
     }
     async saveAccount(address: string, userId: string, account: any) {
-        if (!db) {
-            await kv.set(`market_account:${address.toLowerCase()}`, account);
-            return;
-        }
+        if (!db) throw new Error("Database not initialized");
         await db.insert(schema.marketAccounts).values({ address: address.toLowerCase(), userId: userId, data: account, updatedAt: new Date() })
            .onConflictDoUpdate({ target: schema.marketAccounts.address, set: { data: account, updatedAt: new Date() } });
     }
@@ -187,42 +157,37 @@ export class MarketRepository implements IMarketRepository {
 
 export class MetaRepository implements IMetaRepository {
   async saveRewardGrant(grant: any) {
-    if (!db) { await kv.lpush('pg_mock:reward_grants', grant); return; }
+    if (!db) throw new Error("Database not initialized");
     await db.insert(schema.rewardGrants).values(grant);
   }
   async saveMarketOrder(order: any) {
-    if (!db) { await kv.lpush('pg_mock:market_orders', order); return; }
+    if (!db) throw new Error("Database not initialized");
     await db.insert(schema.marketTrades).values(order);
   }
 }
 
 export class GameRepository implements IGameRepository {
   async saveRound(round: any) {
-    if (!db) { await kv.set(`pg_mock:game_round:${round.id}`, round, { ex: 86400 * 30 }); return; }
+    if (!db) throw new Error("Database not initialized");
     await db.insert(schema.gameRounds).values(round).onConflictDoUpdate({ target: schema.gameRounds.id, set: { status: round.status, result: round.result, updatedAt: new Date() } });
   }
   async getRoundById(id: string) {
-    if (!db) return await kv.get<any>(`pg_mock:game_round:${id}`);
+    if (!db) throw new Error("Database not initialized");
     return await db.query.gameRounds.findFirst({ where: (gameRounds: any, { eq }: any) => eq(gameRounds.id, id) });
   }
 }
 
 export class OpsRepository implements IOpsRepository {
   async logEvent(event: any) {
-    const log = { ...event, id: randomUUID(), createdAt: new Date() };
     if (!db) {
-      await kv.lpush("pg_mock:ops_events", log);
-      await kv.ltrim("pg_mock:ops_events", 0, 1000);
-      return;
+       console.error("OpsEvent could not be saved to DB:", event);
+       return;
     }
+    const log = { ...event, id: randomUUID(), createdAt: new Date() };
     await db.insert(schema.opsEvents).values(log);
   }
   async listEvents(options: { limit?: number; userId?: string } = {}) {
-    if (!db) {
-      let logs = await kv.lrange<any>("pg_mock:ops_events", 0, 1000) || [];
-      if (options.userId) logs = logs.filter(l => l.userId === options.userId);
-      return logs.slice(0, options.limit || 50);
-    }
+    if (!db) throw new Error("Database not initialized");
     return await db.query.opsEvents.findMany({
       where: options.userId ? (opsEvents: any, { eq }: any) => eq(opsEvents.userId, options.userId!) : undefined,
       limit: options.limit || 50,
@@ -233,19 +198,14 @@ export class OpsRepository implements IOpsRepository {
 
 export class StatsRepository implements IStatsRepository {
   async getLeaderboard(type: "total_bet" | "balance") {
-    if (!db) return [{ address: "0x1111...1111", displayName: "賭聖", value: "50000000", avatar: "👑", vipLevel: "創世等級" }];
-    // Simple placeholder for real leaderboard logic
+    if (!db) throw new Error("Database not initialized");
     return await db.query.users.findMany({ limit: 10 });
   }
 }
 
 export class CustodyRepository implements ICustodyRepository {
   async saveCustodyUser(username: string, data: any) {
-    if (!db) {
-        await kv.set(`custody_user:${username.toLowerCase()}`, data);
-        return;
-    }
-    // Need a user ID. Find or create.
+    if (!db) throw new Error("Database not initialized");
     let user = await db.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, data.address.toLowerCase()) });
     if (!user) {
         const userId = randomUUID();
@@ -266,7 +226,7 @@ export class CustodyRepository implements ICustodyRepository {
     });
   }
   async getCustodyUser(username: string) {
-    if (!db) return await kv.get<any>(`custody_user:${username.toLowerCase()}`);
+    if (!db) throw new Error("Database not initialized");
     return await db.query.custodyAccounts.findFirst({ where: (c: any, { eq }: any) => eq(c.username, username.toLowerCase()) });
   }
 }

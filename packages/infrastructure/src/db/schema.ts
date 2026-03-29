@@ -387,3 +387,12 @@ export const systemConfig = pgTable("system_config", {
   updatedBy: text("updated_by"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// ─── KV Persistence Fallback ──────────────────────────────────────────────────
+
+export const kvStore = pgTable("kv_store", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  expiresAt: timestamp("expires_at"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

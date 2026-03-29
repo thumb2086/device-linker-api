@@ -1,73 +1,95 @@
-import { createClient } from "@vercel/kv";
+import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
+import { drizzle as drizzleNeon } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+import postgres from "postgres";
+import * as schema from "../db/schema.js";
+import { eq, lte } from "drizzle-orm";
 
-const isTest = !process.env.KV_REST_API_URL;
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+let db: any = null;
 
-// Comprehensive in-memory mock for development/testing
-class MockKV {
-  private store = new Map<string, { value: any; expires: number }>();
-  private sets = new Map<string, Set<string>>();
-  private lists = new Map<string, any[]>();
+if (connectionString && !connectionString.includes("mock")) {
+  if (connectionString.includes("neon.tech")) {
+    db = drizzleNeon(neon(connectionString), { schema });
+  } else {
+    db = drizzlePg(postgres(connectionString), { schema });
+  }
+}
 
+/**
+ * Postgres-backed KV Client to replace @vercel/kv
+ * Used for ephemeral data, snapshots, and legacy session fallbacks.
+ */
+class PostgresKV {
   async get<T>(key: string): Promise<T | null> {
-    const item = this.store.get(key);
-    if (!item) return null;
-    if (item.expires < Date.now()) {
-      this.store.delete(key);
+    if (!db) return null;
+    const result = await db.query.kvStore.findFirst({
+      where: eq(schema.kvStore.key, key)
+    });
+    if (!result) return null;
+    if (result.expiresAt && result.expiresAt < new Date()) {
+      await this.del(key);
       return null;
     }
-    return item.value as T;
+    return result.value as T;
   }
 
   async set(key: string, value: any, options?: { ex?: number }) {
-    const expires = options?.ex ? Date.now() + options.ex * 1000 : 2147483647000;
-    this.store.set(key, { value, expires });
+    if (!db) return "OK";
+    const expiresAt = options?.ex ? new Date(Date.now() + options.ex * 1000) : null;
+    await db.insert(schema.kvStore).values({
+      key,
+      value,
+      expiresAt,
+      updatedAt: new Date()
+    }).onConflictDoUpdate({
+      target: schema.kvStore.key,
+      set: { value, expiresAt, updatedAt: new Date() }
+    });
     return "OK";
   }
 
   async del(key: string) {
-    this.store.delete(key);
-    this.sets.delete(key);
-    this.lists.delete(key);
+    if (!db) return 0;
+    const result = await db.delete(schema.kvStore).where(eq(schema.kvStore.key, key));
     return 1;
   }
 
+  // Helper for cleaning up expired keys
+  async gc() {
+    if (!db) return;
+    await db.delete(schema.kvStore).where(lte(schema.kvStore.expiresAt, new Date()));
+  }
+
+  // Placeholder implementations for legacy set/list ops if needed
   async sadd(key: string, ...members: string[]) {
-    if (!this.sets.has(key)) this.sets.set(key, new Set());
-    const set = this.sets.get(key)!;
-    members.forEach(m => set.add(m));
+    const current = await this.get<string[]>(key) || [];
+    const updated = Array.from(new Set([...current, ...members]));
+    await this.set(key, updated);
     return members.length;
   }
-
   async srem(key: string, ...members: string[]) {
-    const set = this.sets.get(key);
-    if (!set) return 0;
-    let count = 0;
-    members.forEach(m => { if (set.delete(m)) count++; });
-    return count;
+    const current = await this.get<string[]>(key) || [];
+    const updated = current.filter(m => !members.includes(m));
+    await this.set(key, updated);
+    return members.length;
   }
-
-  async smembers(key: string) {
-    const set = this.sets.get(key);
-    return set ? Array.from(set) : [];
-  }
-
+  async smembers(key: string) { return await this.get<string[]>(key) || []; }
   async lpush(key: string, ...values: any[]) {
-    if (!this.lists.has(key)) this.lists.set(key, []);
-    const list = this.lists.get(key)!;
-    list.unshift(...values);
-    return list.length;
+    const current = await this.get<any[]>(key) || [];
+    const updated = [...values, ...current];
+    await this.set(key, updated);
+    return updated.length;
   }
-
   async lrange<T>(key: string, start: number, stop: number) {
-    const list = this.lists.get(key) || [];
+    const list = await this.get<T[]>(key) || [];
     const end = stop === -1 ? undefined : stop + 1;
-    return list.slice(start, end) as T[];
+    return list.slice(start, end);
   }
-
   async ltrim(key: string, start: number, stop: number) {
-    const list = this.lists.get(key) || [];
+    const list = await this.get<any[]>(key) || [];
     const end = stop === -1 ? undefined : stop + 1;
-    this.lists.set(key, list.slice(start, end));
+    await this.set(key, list.slice(start, end));
     return "OK";
   }
 }
@@ -84,7 +106,7 @@ export interface KVClient {
   ltrim(key: string, start: number, stop: number): Promise<string>;
 }
 
-export const kv: KVClient = new MockKV() as any;
+export const kv: KVClient = new PostgresKV() as any;
 
 export const getSession = async (sessionId: string) => {
   return await kv.get(`session:${sessionId}`);

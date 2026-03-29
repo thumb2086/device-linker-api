@@ -10,6 +10,7 @@ export default function LoginView() {
   const [tab, setTab] = useState<'qr' | 'custody'>('qr');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [deepLinkUrl, setDeepLinkUrl] = useState<string | null>(null);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -25,25 +26,21 @@ export default function LoginView() {
     setError(null);
     setSessionId(null);
     setQrCodeUrl(null);
+    setDeepLinkUrl(null);
     try {
-      const res = await fetch('/api/user.js?action=create_session', {
+      const res = await fetch('/api/v1/auth/create-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ platform: 'web' })
+          body: JSON.stringify({ platform: 'web', clientType: 'web' })
       });
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        console.error("Failed to parse JSON:", text);
-        setError("API_ERROR_INVALID_RESPONSE");
-        return;
-      }
+      const data = await res.json();
+      const payload = data?.data;
+      const loginLink = payload?.deepLink || payload?.legacyDeepLink;
 
-      if (data.success && data.sessionId) {
-        setSessionId(data.sessionId);
-        setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=dlinker://login?sessionId=${data.sessionId}`);
+      if (data.success && payload?.sessionId && loginLink) {
+        setSessionId(payload.sessionId);
+        setDeepLinkUrl(loginLink);
+        setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(loginLink)}`);
       } else {
         setError(data.error || "SESSION_CREATION_FAILED");
       }
@@ -60,11 +57,12 @@ export default function LoginView() {
     if (tab !== 'qr' || !sessionId) return;
 
     const interval = setInterval(() => {
-      fetch(`/api/user.js?action=get_status&sessionId=${sessionId}`)
+      fetch(`/api/v1/auth/status?sessionId=${encodeURIComponent(sessionId)}`)
         .then(res => res.json())
         .then(data => {
-          if (data.success && data.status === 'authorized') {
-            setAuth(data.address, sessionId, data.publicKey || '0x');
+          const payload = data?.data;
+          if (data.success && payload?.status === 'authorized' && payload?.address) {
+            setAuth(payload.address, sessionId, payload.publicKey || '0x');
           }
         })
         .catch(err => console.error("Poll error:", err));
@@ -78,16 +76,17 @@ export default function LoginView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/user.js?action=custody_login', {
+      const res = await fetch('/api/v1/auth/custody/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password, platform: 'web', clientType: 'web' })
       });
       const data = await res.json();
-      if (!data.success) {
+      const payload = data?.data;
+      if (!data.success || !payload?.success || !payload?.sessionId || !payload?.address) {
         setError(data.error || 'LOGIN_FAILED');
       } else {
-        setAuth(data.address, data.sessionId, '0x');
+        setAuth(payload.address, payload.sessionId, payload.publicKey || '0x');
       }
     } catch (err) {
       setError('NETWORK_ERROR');
@@ -173,11 +172,19 @@ export default function LoginView() {
               </div>
               <div className="text-center space-y-2 px-4">
                  <p className="text-[#adaaaa] text-[11px] leading-relaxed font-bold uppercase tracking-tight">
-                    {t('auth.qr_instruction')}
+                     {t('auth.qr_instruction')}
                  </p>
+                 {deepLinkUrl && (
+                   <a
+                     href={deepLinkUrl}
+                     className="inline-flex items-center justify-center mt-2 px-4 py-2 rounded-lg bg-[#262626] border border-[#fcc025]/20 text-[#fcc025] text-[10px] font-black uppercase tracking-widest hover:bg-[#2c2c2c] transition-all"
+                   >
+                     Open App
+                   </a>
+                 )}
                  <div className="flex items-center justify-center gap-2 pt-2">
-                    <QrCode size={12} className="text-[#fcc025]" />
-                    <span className="text-[9px] text-[#fcc025]/60 font-bold uppercase tracking-[0.2em]">Encrypted Session Active</span>
+                     <QrCode size={12} className="text-[#fcc025]" />
+                     <span className="text-[9px] text-[#fcc025]/60 font-bold uppercase tracking-[0.2em]">Encrypted Session Active</span>
                  </div>
               </div>
             </motion.div>

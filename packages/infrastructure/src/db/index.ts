@@ -23,6 +23,146 @@ if (!connectionString && process.env.NODE_ENV === "production") {
 }
 
 let db: any = null;
+let ensureCoreSchemaPromise: Promise<void> | null = null;
+
+const ensureCoreSchema = async () => {
+  if (!connectionString || connectionString.includes("mock")) return;
+  if (!ensureCoreSchemaPromise) {
+    ensureCoreSchemaPromise = (async () => {
+      const sql = postgres(connectionString, {
+        ssl: "require",
+        max: 1,
+        idle_timeout: 5,
+        connect_timeout: 10,
+      });
+      try {
+        await sql`
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+          CREATE TABLE IF NOT EXISTS users (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            address TEXT NOT NULL UNIQUE,
+            display_name TEXT,
+            is_admin BOOLEAN DEFAULT FALSE,
+            is_blacklisted BOOLEAN DEFAULT FALSE,
+            blacklist_reason TEXT,
+            blacklisted_at TIMESTAMP,
+            blacklisted_by TEXT,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS custody_accounts (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            salt_hex TEXT NOT NULL,
+            address TEXT NOT NULL UNIQUE,
+            public_key TEXT,
+            user_id UUID REFERENCES users(id),
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            user_id UUID REFERENCES users(id),
+            address TEXT,
+            status TEXT NOT NULL,
+            public_key TEXT,
+            mode TEXT DEFAULT 'live',
+            platform TEXT DEFAULT 'unknown',
+            client_type TEXT DEFAULT 'unknown',
+            device_id TEXT,
+            app_version TEXT,
+            account_id TEXT,
+            authorized_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            expires_at TIMESTAMP NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS user_profiles (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
+            address TEXT NOT NULL UNIQUE,
+            selected_avatar_id TEXT DEFAULT 'classic_chip',
+            selected_title_id TEXT,
+            inventory JSONB DEFAULT '{}',
+            owned_avatars JSONB DEFAULT '[]',
+            owned_titles JSONB DEFAULT '[]',
+            active_buffs JSONB DEFAULT '[]',
+            system_title_streaks JSONB DEFAULT '{}',
+            win_bias NUMERIC,
+            sound_prefs JSONB DEFAULT '{"bgmEnabled":true,"sfxEnabled":true,"volume":0.5}',
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS wallet_accounts (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES users(id),
+            address TEXT NOT NULL,
+            token TEXT NOT NULL DEFAULT 'zhixi',
+            balance NUMERIC NOT NULL DEFAULT '0',
+            locked_balance NUMERIC NOT NULL DEFAULT '0',
+            airdrop_distributed NUMERIC NOT NULL DEFAULT '0',
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+          CREATE UNIQUE INDEX IF NOT EXISTS wallet_addr_token_idx ON wallet_accounts (address, token);
+
+          CREATE TABLE IF NOT EXISTS market_accounts (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
+            address TEXT NOT NULL UNIQUE,
+            data JSONB NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS ops_events (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            channel TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            source TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            request_id TEXT,
+            user_id UUID,
+            address TEXT,
+            game TEXT,
+            token TEXT,
+            round_id UUID,
+            tx_intent_id UUID,
+            tx_hash TEXT,
+            error_code TEXT,
+            error_stage TEXT,
+            message TEXT NOT NULL,
+            meta JSONB,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS kv_store (
+            key TEXT PRIMARY KEY,
+            value JSONB NOT NULL,
+            expires_at TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+        `;
+      } finally {
+        await sql.end();
+      }
+    })().catch((error) => {
+      ensureCoreSchemaPromise = null;
+      throw error;
+    });
+  }
+  await ensureCoreSchemaPromise;
+};
+
+const requireDb = async () => {
+  if (!db) throw new Error("Database not initialized");
+  await ensureCoreSchema();
+  return db;
+};
 
 try {
   if (connectionString && !connectionString.includes("mock")) {
@@ -43,27 +183,27 @@ try {
 
 export class UserRepository implements IUserRepository {
   async saveUser(user: any) {
-    if (!db) throw new Error("Database not initialized");
-    await db.insert(schema.users).values(user).onConflictDoUpdate({
+    const conn = await requireDb();
+    await conn.insert(schema.users).values(user).onConflictDoUpdate({
       target: schema.users.id,
       set: { updatedAt: new Date() },
     });
   }
   async getUserById(id: string) {
-    if (!db) throw new Error("Database not initialized");
-    return await db.query.users.findFirst({ where: (users: any, { eq }: any) => eq(users.id, id) });
+    const conn = await requireDb();
+    return await conn.query.users.findFirst({ where: (users: any, { eq }: any) => eq(users.id, id) });
   }
   async getUserByAddress(address: string) {
-    if (!db) throw new Error("Database not initialized");
-    return await db.query.users.findFirst({ where: (users: any, { eq }: any) => eq(users.address, address.toLowerCase()) });
+    const conn = await requireDb();
+    return await conn.query.users.findFirst({ where: (users: any, { eq }: any) => eq(users.address, address.toLowerCase()) });
   }
   async getUserProfile(userId: string) {
-    if (!db) throw new Error("Database not initialized");
-    return await db.query.userProfiles.findFirst({ where: (p: any, { eq }: any) => eq(p.userId, userId) });
+    const conn = await requireDb();
+    return await conn.query.userProfiles.findFirst({ where: (p: any, { eq }: any) => eq(p.userId, userId) });
   }
   async saveUserProfile(userId: string, data: any) {
-    if (!db) throw new Error("Database not initialized");
-    await db.insert(schema.userProfiles).values({ userId, ...data }).onConflictDoUpdate({
+    const conn = await requireDb();
+    await conn.insert(schema.userProfiles).values({ userId, ...data }).onConflictDoUpdate({
         target: schema.userProfiles.userId,
         set: { ...data, updatedAt: new Date() }
     });
@@ -72,14 +212,14 @@ export class UserRepository implements IUserRepository {
 
 export class SessionRepository implements ISessionRepository {
   async saveSession(session: any) {
-    if (!db) throw new Error("Database not initialized");
+    const conn = await requireDb();
     const safeSession = {
       ...session,
       createdAt: session.createdAt ? new Date(session.createdAt) : new Date(),
       expiresAt: session.expiresAt ? new Date(session.expiresAt) : new Date(Date.now() + 3600000),
       authorizedAt: session.authorizedAt ? new Date(session.authorizedAt) : undefined,
     };
-    await db.insert(schema.sessions).values(safeSession).onConflictDoUpdate({
+    await conn.insert(schema.sessions).values(safeSession).onConflictDoUpdate({
       target: schema.sessions.id,
       set: {
         status: safeSession.status,
@@ -91,15 +231,15 @@ export class SessionRepository implements ISessionRepository {
     });
   }
   async getSessionById(id: string) {
-    if (!db) throw new Error("Database not initialized");
-    return await db.query.sessions.findFirst({ where: (sessions: any, { eq }: any) => eq(sessions.id, id) });
+    const conn = await requireDb();
+    return await conn.query.sessions.findFirst({ where: (sessions: any, { eq }: any) => eq(sessions.id, id) });
   }
 }
 
 export class WalletRepository implements IWalletRepository {
   async getBalance(address: string, token: string = "zhixi") {
-    if (!db) throw new Error("Database not initialized");
-    const account = await db.query.walletAccounts.findFirst({
+    const conn = await requireDb();
+    const account = await conn.query.walletAccounts.findFirst({
       where: (walletAccounts: any, { and, eq }: any) => and(
         eq(walletAccounts.address, address.toLowerCase()),
         eq(walletAccounts.token, token)
@@ -109,11 +249,11 @@ export class WalletRepository implements IWalletRepository {
   }
 
   async updateBalance(address: string, amount: string, token: string = "zhixi") {
-    if (!db) throw new Error("Database not initialized");
-    const user = await db.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, address.toLowerCase()) });
+    const conn = await requireDb();
+    const user = await conn.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, address.toLowerCase()) });
     if (!user) throw new Error("User not found during balance update");
 
-    await db.insert(schema.walletAccounts).values({
+    await conn.insert(schema.walletAccounts).values({
       userId: user.id,
       address: address.toLowerCase(),
       token: token,
@@ -126,9 +266,9 @@ export class WalletRepository implements IWalletRepository {
   }
 
   async saveTxIntent(intent: any) {
-    if (!db) throw new Error("Database not initialized");
+    const conn = await requireDb();
     try {
-        await db.insert((schema as any).txIntents).values(intent).onConflictDoUpdate({
+        await conn.insert((schema as any).txIntents).values(intent).onConflictDoUpdate({
           target: (schema as any).txIntents.id,
           set: { status: intent.status, txHash: intent.txHash, updatedAt: new Date() }
         });
@@ -136,21 +276,21 @@ export class WalletRepository implements IWalletRepository {
   }
 
   async getPendingIntents() {
-    if (!db) throw new Error("Database not initialized");
+    const conn = await requireDb();
     try {
-        return await db.query.txIntents.findMany({ where: (txIntents: any, { eq }: any) => eq(txIntents.status, "pending") });
+        return await conn.query.txIntents.findMany({ where: (txIntents: any, { eq }: any) => eq(txIntents.status, "pending") });
     } catch(e) { return []; }
   }
 }
 
 export class MarketRepository implements IMarketRepository {
     async getAccount(address: string) {
-        if (!db) throw new Error("Database not initialized");
-        return await db.query.marketAccounts.findFirst({ where: (accounts: any, { eq }: any) => eq(accounts.address, address.toLowerCase()) });
+        const conn = await requireDb();
+        return await conn.query.marketAccounts.findFirst({ where: (accounts: any, { eq }: any) => eq(accounts.address, address.toLowerCase()) });
     }
     async saveAccount(address: string, userId: string, account: any) {
-        if (!db) throw new Error("Database not initialized");
-        await db.insert(schema.marketAccounts).values({ address: address.toLowerCase(), userId: userId, data: account, updatedAt: new Date() })
+        const conn = await requireDb();
+        await conn.insert(schema.marketAccounts).values({ address: address.toLowerCase(), userId: userId, data: account, updatedAt: new Date() })
            .onConflictDoUpdate({ target: schema.marketAccounts.address, set: { data: account, updatedAt: new Date() } });
     }
     async getMarketSnapshot() { return await kv.get<any>("market:snapshot"); }
@@ -159,29 +299,29 @@ export class MarketRepository implements IMarketRepository {
 
 export class MetaRepository implements IMetaRepository {
   async saveRewardGrant(grant: any) {
-    if (!db) throw new Error("Database not initialized");
-    try { await db.insert((schema as any).rewardGrants).values(grant); } catch(e) {}
+    const conn = await requireDb();
+    try { await conn.insert((schema as any).rewardGrants).values(grant); } catch(e) {}
   }
   async saveMarketOrder(order: any) {
-    if (!db) throw new Error("Database not initialized");
-    try { await db.insert((schema as any).marketTrades).values(order); } catch(e) {}
+    const conn = await requireDb();
+    try { await conn.insert((schema as any).marketTrades).values(order); } catch(e) {}
   }
 }
 
 export class GameRepository implements IGameRepository {
   async saveRound(round: any) {
-    if (!db) throw new Error("Database not initialized");
+    const conn = await requireDb();
     try {
-        await db.insert((schema as any).gameRounds).values(round).onConflictDoUpdate({
+        await conn.insert((schema as any).gameRounds).values(round).onConflictDoUpdate({
             target: (schema as any).gameRounds.id,
             set: { status: round.status, result: round.result, updatedAt: new Date() }
         });
     } catch(e) {}
   }
   async getRoundById(id: string) {
-    if (!db) throw new Error("Database not initialized");
+    const conn = await requireDb();
     try {
-        return await db.query.gameRounds.findFirst({ where: (gameRounds: any, { eq }: any) => eq(gameRounds.id, id) });
+        return await conn.query.gameRounds.findFirst({ where: (gameRounds: any, { eq }: any) => eq(gameRounds.id, id) });
     } catch(e) { return null; }
   }
 }
@@ -192,12 +332,13 @@ export class OpsRepository implements IOpsRepository {
        console.error("OpsEvent could not be saved to DB:", event);
        return;
     }
+    const conn = await requireDb();
     const log = { ...event, id: randomUUID(), createdAt: new Date() };
-    await db.insert(schema.opsEvents).values(log);
+    await conn.insert(schema.opsEvents).values(log);
   }
   async listEvents(options: { limit?: number; userId?: string } = {}) {
-    if (!db) throw new Error("Database not initialized");
-    return await db.query.opsEvents.findMany({
+    const conn = await requireDb();
+    return await conn.query.opsEvents.findMany({
       where: options.userId ? (opsEvents: any, { eq }: any) => eq(opsEvents.userId, options.userId!) : undefined,
       limit: options.limit || 50,
       orderBy: (opsEvents: any, { desc }: any) => [desc(opsEvents.createdAt)],
@@ -207,21 +348,21 @@ export class OpsRepository implements IOpsRepository {
 
 export class StatsRepository implements IStatsRepository {
   async getLeaderboard(type: "total_bet" | "balance") {
-    if (!db) throw new Error("Database not initialized");
-    return await db.query.users.findMany({ limit: 10 });
+    const conn = await requireDb();
+    return await conn.query.users.findMany({ limit: 10 });
   }
 }
 
 export class CustodyRepository implements ICustodyRepository {
   async saveCustodyUser(username: string, data: any) {
-    if (!db) throw new Error("Database not initialized");
-    let user = await db.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, data.address.toLowerCase()) });
+    const conn = await requireDb();
+    let user = await conn.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, data.address.toLowerCase()) });
     if (!user) {
         const userId = randomUUID();
-        await db.insert(schema.users).values({ id: userId, address: data.address.toLowerCase(), displayName: username, createdAt: new Date(), updatedAt: new Date() });
+        await conn.insert(schema.users).values({ id: userId, address: data.address.toLowerCase(), displayName: username, createdAt: new Date(), updatedAt: new Date() });
         user = { id: userId };
     }
-    await db.insert(schema.custodyAccounts).values({
+    await conn.insert(schema.custodyAccounts).values({
         username: username.toLowerCase(),
         passwordHash: data.passwordHash,
         saltHex: data.saltHex,
@@ -235,7 +376,7 @@ export class CustodyRepository implements ICustodyRepository {
     });
   }
   async getCustodyUser(username: string) {
-    if (!db) throw new Error("Database not initialized");
-    return await db.query.custodyAccounts.findFirst({ where: (c: any, { eq }: any) => eq(c.username, username.toLowerCase()) });
+    const conn = await requireDb();
+    return await conn.query.custodyAccounts.findFirst({ where: (c: any, { eq }: any) => eq(c.username, username.toLowerCase()) });
   }
 }

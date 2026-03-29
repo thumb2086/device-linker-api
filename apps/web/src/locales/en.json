@@ -112,6 +112,21 @@
     "submit_ticket": "Submit Ticket",
     "issue_category": "Category",
     "description": "Description",
-    "send_protocol": "Send Protocol"
+    "send_protocol": "Send Protocol",
+    "operator_name": "SYSTEM OPERATOR_72",
+    "online": "Online",
+    "connecting": "Connecting to secure line...",
+    "enter_message": "Enter message...",
+    "report_anomalies": "Report simulation anomalies",
+    "category_technical": "Technical Error",
+    "category_vault": "Vault Discrepancy",
+    "category_trade": "Trade Execution",
+    "provide_details": "Provide details...",
+    "protocol_1_title": "Vault Security Protocol",
+    "protocol_1_summary": "Information regarding AES-256 and multi-sig authorization.",
+    "protocol_2_title": "Trading Execution Guide",
+    "protocol_2_summary": "How to use the market terminal for trading operations.",
+    "protocol_3_title": "Account Recovery Steps",
+    "protocol_3_summary": "Procedure for recovering identity profile if session access is lost."
   }
 }

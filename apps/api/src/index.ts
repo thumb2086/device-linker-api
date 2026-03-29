@@ -20,6 +20,35 @@ const fastify = Fastify({
 fastify.setValidatorCompiler(validatorCompiler);
 fastify.setSerializerCompiler(serializerCompiler);
 
+// Global Error Handler
+fastify.setErrorHandler((error, request, reply) => {
+  request.log.error(error);
+  if (error.validation) {
+    reply.status(400).send({
+        success: false,
+        error: "VALIDATION_ERROR",
+        message: error.message,
+    });
+    return;
+  }
+  reply.status(500).send({
+    success: false,
+    error: "INTERNAL_SERVER_ERROR",
+    message: process.env.NODE_ENV === "production" ? "An unexpected error occurred" : error.message,
+    stack: process.env.NODE_ENV === "production" ? undefined : error.stack,
+  });
+});
+
+// Diagnostic Route
+fastify.get("/api/diag", async () => {
+    return {
+        status: "ok",
+        env: process.env.NODE_ENV,
+        timestamp: new Date().toISOString(),
+        db_url_present: !!(process.env.DATABASE_URL || process.env.POSTGRES_URL)
+    };
+});
+
 // 註冊路由
 fastify.register(legacyRoutes, { prefix: "/api" });
 fastify.register(authRoutes, { prefix: "/api/v1/auth" });

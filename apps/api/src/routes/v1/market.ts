@@ -3,7 +3,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
 import { MarketManager } from "@repo/domain";
-import { SessionRepository, UserRepository, MarketRepository } from "@repo/infrastructure";
+import { SessionRepository, UserRepository, MarketRepository, kv } from "@repo/infrastructure";
 import { randomUUID } from "crypto";
 
 export async function marketRoutes(fastify: FastifyInstance) {
@@ -12,6 +12,22 @@ export async function marketRoutes(fastify: FastifyInstance) {
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
   const marketRepo = new MarketRepository();
+
+  const loadCompatibleAccount = async (address: string, userId: string) => {
+    const dbAccount = await marketRepo.getAccount(address);
+    if (dbAccount) return dbAccount;
+
+    const [legacyPrimary, legacyFallback] = await Promise.all([
+      kv.get<any>(`market:${address}`),
+      kv.get<any>(`market_sim:${address}`),
+    ]);
+    const legacy = legacyPrimary || legacyFallback;
+    if (!legacy) return null;
+
+    const normalized = marketManager.normalizeAccount(legacy);
+    await marketRepo.saveAccount(address, userId, normalized);
+    return normalized;
+  };
 
   const getContext = async (req: any) => {
     const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
@@ -32,7 +48,7 @@ export async function marketRoutes(fastify: FastifyInstance) {
     const ctx = await getContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
     const snapshot = marketManager.buildSnapshot();
-    const account = await marketRepo.getAccount(ctx.session.address);
+    const account = await loadCompatibleAccount(ctx.session.address, ctx.user.id);
     const normalized = marketManager.normalizeAccount(account);
     marketManager.settleLiquidations(normalized, snapshot);
     await marketRepo.saveAccount(ctx.session.address, ctx.user.id, normalized);
@@ -57,7 +73,7 @@ export async function marketRoutes(fastify: FastifyInstance) {
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
     const { type, symbol, amount, quantity, side, leverage, positionId } = request.body;
     const snapshot = marketManager.buildSnapshot();
-    const account = marketManager.normalizeAccount(await marketRepo.getAccount(ctx.session.address));
+    const account = marketManager.normalizeAccount(await loadCompatibleAccount(ctx.session.address, ctx.user.id));
     marketManager.settleLiquidations(account, snapshot);
 
     let result: any;

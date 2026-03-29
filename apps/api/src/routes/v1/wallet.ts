@@ -56,6 +56,13 @@ export async function walletRoutes(fastify: FastifyInstance) {
     return { runtime, client: new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey) };
   };
 
+  const getLegacyBalance = async (address: string, token: WalletTokenKey) => {
+    const key = token === "yjc" ? `balance_yjc:${address}` : `balance:${address}`;
+    const raw = await kv.get<string | number>(key);
+    if (raw === null || raw === undefined) return null;
+    return String(raw);
+  };
+
   const getTokenRuntime = async (token: WalletTokenKey) => {
     const { runtime, client } = getChainClient();
     const tokenRuntime = runtime.tokens[token];
@@ -120,28 +127,44 @@ export async function walletRoutes(fastify: FastifyInstance) {
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED", message: "Invalid session" } }, request.id);
 
     const address = ctx.session.address;
-    const [dbZxcBalance, dbYjcBalance, ledger, lastAirdrop] = await Promise.all([
+    const [dbZxcBalance, dbYjcBalance, legacyZxcBalance, legacyYjcBalance, ledger, lastAirdrop] = await Promise.all([
       walletRepo.getBalance(address, "zhixi"),
       walletRepo.getBalance(address, "yjc"),
+      getLegacyBalance(address, "zhixi"),
+      getLegacyBalance(address, "yjc"),
       walletRepo.listLedgerEntries({ address, limit: 25 }),
       kv.get<number>(`last_airdrop:${address}`),
     ]);
 
-    let balances = { ZXC: dbZxcBalance, YJC: dbYjcBalance };
+    const initialZxcBalance = Number(dbZxcBalance || 0) === 0 && legacyZxcBalance !== null
+      ? legacyZxcBalance
+      : dbZxcBalance;
+    const initialYjcBalance = Number(dbYjcBalance || 0) === 0 && legacyYjcBalance !== null
+      ? legacyYjcBalance
+      : dbYjcBalance;
+
+    if (initialZxcBalance !== dbZxcBalance && Number(initialZxcBalance || 0) > 0) {
+      await walletRepo.updateBalance(address, initialZxcBalance, "zhixi");
+    }
+    if (initialYjcBalance !== dbYjcBalance && Number(initialYjcBalance || 0) > 0) {
+      await walletRepo.updateBalance(address, initialYjcBalance, "yjc");
+    }
+
+    let balances = { ZXC: initialZxcBalance, YJC: initialYjcBalance };
     const onchain = {
       available: false,
       adminAddress: null as string | null,
       conversionRateZxcPerYjc: ZXC_PER_YJC,
       zxc: {
         available: false,
-        balance: dbZxcBalance,
+        balance: initialZxcBalance,
         decimals: 18,
         contractAddress: null as string | null,
         error: null as string | null,
       },
       yjc: {
         available: false,
-        balance: dbYjcBalance,
+        balance: initialYjcBalance,
         decimals: 18,
         contractAddress: null as string | null,
         error: null as string | null,

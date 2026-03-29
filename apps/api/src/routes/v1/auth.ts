@@ -28,6 +28,13 @@ export async function authRoutes(fastify: FastifyInstance) {
     kv
   );
 
+  const getLegacyBalance = async (address: string, token: "zhixi" | "yjc" = "zhixi") => {
+    const key = token === "yjc" ? `balance_yjc:${address}` : `balance:${address}`;
+    const raw = await kv.get<string | number>(key);
+    if (raw === null || raw === undefined) return null;
+    return String(raw);
+  };
+
   typedFastify.post("/create-session", async (request) => {
     try {
       const sessionId = `sess_${randomUUID().slice(0, 12)}`;
@@ -133,7 +140,14 @@ export async function authRoutes(fastify: FastifyInstance) {
         }
 
         const user = await userRepo.getUserById(session.userId);
-        const balance = await walletRepo.getBalance(session.address);
+        let balance = await walletRepo.getBalance(session.address);
+        if (Number(balance || 0) === 0) {
+          const legacyBalance = await getLegacyBalance(session.address, "zhixi");
+          if (legacyBalance !== null && Number(legacyBalance || 0) > 0) {
+            balance = legacyBalance;
+            await walletRepo.updateBalance(session.address, legacyBalance, "zhixi");
+          }
+        }
         const totalBet = "0";
 
         return createApiEnvelope({

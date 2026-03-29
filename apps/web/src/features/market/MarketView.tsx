@@ -19,8 +19,36 @@ type Quote = {
   name: string;
   price: number;
   type: string;
+  sector: string;
   changePct: number;
 };
+
+function Sparkline({ values, color }: { values: number[]; color: string }) {
+  const path = useMemo(() => {
+    if (!values.length) return '';
+    const width = 180;
+    const height = 56;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+
+    return values
+      .map((value, index) => {
+        const x = (index / Math.max(values.length - 1, 1)) * width;
+        const y = height - ((value - min) / range) * (height - 8) - 4;
+        return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+      })
+      .join(' ');
+  }, [values]);
+
+  if (!path) return null;
+
+  return (
+    <svg viewBox="0 0 180 56" className="h-14 w-full overflow-visible">
+      <path d={path} fill="none" stroke={color} strokeWidth="2.25" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export default function MarketView() {
   const { t, i18n } = useTranslation();
@@ -54,6 +82,8 @@ export default function MarketView() {
     noActivity: '\u5c1a\u7121\u5e02\u5834\u64cd\u4f5c\u7d00\u9304',
     units: '\u80a1',
     quantity: '\u6578\u91cf',
+    type: '\u985e\u578b',
+    sector: '\u677f\u584a',
   };
 
   const numberMode = amountDisplay === 'full' ? 'full' : 'short';
@@ -62,6 +92,7 @@ export default function MarketView() {
   const symbols = useMemo(() => Object.values(marketSnapshot?.symbols || {}) as Quote[], [marketSnapshot]);
   const stockSymbols = useMemo(() => symbols.filter((quote) => quote.type === 'stock'), [symbols]);
   const selectedQuote = marketSnapshot?.symbols?.[selectedSymbol] as Quote | undefined;
+  const historyBySymbol = marketSnapshot?.history || {};
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
@@ -168,16 +199,16 @@ export default function MarketView() {
                     key={quote.symbol}
                     type="button"
                     onClick={() => setSelectedSymbol(quote.symbol)}
-                    className={`rounded-2xl border p-4 text-left transition-colors ${
+                    className={`rounded-[1.6rem] border p-5 text-left transition-all ${
                       selectedSymbol === quote.symbol
-                        ? 'border-[#fcc025]/40 bg-[#0e0e0e]'
+                        ? 'border-[#fcc025]/55 bg-[#121212] shadow-[0_0_24px_rgba(252,192,37,0.08)]'
                         : 'border-[#494847]/10 bg-[#141414] hover:border-[#fcc025]/20'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white">{quote.symbol}</p>
-                        <p className="text-[10px] font-bold text-[#adaaaa]">{quote.name}</p>
+                        <p className="mt-1 text-[13px] text-[#aeb7c9]">{quote.name}</p>
                       </div>
                       {(quote.changePct || 0) >= 0 ? (
                         <TrendingUp className="text-emerald-400" size={16} />
@@ -185,17 +216,34 @@ export default function MarketView() {
                         <TrendingDown className="text-[#ff7351]" size={16} />
                       )}
                     </div>
-                    <p className="mt-3 text-xl font-black italic tracking-tight text-[#fcc025]">
-                      {formatNumber(quote.price, numberMode)}
+                    <p className="mt-5 text-[2rem] font-black italic leading-none tracking-tight text-[#fcc025]">
+                      {Number(quote.price || 0).toLocaleString('en-US', {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      })}
                     </p>
                     <p
-                      className={`text-[10px] font-black uppercase tracking-[0.12em] ${
+                      className={`mt-2 text-[14px] font-black tracking-tight ${
                         (quote.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-[#ff7351]'
                       }`}
                     >
                       {(quote.changePct || 0) >= 0 ? '+' : ''}
                       {quote.changePct.toFixed(2)}%
                     </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-[#232323] px-3 py-1 text-[10px] font-bold text-[#aeb7c9]">
+                        {isZh ? zh.type : 'Type'} <span className="ml-1 text-white">{quote.type}</span>
+                      </span>
+                      <span className="rounded-full bg-[#232323] px-3 py-1 text-[10px] font-bold text-[#aeb7c9]">
+                        {isZh ? zh.sector : 'Sector'} <span className="ml-1 text-white">{quote.sector}</span>
+                      </span>
+                    </div>
+                    <div className="mt-5 overflow-hidden rounded-xl border border-[#494847]/10 bg-[#101010] px-3 py-2">
+                      <Sparkline
+                        values={(historyBySymbol[quote.symbol] || []) as number[]}
+                        color={(quote.changePct || 0) >= 0 ? '#00f59b' : '#ff6d6d'}
+                      />
+                    </div>
                   </button>
                 ))}
               </div>

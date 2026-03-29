@@ -1,0 +1,125 @@
+/* apps/web/src/features/casino/BluffDice.css */
+
+.bluffdice-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 3rem;
+  background: radial-gradient(circle, #44403c 0%, #1c1917 100%);
+  border-radius: 2rem;
+  border: 4px solid #78350f;
+  box-shadow: 0 0 50px rgba(0,0,0,0.8);
+  min-height: 500px;
+}
+
+.dice-cup {
+  width: 200px;
+  height: 250px;
+  perspective: 1000px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cup-inner {
+  width: 100%;
+  height: 100%;
+  background: #78350f;
+  border-radius: 50% 50% 10% 10%;
+  border: 8px solid #451a03;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+  position: relative;
+  transition: transform 0.3s;
+}
+
+.cup-inner.shaking {
+  animation: shakeCup 0.1s infinite;
+}
+
+@keyframes shakeCup {
+  0% { transform: translate(5px, 5px) rotate(5deg); }
+  25% { transform: translate(-5px, -5px) rotate(-5deg); }
+  50% { transform: translate(-5px, 5px) rotate(5deg); }
+  75% { transform: translate(5px, -5px) rotate(-5deg); }
+  100% { transform: translate(5px, 5px) rotate(5deg); }
+}
+
+.dice-placeholder {
+  font-size: 5rem;
+  color: rgba(255,255,255,0.1);
+}
+
+.dice-row {
+  display: flex;
+  gap: 0.5rem;
+  background: #000;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 4px solid #fbbf24;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+}
+
+.dice-val {
+  font-size: 3rem;
+  color: #fff;
+  animation: dicePop 0.3s backwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes dicePop {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.bluff-stats {
+  height: 50px;
+}
+
+.total-stat {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  font-size: 1.5rem;
+}
+
+.total-stat .label { color: #d6d3d1; font-weight: bold; }
+.total-stat .value { color: #fbbf24; font-weight: 900; }
+
+.bluff-controls {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.bluff-controls input {
+  flex: 1;
+  background: #1e293b;
+  border: 1px solid #44403c;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: white;
+}
+
+.roll-btn {
+  flex: 1;
+  background: #ea580c;
+  color: white;
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.roll-btn:hover:not(:disabled) {
+  background: #f97316;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
+.roll-btn:disabled { opacity: 0.5; cursor: wait; }

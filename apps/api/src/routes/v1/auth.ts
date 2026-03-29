@@ -40,7 +40,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         legacyDeepLink: identityManager.buildLegacyDeepLink(sessionId)
       }, request.id);
     } catch (e: any) {
-      request.log.error(e);
+      console.error(e);
       return createApiEnvelope(null, request.id, false, e.message);
     }
   });
@@ -79,7 +79,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
         return createApiEnvelope(result, request.id);
     } catch (e: any) {
-        request.log.error(e);
+        console.error(e);
         return createApiEnvelope(null, request.id, false, "INTERNAL_SERVER_ERROR");
     }
   });
@@ -110,7 +110,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
         return createApiEnvelope(result, request.id);
     } catch (e: any) {
-        request.log.error(e);
+        console.error(e);
         return createApiEnvelope(null, request.id, false, "INTERNAL_SERVER_ERROR");
     }
   });
@@ -142,7 +142,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           totalBet,
         }, request.id);
     } catch (e: any) {
-        request.log.error(e);
+        console.error(e);
         return createApiEnvelope(null, request.id, false, "INTERNAL_SERVER_ERROR");
     }
   });

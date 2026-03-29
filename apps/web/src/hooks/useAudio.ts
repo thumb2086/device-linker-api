@@ -1,4 +1,4 @@
-import { Howl } from 'howler';
+import { Howl, Howler } from 'howler';
 
 const sounds: Record<string, Howl> = {
   click: new Howl({ src: ['/audio/click.mp3'], volume: 0.5 }),
@@ -23,5 +23,9 @@ export const useAudio = () => {
     }
   };
 
-  return { play, toggleBGM };
+  const setGlobalVolume = (volume: number) => {
+    Howler.volume(volume);
+  };
+
+  return { play, toggleBGM, setGlobalVolume };
 };

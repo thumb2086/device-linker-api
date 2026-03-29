@@ -15,8 +15,7 @@ export class ProfileManager {
       return { success: false, error: "Username must be 2-20 characters" };
     }
 
-    // Check for duplicate usernames if needed, but for now just update
-    await this.userRepo.saveUser({ ...user, username: trimmed, updatedAt: new Date() });
+    await this.userRepo.saveUser({ ...user, displayName: trimmed, updatedAt: new Date() });
     return { success: true };
   }
 

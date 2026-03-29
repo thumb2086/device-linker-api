@@ -111,7 +111,7 @@ export default function CasinoView() {
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="app-shell flex items-center justify-between py-4">
           <div className="flex items-center gap-4">
             <Link to="/app/casino/lobby" className="text-[#adaaaa] transition-colors hover:text-[#fcc025]">
               <ChevronLeft size={24} />
@@ -126,7 +126,7 @@ export default function CasinoView() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 pt-24">{renderGame()}</main>
+      <main className="app-shell pt-24">{renderGame()}</main>
     </div>
   );
 }

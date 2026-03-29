@@ -41,7 +41,7 @@ export default function AdminView() {
     <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">
       {/* Top Bar */}
       <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
-        <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
+        <div className="app-shell flex items-center justify-between py-4">
           <div className="flex items-center gap-4">
              <ShieldAlert className="text-[#fcc025]" />
              <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">{t('nav.admin')}</h1>
@@ -49,7 +49,7 @@ export default function AdminView() {
         </div>
       </header>
 
-      <main className="pt-24 px-6 max-w-7xl mx-auto space-y-10">
+      <main className="app-shell space-y-10 pt-24">
         {/* System Health */}
         <section className="space-y-4">
            <div className="flex items-center gap-2 px-2">

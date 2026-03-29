@@ -79,7 +79,7 @@ export default function RoomLobbyView() {
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="app-shell flex items-center justify-between py-4">
           <div className="flex items-center gap-4">
             <LayoutGrid className="text-[#fcc025]" />
             <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">{t('casino.title')}</h1>
@@ -87,7 +87,7 @@ export default function RoomLobbyView() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-10 px-6 pt-24">
+      <main className="app-shell space-y-10 pt-24">
         <section className="group relative h-[300px] overflow-hidden rounded-3xl">
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-black via-black/40 to-transparent" />
           <img

@@ -402,26 +402,25 @@ export class CustodyRepository implements ICustodyRepository {
   async getCustodyUser(username: string) {
     const conn = await requireDb();
     const normalizedUsername = username.toLowerCase();
-    const account = await conn.query.custodyAccounts.findFirst({
-      where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
-    });
-    if (account) return account;
-
     const legacy = await conn.query.custodyUsers.findFirst({
       where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
     });
-    if (!legacy?.address || !legacy?.passwordHash || !legacy?.saltHex) return null;
+    if (legacy?.address && legacy?.passwordHash && legacy?.saltHex) {
+      const raw = legacy.raw && typeof legacy.raw === "object" ? legacy.raw : {};
+      const recovered = {
+        username: normalizedUsername,
+        passwordHash: legacy.passwordHash,
+        saltHex: legacy.saltHex,
+        address: legacy.address,
+        publicKey: raw.publicKey || raw.public_key || null,
+      };
 
-    const raw = legacy.raw && typeof legacy.raw === "object" ? legacy.raw : {};
-    const recovered = {
-      username: normalizedUsername,
-      passwordHash: legacy.passwordHash,
-      saltHex: legacy.saltHex,
-      address: legacy.address,
-      publicKey: raw.publicKey || raw.public_key || null,
-    };
+      await this.saveCustodyUser(normalizedUsername, recovered);
 
-    await this.saveCustodyUser(normalizedUsername, recovered);
+      return await conn.query.custodyAccounts.findFirst({
+        where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
+      });
+    }
 
     return await conn.query.custodyAccounts.findFirst({
       where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)

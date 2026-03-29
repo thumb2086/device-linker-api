@@ -7,7 +7,7 @@
   "outputDirectory": "apps/web/dist",
   "rewrites": [
     {
-      "source": "/api/v1/(.*)",
+      "source": "/api/(.*)",
       "destination": "/api/index.ts"
     },
     {

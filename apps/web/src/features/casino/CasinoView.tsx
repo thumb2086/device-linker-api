@@ -19,6 +19,7 @@ export default function CasinoView() {
   const { game } = useParams();
   const { t, i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
+  const vipLockedGames = new Set(['poker', 'bluffdice']);
   const gameLabels: Record<string, { zh: string; en: string }> = {
     roulette: { zh: '輪盤', en: 'Roulette' },
     horse: { zh: '賽馬', en: 'Horse Racing' },
@@ -36,6 +37,25 @@ export default function CasinoView() {
   const currentGameLabel = game ? (isZh ? gameLabels[game]?.zh : gameLabels[game]?.en) : '';
 
   const renderGame = () => {
+    if (game && vipLockedGames.has(game)) {
+      return (
+        <div className="p-20 text-center space-y-4 bg-[#1a1919] rounded-2xl border border-[#fcc025]/15">
+          <div className="inline-flex rounded-full border border-[#fcc025]/25 bg-[#fcc025]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#fcc025]">
+            VIP
+          </div>
+          <h2 className="text-2xl font-black text-[#fcc025] uppercase italic tracking-tighter">
+            {isZh ? 'VIP 遊戲尚未開放' : 'VIP Game Not Available Yet'}
+          </h2>
+          <p className="text-[10px] font-bold text-[#adaaaa] uppercase tracking-widest">
+            {isZh ? '撲克與吹牛會在 VIP 制度完成後開放。' : 'Poker and Bluff Dice will unlock after the VIP system is ready.'}
+          </p>
+          <Link to="/app/casino/lobby" className="inline-block mt-8 px-8 py-3 bg-[#fcc025] text-black rounded-xl font-black uppercase italic tracking-tighter hover:bg-white transition-colors">
+            {isZh ? '返回大廳' : 'Return to Floor'}
+          </Link>
+        </div>
+      );
+    }
+
     switch (game) {
       case 'roulette': return <RouletteView />;
       case 'horse': return <HorseRacingView />;

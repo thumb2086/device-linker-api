@@ -4,10 +4,6 @@ import { motion } from 'framer-motion';
 import {
   Trophy,
   Crown,
-  LayoutGrid,
-  TrendingUp,
-  Wallet,
-  Settings,
   Timer,
   ChevronRight,
   Medal
@@ -15,6 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
 import { useUserStore } from '../../store/useUserStore';
+import AppBottomNav from '../../components/AppBottomNav';
 
 export default function LeaderboardView() {
   const { t } = useTranslation();
@@ -167,26 +164,7 @@ export default function LeaderboardView() {
       </main>
 
       {/* Bottom Nav Bar */}
-      <nav className="fixed bottom-0 left-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-2xl border-t border-[#494847]/15 h-20 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
-          <div className="flex justify-around items-center h-full max-w-7xl mx-auto px-4">
-              <Link to="/app/casino/lobby" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
-                  <LayoutGrid size={24} className="mb-1" />
-                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.casino')}</span>
-              </Link>
-              <Link to="/app/market" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
-                  <TrendingUp size={24} className="mb-1" />
-                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.market')}</span>
-              </Link>
-              <Link to="/app/wallet" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
-                  <Wallet size={24} className="mb-1" />
-                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.vault')}</span>
-              </Link>
-              <Link to="/app/settings" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
-                  <Settings size={24} className="mb-1" />
-                  <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.settings')}</span>
-              </Link>
-          </div>
-      </nav>
+      <AppBottomNav current="none" />
     </div>
   );
 }

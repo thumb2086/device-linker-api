@@ -5,20 +5,17 @@ import {
   ChevronRight,
   Edit2,
   Globe,
-  LayoutGrid,
   LogOut,
-  MessageSquareText,
   Settings as SettingsIcon,
-  TrendingUp,
   User,
   Volume2,
-  Wallet,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUserStore } from '../../store/useUserStore';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
+import AppBottomNav from '../../components/AppBottomNav';
 import { useWallet } from '../wallet/useWallet';
 
 const Toggle = ({ enabled, onClick }: { enabled: boolean; onClick: () => void }) => (
@@ -105,6 +102,7 @@ export default function SettingsView() {
     switchLabel: '\u5207\u63db',
     systemStatus: '\u7cfb\u7d71\u72c0\u614b',
     supportCenter: '\u652f\u63f4\u4e2d\u5fc3',
+    githubRepo: 'GitHub \u5009\u5eab',
     syncingSettings: '\u8a2d\u5b9a\u540c\u6b65\u4e2d...',
     syncFailed: '\u8a2d\u5b9a\u540c\u6b65\u5931\u6557',
     settingsSaved: '\u8a2d\u5b9a\u5df2\u5132\u5b58',
@@ -325,7 +323,7 @@ export default function SettingsView() {
                       amountDisplay === 'compact' ? 'bg-[#fcc025] text-black' : 'bg-[#262626] text-white'
                     }`}
                   >
-                    {'100\u842c'}
+                    {isZh ? '100\u842c' : '100M'}
                   </button>
                   <button
                     type="button"
@@ -402,6 +400,17 @@ export default function SettingsView() {
               </span>
               <ChevronRight size={16} className="text-[#adaaaa]" />
             </Link>
+            <a
+              href="https://github.com/thumb2086/device-linker-api"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-between p-4 transition-colors hover:bg-[#1a1919]"
+            >
+              <span className="text-[11px] font-bold uppercase tracking-[0.12em]">
+                {isZh ? zh.githubRepo : 'GitHub Repository'}
+              </span>
+              <ChevronRight size={16} className="text-[#adaaaa]" />
+            </a>
           </div>
         </section>
 
@@ -421,30 +430,7 @@ export default function SettingsView() {
         </section>
       </main>
 
-      <nav className="fixed bottom-0 left-0 z-50 h-20 w-full border-t border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-2xl">
-        <div className="mx-auto flex h-full max-w-7xl items-center justify-around px-4">
-          <Link to="/app/casino/lobby" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
-            <LayoutGrid size={24} className="mb-1" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.casino')}</span>
-          </Link>
-          <Link to="/app/market" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
-            <TrendingUp size={24} className="mb-1" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.market')}</span>
-          </Link>
-          <Link to="/app/wallet" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
-            <Wallet size={24} className="mb-1" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.vault')}</span>
-          </Link>
-          <Link to="/app/settings" className="flex flex-col items-center justify-center text-[#fcc025] drop-shadow-[0_0_8px_rgba(252,192,37,0.4)]">
-            <SettingsIcon size={24} className="mb-1" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.settings')}</span>
-          </Link>
-          <Link to="/app/transactions" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
-            <MessageSquareText size={24} className="mb-1" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">Feed</span>
-          </Link>
-        </div>
-      </nav>
+      <AppBottomNav current="settings" />
     </div>
   );
 }

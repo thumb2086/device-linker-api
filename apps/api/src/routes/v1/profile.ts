@@ -68,8 +68,11 @@ export async function profileRoutes(fastify: FastifyInstance) {
     const { sessionId, prefs } = request.body;
     const session = await sessionRepo.getSessionById(sessionId);
     if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
-
-    await soundManager.savePrefs(session.userId, prefs);
+    await soundManager.savePrefs(session.userId, {
+      bgmEnabled: prefs.bgmEnabled as boolean,
+      sfxEnabled: prefs.sfxEnabled as boolean,
+      volume: prefs.volume as number
+    });
     return createApiEnvelope({ success: true }, request.id);
   });
 }

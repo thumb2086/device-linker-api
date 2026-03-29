@@ -25,6 +25,94 @@ if (!connectionString && process.env.NODE_ENV === "production") {
 let db: any = null;
 let ensureCoreSchemaPromise: Promise<void> | null = null;
 
+const normalizeLegacyIdentityData = async (sql: any) => {
+  const [{ custodyUsersExists }] = await sql`
+    SELECT to_regclass('public.custody_users') IS NOT NULL AS "custodyUsersExists"
+  `;
+
+  if (custodyUsersExists) {
+    await sql`
+      INSERT INTO users (id, address, display_name, created_at, updated_at)
+      SELECT
+        gen_random_uuid(),
+        lower(cu.address),
+        lower(cu.username),
+        NOW(),
+        NOW()
+      FROM custody_users cu
+      LEFT JOIN users u ON lower(u.address) = lower(cu.address)
+      WHERE cu.username IS NOT NULL
+        AND cu.address IS NOT NULL
+        AND u.id IS NULL
+    `;
+
+    await sql`
+      INSERT INTO custody_accounts (
+        id,
+        username,
+        password_hash,
+        salt_hex,
+        address,
+        public_key,
+        user_id,
+        created_at,
+        updated_at
+      )
+      SELECT
+        gen_random_uuid(),
+        lower(cu.username),
+        cu.password_hash,
+        cu.salt_hex,
+        lower(cu.address),
+        COALESCE(cu.raw ->> 'publicKey', cu.raw ->> 'public_key'),
+        u.id,
+        NOW(),
+        NOW()
+      FROM custody_users cu
+      LEFT JOIN users u ON lower(u.address) = lower(cu.address)
+      WHERE cu.username IS NOT NULL
+        AND cu.password_hash IS NOT NULL
+        AND cu.salt_hex IS NOT NULL
+        AND cu.address IS NOT NULL
+      ON CONFLICT (username) DO UPDATE
+      SET
+        password_hash = EXCLUDED.password_hash,
+        salt_hex = EXCLUDED.salt_hex,
+        address = EXCLUDED.address,
+        public_key = COALESCE(EXCLUDED.public_key, custody_accounts.public_key),
+        user_id = COALESCE(EXCLUDED.user_id, custody_accounts.user_id),
+        updated_at = NOW()
+    `;
+  }
+
+  const [{ displayNamesExists }] = await sql`
+    SELECT to_regclass('public.display_names') IS NOT NULL AS "displayNamesExists"
+  `;
+
+  if (displayNamesExists) {
+    await sql`
+      UPDATE users u
+      SET
+        display_name = d.display_name,
+        updated_at = NOW()
+      FROM display_names d
+      WHERE lower(u.address) = lower(d.address)
+        AND d.display_name IS NOT NULL
+        AND trim(d.display_name) <> ''
+    `;
+  }
+
+  await sql`
+    UPDATE custody_accounts ca
+    SET
+      user_id = u.id,
+      updated_at = NOW()
+    FROM users u
+    WHERE ca.user_id IS NULL
+      AND lower(ca.address) = lower(u.address)
+  `;
+};
+
 const ensureCoreSchema = async () => {
   if (!connectionString || connectionString.includes("mock")) return;
   if (!ensureCoreSchemaPromise) {
@@ -62,15 +150,6 @@ const ensureCoreSchema = async () => {
             user_id UUID REFERENCES users(id),
             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-          )
-        `;
-        await sql`
-          CREATE TABLE IF NOT EXISTS custody_users (
-            username TEXT PRIMARY KEY,
-            salt_hex TEXT,
-            password_hash TEXT,
-            address TEXT,
-            raw JSONB
           )
         `;
         await sql`
@@ -162,6 +241,7 @@ const ensureCoreSchema = async () => {
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
           )
         `;
+        await normalizeLegacyIdentityData(sql);
       } finally {
         await sql.end();
       }
@@ -402,26 +482,6 @@ export class CustodyRepository implements ICustodyRepository {
   async getCustodyUser(username: string) {
     const conn = await requireDb();
     const normalizedUsername = username.toLowerCase();
-    const legacy = await conn.query.custodyUsers.findFirst({
-      where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
-    });
-    if (legacy?.address && legacy?.passwordHash && legacy?.saltHex) {
-      const raw = legacy.raw && typeof legacy.raw === "object" ? legacy.raw : {};
-      const recovered = {
-        username: normalizedUsername,
-        passwordHash: legacy.passwordHash,
-        saltHex: legacy.saltHex,
-        address: legacy.address,
-        publicKey: raw.publicKey || raw.public_key || null,
-      };
-
-      await this.saveCustodyUser(normalizedUsername, recovered);
-
-      return await conn.query.custodyAccounts.findFirst({
-        where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
-      });
-    }
-
     return await conn.query.custodyAccounts.findFirst({
       where: (c: any, { eq }: any) => eq(c.username, normalizedUsername)
     });

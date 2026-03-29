@@ -9,7 +9,7 @@ Source files reviewed:
 - `C:\Users\CPXru\Downloads\still-wildflower-91259619_production_neondb_2026-03-29_12-10-51.json`
 - `/packages/infrastructure/src/db/schema.ts`
 
-## Important Finding
+## Current Runtime Model
 
 The migration script imports Redis custody users into `custody_users`:
 
@@ -18,16 +18,25 @@ insert("""INSERT INTO custody_users (username,salt_hex,password_hash,address,raw
           VALUES %s ON CONFLICT (username) DO NOTHING""", custody_rows, "custody_users")
 ```
 
-But the current application login path uses `custody_accounts`:
+The current application runtime is now normalized as follows:
 
 - `/apps/api/src/routes/legacy/user-legacy.ts`
 - `/packages/domain/src/identity/auth-manager.ts`
 - `/packages/infrastructure/src/db/index.ts`
 
-That means migrated custody login data can exist in Neon while the runtime still cannot use it unless:
+At startup, the API now does a one-time legacy sync if these old tables still exist:
 
-- data is copied from `custody_users` to `custody_accounts`, or
-- the app is updated to read `custody_users` as a fallback.
+- `custody_users -> custody_accounts`
+- `display_names -> users.display_name`
+- `custody_accounts.address -> users.id` linkage for `user_id`
+
+After that sync, runtime login reads only:
+
+- `custody_accounts`
+- `users`
+- `sessions`
+
+So `custody_users` and `display_names` are legacy migration tables, not long-term runtime tables.
 
 ## Redis Key Prefix To SQL Table Mapping
 
@@ -58,9 +67,9 @@ Based on `import_to_neon.py`, these Redis key families were migrated:
 | `demo_balance:*` | `demo_balances` | Demo balances |
 | everything else | `kv_store` | Fallback scalar/json KV dump |
 
-## Runtime Tables Used By Current App
+## Final Runtime Tables
 
-These are the main application tables defined in `/packages/infrastructure/src/db/schema.ts`.
+These are the main runtime tables defined in `/packages/infrastructure/src/db/schema.ts`.
 
 ### `users`
 
@@ -79,7 +88,7 @@ These are the main application tables defined in `/packages/infrastructure/src/d
 
 ### `custody_accounts`
 
-This is the table the current custody login flow reads.
+This is the only custody login table the current runtime reads after startup normalization.
 
 | Column | Type | Nullable | Notes |
 | --- | --- | --- | --- |
@@ -193,7 +202,7 @@ This is the generic fallback table for Redis keys that were not mapped to typed 
 | `expires_at` | `timestamp` | yes | Optional TTL |
 | `updated_at` | `timestamp` | no | Updated time |
 
-## Legacy Migrated Tables Seen In Neon Export
+## Legacy Migration Tables
 
 The Neon export also shows legacy tables that are not the main runtime tables in the current Drizzle schema, for example:
 
@@ -207,16 +216,59 @@ The Neon export also shows legacy tables that are not the main runtime tables in
 - `market_portfolios`
 - `read_cache_snapshots`
 
-These appear to be migration/staging tables created by the import script to preserve legacy Redis data.
+These are migration/staging tables created by the import script to preserve legacy Redis data:
 
-## Recommended Follow-up
+- `custody_users`
+- `display_names`
+- `demo_balances`
+- `game_history`
+- `horse_stats`
+- `issue_reports`
+- `leaderboard_settlement`
+- `market_portfolios`
+- `read_cache_snapshots`
 
-For custody login compatibility, backfill `custody_accounts` from `custody_users` if the app is expected to use migrated legacy custody accounts.
+Not all of them are bad to keep, but for identity/login specifically:
 
-Example outline:
+- keep long-term: `users`, `custody_accounts`, `sessions`
+- optional long-term: `user_profiles`, `wallet_accounts`, `market_accounts`, `ops_events`, `kv_store`
+- can be removed after validation: `custody_users`, `display_names`
 
-1. Insert missing `users` rows for `custody_users.address`
-2. Insert or upsert into `custody_accounts`
-3. Link `custody_accounts.user_id` to `users.id`
+## Identity Normalization Flow
 
-Without that backfill, a successful Redis-to-Neon import can still leave custody login broken even though the data exists in Neon.
+The current application startup now performs this normalization:
+
+1. Insert missing `users` rows from `custody_users.address`
+2. Upsert `custody_users` into `custody_accounts`
+3. Copy `display_names.display_name` into `users.display_name`
+4. Backfill `custody_accounts.user_id` from `users`
+
+During custody login:
+
+1. Runtime reads `custody_accounts`
+2. If `public_key` is missing, runtime derives a fallback key and writes it back
+3. Session creation writes into `sessions`
+
+## Recommended Cleanup
+
+After login validation is confirmed working, the recommended cleanup is:
+
+1. Keep `users` as the user master table
+2. Keep `custody_accounts` as the custody login table
+3. Keep `sessions` as the auth/session table
+4. Drop `custody_users`
+5. Drop `display_names` if nothing else still uses it
+
+Example cleanup SQL after validation:
+
+```sql
+drop table if exists custody_users;
+drop table if exists display_names;
+```
+
+Do not drop those legacy tables until:
+
+- custody login works for existing migrated users
+- QR/app session login works
+- `custody_accounts.user_id` is populated
+- `users.display_name` is populated where needed

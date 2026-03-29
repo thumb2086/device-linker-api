@@ -209,7 +209,7 @@ export default function PublicTransactionsView() {
         </section>
       </main>
 
-      <AppBottomNav current="feed" />
+      <AppBottomNav current="none" />
     </div>
   );
 }

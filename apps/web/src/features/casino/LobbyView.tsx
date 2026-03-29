@@ -204,7 +204,7 @@ export default function LobbyView() {
             border
           />
           <GlassCard
-            to="/app/activity"
+            to="/app/transactions"
             icon={History}
             title={isZh ? zh.activity : 'Activity'}
             subtitle={isZh ? zh.recentTraces : 'Recent Traces'}

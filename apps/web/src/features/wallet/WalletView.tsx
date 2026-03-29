@@ -37,7 +37,7 @@ function AssetCard({
 }
 
 export default function WalletView() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { amountDisplay } = usePreferencesStore();
   const { summary, airdrop, transfer, convert } = useWallet();
   const [transferTo, setTransferTo] = useState('');
@@ -45,6 +45,7 @@ export default function WalletView() {
   const [transferToken, setTransferToken] = useState<'zhixi' | 'yjc'>('zhixi');
   const [convertAmount, setConvertAmount] = useState('');
 
+  const isZh = i18n.language.startsWith('zh');
   const numberMode = amountDisplay === 'full' ? 'full' : 'short';
   const walletSummary = summary.data?.summary;
   const assets = summary.data?.assets;
@@ -56,10 +57,37 @@ export default function WalletView() {
   const marketNetWorth = assets?.market?.netWorth || '0';
   const walletOnlyTotal = (Number(zxcBalance || 0) + Number(yjcBalance || 0)).toFixed(4);
 
+  const zh = {
+    wallet: '\u9322\u5305',
+    market: '\u5e02\u5834',
+    zxc: '\u5b50\u7199\u5e63',
+    yjc: '\u4f51\u6229\u5e63',
+    dailyAirdrop: '\u6bcf\u65e5\u7a7a\u6295',
+    nextAvailable: '\u4e0b\u6b21\u53ef\u9818\u6642\u9593\uff1a',
+    airdropNow: '\u53ef\u7acb\u5373\u9818\u53d6',
+    claiming: '\u9818\u53d6\u4e2d',
+    claimAirdrop: '\u9818\u53d6\u7a7a\u6295',
+    transfer: '\u8f49\u5e33',
+    recipient: '\u6536\u6b3e\u5730\u5740',
+    amount: '\u6578\u91cf',
+    sending: '\u8f49\u5e33\u4e2d',
+    sendTransfer: '\u9001\u51fa\u8f49\u5e33',
+    convert: 'ZXC \u514c\u63db YJC',
+    convertAmount: '\u8f38\u5165 ZXC \u6578\u91cf',
+    converting: '\u514c\u63db\u4e2d',
+    startConvert: '\u958b\u59cb\u514c\u63db',
+    zxcOnchain: 'ZXC \u93c8\u4e0a\u9918\u984d',
+    yjcOnchain: 'YJC \u93c8\u4e0a\u9918\u984d',
+    adminSigner: '\u7ba1\u7406\u54e1\u7c3d\u7f72\u5730\u5740',
+    notConfigured: '\u672a\u8a2d\u5b9a',
+    loading: '\u8f09\u5165\u4e2d...',
+    noTransactions: '\u76ee\u524d\u6c92\u6709\u4ea4\u6613\u7d00\u9304',
+  };
+
   const nextAirdropLabel = useMemo(() => {
-    if (!nextAirdropAt || canClaimAirdrop) return '可立即領取';
+    if (!nextAirdropAt || canClaimAirdrop) return isZh ? zh.airdropNow : 'Available now';
     return new Date(nextAirdropAt).toLocaleString('zh-TW');
-  }, [canClaimAirdrop, nextAirdropAt]);
+  }, [canClaimAirdrop, nextAirdropAt, isZh]);
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
@@ -82,12 +110,12 @@ export default function WalletView() {
             {formatNumber(walletSummary?.totalBalance || 0, numberMode)}
           </p>
           <div className="mt-4 flex flex-wrap gap-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#adaaaa]">
-            <span>Wallet {formatNumber(walletOnlyTotal, numberMode)}</span>
-            <span>Market {formatNumber(marketNetWorth, numberMode)}</span>
+            <span>{isZh ? zh.wallet : 'Wallet'} {formatNumber(walletOnlyTotal, numberMode)}</span>
+            <span>{isZh ? zh.market : 'Market'} {formatNumber(marketNetWorth, numberMode)}</span>
           </div>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <AssetCard label="子熙幣" value={formatNumber(zxcBalance, numberMode)} token="ZXC" />
-            <AssetCard label="佑戩幣" value={formatNumber(yjcBalance, numberMode)} token="YJC" />
+            <AssetCard label={isZh ? zh.zxc : 'ZiXi Coin'} value={formatNumber(zxcBalance, numberMode)} token="ZXC" />
+            <AssetCard label={isZh ? zh.yjc : 'YouJian Coin'} value={formatNumber(yjcBalance, numberMode)} token="YJC" />
           </div>
         </section>
 
@@ -96,9 +124,11 @@ export default function WalletView() {
             <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
               <div className="flex items-center gap-3">
                 <Gift className="text-[#fcc025]" size={18} />
-                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">Daily Airdrop</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{isZh ? zh.dailyAirdrop : 'Daily Airdrop'}</h2>
               </div>
-              <p className="mt-3 text-sm font-bold text-[#adaaaa]">下一次可領取時間：{nextAirdropLabel}</p>
+              <p className="mt-3 text-sm font-bold text-[#adaaaa]">
+                {isZh ? zh.nextAvailable : 'Next available: '}{nextAirdropLabel}
+              </p>
               <button
                 type="button"
                 disabled={!canClaimAirdrop || airdrop.isPending}
@@ -106,27 +136,27 @@ export default function WalletView() {
                 className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[#fcc025] px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-black disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ArrowDownCircle size={16} />
-                {airdrop.isPending ? '處理中' : '領取空投'}
+                {airdrop.isPending ? (isZh ? zh.claiming : 'Claiming') : (isZh ? zh.claimAirdrop : 'Claim Airdrop')}
               </button>
             </div>
 
             <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
               <div className="flex items-center gap-3">
                 <Repeat2 className="text-[#fcc025]" size={18} />
-                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">Transfer</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{isZh ? zh.transfer : 'Transfer'}</h2>
               </div>
               <div className="mt-4 grid gap-3">
                 <input
                   value={transferTo}
                   onChange={(event) => setTransferTo(event.target.value)}
-                  placeholder="接收地址"
+                  placeholder={isZh ? zh.recipient : 'Recipient address'}
                   className="rounded-xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-sm font-bold outline-none focus:border-[#fcc025]/40"
                 />
                 <div className="grid gap-3 md:grid-cols-[1fr_140px]">
                   <input
                     value={transferAmount}
                     onChange={(event) => setTransferAmount(event.target.value)}
-                    placeholder="金額"
+                    placeholder={isZh ? zh.amount : 'Amount'}
                     className="rounded-xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-sm font-bold outline-none focus:border-[#fcc025]/40"
                   />
                   <select
@@ -145,7 +175,7 @@ export default function WalletView() {
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-black disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <ArrowUpCircle size={16} />
-                  {transfer.isPending ? '送出中' : '送出轉帳'}
+                  {transfer.isPending ? (isZh ? zh.sending : 'Sending') : (isZh ? zh.sendTransfer : 'Send Transfer')}
                 </button>
               </div>
             </div>
@@ -153,16 +183,16 @@ export default function WalletView() {
             <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
               <div className="flex items-center gap-3">
                 <Repeat2 className="text-[#fcc025]" size={18} />
-                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">Convert ZXC to YJC</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">
+                  {isZh ? zh.convert : 'Convert ZXC to YJC'}
+                </h2>
               </div>
-              <p className="mt-3 text-sm font-bold text-[#adaaaa]">
-                100,000,000 ZXC = 1 YJC
-              </p>
+              <p className="mt-3 text-sm font-bold text-[#adaaaa]">100,000,000 ZXC = 1 YJC</p>
               <div className="mt-4 grid gap-3">
                 <input
                   value={convertAmount}
                   onChange={(event) => setConvertAmount(event.target.value)}
-                  placeholder="ZXC amount"
+                  placeholder={isZh ? zh.convertAmount : 'ZXC amount'}
                   className="rounded-xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-sm font-bold outline-none focus:border-[#fcc025]/40"
                 />
                 <button
@@ -172,12 +202,12 @@ export default function WalletView() {
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#fcc025] px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-black disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Repeat2 size={16} />
-                  {convert.isPending ? 'Converting' : 'Convert'}
+                  {convert.isPending ? (isZh ? zh.converting : 'Converting') : (isZh ? zh.startConvert : 'Convert')}
                 </button>
                 <div className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4 text-xs font-bold text-[#adaaaa]">
-                  <div>ZXC on-chain: {formatNumber(onchain?.zxc?.balance || zxcBalance, numberMode)}</div>
-                  <div className="mt-1">YJC on-chain: {formatNumber(onchain?.yjc?.balance || yjcBalance, numberMode)}</div>
-                  <div className="mt-1">Admin signer: {onchain?.adminAddress || 'not configured'}</div>
+                  <div>{isZh ? zh.zxcOnchain : 'ZXC on-chain'}: {formatNumber(onchain?.zxc?.balance || zxcBalance, numberMode)}</div>
+                  <div className="mt-1">{isZh ? zh.yjcOnchain : 'YJC on-chain'}: {formatNumber(onchain?.yjc?.balance || yjcBalance, numberMode)}</div>
+                  <div className="mt-1">{isZh ? zh.adminSigner : 'Admin signer'}: {onchain?.adminAddress || (isZh ? zh.notConfigured : 'not configured')}</div>
                 </div>
               </div>
             </div>
@@ -189,9 +219,11 @@ export default function WalletView() {
               <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">{t('vault.transactions')}</h2>
             </div>
             <div className="mt-4 space-y-3">
-              {summary.isLoading && <div className="text-sm text-[#adaaaa]">載入中...</div>}
+              {summary.isLoading && <div className="text-sm text-[#adaaaa]">{isZh ? zh.loading : 'Loading...'}</div>}
               {!summary.isLoading && walletSummary?.recentTransactions?.length === 0 && (
-                <div className="rounded-xl border border-dashed border-[#494847]/20 p-4 text-sm text-[#adaaaa]">尚無交易紀錄</div>
+                <div className="rounded-xl border border-dashed border-[#494847]/20 p-4 text-sm text-[#adaaaa]">
+                  {isZh ? zh.noTransactions : 'No transactions yet'}
+                </div>
               )}
               {walletSummary?.recentTransactions?.map((tx) => {
                 const positive = tx.type === 'airdrop' || tx.type === 'transfer_in';
@@ -203,13 +235,12 @@ export default function WalletView() {
                         <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">
                           {new Date(tx.createdAt).toLocaleString('zh-TW')}
                         </p>
-                        {tx.counterparty && (
-                          <p className="mt-1 text-[10px] font-bold text-[#adaaaa]">{tx.counterparty}</p>
-                        )}
+                        {tx.counterparty && <p className="mt-1 text-[10px] font-bold text-[#adaaaa]">{tx.counterparty}</p>}
                       </div>
                       <div className="text-right">
                         <p className={`text-lg font-black italic tracking-tight ${positive ? 'text-emerald-400' : 'text-[#ff7351]'}`}>
-                          {positive ? '+' : '-'}{formatNumber(tx.amount, numberMode)} {tx.token}
+                          {positive ? '+' : '-'}
+                          {formatNumber(tx.amount, numberMode)} {tx.token}
                         </p>
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">{tx.status}</p>
                       </div>

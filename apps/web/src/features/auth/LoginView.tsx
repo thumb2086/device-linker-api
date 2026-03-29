@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 export default function LoginView() {
   const { setAuth } = useAuthStore();
   const { t, i18n } = useTranslation();
+  const isZh = i18n.language.startsWith('zh');
   const [tab, setTab] = useState<'qr' | 'custody'>('qr');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
@@ -19,7 +20,7 @@ export default function LoginView() {
   const [retryCount, setRetryCount] = useState(0);
 
   const toggleLanguage = () => {
-    i18n.changeLanguage(i18n.language === 'zh' ? 'en' : 'zh');
+    i18n.changeLanguage(isZh ? 'en' : 'zh');
   };
 
   const initSession = async () => {
@@ -111,7 +112,7 @@ export default function LoginView() {
           className="flex items-center gap-3 px-5 py-2.5 bg-[#1a1919] hover:bg-[#262626] text-[#fcc025] rounded-xl transition-all border border-[#fcc025]/20 shadow-lg"
         >
           <Globe size={16} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">{i18n.language === 'zh' ? 'English' : '中文'}</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest">{isZh ? 'English' : '\u4e2d\u6587'}</span>
         </motion.button>
       </div>
 

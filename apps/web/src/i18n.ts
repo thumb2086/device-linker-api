@@ -12,10 +12,17 @@ i18n
       en: { translation: en },
       zh: { translation: zh }
     },
+    supportedLngs: ['en', 'zh'],
+    nonExplicitSupportedLngs: true,
+    load: 'languageOnly',
     fallbackLng: 'zh',
     interpolation: {
       escapeValue: false
-    }
+    },
+    detection: {
+      order: ['localStorage', 'navigator'],
+      caches: ['localStorage'],
+    },
   });
 
 export default i18n;

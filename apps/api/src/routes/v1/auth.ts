@@ -148,7 +148,7 @@ export async function authRoutes(fastify: FastifyInstance) {
             await walletRepo.updateBalance(session.address, legacyBalance, "zhixi");
           }
         }
-        const totalBet = "0";
+        const totalBet = String(await kv.get<string | number>(`total_bet:${session.address}`) || "0");
 
         return createApiEnvelope({
           user,

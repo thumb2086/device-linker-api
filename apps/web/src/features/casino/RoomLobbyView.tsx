@@ -88,9 +88,9 @@ export default function RoomLobbyView() {
         <section className="group relative h-[300px] overflow-hidden rounded-3xl">
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-black via-black/40 to-transparent" />
           <img
-            src="https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&q=80&w=2073"
+            src="https://images.unsplash.com/photo-1543357480-c60d40007a3f?auto=format&fit=crop&q=80&w=2070"
             className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-1000 group-hover:scale-105"
-            alt="Featured"
+            alt="Horse racing"
           />
           <div className="absolute bottom-0 left-0 z-20 space-y-4 p-10">
             <div className="flex items-center gap-2">

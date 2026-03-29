@@ -1,20 +1,18 @@
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
-import * as schema from "../packages/infrastructure/src/db/schema.js";
+import postgres from "postgres";
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 if (!connectionString) {
   console.error("❌ DATABASE_URL is missing.");
   process.exit(1);
 }
 
-const sql = neon(connectionString);
-const db = drizzle(sql, { schema });
+const sql = postgres(connectionString, { ssl: 'require' });
 
 async function main() {
-  console.log("🚀 Initializing schema with KV support...");
+  console.log("🚀 Running production-grade schema synchronization...");
 
   const statements = [
+    // 1. Identity
     `CREATE TABLE IF NOT EXISTS users (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       address TEXT NOT NULL UNIQUE,
@@ -57,6 +55,7 @@ async function main() {
       expires_at TIMESTAMP NOT NULL
     )`,
 
+    // 2. Profiles
     `CREATE TABLE IF NOT EXISTS user_profiles (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
@@ -74,6 +73,7 @@ async function main() {
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`,
 
+    // 3. Wallet
     `CREATE TABLE IF NOT EXISTS wallet_accounts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id),
@@ -84,9 +84,9 @@ async function main() {
       airdrop_distributed NUMERIC NOT NULL DEFAULT '0',
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`,
-
     `CREATE UNIQUE INDEX IF NOT EXISTS wallet_addr_token_idx ON wallet_accounts (address, token)`,
 
+    // 4. Games & Market
     `CREATE TABLE IF NOT EXISTS market_accounts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
@@ -96,6 +96,21 @@ async function main() {
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`,
 
+    `CREATE TABLE IF NOT EXISTS game_rounds (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      game TEXT NOT NULL,
+      external_round_id TEXT,
+      user_id UUID REFERENCES users(id),
+      address TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      result JSONB,
+      opens_at TIMESTAMP,
+      closes_at TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`,
+
+    // 5. System & Ops
     `CREATE TABLE IF NOT EXISTS announcements (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       announcement_id TEXT NOT NULL UNIQUE,
@@ -141,15 +156,16 @@ async function main() {
 
   for (const statement of statements) {
     try {
-      await sql(statement);
-      console.log(`✅ Executed: ${statement.slice(0, 40)}...`);
+      await sql.unsafe(statement);
+      console.log(`✅ Executed: ${statement.slice(0, 50).replace(/\\n/g, ' ')}...`);
     } catch (e: any) {
-      console.error(`❌ Error executing: ${statement.slice(0, 40)}...`);
+      console.error(`❌ Error executing: ${statement.slice(0, 50)}...`);
       console.error(e.message);
     }
   }
 
-  console.log("✨ Schema initialization complete.");
+  await sql.end();
+  console.log("✨ Production schema synchronization complete.");
 }
 
 main().catch(console.error);

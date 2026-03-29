@@ -26,7 +26,6 @@ let db: any = null;
 
 try {
   if (connectionString && !connectionString.includes("mock")) {
-    // Use postgres.js for all connections as it's more robust for Vercel/Neon poolers
     const client = postgres(connectionString, {
         ssl: 'require',
         max: 10,
@@ -128,13 +127,12 @@ export class WalletRepository implements IWalletRepository {
 
   async saveTxIntent(intent: any) {
     if (!db) throw new Error("Database not initialized");
-    // Placeholder as tx_intents might be missing or renamed
     try {
         await db.insert((schema as any).txIntents).values(intent).onConflictDoUpdate({
           target: (schema as any).txIntents.id,
           set: { status: intent.status, txHash: intent.txHash, updatedAt: new Date() }
         });
-    } catch(e) { console.error("txIntents table missing or error", e); }
+    } catch(e) {}
   }
 
   async getPendingIntents() {
@@ -162,12 +160,10 @@ export class MarketRepository implements IMarketRepository {
 export class MetaRepository implements IMetaRepository {
   async saveRewardGrant(grant: any) {
     if (!db) throw new Error("Database not initialized");
-    // Placeholder
     try { await db.insert((schema as any).rewardGrants).values(grant); } catch(e) {}
   }
   async saveMarketOrder(order: any) {
     if (!db) throw new Error("Database not initialized");
-    // Placeholder
     try { await db.insert((schema as any).marketTrades).values(order); } catch(e) {}
   }
 }

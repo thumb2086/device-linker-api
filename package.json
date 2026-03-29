@@ -16,10 +16,10 @@
     "lint": "pnpm -r lint"
   },
   "devDependencies": {
-    "@neondatabase/serverless": "^0.10.4",
     "drizzle-orm": "^0.30.10",
     "esbuild": "^0.27.4",
     "eslint": "^8.57.0",
+    "postgres": "^3.4.8",
     "prettier": "^3.2.0",
     "shx": "^0.4.0",
     "tsx": "^4.7.0",

@@ -3,9 +3,10 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { IdentityManager, OnchainWalletManager, WalletManager } from "@repo/domain";
+import { IdentityManager, MarketManager, OnchainWalletManager, WalletManager } from "@repo/domain";
 import {
   ChainClient,
+  MarketRepository,
   OpsRepository,
   SessionRepository,
   UserRepository,
@@ -31,11 +32,13 @@ function parseAmountText(rawAmount: unknown): string {
 export async function walletRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   const walletManager = new WalletManager();
+  const marketManager = new MarketManager();
   const onchainManager = new OnchainWalletManager();
   const identityManager = new IdentityManager();
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
   const walletRepo = new WalletRepository();
+  const marketRepo = new MarketRepository();
   const opsRepo = new OpsRepository();
 
   const getContext = async (req: any) => {
@@ -61,6 +64,22 @@ export async function walletRoutes(fastify: FastifyInstance) {
     const raw = await kv.get<string | number>(key);
     if (raw === null || raw === undefined) return null;
     return String(raw);
+  };
+
+  const loadCompatibleMarketAccount = async (address: string, userId: string) => {
+    const dbAccount = await marketRepo.getAccount(address);
+    if (dbAccount) return dbAccount;
+
+    const [legacyPrimary, legacyFallback] = await Promise.all([
+      kv.get<any>(`market:${address}`),
+      kv.get<any>(`market_sim:${address}`),
+    ]);
+    const legacy = legacyPrimary || legacyFallback;
+    if (!legacy) return null;
+
+    const normalized = marketManager.normalizeAccount(legacy);
+    await marketRepo.saveAccount(address, userId, normalized);
+    return normalized;
   };
 
   const getTokenRuntime = async (token: WalletTokenKey) => {
@@ -231,8 +250,45 @@ export async function walletRoutes(fastify: FastifyInstance) {
       amount: String(entry.amount),
     })));
 
+    let marketAssets = {
+      available: false,
+      cash: "0",
+      bankBalance: "0",
+      stockValue: "0",
+      futuresUnrealizedPnl: "0",
+      loanPrincipal: "0",
+      netWorth: "0",
+    };
+
+    try {
+      const snapshot = marketManager.buildSnapshot();
+      const marketAccount = await loadCompatibleMarketAccount(address, ctx.user.id);
+      if (marketAccount) {
+        const normalizedAccount = marketManager.normalizeAccount(marketAccount);
+        marketManager.settleLiquidations(normalizedAccount, snapshot);
+        await marketRepo.saveAccount(address, ctx.user.id, normalizedAccount);
+        const marketSummary = marketManager.buildAccountSummary(normalizedAccount, snapshot);
+        marketAssets = {
+          available: true,
+          cash: String(marketSummary.cash),
+          bankBalance: String(marketSummary.bankBalance),
+          stockValue: String(marketSummary.stockValue),
+          futuresUnrealizedPnl: String(marketSummary.futuresUnrealizedPnl),
+          loanPrincipal: String(marketSummary.loanPrincipal),
+          netWorth: String(marketSummary.netWorth),
+        };
+        summary.totalBalance = (Number(summary.totalBalance || 0) + Number(marketSummary.netWorth || 0)).toFixed(4);
+      }
+    } catch (error) {
+      request.log.warn({ error }, "wallet summary market asset hydration failed");
+    }
+
     return createApiEnvelope({
       summary,
+      assets: {
+        walletBalance: summary.balances,
+        market: marketAssets,
+      },
       onchain,
       canClaimAirdrop: !nextAirdropAt || Date.now() >= nextAirdropAt,
       nextAirdropAt,

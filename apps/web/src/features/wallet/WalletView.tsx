@@ -47,11 +47,14 @@ export default function WalletView() {
 
   const numberMode = amountDisplay === 'full' ? 'full' : 'short';
   const walletSummary = summary.data?.summary;
+  const assets = summary.data?.assets;
   const onchain = summary.data?.onchain;
   const canClaimAirdrop = summary.data?.canClaimAirdrop ?? true;
   const nextAirdropAt = summary.data?.nextAirdropAt;
   const zxcBalance = walletSummary?.balances?.ZXC || '0';
   const yjcBalance = walletSummary?.balances?.YJC || '0';
+  const marketNetWorth = assets?.market?.netWorth || '0';
+  const walletOnlyTotal = (Number(zxcBalance || 0) + Number(yjcBalance || 0)).toFixed(4);
 
   const nextAirdropLabel = useMemo(() => {
     if (!nextAirdropAt || canClaimAirdrop) return '可立即領取';
@@ -78,6 +81,10 @@ export default function WalletView() {
           <p className="mt-4 text-5xl font-black italic tracking-tighter text-[#fcc025]">
             {formatNumber(walletSummary?.totalBalance || 0, numberMode)}
           </p>
+          <div className="mt-4 flex flex-wrap gap-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#adaaaa]">
+            <span>Wallet {formatNumber(walletOnlyTotal, numberMode)}</span>
+            <span>Market {formatNumber(marketNetWorth, numberMode)}</span>
+          </div>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <AssetCard label="子熙幣" value={formatNumber(zxcBalance, numberMode)} token="ZXC" />
             <AssetCard label="佑戩幣" value={formatNumber(yjcBalance, numberMode)} token="YJC" />

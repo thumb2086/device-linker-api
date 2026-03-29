@@ -3,6 +3,7 @@ import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
 import { drizzle as drizzleNeon } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
 import postgres from "postgres";
+import { randomUUID } from "crypto";
 import * as schema from "./schema.js";
 import {
   IUserRepository,
@@ -80,14 +81,20 @@ export class SessionRepository implements ISessionRepository {
       await kv.set(`pg_mock:session:${session.id}`, session, { ex: 86400 * 7 });
       return;
     }
-    await db.insert(schema.sessions).values(session).onConflictDoUpdate({
+    const safeSession = {
+      ...session,
+      createdAt: session.createdAt ? new Date(session.createdAt) : new Date(),
+      expiresAt: session.expiresAt ? new Date(session.expiresAt) : new Date(Date.now() + 3600000),
+      authorizedAt: session.authorizedAt ? new Date(session.authorizedAt) : undefined,
+    };
+    await db.insert(schema.sessions).values(safeSession).onConflictDoUpdate({
       target: schema.sessions.id,
       set: {
-        status: session.status,
-        userId: session.userId,
-        address: session.address,
-        publicKey: session.publicKey,
-        authorizedAt: session.authorizedAt
+        status: safeSession.status,
+        userId: safeSession.userId,
+        address: safeSession.address,
+        publicKey: safeSession.publicKey,
+        authorizedAt: safeSession.authorizedAt
       },
     });
   }
@@ -202,7 +209,7 @@ export class GameRepository implements IGameRepository {
 
 export class OpsRepository implements IOpsRepository {
   async logEvent(event: any) {
-    const log = { ...event, id: crypto.randomUUID(), createdAt: new Date() };
+    const log = { ...event, id: randomUUID(), createdAt: new Date() };
     if (!db) {
       await kv.lpush("pg_mock:ops_events", log);
       await kv.ltrim("pg_mock:ops_events", 0, 1000);
@@ -241,7 +248,7 @@ export class CustodyRepository implements ICustodyRepository {
     // Need a user ID. Find or create.
     let user = await db.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.address, data.address.toLowerCase()) });
     if (!user) {
-        const userId = crypto.randomUUID();
+        const userId = randomUUID();
         await db.insert(schema.users).values({ id: userId, address: data.address.toLowerCase(), displayName: username, createdAt: new Date(), updatedAt: new Date() });
         user = { id: userId };
     }

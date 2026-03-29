@@ -9,7 +9,8 @@ import {
   ShieldCheck,
   Zap,
   TrendingUp,
-  LayoutGrid
+  LayoutGrid,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '../../store/useUserStore';

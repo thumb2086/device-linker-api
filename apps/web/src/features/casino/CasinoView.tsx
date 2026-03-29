@@ -15,67 +15,93 @@ import { PokerView } from './PokerView';
 import { BluffDiceView } from './BluffDiceView';
 import { CrashView } from './CrashView';
 
+const VIP_LOCKED_GAMES = new Set(['poker', 'bluffdice']);
+
+const GAME_LABELS: Record<string, { zh: string; en: string }> = {
+  roulette: { zh: '\u8f2a\u76e4', en: 'Roulette' },
+  horse: { zh: '\u8cfd\u99ac', en: 'Horse Racing' },
+  slots: { zh: '\u8001\u864e\u6a5f', en: 'Slots' },
+  coinflip: { zh: '\u731c\u786c\u5e63', en: 'Coinflip' },
+  sicbo: { zh: '\u9ab0\u5bf6', en: 'Sicbo' },
+  bingo: { zh: '\u8cd3\u679c', en: 'Bingo' },
+  duel: { zh: '\u5c0d\u6c7a', en: 'Duel' },
+  blackjack: { zh: '21 \u9ede', en: 'Blackjack' },
+  dragon: { zh: '\u5c04\u9f8d\u9580', en: 'Shoot Dragon Gate' },
+  poker: { zh: '\u64b2\u514b', en: 'Poker' },
+  bluffdice: { zh: '\u5439\u725b', en: 'Bluff Dice' },
+  crash: { zh: '\u66b4\u885d', en: 'Crash' },
+};
+
 export default function CasinoView() {
   const { game } = useParams();
   const { t, i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
-  const vipLockedGames = new Set(['poker', 'bluffdice']);
-  const gameLabels: Record<string, { zh: string; en: string }> = {
-    roulette: { zh: '輪盤', en: 'Roulette' },
-    horse: { zh: '賽馬', en: 'Horse Racing' },
-    slots: { zh: '老虎機', en: 'Slots' },
-    coinflip: { zh: '猜硬幣', en: 'Coinflip' },
-    sicbo: { zh: '骰寶', en: 'Sicbo' },
-    bingo: { zh: '賓果', en: 'Bingo' },
-    duel: { zh: '對決', en: 'Duel' },
-    blackjack: { zh: '21點', en: 'Blackjack' },
-    dragon: { zh: '射龍門', en: 'Shoot Dragon Gate' },
-    poker: { zh: '撲克', en: 'Poker' },
-    bluffdice: { zh: '吹牛', en: 'Bluff Dice' },
-    crash: { zh: '暴衝', en: 'Crash' },
-  };
-  const currentGameLabel = game ? (isZh ? gameLabels[game]?.zh : gameLabels[game]?.en) : '';
+  const currentGameLabel = game ? (isZh ? GAME_LABELS[game]?.zh : GAME_LABELS[game]?.en) : '';
 
   const renderGame = () => {
-    if (game && vipLockedGames.has(game)) {
+    if (game && VIP_LOCKED_GAMES.has(game)) {
       return (
-        <div className="p-20 text-center space-y-4 bg-[#1a1919] rounded-2xl border border-[#fcc025]/15">
+        <div className="space-y-4 rounded-2xl border border-[#fcc025]/15 bg-[#1a1919] p-20 text-center">
           <div className="inline-flex rounded-full border border-[#fcc025]/25 bg-[#fcc025]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#fcc025]">
             VIP
           </div>
-          <h2 className="text-2xl font-black text-[#fcc025] uppercase italic tracking-tighter">
-            {isZh ? 'VIP 遊戲尚未開放' : 'VIP Game Not Available Yet'}
+          <h2 className="text-2xl font-black uppercase italic tracking-tighter text-[#fcc025]">
+            {isZh ? 'VIP \u904a\u6232\u5c1a\u672a\u958b\u653e' : 'VIP Game Not Available Yet'}
           </h2>
-          <p className="text-[10px] font-bold text-[#adaaaa] uppercase tracking-widest">
-            {isZh ? '撲克與吹牛會在 VIP 制度完成後開放。' : 'Poker and Bluff Dice will unlock after the VIP system is ready.'}
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
+            {isZh
+              ? '\u64b2\u514b\u8207\u5439\u725b\u6703\u5728 VIP \u7cfb\u7d71\u5b8c\u6210\u5f8c\u958b\u653e\u3002'
+              : 'Poker and Bluff Dice will unlock after the VIP system is ready.'}
           </p>
-          <Link to="/app/casino/lobby" className="inline-block mt-8 px-8 py-3 bg-[#fcc025] text-black rounded-xl font-black uppercase italic tracking-tighter hover:bg-white transition-colors">
-            {isZh ? '返回大廳' : 'Return to Floor'}
+          <Link
+            to="/app/casino/lobby"
+            className="mt-8 inline-block rounded-xl bg-[#fcc025] px-8 py-3 font-black uppercase italic tracking-tighter text-black transition-colors hover:bg-white"
+          >
+            {isZh ? '\u8fd4\u56de\u5927\u5ef3' : 'Return to Floor'}
           </Link>
         </div>
       );
     }
 
     switch (game) {
-      case 'roulette': return <RouletteView />;
-      case 'horse': return <HorseRacingView />;
-      case 'slots': return <SlotsView />;
-      case 'coinflip': return <CoinflipView />;
-      case 'sicbo': return <SicboView />;
-      case 'bingo': return <BingoView />;
-      case 'duel': return <DuelView />;
-      case 'blackjack': return <BlackjackView />;
-      case 'dragon': return <DragonTigerView />;
-      case 'poker': return <PokerView />;
-      case 'bluffdice': return <BluffDiceView />;
-      case 'crash': return <CrashView />;
+      case 'roulette':
+        return <RouletteView />;
+      case 'horse':
+        return <HorseRacingView />;
+      case 'slots':
+        return <SlotsView />;
+      case 'coinflip':
+        return <CoinflipView />;
+      case 'sicbo':
+        return <SicboView />;
+      case 'bingo':
+        return <BingoView />;
+      case 'duel':
+        return <DuelView />;
+      case 'blackjack':
+        return <BlackjackView />;
+      case 'dragon':
+        return <DragonTigerView />;
+      case 'poker':
+        return <PokerView />;
+      case 'bluffdice':
+        return <BluffDiceView />;
+      case 'crash':
+        return <CrashView />;
       default:
         return (
-          <div className="p-20 text-center space-y-4 bg-[#1a1919] rounded-2xl border border-[#494847]/10">
-            <h2 className="text-2xl font-black text-[#494847] uppercase italic tracking-tighter">Simulation {game} Unavailable</h2>
-            <p className="text-[10px] font-bold text-[#adaaaa] uppercase tracking-widest">Protocol development in progress. Deploying soon.</p>
-            <Link to="/app/casino/lobby" className="inline-block mt-8 px-8 py-3 bg-[#fcc025] text-black rounded-xl font-black uppercase italic tracking-tighter hover:bg-white transition-colors">
-               Return to Floor
+          <div className="space-y-4 rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-20 text-center">
+            <h2 className="text-2xl font-black uppercase italic tracking-tighter text-[#494847]">
+              {isZh ? '\u6b64\u6a21\u64ec\u5c1a\u672a\u958b\u653e' : `Simulation ${game} Unavailable`}
+            </h2>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
+              {isZh ? '\u5340\u584a\u5354\u5b9a\u958b\u767c\u4e2d\uff0c\u5f88\u5feb\u90e8\u7f72\u3002' : 'Protocol development in progress. Deploying soon.'}
+            </p>
+            <Link
+              to="/app/casino/lobby"
+              className="mt-8 inline-block rounded-xl bg-[#fcc025] px-8 py-3 font-black uppercase italic tracking-tighter text-black transition-colors hover:bg-white"
+            >
+              {isZh ? '\u8fd4\u56de\u5927\u5ef3' : 'Return to Floor'}
             </Link>
           </div>
         );
@@ -83,27 +109,24 @@ export default function CasinoView() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">
-      {/* Top Bar */}
-      <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
-        <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
+      <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-             <Link to="/app/casino/lobby" className="text-[#adaaaa] hover:text-[#fcc025] transition-colors">
-                <ChevronLeft size={24} />
-             </Link>
-             <div className="flex items-center gap-2">
-                <LayoutGrid size={16} className="text-[#fcc025]" />
-                <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">
-                   {t('casino.title')} <span className="text-[#494847]">/ {currentGameLabel || game}</span>
-                </h1>
-             </div>
+            <Link to="/app/casino/lobby" className="text-[#adaaaa] transition-colors hover:text-[#fcc025]">
+              <ChevronLeft size={24} />
+            </Link>
+            <div className="flex items-center gap-2">
+              <LayoutGrid size={16} className="text-[#fcc025]" />
+              <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">
+                {t('casino.title')} <span className="text-[#494847]">/ {currentGameLabel || game}</span>
+              </h1>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="pt-24 px-6 max-w-7xl mx-auto">
-        {renderGame()}
-      </main>
+      <main className="mx-auto max-w-7xl px-6 pt-24">{renderGame()}</main>
     </div>
   );
 }

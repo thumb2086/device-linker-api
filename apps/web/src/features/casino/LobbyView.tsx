@@ -178,12 +178,7 @@ export default function LobbyView() {
           >
             <div className="mt-4 space-y-2">
               <div className="h-1 w-full overflow-hidden rounded-full bg-[#494847]/30">
-                <motion.div
-                  initial={{ x: '-100%' }}
-                  animate={{ x: '100%' }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                  className="h-full w-1/3 bg-[#fcc025]"
-                />
+                <div className="h-full w-1/3 rounded-full bg-[#fcc025]" />
               </div>
             </div>
           </GlassCard>

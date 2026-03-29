@@ -60,6 +60,7 @@ export const userProfiles = pgTable("user_profiles", {
   activeBuffs: jsonb("active_buffs").default([]),
   systemTitleStreaks: jsonb("system_title_streaks").default({}),
   winBias: numeric("win_bias"), // admin-adjustable win bias 0-1
+  soundPrefs: jsonb("sound_prefs").default({ bgmEnabled: true, sfxEnabled: true, volume: 0.5 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

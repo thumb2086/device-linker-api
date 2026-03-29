@@ -103,7 +103,11 @@ export class AuthManager {
     const sessionWithUser = { ...session, userId: user.id };
 
     await this.sessionRepo.saveSession(sessionWithUser);
-    await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
+
+    // Attempt KV but don't fail if limit reached
+    try {
+        await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
+    } catch (e) {}
 
     return { success: true, sessionId, user };
   }
@@ -150,7 +154,11 @@ export class AuthManager {
     const sessionWithUser = { ...session, userId: user.id };
 
     await this.sessionRepo.saveSession(sessionWithUser);
-    await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
+
+    // Attempt KV but don't fail if limit reached
+    try {
+        await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
+    } catch (e) {}
 
     return { success: true, sessionId, user };
   }
@@ -179,7 +187,10 @@ export class AuthManager {
   }
 
   async logout(sessionId: string): Promise<void> {
-    await this.kv.del(`session:${sessionId}`);
+    try {
+        await this.kv.del(`session:${sessionId}`);
+    } catch (e) {}
+
     const session = await this.sessionRepo.getSessionById(sessionId);
     if (session) {
       await this.sessionRepo.saveSession({ ...session, status: "expired" });

@@ -2,6 +2,8 @@ export interface IUserRepository {
   saveUser(user: any): Promise<void>;
   getUserByAddress(address: string): Promise<any>;
   getUserById(id: string): Promise<any>;
+  getUserProfile(userId: string): Promise<any>;
+  saveUserProfile(userId: string, data: any): Promise<void>;
 }
 
 export interface ISessionRepository {

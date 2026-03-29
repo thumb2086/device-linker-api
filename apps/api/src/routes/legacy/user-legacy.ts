@@ -29,7 +29,7 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
         const sessionId = `sess_${randomUUID().slice(0, 12)}`;
         const session = identityManager.createPendingSession(sessionId, body);
         await sessionRepo.saveSession(session);
-        await kv.set(`session:${sessionId}`, session, { ex: 3600 });
+        try { await kv.set(`session:${sessionId}`, session, { ex: 3600 }); } catch(e) {}
         return {
             success: true,
             status: "pending",
@@ -42,7 +42,7 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
     if (act === "get_status" || act === "get_me") {
         const sessionId = query.sessionId || body.sessionId;
         if (!sessionId) return { user: null };
-        const session = await kv.get<any>(`session:${sessionId}`) || await sessionRepo.getSessionById(sessionId);
+        const session = await sessionRepo.getSessionById(sessionId);
         if (!session) return { status: "expired", success: true };
 
         if (session.status === "authorized") {
@@ -76,7 +76,7 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
         }
 
         await sessionRepo.saveSession({ ...updated, userId: user.id, authorizedAt: new Date() });
-        await kv.set(`session:${sessionId}`, { ...updated, userId: user.id }, { ex: 86400 });
+        try { await kv.set(`session:${sessionId}`, { ...updated, userId: user.id }, { ex: 86400 }); } catch(e) {}
 
         return { success: true, status: "authorized", sessionId, address: normalized };
     }

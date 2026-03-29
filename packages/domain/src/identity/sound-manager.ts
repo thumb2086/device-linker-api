@@ -1,4 +1,4 @@
-import { KVClient } from "@repo/infrastructure";
+import { IUserRepository } from "@repo/infrastructure";
 
 export interface SoundPrefs {
   bgmEnabled: boolean;
@@ -7,13 +7,11 @@ export interface SoundPrefs {
 }
 
 export class SoundManager {
-  private KEY_PREFIX = "user:sound_prefs:";
-
-  constructor(private kv: KVClient) {}
+  constructor(private userRepo: IUserRepository) {}
 
   async getPrefs(userId: string): Promise<SoundPrefs> {
-    const prefs = await this.kv.get<SoundPrefs>(`${this.KEY_PREFIX}${userId}`);
-    return prefs || {
+    const profile = await this.userRepo.getUserProfile(userId);
+    return profile?.soundPrefs || {
       bgmEnabled: true,
       sfxEnabled: true,
       volume: 0.5
@@ -21,6 +19,6 @@ export class SoundManager {
   }
 
   async savePrefs(userId: string, prefs: SoundPrefs): Promise<void> {
-    await this.kv.set(`${this.KEY_PREFIX}${userId}`, prefs);
+    await this.userRepo.saveUserProfile(userId, { soundPrefs: prefs });
   }
 }

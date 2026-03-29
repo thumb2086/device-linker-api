@@ -20,7 +20,7 @@ import { useUserStore } from '../../store/useUserStore';
 
 export default function SettingsView() {
   const { t, i18n } = useTranslation();
-  const { sessionId, logout } = useAuthStore();
+  const { sessionId, clearAuth: logout } = useAuthStore();
   const { username, address } = useUserStore();
   const [bgmEnabled, setBgmEnabled] = useState(true);
   const [sfxEnabled, setSfxEnabled] = useState(true);

@@ -34,6 +34,19 @@ export class DBUserRepository implements IUserRepository {
       where: (users: any, { eq }: any) => eq(users.address, address.toLowerCase()),
     });
   }
+
+  async getUserProfile(userId: string) {
+    return await db.query.userProfiles.findFirst({
+        where: (profiles: any, { eq }: any) => eq(profiles.userId, userId)
+    });
+  }
+
+  async saveUserProfile(userId: string, data: any) {
+    await db.insert(schema.userProfiles).values({ userId, ...data }).onConflictDoUpdate({
+        target: schema.userProfiles.userId,
+        set: { ...data, updatedAt: new Date() }
+    });
+  }
 }
 
 export class DBSessionRepository implements ISessionRepository {

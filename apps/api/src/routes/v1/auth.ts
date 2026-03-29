@@ -76,7 +76,10 @@ export async function authRoutes(fastify: FastifyInstance) {
           deviceId,
           appVersion
         });
-        if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
+        if (!result.success) {
+          console.error("custody_login_failed", result.debug || result.error);
+          return createApiEnvelope(null, request.id, false, result.error?.message);
+        }
         return createApiEnvelope(result, request.id);
     } catch (e: any) {
         console.error(e);

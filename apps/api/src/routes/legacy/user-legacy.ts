@@ -20,7 +20,7 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
 
   const authManager = new AuthManager(userRepo, sessionRepo, custodyRepo, walletRepo, kv);
 
-  typedFastify.all("/user.js", async (request) => {
+  typedFastify.all("/user.js", async (request, reply) => {
     const query = request.query as any;
     const body = (request.body as any) || {};
     const act = body.action || query.action || body.act || query.act;
@@ -99,6 +99,7 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
         return { success: false, error: "UNKNOWN_ACTION", act };
     } catch (error: any) {
         console.error(error);
+        reply.code(500);
         return { success: false, error: "INTERNAL_SERVER_ERROR", message: error.message };
     }
   });

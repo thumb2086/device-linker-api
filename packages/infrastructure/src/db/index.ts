@@ -183,7 +183,7 @@ const ensureCoreSchema = async () => {
             active_buffs JSONB DEFAULT '[]',
             system_title_streaks JSONB DEFAULT '{}',
             win_bias NUMERIC,
-            sound_prefs JSONB DEFAULT '{"bgmEnabled":true,"sfxEnabled":true,"volume":0.5}',
+            sound_prefs JSONB DEFAULT '{"amountDisplay":"compact","danmuEnabled":true,"masterVolume":0.7,"bgmEnabled":true,"bgmVolume":0.45,"sfxEnabled":true,"sfxVolume":0.75}',
             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
           )
@@ -202,6 +202,47 @@ const ensureCoreSchema = async () => {
         `;
         await sql`CREATE UNIQUE INDEX IF NOT EXISTS wallet_addr_token_idx ON wallet_accounts (address, token)`;
         await sql`
+          CREATE TABLE IF NOT EXISTS wallet_ledger_entries (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES users(id),
+            address TEXT NOT NULL,
+            token TEXT NOT NULL,
+            type TEXT NOT NULL,
+            amount NUMERIC NOT NULL,
+            balance_before NUMERIC,
+            balance_after NUMERIC,
+            game TEXT,
+            round_id UUID,
+            tx_intent_id UUID,
+            tx_hash TEXT,
+            request_id TEXT,
+            meta JSONB,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`
+          CREATE TABLE IF NOT EXISTS tx_intents (
+            id UUID PRIMARY KEY,
+            user_id UUID NOT NULL REFERENCES users(id),
+            address TEXT NOT NULL,
+            token TEXT NOT NULL,
+            type TEXT NOT NULL,
+            amount NUMERIC NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            error_code TEXT,
+            error_stage TEXT,
+            request_id TEXT,
+            round_id UUID,
+            game TEXT,
+            tx_hash TEXT,
+            contract_address TEXT,
+            retry_count INTEGER DEFAULT 0,
+            meta JSONB,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`
           CREATE TABLE IF NOT EXISTS market_accounts (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
@@ -209,6 +250,22 @@ const ensureCoreSchema = async () => {
             data JSONB NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`
+          CREATE TABLE IF NOT EXISTS market_trades (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES users(id),
+            address TEXT NOT NULL,
+            type TEXT NOT NULL,
+            symbol TEXT,
+            quantity NUMERIC,
+            price NUMERIC,
+            amount NUMERIC,
+            fee NUMERIC,
+            pnl NUMERIC,
+            meta JSONB,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
           )
         `;
         await sql`
@@ -298,7 +355,14 @@ export class UserRepository implements IUserRepository {
   }
   async saveUserProfile(userId: string, data: any) {
     const conn = await requireDb();
-    await conn.insert(schema.userProfiles).values({ userId, ...data }).onConflictDoUpdate({
+    const user = await this.getUserById(userId);
+    if (!user?.address) throw new Error("User not found while saving profile");
+    const current = await this.getUserProfile(userId);
+    await conn.insert(schema.userProfiles).values({
+      userId,
+      address: current?.address || user.address,
+      ...data
+    }).onConflictDoUpdate({
         target: schema.userProfiles.userId,
         set: { ...data, updatedAt: new Date() }
     });
@@ -363,9 +427,19 @@ export class WalletRepository implements IWalletRepository {
   async saveTxIntent(intent: any) {
     const conn = await requireDb();
     try {
-        await conn.insert((schema as any).txIntents).values(intent).onConflictDoUpdate({
+        const user = await conn.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.id, intent.userId) });
+        const payload = {
+          ...intent,
+          address: intent.address || user?.address || "",
+        };
+        await conn.insert((schema as any).txIntents).values(payload).onConflictDoUpdate({
           target: (schema as any).txIntents.id,
-          set: { status: intent.status, txHash: intent.txHash, updatedAt: new Date() }
+          set: {
+            status: payload.status,
+            txHash: payload.txHash,
+            updatedAt: new Date(),
+            address: payload.address
+          }
         });
     } catch(e) {}
   }
@@ -376,12 +450,29 @@ export class WalletRepository implements IWalletRepository {
         return await conn.query.txIntents.findMany({ where: (txIntents: any, { eq }: any) => eq(txIntents.status, "pending") });
     } catch(e) { return []; }
   }
+
+  async saveLedgerEntry(entry: any) {
+    const conn = await requireDb();
+    await conn.insert((schema as any).walletLedgerEntries).values(entry);
+  }
+
+  async listLedgerEntries(options: { address?: string; limit?: number } = {}) {
+    const conn = await requireDb();
+    return await conn.query.walletLedgerEntries.findMany({
+      where: options.address
+        ? (entries: any, { eq }: any) => eq(entries.address, options.address.toLowerCase())
+        : undefined,
+      limit: options.limit || 50,
+      orderBy: (entries: any, { desc }: any) => [desc(entries.createdAt)],
+    });
+  }
 }
 
 export class MarketRepository implements IMarketRepository {
     async getAccount(address: string) {
         const conn = await requireDb();
-        return await conn.query.marketAccounts.findFirst({ where: (accounts: any, { eq }: any) => eq(accounts.address, address.toLowerCase()) });
+        const account = await conn.query.marketAccounts.findFirst({ where: (accounts: any, { eq }: any) => eq(accounts.address, address.toLowerCase()) });
+        return account?.data ?? null;
     }
     async saveAccount(address: string, userId: string, account: any) {
         const conn = await requireDb();
@@ -390,6 +481,20 @@ export class MarketRepository implements IMarketRepository {
     }
     async getMarketSnapshot() { return await kv.get<any>("market:snapshot"); }
     async saveMarketSnapshot(snapshot: any) { await kv.set("market:snapshot", snapshot); }
+    async saveTrade(trade: any) {
+        const conn = await requireDb();
+        await conn.insert((schema as any).marketTrades).values(trade);
+    }
+    async listTrades(options: { address?: string; limit?: number } = {}) {
+        const conn = await requireDb();
+        return await conn.query.marketTrades.findMany({
+          where: options.address
+            ? (trades: any, { eq }: any) => eq(trades.address, options.address.toLowerCase())
+            : undefined,
+          limit: options.limit || 50,
+          orderBy: (trades: any, { desc }: any) => [desc(trades.createdAt)],
+        });
+    }
 }
 
 export class MetaRepository implements IMetaRepository {

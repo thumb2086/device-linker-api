@@ -1,252 +1,269 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
   BarChart3,
-  Wallet,
-  LayoutGrid,
-  Settings,
   CircleDollarSign,
-  Briefcase,
+  LayoutGrid,
+  LineChart,
+  Settings,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
+import { usePreferencesStore } from '../../store/usePreferencesStore';
 import { useMarket } from './useMarket';
 
 export default function MarketView() {
   const { t } = useTranslation();
-  const { snapshot, account } = useMarket();
-  const [activeTab, setActiveTab] = useState('1H');
+  const { amountDisplay } = usePreferencesStore();
+  const { snapshot, account, execute } = useMarket();
+  const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
+  const [tradeQuantity, setTradeQuantity] = useState('1');
+  const [cashMoveAmount, setCashMoveAmount] = useState('1000');
 
-  const symbols = snapshot.data?.symbols ?? {};
-  const btcQuote = symbols.BTC;
-  const ethQuote = symbols.ETH;
-  const accountSummary = account.data;
-
-  const btcPrice = btcQuote?.price ?? 68421.5;
-  const btcChange = btcQuote?.changePct ?? 4.2;
-
-  const assets = [
-    {
-      id: 'BTC',
-      name: 'Bitcoin',
-      price: btcPrice,
-      change: `${btcChange >= 0 ? '+' : ''}${btcChange.toFixed(1)}%`,
-      icon: 'BTC',
-    },
-    {
-      id: 'ZXC',
-      name: 'ZiXi Coin',
-      price: 1.0,
-      change: '0.0%',
-      icon: 'Z',
-    },
-    {
-      id: 'ETH',
-      name: 'Ethereum',
-      price: ethQuote?.price ?? 3842.1,
-      change: `${(ethQuote?.changePct ?? -1.5) >= 0 ? '+' : ''}${(ethQuote?.changePct ?? -1.5).toFixed(1)}%`,
-      icon: 'ETH',
-    },
-  ];
-
-  const orderBook = {
-    bids: [
-      { price: btcPrice + 0.5, amount: 0.45 },
-      { price: btcPrice, amount: 1.22 },
-      { price: btcPrice - 0.5, amount: 0.89 },
-    ],
-    asks: [
-      { price: btcPrice - 1, amount: 0.12 },
-      { price: btcPrice - 1.5, amount: 2.11 },
-      { price: btcPrice - 2, amount: 0.54 },
-    ],
-  };
-
-  const changeTone =
-    btcChange >= 0
-      ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
-      : 'text-[#ff7351] bg-[#ff7351]/10 border-[#ff7351]/20';
+  const numberMode = amountDisplay === 'full' ? 'full' : 'short';
+  const marketSnapshot = snapshot.data;
+  const summary = account.data;
+  const symbols = useMemo(() => Object.values(marketSnapshot?.symbols || {}), [marketSnapshot]);
+  const stockSymbols = useMemo(() => symbols.filter((quote: any) => quote.type === 'stock'), [symbols]);
+  const selectedQuote = marketSnapshot?.symbols?.[selectedSymbol];
 
   return (
-    <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">
-      <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
-        <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
+      <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
             <TrendingUp className="text-[#fcc025]" />
-            <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">{t('market.title')}</h1>
+            <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">{t('market.title')}</h1>
           </div>
+          <Link to="/app/transactions" className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
+            Public Feed
+          </Link>
         </div>
       </header>
 
-      <main className="pt-24 px-6 max-w-7xl mx-auto space-y-6">
-        <section className="bg-[#1a1919] rounded-xl p-6 border border-[#494847]/10 flex items-center justify-between overflow-hidden relative group">
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="w-12 h-12 rounded-full bg-[#fcc025]/10 flex items-center justify-center text-[#fcc025] border border-[#fcc025]/20">
-              <CircleDollarSign size={24} />
+      <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 pt-24">
+        <section className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl lg:col-span-2">
+            <div className="flex items-center gap-3">
+              <CircleDollarSign className="text-[#fcc025]" size={18} />
+              <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Market Pulse</h2>
             </div>
-            <div>
-              <p className="text-[10px] font-bold text-[#adaaaa] uppercase tracking-widest">BTC / ZXC</p>
-              <div className="flex items-center gap-3">
-                <h2 className="text-3xl font-black italic tracking-tighter text-white">{formatNumber(btcPrice)}</h2>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded border ${changeTone}`}>
-                  {`${btcChange >= 0 ? '+' : ''}${btcChange.toFixed(1)}%`}
-                </span>
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#adaaaa]">Market Index</p>
+                <p className="mt-2 text-3xl font-black italic tracking-tight text-[#fcc025]">
+                  {formatNumber(marketSnapshot?.marketIndex || 0, numberMode)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#adaaaa]">Trend</p>
+                <p className={`mt-2 text-2xl font-black italic tracking-tight ${(marketSnapshot?.marketTrendPct || 0) >= 0 ? 'text-emerald-400' : 'text-[#ff7351]'}`}>
+                  {(marketSnapshot?.marketTrendPct || 0) >= 0 ? '+' : ''}{(marketSnapshot?.marketTrendPct || 0).toFixed(2)}%
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#adaaaa]">Fear & Greed</p>
+                <p className="mt-2 text-2xl font-black italic tracking-tight text-white">{marketSnapshot?.fearGreedIndex ?? 0}</p>
               </div>
             </div>
           </div>
-          <div className="hidden md:block h-12 w-48 bg-white/5 rounded-lg overflow-hidden">
-            <div className="flex items-end gap-1 h-full p-2">
-              {[40, 60, 30, 80, 50, 90, 70, 100].map((h, i) => (
-                <div key={i} className="flex-1 bg-[#fcc025]/20 rounded-t-sm" style={{ height: `${h}%` }} />
-              ))}
+
+          <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <Wallet className="text-[#fcc025]" size={18} />
+              <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Account</h2>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#adaaaa]">Net Worth</p>
+                <p className="mt-1 text-2xl font-black italic tracking-tight text-[#fcc025]">
+                  {formatNumber(summary?.netWorth || 0, numberMode)}
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#adaaaa]">Cash</p>
+                  <p className="mt-1 text-lg font-black text-white">{formatNumber(summary?.cash || 0, numberMode)}</p>
+                </div>
+                <div className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#adaaaa]">Bank</p>
+                  <p className="mt-1 text-lg font-black text-white">{formatNumber(summary?.bankBalance || 0, numberMode)}</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/10 aspect-video flex flex-col relative">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-2">
-                  <BarChart3 size={16} className="text-[#adaaaa]" />
-                  <span className="text-[10px] font-bold text-[#adaaaa] uppercase tracking-widest">Simulation Feed</span>
-                </div>
-                <div className="flex gap-2">
-                  {['1M', '5M', '15M', '1H'].map((tf) => (
-                    <button
-                      key={tf}
-                      type="button"
-                      onClick={() => setActiveTab(tf)}
-                      className={`px-3 py-1 border rounded text-[10px] font-bold transition-colors uppercase ${
-                        activeTab === tf
-                          ? 'bg-[#fcc025] text-black border-[#fcc025]'
-                          : 'bg-[#0e0e0e] border-[#494847]/20 hover:border-[#fcc025]/50'
-                      }`}
-                    >
-                      {tf}
-                    </button>
-                  ))}
-                </div>
+        <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="text-[#fcc025]" size={18} />
+                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Symbols</h2>
               </div>
-              <div className="flex-1 flex items-center justify-center border-t border-b border-[#494847]/5">
-                <div className="text-[#494847] text-[10px] font-black uppercase tracking-[0.5em]">Chart Simulation Active</div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {stockSymbols.slice(0, 10).map((quote: any) => (
+                  <button
+                    key={quote.symbol}
+                    type="button"
+                    onClick={() => setSelectedSymbol(quote.symbol)}
+                    className={`rounded-2xl border p-4 text-left transition-colors ${
+                      selectedSymbol === quote.symbol
+                        ? 'border-[#fcc025]/40 bg-[#0e0e0e]'
+                        : 'border-[#494847]/10 bg-[#141414] hover:border-[#fcc025]/20'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white">{quote.symbol}</p>
+                        <p className="text-[10px] font-bold text-[#adaaaa]">{quote.name}</p>
+                      </div>
+                      {(quote.changePct || 0) >= 0 ? <TrendingUp className="text-emerald-400" size={16} /> : <TrendingDown className="text-[#ff7351]" size={16} />}
+                    </div>
+                    <p className="mt-3 text-xl font-black italic tracking-tight text-[#fcc025]">
+                      {formatNumber(quote.price, numberMode)}
+                    </p>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.12em] ${(quote.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-[#ff7351]'}`}>
+                      {(quote.changePct || 0) >= 0 ? '+' : ''}{quote.changePct.toFixed(2)}%
+                    </p>
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <button className="bg-gradient-to-br from-[#fcc025] to-[#e6ad03] text-black font-black py-6 rounded-2xl shadow-xl shadow-[#fcc025]/10 hover:shadow-[#fcc025]/20 transition-all flex flex-col items-center gap-1 group">
-                <ArrowUpRight size={18} />
-                <span className="text-sm uppercase italic tracking-tighter group-hover:scale-110 transition-transform">{t('market.buy')}</span>
-                <span className="text-[9px] uppercase font-bold opacity-60">Execute Long</span>
-              </button>
-              <button className="bg-[#ff7351] text-white font-black py-6 rounded-2xl shadow-xl shadow-[#ff7351]/10 hover:shadow-[#ff7351]/20 transition-all flex flex-col items-center gap-1 group">
-                <ArrowDownRight size={18} />
-                <span className="text-sm uppercase italic tracking-tighter group-hover:scale-110 transition-transform">{t('market.sell')}</span>
-                <span className="text-[9px] uppercase font-bold opacity-60">Execute Short</span>
-              </button>
+            <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <LineChart className="text-[#fcc025]" size={18} />
+                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Execution Panel</h2>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-[180px_1fr]">
+                <select
+                  value={selectedSymbol}
+                  onChange={(event) => setSelectedSymbol(event.target.value)}
+                  className="rounded-xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-sm font-bold outline-none"
+                >
+                  {stockSymbols.map((quote: any) => (
+                    <option key={quote.symbol} value={quote.symbol}>
+                      {quote.symbol}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={tradeQuantity}
+                  onChange={(event) => setTradeQuantity(event.target.value)}
+                  placeholder="數量"
+                  className="rounded-xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-sm font-bold outline-none"
+                />
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={execute.isPending}
+                  onClick={() => execute.mutate({ type: 'stock_buy', symbol: selectedSymbol, quantity: tradeQuantity })}
+                  className="rounded-2xl bg-[#fcc025] px-5 py-4 text-sm font-black uppercase tracking-[0.15em] text-black disabled:opacity-50"
+                >
+                  買入 {selectedQuote?.symbol || selectedSymbol}
+                </button>
+                <button
+                  type="button"
+                  disabled={execute.isPending}
+                  onClick={() => execute.mutate({ type: 'stock_sell', symbol: selectedSymbol, quantity: tradeQuantity })}
+                  className="rounded-2xl bg-[#ff7351] px-5 py-4 text-sm font-black uppercase tracking-[0.15em] text-white disabled:opacity-50"
+                >
+                  賣出 {selectedQuote?.symbol || selectedSymbol}
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-3 md:grid-cols-[1fr_1fr_1fr]">
+                <input
+                  value={cashMoveAmount}
+                  onChange={(event) => setCashMoveAmount(event.target.value)}
+                  placeholder="銀行金額"
+                  className="rounded-xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-sm font-bold outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={execute.isPending}
+                  onClick={() => execute.mutate({ type: 'bank_deposit', amount: cashMoveAmount })}
+                  className="rounded-2xl border border-[#494847]/20 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-black disabled:opacity-50"
+                >
+                  存入銀行
+                </button>
+                <button
+                  type="button"
+                  disabled={execute.isPending}
+                  onClick={() => execute.mutate({ type: 'bank_withdraw', amount: cashMoveAmount })}
+                  className="rounded-2xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-white disabled:opacity-50"
+                >
+                  提領銀行
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="space-y-6">
-            <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/10">
-              <div className="flex items-center gap-2 mb-6">
-                <LayoutGrid size={16} className="text-[#adaaaa]" />
-                <h3 className="text-[10px] font-bold text-[#adaaaa] uppercase tracking-widest">{t('market.order_book')}</h3>
-              </div>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 text-[9px] font-bold text-[#494847] uppercase tracking-widest px-1">
-                  <span>{t('market.price')}</span>
-                  <span className="text-right">{t('market.amount')}</span>
-                </div>
-                <div className="space-y-1.5">
-                  {orderBook.asks.map((o, i) => (
-                    <div key={i} className="grid grid-cols-2 text-[11px] font-mono relative">
-                      <span className="text-[#ff7351] z-10">{o.price.toFixed(1)}</span>
-                      <span className="text-right text-[#adaaaa] z-10">{o.amount}</span>
-                      <div className="absolute right-0 top-0 bottom-0 bg-[#ff7351]/5 rounded-sm" style={{ width: `${o.amount * 40}%` }} />
+            <section className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">{t('market.portfolio')}</h2>
+              <div className="mt-4 space-y-3">
+                {summary?.stockPositions?.length ? summary.stockPositions.map((position: any) => (
+                  <div key={position.symbol} className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.12em] text-white">{position.symbol}</p>
+                        <p className="text-[10px] font-bold text-[#adaaaa]">Qty {position.quantity}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[11px] font-black text-[#fcc025]">{formatNumber(position.marketValue, numberMode)}</p>
+                        <p className={`text-[10px] font-black ${(position.unrealizedPnl || 0) >= 0 ? 'text-emerald-400' : 'text-[#ff7351]'}`}>
+                          {(position.unrealizedPnl || 0) >= 0 ? '+' : ''}{formatNumber(position.unrealizedPnl || 0, numberMode)}
+                        </p>
+                      </div>
                     </div>
-                  ))}
-                </div>
-                <div className="py-2 flex items-center justify-center">
-                  <span className="text-lg font-black italic tracking-tighter text-[#fcc025]">{formatNumber(btcPrice)}</span>
-                </div>
-                <div className="space-y-1.5">
-                  {orderBook.bids.map((o, i) => (
-                    <div key={i} className="grid grid-cols-2 text-[11px] font-mono relative">
-                      <span className="text-emerald-500 z-10">{o.price.toFixed(1)}</span>
-                      <span className="text-right text-[#adaaaa] z-10">{o.amount}</span>
-                      <div className="absolute right-0 top-0 bottom-0 bg-emerald-500/5 rounded-sm" style={{ width: `${o.amount * 40}%` }} />
-                    </div>
-                  ))}
-                </div>
+                  </div>
+                )) : (
+                  <div className="rounded-xl border border-dashed border-[#494847]/20 p-4 text-sm text-[#adaaaa]">目前沒有持倉</div>
+                )}
               </div>
             </section>
 
-            <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/10">
-              <div className="flex items-center gap-2 mb-6">
-                <Briefcase size={16} className="text-[#adaaaa]" />
-                <h3 className="text-[10px] font-bold text-[#adaaaa] uppercase tracking-widest">{t('market.portfolio')}</h3>
-              </div>
-              <div className="space-y-4">
-                {assets.map((asset) => (
-                  <div key={asset.id} className="flex items-center justify-between group cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#0e0e0e] flex items-center justify-center font-black text-[#fcc025] text-[10px] border border-[#494847]/20 group-hover:border-[#fcc025]/50 transition-colors">
-                        {asset.icon}
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-bold uppercase text-white">{asset.name}</p>
-                        <p className="text-[9px] font-bold text-[#adaaaa]">{asset.id}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[11px] font-bold text-white tracking-tighter">{formatNumber(asset.price)}</p>
-                      <p className={`text-[9px] font-bold ${asset.change.startsWith('+') ? 'text-emerald-500' : 'text-[#ff7351]'}`}>{asset.change}</p>
-                    </div>
+            <section className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Recent Activity</h2>
+              <div className="mt-4 space-y-3">
+                {summary?.history?.length ? summary.history.map((entry: any, index: number) => (
+                  <div key={`${entry.at}-${index}`} className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.12em] text-white">{entry.summary || entry.type}</p>
+                    <p className="mt-1 text-[10px] font-bold text-[#adaaaa]">{new Date(entry.at).toLocaleString('zh-TW')}</p>
                   </div>
-                ))}
-              </div>
-              <div className="mt-6 rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4 space-y-3">
-                <div>
-                  <p className="text-[9px] font-bold text-[#adaaaa] uppercase tracking-widest">Net Worth</p>
-                  <p className="mt-1 text-2xl font-black italic tracking-tight text-[#fcc025]">{formatNumber(accountSummary?.netWorth ?? 0)}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-[10px]">
-                  <div className="rounded-lg bg-[#1a1919] border border-[#494847]/10 p-3">
-                    <p className="text-[#adaaaa] uppercase tracking-widest">Cash</p>
-                    <p className="mt-1 font-black text-white">{formatNumber(accountSummary?.cash ?? 0)}</p>
-                  </div>
-                  <div className="rounded-lg bg-[#1a1919] border border-[#494847]/10 p-3">
-                    <p className="text-[#adaaaa] uppercase tracking-widest">Bank</p>
-                    <p className="mt-1 font-black text-white">{formatNumber(accountSummary?.bankBalance ?? 0)}</p>
-                  </div>
-                </div>
+                )) : (
+                  <div className="rounded-xl border border-dashed border-[#494847]/20 p-4 text-sm text-[#adaaaa]">尚無市場操作紀錄</div>
+                )}
               </div>
             </section>
           </div>
-        </div>
+        </section>
       </main>
 
-      <nav className="fixed bottom-0 left-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-2xl border-t border-[#494847]/15 h-20 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
-        <div className="flex justify-around items-center h-full max-w-7xl mx-auto px-4">
-          <Link to="/app/casino/lobby" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+      <nav className="fixed bottom-0 left-0 z-50 h-20 w-full border-t border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-2xl">
+        <div className="mx-auto flex h-full max-w-7xl items-center justify-around px-4">
+          <Link to="/app/casino/lobby" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
             <LayoutGrid size={24} className="mb-1" />
-            <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.casino')}</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.casino')}</span>
           </Link>
           <Link to="/app/market" className="flex flex-col items-center justify-center text-[#fcc025] drop-shadow-[0_0_8px_rgba(252,192,37,0.4)]">
             <TrendingUp size={24} className="mb-1" />
-            <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.market')}</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.market')}</span>
           </Link>
-          <Link to="/app/wallet" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+          <Link to="/app/wallet" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
             <Wallet size={24} className="mb-1" />
-            <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.vault')}</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.vault')}</span>
           </Link>
-          <Link to="/app/settings" className="flex flex-col items-center justify-center text-[#adaaaa] hover:text-white transition-all">
+          <Link to="/app/settings" className="flex flex-col items-center justify-center text-[#adaaaa] transition-all hover:text-white">
             <Settings size={24} className="mb-1" />
-            <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.settings')}</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{t('nav.settings')}</span>
           </Link>
         </div>
       </nav>

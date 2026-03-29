@@ -1,5 +1,6 @@
 node_modules
 .env
+.env.*
 .vercel
 .deps
 artifacts
@@ -8,3 +9,4 @@ dist
 *.log
 .pnpm-debug.log
 .turbo
+.env*.local

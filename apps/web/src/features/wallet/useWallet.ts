@@ -7,12 +7,15 @@ const API_BASE = '/api/v1/wallet';
 export const useWallet = () => {
   const { sessionId } = useAuthStore();
   const queryClient = useQueryClient();
-
-  const getBalance = async (token: string = 'zhixi') => {
-    // In our simplified API, /me returns balance
-    const res = await axios.get('/api/v1/me', { params: { sessionId } });
-    return res.data.data.balance;
-  };
+  const summary = useQuery({
+    queryKey: ['wallet-summary', sessionId],
+    enabled: !!sessionId,
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE}/summary`, { params: { sessionId } });
+      return res.data.data;
+    },
+    refetchInterval: 15000,
+  });
 
   const airdropMutation = useMutation({
     mutationFn: async () => {
@@ -22,6 +25,7 @@ export const useWallet = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-me'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-summary', sessionId] });
     }
   });
 
@@ -33,10 +37,12 @@ export const useWallet = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-me'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-summary', sessionId] });
     }
   });
 
   return {
+    summary,
     airdrop: airdropMutation,
     transfer: transferMutation
   };

@@ -105,7 +105,7 @@ export default function RoomLobbyView() {
 
       {/* Bottom Nav Bar */}
       <nav className="fixed bottom-0 left-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-2xl border-t border-[#494847]/15 h-20 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
-          <div className="flex justify-around items-center h-full max-w-2xl mx-auto px-4">
+          <div className="flex justify-around items-center h-full max-w-7xl mx-auto px-4">
               <Link to="/app/casino/lobby" className="flex flex-col items-center justify-center text-[#fcc025] drop-shadow-[0_0_8px_rgba(252,192,37,0.4)]">
                   <LayoutGrid size={24} className="mb-1" />
                   <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{t('nav.casino')}</span>

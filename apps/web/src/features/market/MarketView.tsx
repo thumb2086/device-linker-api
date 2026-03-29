@@ -188,69 +188,6 @@ export default function MarketView() {
           <div className="space-y-6">
             <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
               <div className="flex items-center gap-3">
-                <BarChart3 className="text-[#fcc025]" size={18} />
-                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
-                  {isZh ? zh.symbols : 'Symbols'}
-                </h2>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {stockSymbols.map((quote) => (
-                  <button
-                    key={quote.symbol}
-                    type="button"
-                    onClick={() => setSelectedSymbol(quote.symbol)}
-                    className={`rounded-[1.6rem] border p-5 text-left transition-all ${
-                      selectedSymbol === quote.symbol
-                        ? 'border-[#fcc025]/55 bg-[#121212] shadow-[0_0_24px_rgba(252,192,37,0.08)]'
-                        : 'border-[#494847]/10 bg-[#141414] hover:border-[#fcc025]/20'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white">{quote.symbol}</p>
-                        <p className="mt-1 text-[13px] text-[#aeb7c9]">{quote.name}</p>
-                      </div>
-                      {(quote.changePct || 0) >= 0 ? (
-                        <TrendingUp className="text-emerald-400" size={16} />
-                      ) : (
-                        <TrendingDown className="text-[#ff7351]" size={16} />
-                      )}
-                    </div>
-                    <p className="mt-5 text-[2rem] font-black italic leading-none tracking-tight text-[#fcc025]">
-                      {Number(quote.price || 0).toLocaleString('en-US', {
-                        minimumFractionDigits: 3,
-                        maximumFractionDigits: 3,
-                      })}
-                    </p>
-                    <p
-                      className={`mt-2 text-[14px] font-black tracking-tight ${
-                        (quote.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-[#ff7351]'
-                      }`}
-                    >
-                      {(quote.changePct || 0) >= 0 ? '+' : ''}
-                      {quote.changePct.toFixed(2)}%
-                    </p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <span className="rounded-full bg-[#232323] px-3 py-1 text-[10px] font-bold text-[#aeb7c9]">
-                        {isZh ? zh.type : 'Type'} <span className="ml-1 text-white">{quote.type}</span>
-                      </span>
-                      <span className="rounded-full bg-[#232323] px-3 py-1 text-[10px] font-bold text-[#aeb7c9]">
-                        {isZh ? zh.sector : 'Sector'} <span className="ml-1 text-white">{quote.sector}</span>
-                      </span>
-                    </div>
-                    <div className="mt-5 overflow-hidden rounded-xl border border-[#494847]/10 bg-[#101010] px-3 py-2">
-                      <Sparkline
-                        values={(historyBySymbol[quote.symbol] || []) as number[]}
-                        color={(quote.changePct || 0) >= 0 ? '#00f59b' : '#ff6d6d'}
-                      />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
-              <div className="flex items-center gap-3">
                 <LineChart className="text-[#fcc025]" size={18} />
                 <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
                   {isZh ? zh.executionPanel : 'Execution Panel'}
@@ -321,6 +258,70 @@ export default function MarketView() {
                 </button>
               </div>
             </div>
+
+            <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="text-[#fcc025]" size={18} />
+                <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
+                  {isZh ? zh.symbols : 'Symbols'}
+                </h2>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {stockSymbols.map((quote) => (
+                  <button
+                    key={quote.symbol}
+                    type="button"
+                    onClick={() => setSelectedSymbol(quote.symbol)}
+                    className={`rounded-[1.6rem] border p-5 text-left transition-all ${
+                      selectedSymbol === quote.symbol
+                        ? 'border-[#fcc025]/55 bg-[#121212] shadow-[0_0_24px_rgba(252,192,37,0.08)]'
+                        : 'border-[#494847]/10 bg-[#141414] hover:border-[#fcc025]/20'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white">{quote.symbol}</p>
+                        <p className="mt-1 text-[13px] text-[#aeb7c9]">{quote.name}</p>
+                      </div>
+                      {(quote.changePct || 0) >= 0 ? (
+                        <TrendingUp className="text-emerald-400" size={16} />
+                      ) : (
+                        <TrendingDown className="text-[#ff7351]" size={16} />
+                      )}
+                    </div>
+                    <p className="mt-5 text-[2rem] font-black italic leading-none tracking-tight text-[#fcc025]">
+                      {Number(quote.price || 0).toLocaleString('en-US', {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      })}
+                    </p>
+                    <p
+                      className={`mt-2 text-[14px] font-black tracking-tight ${
+                        (quote.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-[#ff7351]'
+                      }`}
+                    >
+                      {(quote.changePct || 0) >= 0 ? '+' : ''}
+                      {quote.changePct.toFixed(2)}%
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-[#232323] px-3 py-1 text-[10px] font-bold text-[#aeb7c9]">
+                        {isZh ? zh.type : 'Type'} <span className="ml-1 text-white">{quote.type}</span>
+                      </span>
+                      <span className="rounded-full bg-[#232323] px-3 py-1 text-[10px] font-bold text-[#aeb7c9]">
+                        {isZh ? zh.sector : 'Sector'} <span className="ml-1 text-white">{quote.sector}</span>
+                      </span>
+                    </div>
+                    <div className="mt-5 overflow-hidden rounded-xl border border-[#494847]/10 bg-[#101010] px-3 py-2">
+                      <Sparkline
+                        values={(historyBySymbol[quote.symbol] || []) as number[]}
+                        color={(quote.changePct || 0) >= 0 ? '#00f59b' : '#ff6d6d'}
+                      />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
           </div>
 
           <div className="space-y-6">

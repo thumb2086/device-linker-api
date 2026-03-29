@@ -25,6 +25,10 @@ declare global {
     Howler?: {
       autoUnlock?: boolean;
       html5PoolSize?: number;
+      ctx?: {
+        state?: string;
+        resume?: () => Promise<void> | void;
+      };
     };
     __deviceLinkerAudioManager?: AudioManager;
   }
@@ -43,6 +47,7 @@ class AudioManager {
   private pendingBgmReplay = false;
   private gestureBound = false;
   private clickBound = false;
+  private userInteracted = false;
 
   private state: AudioPrefs = {
     masterVolume: 0.7,
@@ -141,18 +146,24 @@ class AudioManager {
     });
   }
 
+  private resumeAudioContext() {
+    const ctx = window.Howler?.ctx;
+    if (!ctx || typeof ctx.resume !== 'function' || ctx.state === 'running') return;
+    void ctx.resume().catch(() => {});
+  }
+
   private bindGestureUnlock() {
     if (this.gestureBound || typeof window === 'undefined') return;
     this.gestureBound = true;
 
     const unlock = () => {
+      this.userInteracted = true;
       this.init();
-      if (this.pendingBgmKey && this.state.bgmEnabled) {
-        this.playBGM(this.pendingBgmKey);
-      }
+      this.resumeAudioContext();
+      this.flushPendingBgmReplay();
     };
 
-    window.addEventListener('click', unlock, { once: true, passive: true });
+    window.addEventListener('pointerdown', unlock, { once: true, passive: true });
     window.addEventListener('touchstart', unlock, { once: true, passive: true });
     window.addEventListener('keydown', unlock, { once: true, passive: true });
   }
@@ -176,7 +187,7 @@ class AudioManager {
 
     const sound = new window.Howl({
       src: [this.soundConfig[key]],
-      html5: this.isBgmKey(key),
+      html5: false,
       preload: !this.isBgmKey(key),
       mute: this.isMuted(key),
       volume: this.getEffectiveVolume(key),
@@ -216,7 +227,7 @@ class AudioManager {
   }
 
   private flushPendingBgmReplay() {
-    if (!this.pendingBgmReplay) return;
+    if (!this.pendingBgmReplay || !this.userInteracted) return;
     this.pendingBgmReplay = false;
     if (this.pendingBgmKey && this.state.bgmEnabled) {
       this.playBGM(this.pendingBgmKey);
@@ -226,9 +237,15 @@ class AudioManager {
   play(key: Exclude<SoundKey, `bgm_${string}`> | Extract<SoundKey, `bgm_${string}`>, options?: { loop?: boolean; volume?: number }) {
     this.init();
     if (!this.initialized || !window.Howl) return null;
+    if (this.isBgmKey(key) && !this.userInteracted) {
+      this.pendingBgmReplay = true;
+      this.pendingBgmKey = key;
+      return null;
+    }
     const sound = this.ensureSound(key);
     if (!sound || this.isMuted(key)) return null;
 
+    this.resumeAudioContext();
     sound.loop(Boolean(options?.loop));
     sound.mute(this.isMuted(key));
     sound.volume(this.getEffectiveVolume(key, options?.volume));
@@ -257,6 +274,10 @@ class AudioManager {
     this.pendingBgmKey = key;
     this.init();
 
+    if (!this.userInteracted) {
+      this.pendingBgmReplay = true;
+      return null;
+    }
     if (this.initializing && !this.initialized) {
       this.pendingBgmReplay = true;
       return null;
@@ -295,7 +316,7 @@ class AudioManager {
     this.applyAllSoundStates();
     if (!this.state.bgmEnabled || this.state.masterVolume <= 0 || this.state.bgmVolume <= 0) {
       this.stopBGM();
-    } else if (this.pendingBgmKey) {
+    } else if (this.pendingBgmKey && this.userInteracted) {
       this.playBGM(this.pendingBgmKey);
     }
   }

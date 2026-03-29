@@ -163,7 +163,7 @@ export default function MarketView() {
                 </h2>
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {stockSymbols.slice(0, 10).map((quote) => (
+                {stockSymbols.map((quote) => (
                   <button
                     key={quote.symbol}
                     type="button"

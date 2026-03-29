@@ -103,7 +103,7 @@ export default function WalletView() {
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+        <div className="app-shell flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
             <WalletIcon className="text-[#fcc025]" />
             <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">{t('vault.title')}</h1>
@@ -114,7 +114,7 @@ export default function WalletView() {
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 pt-24">
+      <main className="app-shell flex flex-col gap-6 pt-24">
         <section className="rounded-[2rem] border border-[#494847]/10 bg-gradient-to-br from-[#1a1919] to-[#0e0e0e] p-8 shadow-[0_0_50px_rgba(252,192,37,0.08)]">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#adaaaa]">{t('vault.total_assets')}</p>
           <p className="mt-4 text-5xl font-black italic tracking-tighter text-[#fcc025]">

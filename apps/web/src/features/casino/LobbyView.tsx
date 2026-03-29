@@ -103,18 +103,18 @@ export default function LobbyView() {
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-24 font-['Manrope'] text-white">
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
+        <div className="app-shell flex items-center justify-between gap-4 py-4">
+          <div className="min-w-0 flex items-center gap-4">
             <motion.div whileTap={{ scale: 0.9 }}>
               <LayoutGrid className="cursor-pointer text-[#fcc025]" />
             </motion.div>
-            <h1 className="text-xl font-extrabold uppercase italic tracking-tighter text-[#fcc025]">
+            <h1 className="truncate text-xl font-extrabold uppercase italic tracking-tighter text-[#fcc025]">
               {isZh ? zh.title : 'ZiXi Simulator'}
             </h1>
           </div>
           <Link
             to="/app/settings"
-            className="h-10 w-10 overflow-hidden rounded-full border border-[#fcc025]/20 shadow-[0_0_15px_rgba(252,192,37,0.1)]"
+            className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[#fcc025]/20 shadow-[0_0_15px_rgba(252,192,37,0.1)]"
           >
             <img
               className="h-full w-full object-cover opacity-80"
@@ -125,7 +125,7 @@ export default function LobbyView() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-8 px-6 pt-24">
+      <main className="app-shell space-y-8 pt-24">
         <section className="relative overflow-hidden rounded-2xl border border-[#494847]/10 bg-gradient-to-br from-[#1a1919] to-[#0e0e0e] p-8 shadow-2xl">
           <div className="absolute right-0 top-0 h-64 w-64 translate-x-1/2 -translate-y-1/2 rounded-full bg-[#fcc025]/5 blur-[100px]" />
 

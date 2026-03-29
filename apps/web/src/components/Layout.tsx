@@ -10,7 +10,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0e0e0e] font-['Manrope'] text-white">
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-10 lg:flex-row lg:p-10">
+      <main className="app-shell flex flex-1 flex-col gap-10 py-6 lg:flex-row lg:items-start lg:py-10">
         <div className="min-w-0 flex-1">
           <Outlet />
         </div>

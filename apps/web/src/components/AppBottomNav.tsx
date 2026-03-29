@@ -19,7 +19,7 @@ export default function AppBottomNav({ current }: { current: NavKey }) {
 
   return (
     <nav className="fixed bottom-0 left-0 z-50 h-20 w-full border-t border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-2xl">
-      <div className="mx-auto flex h-full max-w-7xl items-center justify-around px-4">
+      <div className="app-shell flex h-full items-center justify-around">
         {items.map((item) => {
           const Icon = item.icon;
           const active = item.key === current;

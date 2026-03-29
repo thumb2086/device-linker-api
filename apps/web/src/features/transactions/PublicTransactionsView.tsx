@@ -96,7 +96,7 @@ export default function PublicTransactionsView() {
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-4xl items-center gap-3 px-6 py-4">
+        <div className="app-shell flex items-center gap-3 py-4">
           <Activity className="text-[#fcc025]" />
           <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">
             {isZh ? zh.title : 'Public Transactions'}
@@ -104,7 +104,7 @@ export default function PublicTransactionsView() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-6 pt-24">
+      <main className="app-shell pt-24">
         <section className="mb-6 grid gap-4 md:grid-cols-3">
           <Link
             to="/app/health"

@@ -131,6 +131,9 @@ export class AuthManager {
     }
 
     const completed = this.identityManager.ensureCustodyPublicKey(custodyUser);
+    if (!custodyUser.publicKey && completed.publicKey) {
+      await this.custodyRepo.saveCustodyUser(normalizedUsername, completed);
+    }
     const verified = this.identityManager.verifyCustodyPassword(completed, password);
     if (!verified) {
       return { success: false, error: { code: "INVALID_CREDENTIALS", message: "Invalid username or password" } };

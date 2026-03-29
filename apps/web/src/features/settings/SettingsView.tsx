@@ -19,6 +19,7 @@ import { formatNumber } from '@repo/shared';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUserStore } from '../../store/useUserStore';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
+import { useWallet } from '../wallet/useWallet';
 
 const Toggle = ({ enabled, onClick }: { enabled: boolean; onClick: () => void }) => (
   <button
@@ -47,7 +48,7 @@ function SliderRow({
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-bold text-[#adaaaa]">
+      <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#adaaaa]">
         <span>{label}</span>
         <span className="font-mono text-[#fcc025]">{Math.round(value * 100)}%</span>
       </div>
@@ -67,6 +68,7 @@ export default function SettingsView() {
   const { t, i18n } = useTranslation();
   const { sessionId, clearAuth } = useAuthStore();
   const { username, address, balance, setUsername } = useUserStore();
+  const { summary: walletSummaryQuery } = useWallet();
   const {
     amountDisplay,
     danmuEnabled,
@@ -83,6 +85,39 @@ export default function SettingsView() {
   const [statusText, setStatusText] = useState<string | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayNameDraft, setDisplayNameDraft] = useState(username || '');
+
+  const isZh = i18n.language.startsWith('zh');
+  const zh = {
+    syncing: '\u540c\u6b65\u4e2d',
+    profile: '\u64cd\u4f5c\u54e1\u6a94\u6848',
+    save: '\u5132\u5b58',
+    cancel: '\u53d6\u6d88',
+    noAddress: '\u672a\u9023\u63a5\u5730\u5740',
+    balancePreview: '\u9918\u984d\u9810\u89bd',
+    displayAudio: '\u986f\u793a\u8207\u97f3\u6548',
+    amountDisplay: '\u91d1\u984d\u986f\u793a\u683c\u5f0f',
+    masterVolume: '\u7e3d\u97f3\u91cf',
+    bgmVolume: 'BGM \u97f3\u91cf',
+    sfxVolume: '\u97f3\u6548\u97f3\u91cf',
+    danmaku: '\u5f48\u5e55',
+    language: '\u8a9e\u8a00',
+    chinese: '\u4e2d\u6587',
+    switchLabel: '\u5207\u63db',
+    systemStatus: '\u7cfb\u7d71\u72c0\u614b',
+    supportCenter: '\u652f\u63f4\u4e2d\u5fc3',
+    syncingSettings: '\u8a2d\u5b9a\u540c\u6b65\u4e2d...',
+    syncFailed: '\u8a2d\u5b9a\u540c\u6b65\u5931\u6557',
+    settingsSaved: '\u8a2d\u5b9a\u5df2\u5132\u5b58',
+    nameLength: '\u986f\u793a\u540d\u7a31\u9577\u5ea6\u9700\u4ecb\u65bc 2 \u5230 20 \u5b57',
+    nameUpdateFailed: '\u986f\u793a\u540d\u7a31\u66f4\u65b0\u5931\u6557',
+    nameUpdated: '\u986f\u793a\u540d\u7a31\u5df2\u66f4\u65b0',
+  };
+
+  const walletPreviewBalance =
+    walletSummaryQuery.data?.onchain?.zxc?.balance ||
+    walletSummaryQuery.data?.summary?.balances?.ZXC ||
+    balance ||
+    '0';
 
   useEffect(() => {
     setDisplayNameDraft(username || '');
@@ -117,7 +152,7 @@ export default function SettingsView() {
     if (!sessionId) return;
     setPrefs(updates);
     setSaving(true);
-    setStatusText('設定已同步中...');
+    setStatusText(isZh ? zh.syncingSettings : 'Syncing settings...');
     try {
       const res = await fetch('/api/v1/profile/prefs', {
         method: 'POST',
@@ -126,12 +161,12 @@ export default function SettingsView() {
       });
       const payload = await res.json();
       if (payload?.success === false) {
-        setStatusText('設定儲存失敗');
+        setStatusText(isZh ? zh.syncFailed : 'Failed to sync settings');
       } else {
-        setStatusText('設定已套用');
+        setStatusText(isZh ? zh.settingsSaved : 'Settings saved');
       }
     } catch {
-      setStatusText('設定儲存失敗');
+      setStatusText(isZh ? zh.syncFailed : 'Failed to sync settings');
     } finally {
       setSaving(false);
       window.setTimeout(() => setStatusText(null), 1500);
@@ -141,7 +176,7 @@ export default function SettingsView() {
   const saveDisplayName = async () => {
     const nextName = displayNameDraft.trim();
     if (!sessionId || nextName.length < 2 || nextName.length > 20) {
-      setStatusText('顯示名稱需為 2 到 20 字元');
+      setStatusText(isZh ? zh.nameLength : 'Display name must be 2-20 characters');
       return;
     }
 
@@ -154,14 +189,14 @@ export default function SettingsView() {
       });
       const payload = await res.json();
       if (payload?.success === false) {
-        setStatusText('顯示名稱更新失敗');
+        setStatusText(isZh ? zh.nameUpdateFailed : 'Failed to update display name');
         return;
       }
       setUsername(nextName);
       setIsEditingName(false);
-      setStatusText('顯示名稱已更新');
+      setStatusText(isZh ? zh.nameUpdated : 'Display name updated');
     } catch {
-      setStatusText('顯示名稱更新失敗');
+      setStatusText(isZh ? zh.nameUpdateFailed : 'Failed to update display name');
     } finally {
       setSaving(false);
       window.setTimeout(() => setStatusText(null), 1500);
@@ -169,8 +204,8 @@ export default function SettingsView() {
   };
 
   const previewBalance = useMemo(
-    () => formatNumber(balance || 0, amountDisplay === 'full' ? 'full' : 'short'),
-    [amountDisplay, balance]
+    () => formatNumber(walletPreviewBalance || 0, amountDisplay === 'full' ? 'full' : 'short'),
+    [amountDisplay, walletPreviewBalance]
   );
 
   if (loading) {
@@ -192,7 +227,7 @@ export default function SettingsView() {
             </h1>
           </div>
           <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">
-            {saving ? 'Syncing' : 'Phase 2'}
+            {saving ? (isZh ? zh.syncing : 'Syncing') : 'Phase 2'}
           </div>
         </div>
       </header>
@@ -205,7 +240,9 @@ export default function SettingsView() {
                 <User className="text-[#fcc025]" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">Operator Profile</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">
+                  {isZh ? zh.profile : 'Operator Profile'}
+                </p>
                 {isEditingName ? (
                   <div className="mt-3 flex flex-col gap-3">
                     <input
@@ -221,7 +258,7 @@ export default function SettingsView() {
                         className="inline-flex items-center gap-2 rounded-xl bg-[#fcc025] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-black"
                       >
                         <Check size={14} />
-                        Save
+                        {isZh ? zh.save : 'Save'}
                       </button>
                       <button
                         type="button"
@@ -231,7 +268,7 @@ export default function SettingsView() {
                         }}
                         className="rounded-xl border border-[#494847]/20 bg-[#262626] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white"
                       >
-                        Cancel
+                        {isZh ? zh.cancel : 'Cancel'}
                       </button>
                     </div>
                   </div>
@@ -241,7 +278,7 @@ export default function SettingsView() {
                       {username || 'OPERATOR'}
                     </h2>
                     <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.18em] text-[#adaaaa]">
-                      {address || 'NO ADDRESS'}
+                      {address || (isZh ? zh.noAddress : 'NO ADDRESS')}
                     </p>
                   </>
                 )}
@@ -259,7 +296,9 @@ export default function SettingsView() {
           </div>
 
           <div className="mt-5 rounded-2xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
-            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Balance Preview</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
+              {isZh ? zh.balancePreview : 'Balance Preview'}
+            </p>
             <p className="mt-2 text-3xl font-black italic tracking-tight text-[#fcc025]">{previewBalance}</p>
           </div>
         </section>
@@ -267,13 +306,17 @@ export default function SettingsView() {
         <section className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
           <div className="flex items-center gap-3">
             <Volume2 className="text-[#fcc025]" size={18} />
-            <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">Display & Audio</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">
+              {isZh ? zh.displayAudio : 'Display & Audio'}
+            </h3>
           </div>
 
           <div className="mt-6 space-y-6">
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-white">金額顯示格式</span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-white">
+                  {isZh ? zh.amountDisplay : 'Amount Display'}
+                </span>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -282,7 +325,7 @@ export default function SettingsView() {
                       amountDisplay === 'compact' ? 'bg-[#fcc025] text-black' : 'bg-[#262626] text-white'
                     }`}
                   >
-                    100萬
+                    {'100\u842c'}
                   </button>
                   <button
                     type="button"
@@ -297,9 +340,9 @@ export default function SettingsView() {
               </div>
             </div>
 
-            <SliderRow label="總音量" value={masterVolume} onChange={(value) => persistPrefs({ masterVolume: value })} />
-            <SliderRow label="BGM 音量" value={bgmVolume} onChange={(value) => persistPrefs({ bgmVolume: value })} />
-            <SliderRow label="音效音量" value={sfxVolume} onChange={(value) => persistPrefs({ sfxVolume: value })} />
+            <SliderRow label={isZh ? zh.masterVolume : 'Master Volume'} value={masterVolume} onChange={(value) => persistPrefs({ masterVolume: value })} />
+            <SliderRow label={isZh ? zh.bgmVolume : 'BGM Volume'} value={bgmVolume} onChange={(value) => persistPrefs({ bgmVolume: value })} />
+            <SliderRow label={isZh ? zh.sfxVolume : 'SFX Volume'} value={sfxVolume} onChange={(value) => persistPrefs({ sfxVolume: value })} />
 
             <div className="grid gap-4 md:grid-cols-3">
               <div className="rounded-2xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
@@ -316,7 +359,7 @@ export default function SettingsView() {
               </div>
               <div className="rounded-2xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider">彈幕</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">{isZh ? zh.danmaku : 'Danmaku'}</span>
                   <Toggle enabled={danmuEnabled} onClick={() => persistPrefs({ danmuEnabled: !danmuEnabled })} />
                 </div>
               </div>
@@ -329,28 +372,34 @@ export default function SettingsView() {
             <div className="flex items-center gap-3">
               <Globe className="text-[#fcc025]" size={18} />
               <div>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">Language</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">
+                  {isZh ? zh.language : 'Language'}
+                </h3>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">
-                  {i18n.language === 'zh' ? 'Chinese' : 'English'}
+                  {isZh ? zh.chinese : 'English'}
                 </p>
               </div>
             </div>
             <button
               type="button"
-              onClick={() => i18n.changeLanguage(i18n.language === 'zh' ? 'en' : 'zh')}
+              onClick={() => i18n.changeLanguage(isZh ? 'en' : 'zh')}
               className="rounded-xl border border-[#fcc025]/20 bg-[#262626] px-4 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#fcc025]"
             >
-              Switch
+              {isZh ? zh.switchLabel : 'Switch'}
             </button>
           </div>
 
           <div className="mt-6 divide-y divide-[#494847]/10 overflow-hidden rounded-2xl border border-[#494847]/10 bg-[#0e0e0e]">
             <Link to="/app/health" className="flex items-center justify-between p-4 transition-colors hover:bg-[#1a1919]">
-              <span className="text-[11px] font-bold uppercase tracking-[0.12em]">服務狀態</span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.12em]">
+                {isZh ? zh.systemStatus : 'System Status'}
+              </span>
               <ChevronRight size={16} className="text-[#adaaaa]" />
             </Link>
             <Link to="/app/support" className="flex items-center justify-between p-4 transition-colors hover:bg-[#1a1919]">
-              <span className="text-[11px] font-bold uppercase tracking-[0.12em]">安全與支援</span>
+              <span className="text-[11px] font-bold uppercase tracking-[0.12em]">
+                {isZh ? zh.supportCenter : 'Support Center'}
+              </span>
               <ChevronRight size={16} className="text-[#adaaaa]" />
             </Link>
           </div>

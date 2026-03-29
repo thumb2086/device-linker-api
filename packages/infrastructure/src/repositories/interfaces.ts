@@ -47,4 +47,5 @@ export interface IStatsRepository {
 export interface ICustodyRepository {
   saveCustodyUser(username: string, data: any): Promise<void>;
   getCustodyUser(username: string): Promise<any | null>;
+  getLegacyCustodyUser(username: string): Promise<any | null>;
 }

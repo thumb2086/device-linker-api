@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, Flame, LayoutGrid, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import AppBottomNav from '../../components/AppBottomNav';
 
 type GameCard = {
@@ -10,8 +12,12 @@ type GameCard = {
   name: string;
   nameZh: string;
   badge: string;
-  players: number;
-  hot: boolean;
+};
+
+type RoomState = {
+  id: string;
+  game: string;
+  players: Array<{ userId: string }>;
 };
 
 export default function RoomLobbyView() {
@@ -19,24 +25,53 @@ export default function RoomLobbyView() {
   const isZh = i18n.language.startsWith('zh');
 
   const games: GameCard[] = [
-    { id: 'coinflip', name: 'Coinflip', nameZh: '\u78b0\u78bc', badge: 'CF', players: 124, hot: true },
-    { id: 'slots', name: 'Slots', nameZh: '\u8001\u864e\u6a5f', badge: 'SL', players: 842, hot: true },
-    { id: 'roulette', name: 'Roulette', nameZh: '\u8f2a\u76e4', badge: 'RL', players: 215, hot: false },
-    { id: 'blackjack', name: 'Blackjack', nameZh: '21 \u9ede', badge: 'BJ', players: 56, hot: false },
-    { id: 'horse', name: 'Horse Racing', nameZh: '\u8cfd\u99ac', badge: 'HR', players: 312, hot: true },
-    { id: 'dragon', name: 'Dragon Tiger', nameZh: '\u9f8d\u864e', badge: 'DT', players: 89, hot: false },
-    { id: 'sicbo', name: 'Sicbo', nameZh: '\u9ab0\u5bf6', badge: 'SB', players: 167, hot: false },
-    { id: 'bingo', name: 'Bingo', nameZh: '\u8cd3\u679c', badge: 'BG', players: 45, hot: false },
-    { id: 'crash', name: 'Crash', nameZh: '\u66b4\u885d', badge: 'CR', players: 631, hot: true },
-    { id: 'duel', name: 'Duel', nameZh: '\u5c0d\u6c7a', badge: 'DL', players: 24, hot: false },
-    { id: 'poker', name: 'Poker', nameZh: '\u64b2\u514b', badge: 'PK', players: 112, hot: false },
-    { id: 'bluffdice', name: 'Bluff Dice', nameZh: '\u5439\u725b', badge: 'BD', players: 38, hot: false },
+    { id: 'coinflip', name: 'Coinflip', nameZh: '\u78b0\u78bc', badge: 'CF' },
+    { id: 'slots', name: 'Slots', nameZh: '\u8001\u864e\u6a5f', badge: 'SL' },
+    { id: 'roulette', name: 'Roulette', nameZh: '\u8f2a\u76e4', badge: 'RL' },
+    { id: 'blackjack', name: 'Blackjack', nameZh: '21 \u9ede', badge: 'BJ' },
+    { id: 'horse', name: 'Horse Racing', nameZh: '\u8cfd\u99ac', badge: 'HR' },
+    { id: 'dragon', name: 'Dragon Tiger', nameZh: '\u9f8d\u864e', badge: 'DT' },
+    { id: 'sicbo', name: 'Sicbo', nameZh: '\u9ab0\u5bf6', badge: 'SB' },
+    { id: 'bingo', name: 'Bingo', nameZh: '\u8cd3\u679c', badge: 'BG' },
+    { id: 'crash', name: 'Crash', nameZh: '\u66b4\u885d', badge: 'CR' },
+    { id: 'duel', name: 'Duel', nameZh: '\u5c0d\u6c7a', badge: 'DL' },
+    { id: 'poker', name: 'Poker', nameZh: '\u64b2\u514b', badge: 'PK' },
+    { id: 'bluffdice', name: 'Bluff Dice', nameZh: '\u5439\u725b', badge: 'BD' },
   ];
 
   const zh = {
     highStakes: '\u9ad8\u984d\u5834',
     featuredTitle: '\u738b\u724c\u8cfd\u99ac',
   };
+
+  const roomsQuery = useQuery({
+    queryKey: ['game-rooms'],
+    queryFn: async () => {
+      const res = await axios.get('/api/v1/games/rooms');
+      return (res.data?.data?.rooms || []) as RoomState[];
+    },
+    refetchInterval: 15000,
+  });
+
+  const playerCountByGame = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const room of roomsQuery.data || []) {
+      const key = String(room.game || '').toLowerCase();
+      counts[key] = (counts[key] || 0) + (room.players?.length || 0);
+    }
+    return counts;
+  }, [roomsQuery.data]);
+
+  const renderedGames = useMemo(() => (
+    games.map((game) => {
+      const players = playerCountByGame[game.id] || 0;
+      return {
+        ...game,
+        players,
+        hot: players > 0,
+      };
+    })
+  ), [games, playerCountByGame]);
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
@@ -83,7 +118,7 @@ export default function RoomLobbyView() {
         </section>
 
         <section className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
-          {games.map((game) => (
+          {renderedGames.map((game) => (
             <Link
               key={game.id}
               to={`/app/casino/${game.id}`}

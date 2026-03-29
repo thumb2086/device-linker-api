@@ -1,0 +1,18 @@
+{
+  "name": "@repo/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@repo/domain": "workspace:*",
+    "@repo/infrastructure": "workspace:*",
+    "@repo/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0"
+  }
+}

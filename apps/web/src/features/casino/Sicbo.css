@@ -1,0 +1,82 @@
+.sicbo-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  color: white;
+}
+
+.dice-area {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-bottom: 40px;
+  background: rgba(0,0,0,0.4);
+  padding: 40px;
+  border-radius: 20px;
+  border: 2px solid #333;
+}
+
+.die {
+  width: 80px;
+  height: 80px;
+  background: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: #333;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+
+.sicbo-betting-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.bet-option {
+  background: #1a1a1a;
+  border: 2px solid #333;
+  padding: 20px;
+  border-radius: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bet-option:hover {
+  border-color: #666;
+}
+
+.bet-option.active {
+  border-color: #ffcc00;
+  background: rgba(255, 204, 0, 0.1);
+}
+
+.bet-label {
+  font-size: 1.25rem;
+  font-weight: bold;
+  display: block;
+}
+
+.bet-odds {
+  color: #ffcc00;
+  font-size: 0.9rem;
+}
+
+.sicbo-controls {
+  display: flex;
+  gap: 15px;
+  background: rgba(0,0,0,0.3);
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.sicbo-status {
+  text-align: center;
+  margin-top: 20px;
+  font-weight: bold;
+  min-height: 1.5em;
+}

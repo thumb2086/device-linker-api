@@ -1,18 +1,28 @@
 {
-  "name": "device-linker-api",
-  "version": "1.0.0",
+  "name": "device-linker-monolith",
+  "private": true,
   "type": "module",
-  "main": "api/airdrop.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "chat:realtime": "node scripts/chat-realtime-server.mjs"
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r --filter \"@repo/*\" build && pnpm -r --filter \"api\" build && pnpm -r --filter \"web\" build",
+    "postbuild": "shx cp apps/web/dist/index.html ./index.html && shx cp -r apps/web/dist/assets ./assets || shx true",
+    "db:push": "tsx scripts/db-push.ts",
+    "migrate:neon": "pnpm db:push && tsx scripts/migrate-kv-to-neon.ts",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
   },
-  "engines": {
-    "node": "20.x"
-  },
-  "dependencies": {
-    "@vercel/kv": "^3.0.0",
-    "ethers": "^6.16.0",
-    "redis": "^5.11.0",
-    "ws": "^8.19.0"
+  "devDependencies": {
+    "drizzle-orm": "^0.30.10",
+    "esbuild": "^0.27.4",
+    "eslint": "^8.57.0",
+    "postgres": "^3.4.8",
+    "prettier": "^3.2.0",
+    "shx": "^0.4.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
   }
 }

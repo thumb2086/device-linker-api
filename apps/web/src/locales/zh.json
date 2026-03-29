@@ -1,0 +1,132 @@
+{
+  "common": {
+    "loading": "\u8f09\u5165\u4e2d...",
+    "success": "\u6210\u529f",
+    "error": "\u932f\u8aa4",
+    "cancel": "\u53d6\u6d88",
+    "confirm": "\u78ba\u8a8d",
+    "save": "\u5132\u5b58",
+    "back": "\u8fd4\u56de",
+    "logout": "\u767b\u51fa",
+    "unit_yjc": "\u5104"
+  },
+  "nav": {
+    "dashboard": "\u4e3b\u63a7\u53f0",
+    "market": "\u5e02\u5834",
+    "vault": "\u9322\u5305",
+    "casino": "\u5a1b\u6a02\u5927\u5ef3",
+    "vip": "VIP \u4e2d\u5fc3",
+    "admin": "\u7ba1\u7406\u4e2d\u5fc3",
+    "settings": "\u500b\u4eba\u8a2d\u5b9a",
+    "feed": "\u52d5\u614b",
+    "inventory": "\u80cc\u5305",
+    "leaderboard": "\u6392\u884c\u699c",
+    "announcements": "\u516c\u544a\u4e2d\u5fc3",
+    "support": "\u652f\u63f4\u4e2d\u5fc3"
+  },
+  "auth": {
+    "login": "\u767b\u5165",
+    "qr_login": "QR \u767b\u5165",
+    "custody_login": "\u8a17\u7ba1\u767b\u5165",
+    "username": "\u4f7f\u7528\u8005\u540d\u7a31",
+    "password": "\u5bc6\u78bc",
+    "login_btn": "\u555f\u52d5\u7cfb\u7d71",
+    "logging_in": "\u9a57\u8b49\u4e2d...",
+    "qr_instruction": "\u4f7f\u7528 Device Linker App \u6383\u63cf\u4e26\u5b8c\u6210\u6388\u6b0a",
+    "system_ready": "\u7cfb\u7d71\u5df2\u5c31\u7dd2"
+  },
+  "profile": {
+    "welcome": "\u6b61\u8fce",
+    "setup_instruction": "\u7e7c\u7e8c\u4e4b\u524d\u8acb\u5148\u8a2d\u5b9a\u986f\u793a\u540d\u7a31",
+    "nickname_placeholder": "\u8f38\u5165\u66b1\u7a31\uff082-20 \u5b57\uff09",
+    "save_continue": "\u5132\u5b58\u4e26\u9023\u7dda",
+    "saving": "\u5132\u5b58\u4e2d...",
+    "operator_id": "\u64cd\u4f5c\u54e1 ID",
+    "identity_sync": "\u8eab\u4efd\u540c\u6b65",
+    "sync_instruction": "\u8acb\u5148\u5efa\u7acb\u4f60\u7684\u64cd\u4f5c\u54e1\u540d\u7a31\u518d\u7e7c\u7e8c\u3002"
+  },
+  "vault": {
+    "title": "\u9322\u5305",
+    "total_assets": "\u7e3d\u8cc7\u7522",
+    "vault_in": "\u8f49\u5165",
+    "vault_out": "\u8f49\u51fa",
+    "transactions": "\u4ea4\u6613\u7d00\u9304",
+    "vip_bonus": "VIP \u52a0\u6210"
+  },
+  "market": {
+    "title": "\u5e02\u5834\u7d42\u7aef",
+    "buy": "\u8cb7\u5165",
+    "sell": "\u8ce3\u51fa",
+    "order_book": "\u59d4\u8a17\u7c3f",
+    "portfolio": "\u6211\u7684\u6301\u5009",
+    "price": "\u50f9\u683c",
+    "amount": "\u6578\u91cf"
+  },
+  "casino": {
+    "title": "\u5a1b\u6a02\u5927\u5ef3",
+    "play_now": "\u7acb\u5373\u958b\u59cb",
+    "featured": "\u7cbe\u9078",
+    "active_players": "\u6d3b\u8e8d\u73a9\u5bb6"
+  },
+  "leaderboard": {
+    "title": "\u83c1\u82f1\u6392\u884c\u699c",
+    "total_winnings": "\u7e3d\u7372\u5229",
+    "win_rate": "\u52dd\u7387",
+    "season_ends": "\u8cfd\u5b63\u7d50\u675f\u5012\u6578",
+    "rank": "\u6392\u540d"
+  },
+  "announcement": {
+    "title": "\u516c\u544a\u4e2d\u5fc3",
+    "critical_alert": "\u91cd\u5927\u8b66\u5831",
+    "system_alerts": "\u7cfb\u7d71\u901a\u77e5",
+    "latest": "\u6700\u65b0\u6d88\u606f",
+    "maintenance": "\u7dad\u8b77\u516c\u544a",
+    "events": "\u6d3b\u52d5"
+  },
+  "settings": {
+    "title": "\u500b\u4eba\u8a2d\u5b9a",
+    "audio_matrix": "\u97f3\u6548\u77e9\u9663",
+    "master_volume": "\u7e3d\u97f3\u91cf",
+    "bgm": "\u80cc\u666f\u97f3\u6a02",
+    "sfx": "\u97f3\u6548",
+    "notifications": "\u901a\u77e5",
+    "operational_alerts": "\u64cd\u4f5c\u901a\u77e5",
+    "system_protocol": "\u7cfb\u7d71\u5354\u5b9a",
+    "service_status": "\u670d\u52d9\u72c0\u614b",
+    "security_protocol": "\u5b89\u5168\u5354\u5b9a",
+    "terminate_session": "\u7d50\u675f\u5de5\u4f5c\u968e\u6bb5"
+  },
+  "inventory": {
+    "title": "\u80cc\u5305",
+    "current_operator": "\u76ee\u524d\u64cd\u4f5c\u54e1",
+    "equip": "\u88dd\u5099",
+    "rarity_legendary": "\u50b3\u8aaa",
+    "rarity_elite": "\u83c1\u82f1",
+    "rarity_rare": "\u7a00\u6709",
+    "rarity_common": "\u666e\u901a"
+  },
+  "support": {
+    "title": "\u652f\u63f4\u4e2d\u5fc3",
+    "live_chat": "\u5373\u6642\u5ba2\u670d",
+    "system_protocols": "\u7cfb\u7d71\u5354\u5b9a",
+    "submit_ticket": "\u63d0\u4ea4\u5de5\u55ae",
+    "issue_category": "\u554f\u984c\u5206\u985e",
+    "description": "\u63cf\u8ff0",
+    "send_protocol": "\u9001\u51fa",
+    "operator_name": "\u7cfb\u7d71\u5ba2\u670d\u5c08\u54e1_72",
+    "online": "\u4e0a\u7dda\u4e2d",
+    "connecting": "\u9023\u63a5\u81f3\u5b89\u5168\u5c08\u7dda\u4e2d...",
+    "enter_message": "\u8f38\u5165\u8a0a\u606f...",
+    "report_anomalies": "\u56de\u5831\u6a21\u64ec\u7570\u5e38",
+    "category_technical": "\u6280\u8853\u932f\u8aa4",
+    "category_vault": "\u8cc7\u7522\u7570\u5e38",
+    "category_trade": "\u4ea4\u6613\u57f7\u884c",
+    "provide_details": "\u8acb\u8f38\u5165\u8a73\u7d30\u63cf\u8ff0...",
+    "protocol_1_title": "\u8cc7\u7522\u5b89\u5168\u5354\u5b9a",
+    "protocol_1_summary": "\u8aaa\u660e AES-256 \u52a0\u5bc6\u8207\u591a\u7c3d\u6388\u6b0a\u6d41\u7a0b\u3002",
+    "protocol_2_title": "\u4ea4\u6613\u57f7\u884c\u6307\u5357",
+    "protocol_2_summary": "\u8aaa\u660e\u5982\u4f55\u4f7f\u7528\u5e02\u5834\u7d42\u7aef\u9032\u884c\u4ea4\u6613\u3002",
+    "protocol_3_title": "\u5e33\u865f\u5fa9\u539f\u6b65\u9a5f",
+    "protocol_3_summary": "\u907a\u5931\u9023\u7dda\u6216\u8eab\u4efd\u8cc7\u6599\u6642\u7684\u5fa9\u539f\u8655\u7406\u6d41\u7a0b\u3002"
+  }
+}

@@ -84,12 +84,7 @@ export interface KVClient {
   ltrim(key: string, start: number, stop: number): Promise<string>;
 }
 
-export const kv: KVClient = (isTest
-  ? new MockKV()
-  : createClient({
-      url: process.env.KV_REST_API_URL!,
-      token: process.env.KV_REST_API_TOKEN!,
-    })) as any;
+export const kv: KVClient = new MockKV() as any;
 
 export const getSession = async (sessionId: string) => {
   return await kv.get(`session:${sessionId}`);

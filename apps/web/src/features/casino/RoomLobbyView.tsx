@@ -12,6 +12,7 @@ type GameCard = {
   name: string;
   nameZh: string;
   icon: string | string[];
+  vipOnly?: boolean;
 };
 
 type RoomState = {
@@ -35,13 +36,15 @@ export default function RoomLobbyView() {
     { id: 'bingo', name: 'Bingo', nameZh: '\u8cd3\u679c', icon: '\ud83c\udfb1' },
     { id: 'crash', name: 'Crash', nameZh: '\u66b4\u885d', icon: '\ud83d\udcc8' },
     { id: 'duel', name: 'Duel', nameZh: '\u5c0d\u6c7a', icon: '\u2694\ufe0f' },
-    { id: 'poker', name: 'Poker', nameZh: '\u64b2\u514b', icon: '\ud83c\udccf' },
-    { id: 'bluffdice', name: 'Bluff Dice', nameZh: '\u5439\u725b', icon: '\ud83c\udfb2' },
+    { id: 'poker', name: 'Poker', nameZh: '\u64b2\u514b', icon: '\ud83c\udccf', vipOnly: true },
+    { id: 'bluffdice', name: 'Bluff Dice', nameZh: '\u5439\u725b', icon: '\ud83c\udfb2', vipOnly: true },
   ];
 
   const zh = {
     highStakes: '\u9ad8\u984d\u5834',
     featuredTitle: '\u738b\u724c\u8cfd\u99ac',
+    vipOnly: 'VIP \u5c08\u5c6c',
+    pending: 'VIP \u672a\u958b\u653e',
   };
 
   const roomsQuery = useQuery({
@@ -121,9 +124,18 @@ export default function RoomLobbyView() {
           {renderedGames.map((game) => (
             <Link
               key={game.id}
-              to={`/app/casino/${game.id}`}
-              className="group relative overflow-hidden rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 transition-all hover:bg-[#262626]"
+              to={game.vipOnly ? `/app/casino/${game.id}?locked=vip` : `/app/casino/${game.id}`}
+              className={`group relative overflow-hidden rounded-2xl border p-6 transition-all ${
+                game.vipOnly
+                  ? 'border-[#fcc025]/15 bg-[#151515] hover:bg-[#1c1b1b]'
+                  : 'border-[#494847]/10 bg-[#1a1919] hover:bg-[#262626]'
+              }`}
             >
+              {game.vipOnly && (
+                <div className="absolute left-3 top-3 rounded-full border border-[#fcc025]/25 bg-[#fcc025]/10 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-[#fcc025]">
+                  VIP
+                </div>
+              )}
               {game.hot && (
                 <div className="absolute right-0 top-0 p-3">
                   <div className="h-2 w-2 animate-ping rounded-full bg-[#fcc025]" />
@@ -153,7 +165,9 @@ export default function RoomLobbyView() {
                   <div className="mt-2 flex items-center justify-center gap-1.5">
                     <Users size={10} className="text-[#adaaaa]" />
                     <span className="text-[9px] font-bold uppercase tracking-widest text-[#adaaaa]">
-                      {game.players} {t('casino.active_players')}
+                      {game.vipOnly
+                        ? (isZh ? zh.pending : 'VIP pending')
+                        : `${game.players} ${t('casino.active_players')}`}
                     </span>
                   </div>
                 </div>

@@ -100,7 +100,6 @@ export default function SettingsView() {
     language: '\u8a9e\u8a00',
     chinese: '\u4e2d\u6587',
     switchLabel: '\u5207\u63db',
-    systemStatus: '\u7cfb\u7d71\u72c0\u614b',
     supportCenter: '\u652f\u63f4\u4e2d\u5fc3',
     githubRepo: 'GitHub \u5009\u5eab',
     syncingSettings: '\u8a2d\u5b9a\u540c\u6b65\u4e2d...',
@@ -388,12 +387,6 @@ export default function SettingsView() {
           </div>
 
           <div className="mt-6 divide-y divide-[#494847]/10 overflow-hidden rounded-2xl border border-[#494847]/10 bg-[#0e0e0e]">
-            <Link to="/app/health" className="flex items-center justify-between p-4 transition-colors hover:bg-[#1a1919]">
-              <span className="text-[11px] font-bold uppercase tracking-[0.12em]">
-                {isZh ? zh.systemStatus : 'System Status'}
-              </span>
-              <ChevronRight size={16} className="text-[#adaaaa]" />
-            </Link>
             <Link to="/app/support" className="flex items-center justify-between p-4 transition-colors hover:bg-[#1a1919]">
               <span className="text-[11px] font-bold uppercase tracking-[0.12em]">
                 {isZh ? zh.supportCenter : 'Support Center'}

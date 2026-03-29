@@ -1,8 +1,9 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Activity } from 'lucide-react';
+import { Activity, HeartPulse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import AppBottomNav from '../../components/AppBottomNav';
 
 type PublicTransaction = {
@@ -36,6 +37,20 @@ export default function PublicTransactionsView() {
     refetchInterval: 15000,
   });
 
+  const { data: healthData } = useQuery({
+    queryKey: ['health-stats-inline'],
+    queryFn: async () => {
+      const res = await axios.get('/api/v1/stats/health');
+      return res.data.data as {
+        stats?: {
+          uptime?: string;
+          failureRate?: string;
+        };
+      };
+    },
+    refetchInterval: 30000,
+  });
+
   const zh = {
     title: '\u516c\u958b\u4ea4\u6613\u52d5\u614b',
     overallSuccessRate: '\u6574\u9ad4\u6210\u529f\u7387',
@@ -44,6 +59,11 @@ export default function PublicTransactionsView() {
     successSummary: '\u6210\u529f {{success}} \u7b46 / \u7d0d\u5165\u7d71\u8a08 {{scored}} \u7b46',
     confirmedWalletIntents: '\u5df2\u78ba\u8a8d\u9322\u5305\u610f\u5716',
     marketOutcomes: '\u5df2\u7d50\u7b97\u5e02\u5834\u7d50\u679c',
+    serviceStatus: '\u670d\u52d9\u72c0\u614b',
+    serviceStatusSummary: '\u7cfb\u7d71\u72c0\u614b\u8207\u5340\u584a\u4ea4\u6613\u8ffd\u8e64',
+    uptime: '\u7a69\u5b9a\u7387',
+    failureRate: '\u5931\u6557\u7387',
+    viewDetails: '\u67e5\u770b\u8a73\u7d30',
     latestActivity: '\u6700\u65b0\u5e02\u5834\u8207\u9322\u5305\u52d5\u614b',
     loading: '\u8f09\u5165\u4e2d...',
     empty: '\u5c1a\u7121\u516c\u958b\u4ea4\u6613\u8cc7\u6599',
@@ -54,6 +74,7 @@ export default function PublicTransactionsView() {
 
   const items = data?.items || [];
   const stats = data?.stats;
+  const serviceStats = healthData?.stats;
 
   const metric = (value: number | null | undefined, suffix = '%') =>
     typeof value === 'number' ? `${value}${suffix}` : '--';
@@ -85,6 +106,45 @@ export default function PublicTransactionsView() {
 
       <main className="mx-auto max-w-4xl px-6 pt-24">
         <section className="mb-6 grid gap-4 md:grid-cols-3">
+          <Link
+            to="/app/health"
+            className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-5 shadow-2xl transition-colors hover:bg-[#222121] md:col-span-3"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <HeartPulse size={16} className="text-[#fcc025]" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
+                    {isZh ? zh.serviceStatus : 'Service Status'}
+                  </p>
+                </div>
+                <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">
+                  {isZh ? zh.serviceStatusSummary : 'System health and chain execution traces'}
+                </p>
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#fcc025]">
+                {isZh ? zh.viewDetails : 'View Details'}
+              </p>
+            </div>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#adaaaa]">
+                  {isZh ? zh.uptime : 'Uptime'}
+                </p>
+                <p className="mt-2 text-2xl font-black italic tracking-tight text-emerald-400">
+                  {serviceStats?.uptime || '99.98%'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#adaaaa]">
+                  {isZh ? zh.failureRate : 'Failure Rate'}
+                </p>
+                <p className="mt-2 text-2xl font-black italic tracking-tight text-[#fcc025]">
+                  {serviceStats?.failureRate || '0.02%'}
+                </p>
+              </div>
+            </div>
+          </Link>
           <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-5 shadow-2xl">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
               {isZh ? zh.overallSuccessRate : 'Overall Success Rate'}

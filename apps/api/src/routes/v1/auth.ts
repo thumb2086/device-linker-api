@@ -2,8 +2,9 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope, CUSTODY_REGISTER_BONUS } from "@repo/shared";
-import { IdentityManager, AuthManager } from "@repo/domain";
+import { IdentityManager, AuthManager, OnchainWalletManager } from "@repo/domain";
 import {
+  ChainClient,
   kv,
   SessionRepository,
   UserRepository,
@@ -15,6 +16,7 @@ import { randomUUID } from "crypto";
 export async function authRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   const identityManager = new IdentityManager();
+  const onchainManager = new OnchainWalletManager();
   const userRepo = new UserRepository();
   const sessionRepo = new SessionRepository();
   const custodyRepo = new CustodyRepository();
@@ -33,6 +35,36 @@ export async function authRoutes(fastify: FastifyInstance) {
     const raw = await kv.get<string | number>(key);
     if (raw === null || raw === undefined) return null;
     return String(raw);
+  };
+
+  const getLiveZhixiBalance = async (address: string) => {
+    let balance = await walletRepo.getBalance(address, "zhixi");
+    if (Number(balance || 0) === 0) {
+      const legacyBalance = await getLegacyBalance(address, "zhixi");
+      if (legacyBalance !== null && Number(legacyBalance || 0) > 0) {
+        balance = legacyBalance;
+        await walletRepo.updateBalance(address, legacyBalance, "zhixi");
+      }
+    }
+
+    try {
+      const runtime = onchainManager.getRuntimeConfig();
+      const tokenRuntime = runtime.tokens.zhixi;
+      if (!runtime.rpcUrl || !runtime.adminPrivateKey || !tokenRuntime.enabled) {
+        return balance || "0";
+      }
+
+      const client = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
+      const decimals = await client.getDecimals(tokenRuntime.contractAddress, 18);
+      const onchainBalance = client.formatUnits(
+        await client.getBalance(address, tokenRuntime.contractAddress),
+        decimals
+      );
+      await walletRepo.updateBalance(address, onchainBalance, "zhixi");
+      return onchainBalance;
+    } catch {
+      return balance || "0";
+    }
   };
 
   typedFastify.post("/create-session", async (request) => {
@@ -140,14 +172,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         }
 
         const user = await userRepo.getUserById(session.userId);
-        let balance = await walletRepo.getBalance(session.address);
-        if (Number(balance || 0) === 0) {
-          const legacyBalance = await getLegacyBalance(session.address, "zhixi");
-          if (legacyBalance !== null && Number(legacyBalance || 0) > 0) {
-            balance = legacyBalance;
-            await walletRepo.updateBalance(session.address, legacyBalance, "zhixi");
-          }
-        }
+        const balance = await getLiveZhixiBalance(session.address);
         const totalBet = String(await kv.get<string | number>(`total_bet:${session.address}`) || "0");
 
         return createApiEnvelope({

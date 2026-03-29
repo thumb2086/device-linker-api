@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
 import { useUserStore } from '../../store/useUserStore';
 import AppBottomNav from '../../components/AppBottomNav';
+import { useWallet } from '../wallet/useWallet';
 
 function GlassCard({
   to,
@@ -58,6 +59,12 @@ export default function LobbyView() {
   const { username, address, balance } = useUserStore();
   const { i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
+  const { summary } = useWallet();
+  const liveBalance =
+    summary.data?.onchain?.zxc?.balance ||
+    summary.data?.summary?.balances?.ZXC ||
+    balance ||
+    '0';
 
   const zh = {
     title: '\u5b50\u7199\u6a21\u64ec\u5668',
@@ -140,7 +147,7 @@ export default function LobbyView() {
                 {isZh ? zh.totalAssets : 'Total Assets'}
               </p>
               <div className="text-5xl font-black uppercase italic tracking-tighter text-[#fcc025]">
-                {formatNumber(balance || 0)} <span className="text-lg not-italic text-white">ZXC</span>
+                {formatNumber(liveBalance || 0)} <span className="text-lg not-italic text-white">ZXC</span>
               </div>
             </div>
           </div>
@@ -190,7 +197,7 @@ export default function LobbyView() {
             to="/app/wallet"
             icon={WalletIcon}
             title={isZh ? zh.wallet : 'Wallet'}
-            value={`${formatNumber(balance || 0)} ZXC`}
+            value={`${formatNumber(liveBalance || 0)} ZXC`}
             subtitle={isZh ? zh.secured : 'Secured'}
             border
           />
@@ -256,7 +263,7 @@ export default function LobbyView() {
         </section>
       </main>
 
-      <AppBottomNav current="casino" />
+      <AppBottomNav current="home" />
     </div>
   );
 }

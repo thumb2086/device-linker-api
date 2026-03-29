@@ -1,14 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutGrid, MessageSquareText, Settings, TrendingUp, Wallet } from 'lucide-react';
+import { House, LayoutGrid, MessageSquareText, Settings, TrendingUp, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-type NavKey = 'casino' | 'market' | 'wallet' | 'settings' | 'feed' | 'none';
+type NavKey = 'home' | 'casino' | 'market' | 'wallet' | 'settings' | 'feed' | 'none';
 
 export default function AppBottomNav({ current }: { current: NavKey }) {
   const { t } = useTranslation();
 
   const items = [
+    { key: 'home' as const, to: '/app', icon: House, label: t('nav.dashboard') },
     { key: 'casino' as const, to: '/app/casino/lobby', icon: LayoutGrid, label: t('nav.casino') },
     { key: 'market' as const, to: '/app/market', icon: TrendingUp, label: t('nav.market') },
     { key: 'wallet' as const, to: '/app/wallet', icon: Wallet, label: t('nav.vault') },

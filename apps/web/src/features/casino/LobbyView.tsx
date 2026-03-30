@@ -217,7 +217,7 @@ export default function LobbyView() {
           </GlassCard>
 
           <GlassCard
-            to="/app/inventory"
+            to="/app/backpack"
             icon={Bell}
             title={isZh ? zh.inventory : 'Inventory'}
             subtitle={isZh ? zh.items : '14 Items'}

@@ -272,3 +272,40 @@ Do not drop those legacy tables until:
 - QR/app session login works
 - `custody_accounts.user_id` is populated
 - `users.display_name` is populated where needed
+
+## Leaderboard Settlement（已全面 SQL 化）
+
+目前資料已在 SQL，歷史榜王直接查 `leaderboard_settlement`，不需要再寫回 `kv_store`。
+
+```sql
+SELECT id, raw FROM leaderboard_settlement ORDER BY id DESC;
+```
+
+API 直接讀 SQL legacy 表：
+
+```http
+GET /api/v1/stats/leaderboard/history?limit=30
+```
+
+### 補齊 main 寫死但 SQL 缺失的物品
+
+若 main 分支有寫死物品但 SQL 尚未存在，可用 API 批次匯入（upsert）：
+
+```http
+POST /api/v1/rewards/catalog/import
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "itemId": "example_item",
+      "type": "consumable",
+      "name": "示例道具",
+      "rarity": "common",
+      "source": "main_hardcoded"
+    }
+  ]
+}
+```
+
+`ensureRewardCatalogSeed` 現在為逐筆 upsert，不再只在空表時執行，因此可持續補齊缺漏項目。

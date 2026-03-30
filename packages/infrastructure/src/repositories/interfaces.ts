@@ -4,6 +4,7 @@ export interface IUserRepository {
   getUserById(id: string): Promise<any>;
   getUserProfile(userId: string): Promise<any>;
   saveUserProfile(userId: string, data: any): Promise<void>;
+  getTotalBetByUserId(userId: string): Promise<string>;
 }
 
 export interface ISessionRepository {
@@ -35,6 +36,9 @@ export interface IMarketRepository {
 export interface IMetaRepository {
   saveRewardGrant(grant: any): Promise<void>;
   saveMarketOrder(order: any): Promise<void>;
+  listRewardCatalog(): Promise<any[]>;
+  ensureRewardCatalogSeed(items: any[]): Promise<void>;
+  syncRewardCatalogFromLegacy(): Promise<{ titles: number; avatars: number }>;
 }
 
 export interface IGameRepository {
@@ -49,6 +53,7 @@ export interface IOpsRepository {
 
 export interface IStatsRepository {
   getLeaderboard(type: "total_bet" | "balance"): Promise<any[]>;
+  getLeaderboardSettlementHistory(limit?: number): Promise<any[]>;
 }
 
 export interface ICustodyRepository {

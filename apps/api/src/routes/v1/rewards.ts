@@ -4,15 +4,29 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { RewardManager, TITLES, AVATARS } from "@repo/domain";
-import { SessionRepository, UserRepository, kv, OpsRepository, MetaRepository } from "@repo/infrastructure";
+import { RewardManager } from "@repo/domain";
+import { SessionRepository, UserRepository, OpsRepository, MetaRepository, WalletRepository } from "@repo/infrastructure";
+
+const DEFAULT_REWARD_CATALOG = [
+  { itemId: "newbie", type: "title", name: "初出茅廬", description: "剛加入的新手", rarity: "common", source: "system" },
+  { itemId: "high_roller", type: "title", name: "豪氣干雲", description: "單次下注超過 1,000,000", rarity: "rare", source: "system" },
+  { itemId: "gambling_god", type: "title", name: "賭聖", description: "總贏得金額超過 100,000,000", rarity: "mythic", source: "system" },
+  { itemId: "std_1", type: "avatar", name: "基本頭像 1", description: "預設頭像", rarity: "common", source: "system", icon: "/assets/avatars/1.png" },
+  { itemId: "vip_1", type: "avatar", name: "VIP 專屬 1", description: "VIP 專用頭像", rarity: "rare", source: "system", icon: "/assets/avatars/v1.png" },
+  { itemId: "bronze", type: "chest", name: "青銅寶箱", description: "基本寶箱", rarity: "common", source: "shop", price: "1000" },
+  { itemId: "silver", type: "chest", name: "白銀寶箱", description: "進階寶箱", rarity: "rare", source: "shop", price: "5000" },
+  { itemId: "gold", type: "chest", name: "黃金寶箱", description: "高級寶箱", rarity: "epic", source: "shop", price: "25000" },
+  { itemId: "repair_kit", type: "consumable", name: "修復工具包", description: "恢復耐久度", rarity: "common", source: "system" },
+  { itemId: "boost_10x", type: "buff", name: "10x 增幅器", description: "短時間倍率提升", rarity: "epic", source: "system" },
+];
 
 export async function rewardRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
-  
+
   const rewardManager = new RewardManager();
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
+  const walletRepo = new WalletRepository();
   const opsRepo = new OpsRepository();
   const metaRepo = new MetaRepository();
 
@@ -25,47 +39,85 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     return { session, user };
   };
 
-  // ─── Rewards Catalog ──────────────────────────────────────────────────────
+  const ensureCatalog = async () => {
+    await metaRepo.syncRewardCatalogFromLegacy();
+    await metaRepo.ensureRewardCatalogSeed(DEFAULT_REWARD_CATALOG);
+    return await metaRepo.listRewardCatalog();
+  };
 
   typedFastify.get("/catalog", async (request) => {
-    return createApiEnvelope({ 
-      titles: TITLES,
-      avatars: AVATARS,
-      chests: [
-        { id: "bronze", label: "青銅寶箱", price: "1000", rarity: "common" },
-        { id: "silver", label: "白銀寶箱", price: "5000", rarity: "rare" },
-        { id: "gold", label: "黃金寶箱", price: "25000", rarity: "epic" }
-      ]
-    }, request.id);
+    const catalog = await ensureCatalog();
+    const titles = catalog.filter((x: any) => x.type === "title");
+    const avatars = catalog.filter((x: any) => x.type === "avatar");
+    const chests = catalog.filter((x: any) => x.type === "chest");
+    const items = catalog.filter((x: any) => x.type === "buff" || x.type === "consumable" || x.type === "collectible");
+
+    return createApiEnvelope({ titles, avatars, chests, items }, request.id);
   });
 
-  // ─── User Rewards (Owned titles, avatars) ────────────────────────────────
+
+  typedFastify.post("/catalog/sync-legacy", async (request) => {
+    const syncResult = await metaRepo.syncRewardCatalogFromLegacy();
+    const catalog = await metaRepo.listRewardCatalog();
+    return createApiEnvelope({ syncResult, total: catalog.length }, request.id);
+  });
+
+
+  typedFastify.post("/catalog/import", {
+    schema: {
+      body: z.object({
+        items: z.array(z.object({
+          itemId: z.string(),
+          type: z.string(),
+          name: z.string(),
+          description: z.string().optional(),
+          rarity: z.string().optional(),
+          source: z.string().optional(),
+          icon: z.string().optional(),
+          price: z.string().optional(),
+          meta: z.any().optional(),
+          isActive: z.boolean().optional(),
+        }))
+      })
+    }
+  }, async (request) => {
+    const { items } = request.body;
+    await metaRepo.ensureRewardCatalogSeed(items);
+    const catalog = await metaRepo.listRewardCatalog();
+    return createApiEnvelope({ imported: items.length, total: catalog.length }, request.id);
+  });
 
   typedFastify.get("/me", async (request) => {
     const ctx = await getContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
 
-    const address = ctx.session.address;
-    const ownedTitles = await kv.get<string[]>(`owned_titles:${address}`) || ["newbie"];
-    const ownedAvatars = await kv.get<string[]>(`owned_avatars:${address}`) || ["std_1"];
-    const activeTitle = await kv.get<string>(`active_title:${address}`) || "newbie";
-    const activeAvatar = await kv.get<string>(`active_avatar:${address}`) || "std_1";
+    const catalog = await ensureCatalog();
+    const defaultTitle = catalog.find((x: any) => x.type === "title")?.itemId || "newbie";
+    const defaultAvatar = catalog.find((x: any) => x.type === "avatar")?.itemId || "std_1";
 
-    return createApiEnvelope({ 
-      ownedTitles, 
-      ownedAvatars,
-      activeTitle,
-      activeAvatar
-    }, request.id);
+    const profile = await userRepo.getUserProfile(ctx.user.id);
+    const ownedTitles = Array.isArray(profile?.ownedTitles) && profile.ownedTitles.length > 0 ? profile.ownedTitles : [defaultTitle];
+    const ownedAvatars = Array.isArray(profile?.ownedAvatars) && profile.ownedAvatars.length > 0 ? profile.ownedAvatars : [defaultAvatar];
+    const activeTitle = profile?.selectedTitleId || ownedTitles[0];
+    const activeAvatar = profile?.selectedAvatarId || ownedAvatars[0];
+
+    if (!profile) {
+      await userRepo.saveUserProfile(ctx.user.id, {
+        ownedTitles,
+        ownedAvatars,
+        selectedTitleId: activeTitle,
+        selectedAvatarId: activeAvatar,
+      });
+    }
+
+    return createApiEnvelope({ ownedTitles, ownedAvatars, activeTitle, activeAvatar }, request.id);
   });
-
-  // ─── Chest Opening ────────────────────────────────────────────────────────
 
   typedFastify.post("/chests/open", {
     schema: {
       body: z.object({
         sessionId: z.string(),
-        chestType: z.enum(["bronze", "silver", "gold"])
+        chestType: z.string(),
       })
     }
   }, async (request) => {
@@ -74,21 +126,17 @@ export async function rewardRoutes(fastify: FastifyInstance) {
 
     const { chestType } = request.body;
     const address = ctx.session.address;
-    
-    // Check balance
-    const prices = { bronze: 1000, silver: 5000, gold: 25000 };
-    const price = prices[chestType];
-    const balanceStr = await kv.get<string>(`balance:${address}`) || "0";
-    const balance = parseFloat(balanceStr);
+    const catalog = await ensureCatalog();
 
-    if (balance < price) {
-      return createApiEnvelope({ error: { message: "Insufficient balance" } }, request.id);
-    }
+    const chest = catalog.find((x: any) => x.type === "chest" && x.itemId === chestType);
+    if (!chest) return createApiEnvelope({ error: { message: "Chest type not found" } }, request.id);
 
-    // Deduct
-    await kv.set(`balance:${address}`, (balance - price).toString());
+    const price = Number(chest.price || 0);
+    const balance = Number(await walletRepo.getBalance(address, "zhixi"));
+    if (balance < price) return createApiEnvelope({ error: { message: "Insufficient balance" } }, request.id);
 
-    // Logic for randomized reward (stubbed in RewardManager for now)
+    await walletRepo.updateBalance(address, (balance - price).toString(), "zhixi");
+
     const seed = `${address}:${Date.now()}:${Math.random()}`;
     const result = rewardManager.openChest(chestType, seed);
 
@@ -106,8 +154,6 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     return createApiEnvelope({ success: true, result, balance: (balance - price).toString() }, request.id);
   });
 
-  // ─── Select Title/Avatar ───────────────────────────────────────────────────
-
   typedFastify.post("/equip", {
     schema: {
       body: z.object({
@@ -121,17 +167,12 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
 
     const { type, id } = request.body;
-    const address = ctx.session.address;
-    
-    const ownedKey = type === "title" ? `owned_titles:${address}` : `owned_avatars:${address}`;
-    const owned = await kv.get<string[]>(ownedKey) || [];
-    
-    if (!owned.includes(id) && id !== "newbie" && id !== "std_1") {
-      return createApiEnvelope({ error: { message: "Not owned" } }, request.id);
-    }
+    const profile = await userRepo.getUserProfile(ctx.user.id);
 
-    const activeKey = type === "title" ? `active_title:${address}` : `active_avatar:${address}`;
-    await kv.set(activeKey, id);
+    const owned = type === "title" ? (profile?.ownedTitles || []) : (profile?.ownedAvatars || []);
+    if (!owned.includes(id)) return createApiEnvelope({ error: { message: "Not owned" } }, request.id);
+
+    await userRepo.saveUserProfile(ctx.user.id, type === "title" ? { selectedTitleId: id } : { selectedAvatarId: id });
 
     return createApiEnvelope({ success: true, activeId: id }, request.id);
   });

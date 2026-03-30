@@ -9,6 +9,8 @@ import MarketView from './features/market/MarketView';
 import RewardsView from './features/rewards/RewardsView';
 import AdminView from './features/admin/AdminView';
 import InventoryView from './features/profile/InventoryView';
+import VipView from './features/vip/VipView';
+import BackpackView from './features/backpack/BackpackView';
 import LeaderboardView from './features/stats/LeaderboardView';
 import HealthView from './features/stats/HealthView';
 import RoomLobbyView from './features/casino/RoomLobbyView';
@@ -51,6 +53,8 @@ function AppContent() {
             <Route path="announcement" element={<AnnouncementCenter />} />
             <Route path="support" element={<SupportView />} />
             <Route path="inventory" element={<InventoryView />} />
+            <Route path="backpack" element={<BackpackView />} />
+            <Route path="vip" element={<VipView />} />
             <Route path="admin" element={<AdminView />} />
             <Route path="settings" element={<SettingsView />} />
             <Route path="transactions" element={<PublicTransactionsView />} />

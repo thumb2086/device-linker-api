@@ -378,6 +378,18 @@ export class UserRepository implements IUserRepository {
     const conn = await requireDb();
     return await conn.query.userProfiles.findFirst({ where: (p: any, { eq }: any) => eq(p.userId, userId) });
   }
+
+  async getTotalBetByUserId(userId: string) {
+    const conn = await requireDb();
+    const rows = await conn.execute(
+      drizzleSql`
+        SELECT COALESCE(SUM(bet_amount), 0) AS "totalBet"
+        FROM game_settlements
+        WHERE user_id = ${userId}
+      `
+    );
+    return String(rows[0]?.totalBet ?? "0");
+  }
   async saveUserProfile(userId: string, data: any) {
     const conn = await requireDb();
     const user = await this.getUserById(userId);
@@ -566,6 +578,114 @@ export class MetaRepository implements IMetaRepository {
     const conn = await requireDb();
     try { await conn.insert((schema as any).marketTrades).values(order); } catch(e) {}
   }
+
+  async listRewardCatalog() {
+    const conn = await requireDb();
+    return await conn.query.rewardCatalog.findMany({
+      where: (rewardCatalog: any, { eq }: any) => eq(rewardCatalog.isActive, true),
+      orderBy: (rewardCatalog: any, { desc }: any) => [desc(rewardCatalog.updatedAt)],
+    });
+  }
+
+
+  async syncRewardCatalogFromLegacy() {
+    const conn = await requireDb();
+    const result = { titles: 0, avatars: 0 };
+
+    const titleTable = await conn.execute(
+      drizzleSql`SELECT to_regclass('public.reward_title_catalog') AS "tableName"`
+    );
+    if (titleTable[0]?.tableName) {
+      const rows = await conn.execute(drizzleSql`SELECT * FROM reward_title_catalog`);
+      for (const row of rows) {
+        const raw = row?.raw && typeof row.raw === 'object' ? row.raw : {};
+        const itemId = String(row?.title_id || row?.item_id || row?.id || raw.id || '').trim();
+        if (!itemId) continue;
+        const name = String(row?.label || row?.title || row?.name || raw.label || raw.title || itemId);
+        const rarity = String(row?.rarity || raw.rarity || 'common');
+        const description = row?.description || raw.description || null;
+        await conn.insert(schema.rewardCatalog).values({
+          itemId,
+          type: 'title',
+          name,
+          rarity,
+          source: 'legacy_import',
+          description,
+          icon: row?.icon || raw.icon || null,
+          meta: raw,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }).onConflictDoNothing();
+        result.titles += 1;
+      }
+    }
+
+    const avatarTable = await conn.execute(
+      drizzleSql`SELECT to_regclass('public.reward_avatar_catalog') AS "tableName"`
+    );
+    if (avatarTable[0]?.tableName) {
+      const rows = await conn.execute(drizzleSql`SELECT * FROM reward_avatar_catalog`);
+      for (const row of rows) {
+        const raw = row?.raw && typeof row.raw === 'object' ? row.raw : {};
+        const itemId = String(row?.avatar_id || row?.item_id || row?.id || raw.id || '').trim();
+        if (!itemId) continue;
+        const name = String(row?.label || row?.title || row?.name || raw.label || raw.title || itemId);
+        const rarity = String(row?.rarity || raw.rarity || 'common');
+        const description = row?.description || raw.description || null;
+        await conn.insert(schema.rewardCatalog).values({
+          itemId,
+          type: 'avatar',
+          name,
+          rarity,
+          source: 'legacy_import',
+          description,
+          icon: row?.url || row?.icon || raw.url || raw.icon || null,
+          meta: raw,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }).onConflictDoNothing();
+        result.avatars += 1;
+      }
+    }
+
+    return result;
+  }
+  async ensureRewardCatalogSeed(items: any[]) {
+    if (!Array.isArray(items) || items.length === 0) return;
+    const conn = await requireDb();
+    for (const item of items) {
+      await conn.insert(schema.rewardCatalog).values({
+        itemId: item.itemId,
+        type: item.type,
+        name: item.name,
+        rarity: item.rarity || 'common',
+        source: item.source || 'system',
+        description: item.description || null,
+        icon: item.icon || null,
+        price: item.price || null,
+        meta: item.meta || {},
+        isActive: item.isActive ?? true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: schema.rewardCatalog.itemId,
+        set: {
+          type: item.type,
+          name: item.name,
+          rarity: item.rarity || 'common',
+          source: item.source || 'system',
+          description: item.description || null,
+          icon: item.icon || null,
+          price: item.price || null,
+          meta: item.meta || {},
+          isActive: item.isActive ?? true,
+          updatedAt: new Date(),
+        }
+      });
+    }
+  }
 }
 
 export class GameRepository implements IGameRepository {
@@ -609,7 +729,46 @@ export class OpsRepository implements IOpsRepository {
 export class StatsRepository implements IStatsRepository {
   async getLeaderboard(type: "total_bet" | "balance") {
     const conn = await requireDb();
-    return await conn.query.users.findMany({ limit: 10 });
+    const orderExpr = type === "balance"
+      ? drizzleSql`COALESCE(wa.balance::numeric, 0)`
+      : drizzleSql`COALESCE(SUM(gs.bet_amount::numeric), 0)`;
+
+    const rows = await conn.execute(
+      drizzleSql`
+        SELECT
+          u.id,
+          u.address,
+          u.display_name AS "displayName",
+          COALESCE(SUM(gs.bet_amount::numeric), 0) AS "totalBet",
+          COALESCE(MAX(wa.balance::numeric), 0) AS "balance"
+        FROM users u
+        LEFT JOIN game_settlements gs ON gs.user_id = u.id
+        LEFT JOIN wallet_accounts wa ON wa.user_id = u.id AND wa.token = 'zhixi'
+        GROUP BY u.id, u.address, u.display_name
+        ORDER BY ${orderExpr} DESC
+        LIMIT 100
+      `
+    );
+
+    return rows.slice(0, 10);
+  }
+
+  async getLeaderboardSettlementHistory(limit = 20) {
+    const conn = await requireDb();
+    const tableExists = await conn.execute(
+      drizzleSql`SELECT to_regclass('public.leaderboard_settlement') AS "tableName"`
+    );
+    if (!tableExists[0]?.tableName) return [];
+
+    const rows = await conn.execute(
+      drizzleSql`
+        SELECT id, raw
+        FROM leaderboard_settlement
+        ORDER BY id DESC
+        LIMIT ${limit}
+      `
+    );
+    return rows.map((row: any) => ({ id: row.id, raw: row.raw }));
   }
 }
 

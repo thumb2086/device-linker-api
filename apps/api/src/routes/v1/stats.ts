@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { StatsRepository, kv } from "@repo/infrastructure";
+import { StatsRepository } from "@repo/infrastructure";
 
 export async function statsRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -15,12 +15,23 @@ export async function statsRoutes(fastify: FastifyInstance) {
   }, async (request) => {
     const { type } = request.query;
     try {
-      const cacheKey = `stats:leaderboard:${type}`;
-      const cached = await kv.get<any[]>(cacheKey);
-      if (cached) return createApiEnvelope({ leaderboard: cached }, request.id);
       const leaderboard = await statsRepo.getLeaderboard(type);
-      await kv.set(cacheKey, leaderboard, { ex: 300 });
       return createApiEnvelope({ leaderboard }, request.id);
+    } catch (e: any) {
+      return createApiEnvelope(null, request.id, false, e.message);
+    }
+  });
+
+
+  typedFastify.get("/leaderboard/history", {
+    schema: {
+      querystring: z.object({ limit: z.coerce.number().int().min(1).max(100).optional().default(20) }),
+    },
+  }, async (request) => {
+    const { limit } = request.query;
+    try {
+      const history = await statsRepo.getLeaderboardSettlementHistory(limit);
+      return createApiEnvelope({ history }, request.id);
     } catch (e: any) {
       return createApiEnvelope(null, request.id, false, e.message);
     }
@@ -28,7 +39,7 @@ export async function statsRoutes(fastify: FastifyInstance) {
 
   typedFastify.get("/health", async (request) => {
     try {
-      const stats = await kv.get(`platform:stats:24h`) || { successRate: 99.9, latency: 45 };
+      const stats = { successRate: 99.9, latency: 45 };
       return createApiEnvelope({ stats }, request.id);
     } catch (e: any) {
       return createApiEnvelope(null, request.id, false, e.message);

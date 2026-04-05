@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Package, Sparkles, Crown, Sword, Heart, Zap, Gift, Search } from 'lucide-react';
-import { api } from '../../store/api';
+import { api } from '../../../store/api';
 
 interface CatalogItem {
   id: string;

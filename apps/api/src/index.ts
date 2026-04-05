@@ -16,6 +16,7 @@ import { legacyRoutes } from "./routes/legacy/index.js";
 // Phase 3: New routes
 import { leaderboardRoutes } from "./routes/v1/leaderboard.js";
 import { vipRoutes } from "./routes/v1/vip.js";
+import { danmakuRoutes } from "./routes/v1/danmaku.js";
 // Phase 3: 12 Game routes
 import { slotsRoutes } from "./routes/v1/games/slots.js";
 import { coinflipRoutes } from "./routes/v1/games/coinflip.js";
@@ -199,6 +200,7 @@ fastify.register(transactionRoutes, { prefix: "/api/v1/transactions" });
 // Phase 3: New routes
 fastify.register(leaderboardRoutes, { prefix: "/api/v1/leaderboard" });
 fastify.register(vipRoutes, { prefix: "/api/v1/vip" });
+fastify.register(danmakuRoutes, { prefix: "/api/v1/danmaku" });
 // Phase 3: 12 Game routes
 fastify.register(slotsRoutes, { prefix: "/api/v1/games/slots" });
 fastify.register(coinflipRoutes, { prefix: "/api/v1/games/coinflip" });

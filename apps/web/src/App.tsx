@@ -21,6 +21,9 @@ import PublicTransactionsView from './features/transactions/PublicTransactionsVi
 import SoundPlayer from './components/SoundPlayer';
 import { useSyncUser } from './hooks/useSyncUser';
 import Layout from './components/Layout';
+import VIPLevelsView from './features/info/VIPLevelsView';
+import OddsView from './features/info/OddsView';
+import ItemsCatalogView from './features/info/ItemsCatalogView';
 
 const queryClient = new QueryClient();
 
@@ -55,6 +58,9 @@ function AppContent() {
             <Route path="settings" element={<SettingsView />} />
             <Route path="transactions" element={<PublicTransactionsView />} />
             <Route path="health" element={<HealthView />} />
+            <Route path="info/vip-levels" element={<VIPLevelsView />} />
+            <Route path="info/odds" element={<OddsView />} />
+            <Route path="info/items" element={<ItemsCatalogView />} />
           </Route>
         )}
         {isAuthorized && !needsProfileSetup && (

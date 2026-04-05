@@ -316,6 +316,46 @@ const ensureCoreSchema = async () => {
           )
         `;
         await sql`
+          CREATE TABLE IF NOT EXISTS announcements (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            announcement_id TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            is_pinned BOOLEAN DEFAULT FALSE,
+            is_active BOOLEAN DEFAULT TRUE,
+            published_by TEXT,
+            updated_by TEXT,
+            published_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`
+          CREATE TABLE IF NOT EXISTS total_bets (
+            period_type TEXT NOT NULL,
+            period_id TEXT NOT NULL,
+            address TEXT NOT NULL,
+            amount BIGINT DEFAULT 0,
+            PRIMARY KEY (period_type, period_id, address)
+          )
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS total_bets_address_idx ON total_bets (address)`;
+        await sql`
+          CREATE TABLE IF NOT EXISTS leaderboard_kings (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            category TEXT NOT NULL,
+            user_id UUID NOT NULL REFERENCES users(id),
+            address TEXT NOT NULL,
+            display_name TEXT,
+            win_count INTEGER NOT NULL DEFAULT 0,
+            last_win_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            period_id TEXT
+          )
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS leaderboard_kings_category_user_idx ON leaderboard_kings (category, user_id)`;
+        await sql`CREATE INDEX IF NOT EXISTS leaderboard_kings_address_idx ON leaderboard_kings (address)`;
+        await sql`
           CREATE TABLE IF NOT EXISTS kv_store (
             key TEXT PRIMARY KEY,
             value JSONB NOT NULL,

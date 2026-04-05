@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Bell,
+  Crown,
+  Dice5,
   History,
   LayoutGrid,
   Megaphone,
+  Package,
   Settings as SettingsIcon,
-  ShieldCheck,
   Trophy,
   TrendingUp,
   Wallet as WalletIcon,
@@ -98,6 +100,12 @@ export default function LobbyView() {
     authorizedOnly: '\u9650\u6388\u6b0a\u64cd\u4f5c',
     adminSummary: '\u7cfb\u7d71\u8a2d\u5b9a\u8207\u7ba1\u7406\u5de5\u5177',
     systemSecure: '\u7cfb\u7d71\u5b89\u5168',
+    vipLevels: 'VIP \u7b49\u7d1a\u8aaa\u660e',
+    vipSubtitle: '\u7b49\u7d1a\u7279\u6b0a\u4e00\u89bd',
+    gameOdds: '\u904a\u6232\u6a5f\u7387',
+    oddsSubtitle: 'RTP \u8207\u516c\u5e73\u6027\u8aaa\u660e',
+    itemsCatalog: '\u7269\u54c1\u5716\u9451',
+    itemsSubtitle: '\u9053\u5177\u7a00\u6709\u5ea6\u8aaa\u660e',
   };
 
   return (
@@ -229,10 +237,10 @@ export default function LobbyView() {
             </div>
           </GlassCard>
           <GlassCard
-            to="/app/vip"
-            icon={ShieldCheck}
-            title={isZh ? zh.vipProtocol : 'VIP Protocol'}
-            subtitle={isZh ? zh.eliteRank : 'Elite Rank'}
+            to="/app/info/vip-levels"
+            icon={Crown}
+            title={isZh ? zh.vipLevels : 'VIP Levels'}
+            subtitle={isZh ? zh.vipSubtitle : 'Tier Benefits Overview'}
           >
             <div className="mt-2 inline-block rounded border border-[#fcc025]/20 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[#fcc025]">
               {isZh ? zh.tierActive : 'Tier 4 Active'}
@@ -240,6 +248,38 @@ export default function LobbyView() {
             <p className="mt-3 text-[11px] font-bold uppercase tracking-tight text-[#adaaaa]">
               {isZh ? zh.multiplier : '1.5x Multiplier Enabled'}
             </p>
+          </GlassCard>
+          <GlassCard
+            to="/app/info/odds"
+            icon={Dice5}
+            title={isZh ? zh.gameOdds : 'Game Odds'}
+            subtitle={isZh ? zh.oddsSubtitle : 'RTP & Fairness Info'}
+          >
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-tight text-[#adaaaa]">
+              {isZh ? '查看各遊戲 RTP 與機率' : 'View game RTP and odds'}
+            </p>
+            <div className="mt-4 flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+                {isZh ? '公平遊戲保證' : 'Fair Game Guaranteed'}
+              </span>
+            </div>
+          </GlassCard>
+          <GlassCard
+            to="/app/info/items"
+            icon={Package}
+            title={isZh ? zh.itemsCatalog : 'Items Catalog'}
+            subtitle={isZh ? zh.itemsSubtitle : 'Item Rarity Guide'}
+          >
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-tight text-[#adaaaa]">
+              {isZh ? '探索所有可收集物品' : 'Explore all collectibles'}
+            </p>
+            <div className="mt-4 flex items-center gap-2">
+              <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400">
+                {isZh ? '頭像、稱號與道具' : 'Avatars, Titles & Items'}
+              </span>
+            </div>
           </GlassCard>
           <GlassCard
             to="/app/admin"

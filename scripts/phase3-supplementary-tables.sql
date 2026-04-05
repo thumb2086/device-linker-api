@@ -87,13 +87,7 @@ CREATE TABLE IF NOT EXISTS total_bets (
 );
 CREATE INDEX IF NOT EXISTS total_bets_address_idx ON total_bets(address);
 
--- 7. leaderboard_settlement — 歷史榜王結算
-CREATE TABLE IF NOT EXISTS leaderboard_settlement (
-  id TEXT PRIMARY KEY,
-  raw JSONB
-);
-
--- 8. announcements — 公告
+-- 7. announcements — 公告
 CREATE TABLE IF NOT EXISTS announcements (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -104,7 +98,7 @@ CREATE TABLE IF NOT EXISTS announcements (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 9. reward_title_catalog — 稱號目錄
+-- 8. reward_title_catalog — 稱號目錄
 CREATE TABLE IF NOT EXISTS reward_title_catalog (
   id TEXT PRIMARY KEY,
   name TEXT,
@@ -189,7 +183,7 @@ CREATE TABLE IF NOT EXISTS market_portfolios (
   raw JSONB
 );
 
--- 16. issue_reports — 問題回報
+-- 15. issue_reports — 問題回報
 CREATE TABLE IF NOT EXISTS issue_reports (
   id TEXT PRIMARY KEY,
   address TEXT,
@@ -203,7 +197,7 @@ CREATE TABLE IF NOT EXISTS issue_reports (
   raw JSONB
 );
 
--- 17. ops_events — 運營事件 log
+-- 16. ops_events — 運營事件 log
 CREATE TABLE IF NOT EXISTS ops_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   channel TEXT NOT NULL,
@@ -229,26 +223,7 @@ CREATE TABLE IF NOT EXISTS ops_events (
 -- Phase 3 補充表格 / Phase 3 Supplementary Tables
 -- =============================================
 
--- 18. leaderboards — 即時排行榜快照 / Real-time Leaderboard Snapshots
-CREATE TABLE IF NOT EXISTS leaderboards (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  period TEXT NOT NULL,                    -- daily, weekly, season, asset
-  user_id UUID NOT NULL REFERENCES users(id),
-  address TEXT NOT NULL,
-  display_name TEXT,
-  rank INTEGER NOT NULL,
-  score NUMERIC NOT NULL,
-  period_id TEXT,
-  meta JSONB,
-  snapshot_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_leaderboards_period ON leaderboards(period);
-CREATE INDEX IF NOT EXISTS idx_leaderboards_user_id ON leaderboards(user_id);
-CREATE INDEX IF NOT EXISTS idx_leaderboards_rank ON leaderboards(rank);
-CREATE INDEX IF NOT EXISTS idx_leaderboards_snapshot ON leaderboards(snapshot_at);
-
--- 19. leaderboard_kings — 榜王統計 / Leaderboard Kings Statistics
+-- 17. leaderboard_kings — 榜王統計 / Leaderboard Kings Statistics
 CREATE TABLE IF NOT EXISTS leaderboard_kings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category TEXT NOT NULL,                  -- weekly, monthly, season
@@ -263,14 +238,3 @@ CREATE TABLE IF NOT EXISTS leaderboard_kings (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_king_category_user 
   ON leaderboard_kings(category, user_id);
-
--- 20. reward_profiles — 獨立獎勵庫存表 / Standalone Reward Inventory
-CREATE TABLE IF NOT EXISTS reward_profiles (
-  address TEXT PRIMARY KEY,
-  inventory JSONB DEFAULT '{}',
-  owned_avatars JSONB DEFAULT '[]',
-  owned_titles JSONB DEFAULT '[]',
-  active_buffs JSONB DEFAULT '[]',
-  raw JSONB,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);

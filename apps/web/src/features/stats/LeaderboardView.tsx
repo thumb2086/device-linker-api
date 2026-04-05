@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Crown, Timer, Trophy, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
@@ -86,7 +86,7 @@ export default function LeaderboardView() {
     const self = data.selfRank || entries.find(e => e.address.toLowerCase() === address?.toLowerCase());
 
     return {
-      topThree: top3.map((e, i) => ({
+      topThree: top3.map((e) => ({
         rank: e.rank,
         name: getDisplayName(e),
         winnings: e.amount,

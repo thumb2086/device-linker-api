@@ -1,59 +1,10 @@
-import React from 'react';
 import { Calculator, ChevronLeft, Crown, Package, Sparkles } from 'lucide-react';
 import AppBottomNav from '../components/AppBottomNav';
 import ItemsTab from '../features/info/tabs/ItemsTab';
 import OddsTab from '../features/info/tabs/OddsTab';
 import VIPTab from '../features/info/tabs/VIPTab';
 
-interface InfoCard {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-  status: string;
-  statusColor: string;
-  tabId: 'items' | 'odds' | 'vip';
-}
-
 export default function UnifiedInfoView() {
-  const [activeTab, setActiveTab] = React.useState<'items' | 'odds' | 'vip'>('items');
-
-  const infoCards: InfoCard[] = [
-    {
-      id: 'vip',
-      title: 'VIP 等級說明',
-      subtitle: '等級特權一覽',
-      icon: Crown,
-      description: '查看 VIP 等級相關的特權與福利',
-      status: '等階 4 啟用中',
-      statusColor: 'text-[#fcc025]',
-      tabId: 'vip'
-    },
-    {
-      id: 'odds',
-      title: '遊戲機率',
-      subtitle: 'RTP 與公平性說明',
-      icon: Calculator,
-      description: '查看各遊戲 RTP 與派彩規則',
-      status: '公平遊戲保證',
-      statusColor: 'text-emerald-400',
-      tabId: 'odds'
-    },
-    {
-      id: 'items',
-      title: '物品圖鑑',
-      subtitle: '道具稀有度說明',
-      icon: Package,
-      description: '探索所有收藏品與稱號',
-      status: '頭像、稱號與道具',
-      statusColor: 'text-purple-400',
-      tabId: 'items'
-    }
-  ];
-
-  const activeCard = infoCards.find(card => card.tabId === activeTab);
-
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
@@ -65,76 +16,86 @@ export default function UnifiedInfoView() {
             <Sparkles className="text-[#fcc025]" />
             <div>
               <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">說明中心</h1>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">
-                {activeCard?.title || '說明中心'}
-              </p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">綜合指南</p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-6 pt-20">
-        {/* Info Cards Grid */}
-        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {infoCards.map((card) => {
-            const Icon = card.icon;
-            const isActive = card.tabId === activeTab;
-            
-            return (
-              <button
-                key={card.id}
-                onClick={() => setActiveTab(card.tabId)}
-                className={`relative overflow-hidden rounded-xl border p-6 transition-all hover:shadow-[0_0_20px_rgba(252,192,37,0.1)] active:scale-95 ${
-                  isActive 
-                    ? 'border-[#fcc025]/40 bg-[#1a1919]' 
-                    : 'border-[#494847]/20 bg-[#1a1919] hover:bg-[#262626]'
-                }`}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity hover:opacity-10" 
-                     style={{
-                       backgroundImage: `linear-gradient(135deg, ${
-                         card.tabId === 'vip' ? 'rgba(252,192,37,0.2)' :
-                         card.tabId === 'odds' ? 'rgba(34,197,94,0.2)' :
-                         'rgba(168,85,247,0.2)'
-                       } 0%, transparent 100%)`
-                     }} 
-                />
-                
-                <div className="relative z-10">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-[#494847]/20 bg-[#262626] transition-colors">
-                    <Icon className="h-6 w-6 text-[#fcc025]" />
-                  </div>
-                  
-                  <h3 className="mb-2 text-lg font-bold uppercase tracking-tight text-white">
-                    {card.title}
-                  </h3>
-                  
-                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
-                    {card.subtitle}
-                  </p>
-                  
-                  <p className="mb-4 text-[11px] font-bold uppercase tracking-tight text-[#adaaaa]">
-                    {card.description}
-                  </p>
-                  
-                  <div className="flex items-center gap-2">
-                    <div className="h-1 w-1 animate-pulse rounded-full bg-current" />
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${card.statusColor}`}>
-                      {card.status}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+      <main className="mx-auto max-w-2xl px-6 pt-20 space-y-8">
+        {/* VIP 等級說明區塊 */}
+        <section className="relative overflow-hidden rounded-2xl border border-[#fcc025]/20 bg-gradient-to-br from-[#1a1919] to-[#0e0e0e] p-6 shadow-2xl">
+          <div className="absolute right-0 top-0 h-32 w-32 translate-x-1/2 -translate-y-1/2 rounded-full bg-[#fcc025]/5 blur-[50px]" />
+          
+          <div className="relative z-10 mb-6 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-[#fcc025]/30 bg-[#262626]">
+              <Crown className="h-6 w-6 text-[#fcc025]" />
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold uppercase tracking-tight text-[#fcc025]">VIP 等級說明</h2>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">等級特權一覽</p>
+            </div>
+            <div className="ml-auto">
+              <span className="inline-block rounded border border-[#fcc025]/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#fcc025]">
+                等階 4 啟用中
+              </span>
+            </div>
+          </div>
+          
+          <div className="relative z-10">
+            <VIPTab />
+          </div>
+        </section>
 
-        {/* Tab Content */}
-        <div className="min-h-[500px]">
-          {activeTab === 'items' && <ItemsTab />}
-          {activeTab === 'odds' && <OddsTab />}
-          {activeTab === 'vip' && <VIPTab />}
-        </div>
+        {/* 遊戲機率區塊 */}
+        <section className="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-[#1a1919] to-[#0e0e0e] p-6 shadow-2xl">
+          <div className="absolute right-0 top-0 h-32 w-32 translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/5 blur-[50px]" />
+          
+          <div className="relative z-10 mb-6 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-emerald-400/30 bg-[#262626]">
+              <Calculator className="h-6 w-6 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold uppercase tracking-tight text-emerald-400">遊戲機率</h2>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">RTP 與公平性說明</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+                公平遊戲保證
+              </span>
+            </div>
+          </div>
+          
+          <div className="relative z-10">
+            <OddsTab />
+          </div>
+        </section>
+
+        {/* 物品圖鑑區塊 */}
+        <section className="relative overflow-hidden rounded-2xl border border-purple-400/20 bg-gradient-to-br from-[#1a1919] to-[#0e0e0e] p-6 shadow-2xl">
+          <div className="absolute right-0 top-0 h-32 w-32 translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-400/5 blur-[50px]" />
+          
+          <div className="relative z-10 mb-6 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-purple-400/30 bg-[#262626]">
+              <Package className="h-6 w-6 text-purple-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold uppercase tracking-tight text-purple-400">物品圖鑑</h2>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">道具稀有度說明</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="h-2 w-2 animate-pulse rounded-full bg-purple-400" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400">
+                頭像、稱號與道具
+              </span>
+            </div>
+          </div>
+          
+          <div className="relative z-10">
+            <ItemsTab />
+          </div>
+        </section>
       </main>
 
       <AppBottomNav current="none" />

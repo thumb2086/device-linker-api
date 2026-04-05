@@ -56,6 +56,9 @@ export default function SoundPlayer() {
   }, [masterVolume, bgmEnabled, bgmVolume, sfxEnabled, sfxVolume, setPreferences]);
 
   useEffect(() => {
+    // Don't play BGM if not authorized
+    if (!isAuthorized) return;
+
     const path = location.pathname.toLowerCase();
     let track = 'lobby';
 
@@ -71,7 +74,7 @@ export default function SoundPlayer() {
     }
 
     playBGM(track);
-  }, [location.pathname, playBGM]);
+  }, [location.pathname, playBGM, isAuthorized]);
 
   return null;
 }

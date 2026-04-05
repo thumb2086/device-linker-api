@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePreferencesStore } from '../store/usePreferencesStore';
@@ -66,7 +66,8 @@ export default function SoundPlayer() {
     } else if (path.startsWith('/app')) {
       track = 'lobby';
     } else if (path.includes('/login')) {
-      track = 'lobby';
+      // No music on login page
+      return;
     }
 
     playBGM(track);

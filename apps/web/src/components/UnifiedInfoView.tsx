@@ -33,11 +33,11 @@ export default function UnifiedInfoView() {
             </div>
             <div>
               <h2 className="text-xl font-extrabold uppercase tracking-tight text-[#fcc025]">VIP 等級系統</h2>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">6 個等級 · 專屬特權 · 累積解鎖</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">32 個等級 · 專屬特權 · 累積解鎖</p>
             </div>
             <div className="ml-auto">
               <span className="inline-block rounded border border-[#fcc025]/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#fcc025]">
-                6 階等級
+                32 階等級
               </span>
             </div>
           </div>

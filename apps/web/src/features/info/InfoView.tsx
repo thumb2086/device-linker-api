@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ChevronLeft, Package, Calculator, Crown, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Calculator, ChevronLeft, Crown, Package, Sparkles } from 'lucide-react';
 import AppBottomNav from '../../components/AppBottomNav';
 import ItemsTab from './tabs/ItemsTab';
 import OddsTab from './tabs/OddsTab';
@@ -16,20 +16,29 @@ const TABS = [
 
 export default function InfoView() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>('items');
 
-  // Read tab from URL query params on mount
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get('tab');
-    if (tabParam && ['items', 'odds', 'vip'].includes(tabParam)) {
-      setActiveTab(tabParam as TabId);
+    if (tabParam === 'items' || tabParam === 'odds' || tabParam === 'vip') {
+      setActiveTab(tabParam);
     }
   }, [location.search]);
 
+  const activeLabel = useMemo(
+    () => TABS.find((tab) => tab.id === activeTab)?.label ?? '說明中心',
+    [activeTab],
+  );
+
+  const handleTabChange = (tabId: TabId) => {
+    setActiveTab(tabId);
+    navigate(`/app/info?tab=${tabId}`, { replace: location.search.length > 0 });
+  };
+
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
-      {/* Header */}
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
@@ -37,36 +46,35 @@ export default function InfoView() {
               <ChevronLeft size={24} />
             </Link>
             <Sparkles className="text-[#fcc025]" />
-            <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">
-              說明中心
-            </h1>
+            <div>
+              <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">說明中心</h1>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">{activeLabel}</p>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-6 pt-20">
-        {/* Tab Navigation */}
         <div className="mb-6 flex gap-2">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3 transition-all ${
                   activeTab === tab.id
                     ? 'bg-[#fcc025] text-black'
-                    : 'bg-[#1a1919] text-[#adaaaa] border border-[#494847]/20'
+                    : 'border border-[#494847]/20 bg-[#1a1919] text-[#adaaaa]'
                 }`}
               >
                 <Icon size={18} />
-                <span className="text-xs font-black uppercase tracking-wide">{tab.label}</span>
+                <span className="text-xs font-black tracking-wide">{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Tab Content */}
         <div className="min-h-[500px]">
           {activeTab === 'items' && <ItemsTab />}
           {activeTab === 'odds' && <OddsTab />}

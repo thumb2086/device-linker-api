@@ -71,41 +71,41 @@ export default function LobbyView() {
   });
 
   const zh = {
-    title: '\u5b50\u7199\u6a21\u64ec\u5668',
-    operatorIdentified: '\u64cd\u4f5c\u54e1\u5df2\u8b58\u5225',
-    anonymous: '\u533f\u540d\u64cd\u4f5c\u54e1',
-    encryptionActive: '\u52a0\u5bc6\u5df2\u555f\u7528\uff1aAES-256',
-    totalAssets: '\u7e3d\u8cc7\u7522',
-    casinoFloor: '\u5a1b\u6a02\u5927\u5ef3',
-    activeSimulation: '\u6d3b\u8e8d\u6a21\u64ec',
-    marketTerminal: '\u5e02\u5834\u7d42\u7aef',
-    liveFeed: '\u5373\u6642\u8d70\u52e2',
-    announcements: '\u516c\u544a\u4e2d\u5fc3',
-    newAlerts: '3 \u5247\u65b0\u901a\u77e5',
-    rankings: '\u6392\u884c\u699c',
-    globalSector: '\u5168\u57df\u6392\u540d',
-    wallet: '\u9322\u5305',
-    secured: '\u5df2\u4fdd\u8b77',
-    activity: '\u6700\u65b0\u52d5\u614b',
-    recentTraces: '\u6700\u65b0\u8ffd\u8e64',
-    withdrawalSuccess: '\u63d0\u9818\u5df2\u6210\u529f',
-    loginDetected: '\u5075\u6e2c\u5230\u65b0\u767b\u5165\uff1a192.168.1.1',
-    inventory: '\u80cc\u5305',
-    items: '14 \u9805\u7269\u54c1',
-    vipProtocol: 'VIP \u6a5f\u5236',
-    eliteRank: '\u83c1\u82f1\u7b49\u7d1a',
-    tierActive: '\u7b49\u968e 4 \u555f\u7528\u4e2d',
-    multiplier: '1.5x \u500d\u7387\u52a0\u6210\u751f\u6548\u4e2d',
-    adminOverride: '\u7ba1\u7406\u4e2d\u5fc3',
-    authorizedOnly: '\u9650\u6388\u6b0a\u64cd\u4f5c',
-    adminSummary: '\u7cfb\u7d71\u8a2d\u5b9a\u8207\u7ba1\u7406\u5de5\u5177',
-    systemSecure: '\u7cfb\u7d71\u5b89\u5168',
-    vipLevels: 'VIP \u7b49\u7d1a\u8aaa\u660e',
-    vipSubtitle: '\u7b49\u7d1a\u7279\u6b0a\u4e00\u89bd',
-    gameOdds: '\u904a\u6232\u6a5f\u7387',
-    oddsSubtitle: 'RTP \u8207\u516c\u5e73\u6027\u8aaa\u660e',
-    itemsCatalog: '\u7269\u54c1\u5716\u9451',
-    itemsSubtitle: '\u9053\u5177\u7a00\u6709\u5ea6\u8aaa\u660e',
+    title: '子熙模擬器',
+    operatorIdentified: '操作者已識別',
+    anonymous: '匿名操作者',
+    encryptionActive: '加密已啟用：AES-256',
+    totalAssets: '總資產',
+    casinoFloor: '娛樂大廳',
+    activeSimulation: '活躍模擬',
+    marketTerminal: '市場終端',
+    liveFeed: '即時走勢',
+    announcements: '公告中心',
+    newAlerts: '3 則新通知',
+    rankings: '排行榜',
+    globalSector: '全域排名',
+    wallet: '錢包',
+    secured: '已保護',
+    activity: '最新動態',
+    recentTraces: '最新追蹤',
+    withdrawalSuccess: '提領已成功',
+    loginDetected: '偵測到新登入：192.168.1.1',
+    inventory: '背包',
+    items: '14 項物品',
+    vipProtocol: 'VIP 機制',
+    eliteRank: '菁英等級',
+    tierActive: '等階 4 啟用中',
+    multiplier: '1.5x 倍率加成生效中',
+    adminOverride: '管理中心',
+    authorizedOnly: '限授權操作',
+    adminSummary: '系統設定與管理工具',
+    systemSecure: '系統安全',
+    vipLevels: 'VIP 等級說明',
+    vipSubtitle: '等級特權一覽',
+    gameOdds: '遊戲機率',
+    oddsSubtitle: 'RTP 與公平性說明',
+    itemsCatalog: '物品圖鑑',
+    itemsSubtitle: '道具稀有度說明',
   };
 
   return (
@@ -146,7 +146,7 @@ export default function LobbyView() {
                 {username || (address ? address.slice(0, 8) : isZh ? zh.anonymous : 'ANONYMOUS')}
               </h2>
               <div className="mt-2 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#fcc025] animate-pulse" />
+                <span className="h-2 w-2 animate-pulse rounded-full bg-[#fcc025]" />
                 <span className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
                   {isZh ? zh.encryptionActive : 'Encryption Active: AES-256'}
                 </span>
@@ -256,10 +256,10 @@ export default function LobbyView() {
             subtitle={isZh ? zh.oddsSubtitle : 'RTP & Fairness Info'}
           >
             <p className="mt-2 text-[11px] font-bold uppercase tracking-tight text-[#adaaaa]">
-              {isZh ? '查看各遊戲 RTP 與機率' : 'View game RTP and odds'}
+              {isZh ? '查看各遊戲 RTP 與派彩規則' : 'View game RTP and odds'}
             </p>
             <div className="mt-4 flex items-center gap-2">
-              <div className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="h-1 w-1 animate-pulse rounded-full bg-emerald-400" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
                 {isZh ? '公平遊戲保證' : 'Fair Game Guaranteed'}
               </span>
@@ -272,10 +272,10 @@ export default function LobbyView() {
             subtitle={isZh ? zh.itemsSubtitle : 'Item Rarity Guide'}
           >
             <p className="mt-2 text-[11px] font-bold uppercase tracking-tight text-[#adaaaa]">
-              {isZh ? '探索所有可收集物品' : 'Explore all collectibles'}
+              {isZh ? '探索所有收藏品與稱號' : 'Explore all collectibles'}
             </p>
             <div className="mt-4 flex items-center gap-2">
-              <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse" />
+              <div className="h-1 w-1 animate-pulse rounded-full bg-purple-400" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400">
                 {isZh ? '頭像、稱號與道具' : 'Avatars, Titles & Items'}
               </span>
@@ -291,7 +291,7 @@ export default function LobbyView() {
               {isZh ? zh.adminSummary : 'System configuration and operator tools.'}
             </p>
             <div className="mt-4 flex items-center gap-2">
-              <div className="h-1 w-1 rounded-full bg-[#fcc025] animate-pulse" />
+              <div className="h-1 w-1 animate-pulse rounded-full bg-[#fcc025]" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#fcc025]">
                 {isZh ? zh.systemSecure : 'System Secure'}
               </span>

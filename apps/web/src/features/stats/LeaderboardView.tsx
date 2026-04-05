@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react';
-import { Crown, Timer, Trophy, Loader2 } from 'lucide-react';
+import { Crown, Timer, Trophy, Loader2, Target, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
 import { useUserStore } from '../../store/useUserStore';
 import { useLeaderboard, type LeaderboardType } from '../../hooks/useLeaderboard';
 import AppBottomNav from '../../components/AppBottomNav';
+
+type LeaderboardCategory = 'winnings' | 'betting' | 'asset';
 
 const FILTER_MAP: Record<string, LeaderboardType> = {
   'WEEKLY': 'week',
@@ -68,9 +70,15 @@ const getTimeRemaining = (type: LeaderboardType): string => {
 export default function LeaderboardView() {
   const { t } = useTranslation();
   const { address } = useUserStore();
+  const [category, setCategory] = useState<LeaderboardCategory>('winnings');
   const [filter, setFilter] = useState('WEEKLY');
 
-  const currentType = FILTER_MAP[filter];
+  // Determine the actual API type based on category and filter
+  const currentType: LeaderboardType = useMemo(() => {
+    if (category === 'asset') return 'asset';
+    return FILTER_MAP[filter];
+  }, [category, filter]);
+
   const { data, isLoading, error } = useLeaderboard(currentType, 50);
 
   // Get top 3 and other players from real data
@@ -114,6 +122,14 @@ export default function LeaderboardView() {
 
   const timeRemaining = useMemo(() => getTimeRemaining(currentType), [currentType]);
 
+  const showTimeRemaining = category !== 'asset' && currentType !== 'all';
+
+  const categoryTabs = [
+    { id: 'winnings' as LeaderboardCategory, icon: Trophy, label: t('leaderboard.tabs.winnings') },
+    { id: 'betting' as LeaderboardCategory, icon: Target, label: t('leaderboard.tabs.betting') },
+    { id: 'asset' as LeaderboardCategory, icon: Wallet, label: t('leaderboard.tabs.asset') },
+  ];
+
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
@@ -147,15 +163,36 @@ export default function LeaderboardView() {
         {/* Data Loaded */}
         {!isLoading && !error && (
           <>
+            {/* Category Tabs */}
+            <section className="flex gap-2">
+              {categoryTabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setCategory(tab.id)}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3 transition-all ${
+                      category === tab.id
+                        ? 'bg-[#fcc025] text-black'
+                        : 'bg-[#1a1919] text-[#adaaaa] border border-[#494847]/20'
+                    }`}
+                  >
+                    <Icon size={16} />
+                    <span className="text-xs font-black">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </section>
+
             <section className="flex flex-col items-center justify-center space-y-2">
               <div className="flex items-center gap-2 text-[#fcc025] opacity-60">
                 <Timer size={14} />
                 <span className="text-[9px] font-bold uppercase tracking-[0.2em]">
-                  {currentType === 'all' ? t('leaderboard.all_time') : t('leaderboard.time_remaining')}
+                  {showTimeRemaining ? t('leaderboard.time_remaining') : t('leaderboard.all_time')}
                 </span>
               </div>
               <div className="text-3xl font-black italic tracking-tighter text-white shadow-[0_0_30px_rgba(252,192,37,0.1)]">
-                {currentType === 'all' ? '∞' : timeRemaining}
+                {showTimeRemaining ? timeRemaining : '∞'}
               </div>
             </section>
 
@@ -223,21 +260,23 @@ export default function LeaderboardView() {
               )}
             </section>
 
-            {/* Filter Tabs */}
-            <div className="flex rounded-xl border border-[#494847]/20 bg-[#1a1919] p-1.5 overflow-x-auto">
-              {FILTER_LABELS.map((entry) => (
-                <button
-                  key={entry}
-                  type="button"
-                  onClick={() => setFilter(entry)}
-                  className={`flex-1 rounded-lg py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap px-2 ${
-                    filter === entry ? 'bg-[#fcc025] text-black shadow-lg' : 'text-[#adaaaa] hover:text-white'
-                  }`}
-                >
-                  {entry}
-                </button>
-              ))}
-            </div>
+            {/* Filter Tabs - Only show for non-asset categories */}
+            {category !== 'asset' && (
+              <div className="flex rounded-xl border border-[#494847]/20 bg-[#1a1919] p-1.5 overflow-x-auto">
+                {FILTER_LABELS.map((entry) => (
+                  <button
+                    key={entry}
+                    type="button"
+                    onClick={() => setFilter(entry)}
+                    className={`flex-1 rounded-lg py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap px-2 ${
+                      filter === entry ? 'bg-[#fcc025] text-black shadow-lg' : 'text-[#adaaaa] hover:text-white'
+                    }`}
+                  >
+                    {entry}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Other Players List */}
             <section className="space-y-3">
@@ -305,10 +344,12 @@ export default function LeaderboardView() {
                 </div>
               )}
 
-              {/* Empty State */}
-              {otherPlayers.length === 0 && !selfEntry && (
-                <div className="py-10 text-center">
-                  <p className="text-[#adaaaa] text-sm">{t('leaderboard.no_data')}</p>
+              {/* Empty State - Show when no data at all */}
+              {data?.entries?.length === 0 && (
+                <div className="py-16 text-center">
+                  <Trophy className="mx-auto mb-4 h-12 w-12 text-[#494847]" />
+                  <p className="text-[#adaaaa] text-sm font-bold">{t('leaderboard.no_rankings')}</p>
+                  <p className="mt-2 text-xs text-[#494847]">{t('leaderboard.no_data')}</p>
                 </div>
               )}
             </section>

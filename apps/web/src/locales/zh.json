@@ -73,7 +73,17 @@
     "total_winnings": "\u7e3d\u7372\u5229",
     "win_rate": "\u52dd\u7387",
     "season_ends": "\u8cfd\u5b63\u7d50\u675f\u5012\u6578",
-    "rank": "\u6392\u540d"
+    "rank": "\u6392\u540d",
+    "no_data": "\u76ee\u524d\u6c92\u6709\u6392\u884c\u6578\u64da",
+    "no_rankings": "\u76ee\u524d\u6c92\u6709\u6392\u884c",
+    "time_remaining": "\u5269\u9918\u6642\u9593",
+    "all_time": "\u6b77\u53f2\u7d2f\u8a08",
+    "you": "\u60a8",
+    "tabs": {
+      "winnings": "\u7372\u5229\u699c",
+      "betting": "\u62bc\u6ce8\u699c",
+      "asset": "\u8cc7\u7522\u699c"
+    }
   },
   "announcement": {
     "title": "\u516c\u544a\u4e2d\u5fc3",

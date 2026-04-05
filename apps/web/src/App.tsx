@@ -23,7 +23,7 @@ import { useSyncUser } from './hooks/useSyncUser';
 import Layout from './components/Layout';
 import VIPLevelsView from './features/info/VIPLevelsView';
 import OddsView from './features/info/OddsView';
-import InfoView from './features/info/InfoView';
+import UnifiedInfoView from './components/UnifiedInfoView';
 
 const queryClient = new QueryClient();
 
@@ -60,7 +60,7 @@ function AppContent() {
             <Route path="health" element={<HealthView />} />
             <Route path="info/vip-levels" element={<VIPLevelsView />} />
             <Route path="info/odds" element={<OddsView />} />
-            <Route path="info" element={<InfoView />} />
+            <Route path="info" element={<UnifiedInfoView />} />
           </Route>
         )}
         {isAuthorized && !needsProfileSetup && (

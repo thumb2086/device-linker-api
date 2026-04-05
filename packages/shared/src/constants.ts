@@ -14,13 +14,13 @@ export const GAMES = {
   HORSE: "horse",
   SLOTS: "slots",
   BLACKJACK: "blackjack",
-  DRAGON: "dragon",
   SICBO: "sicbo",
   BINGO: "bingo",
   CRASH: "crash",
   DUEL: "duel",
   POKER: "poker",
   BLUFFDICE: "bluffdice",
+  SHOOT_DRAGON_GATE: "shoot_dragon_gate",
 } as const;
 export type Game = (typeof GAMES)[keyof typeof GAMES];
 
@@ -30,13 +30,13 @@ export const GAME_LABELS: Record<Game, string> = {
   horse: "賽馬",
   slots: "拉霸",
   blackjack: "21 點",
-  dragon: "龍虎",
   sicbo: "骰寶",
   bingo: "賓果",
   crash: "暴漲",
   duel: "對決",
   poker: "德州撲克",
   bluffdice: "吹牛骰子",
+  shoot_dragon_gate: "射龍門",
 };
 
 export const SUPPORTED_GAMES = Object.values(GAMES);
@@ -71,38 +71,44 @@ export interface LevelTier {
   threshold: number;
   label: string;
   maxBet: number;
+  // VIP privileges (Phase 3)
+  dailyBonusMultiplier?: number;  // Daily bonus multiplier (1.0 = no bonus)
+  marketFeeDiscount?: number;     // Market fee discount (0.0-1.0, 1.0 = free)
+  danmakuColor?: string;          // Danmaku color (CSS hex)
+  danmakuPriority?: number;        // Danmaku priority weight
 }
 
 export const LEVEL_TIERS: LevelTier[] = [
-  { threshold: 0, label: "普通會員", maxBet: 1_000 },
-  { threshold: 10_000, label: "青銅會員", maxBet: 5_000 },
-  { threshold: 100_000, label: "白銀會員", maxBet: 20_000 },
-  { threshold: 1_000_000, label: "黃金會員", maxBet: 100_000 },
-  { threshold: 10_000_000, label: "白金會員", maxBet: 500_000 },
-  { threshold: 50_000_000, label: "鑽石等級", maxBet: 2_000_000 },
-  { threshold: 100_000_000, label: "黑鑽等級", maxBet: 10_000_000 },
-  { threshold: 200_000_000, label: "菁英等級", maxBet: 20_000_000 },
-  { threshold: 500_000_000, label: "宗師等級", maxBet: 50_000_000 },
-  { threshold: 1_000_000_000, label: "王者等級", maxBet: 100_000_000 },
-  { threshold: 2_000_000_000, label: "至尊等級", maxBet: 200_000_000 },
-  { threshold: 5_000_000_000, label: "蒼穹等級", maxBet: 300_000_000 },
-  { threshold: 10_000_000_000, label: "寰宇等級", maxBet: 500_000_000 },
-  { threshold: 20_000_000_000, label: "星穹等級", maxBet: 700_000_000 },
-  { threshold: 50_000_000_000, label: "萬界等級", maxBet: 850_000_000 },
-  { threshold: 100_000_000_000, label: "創世等級", maxBet: 900_000_000 },
-  { threshold: 1_000_000_000_000, label: "神諭等級", maxBet: 1_000_000_000 },
-  { threshold: 2_000_000_000_000, label: "神諭一階", maxBet: 2_000_000_000 },
-  { threshold: 5_000_000_000_000, label: "神諭二階", maxBet: 5_000_000_000 },
-  { threshold: 10_000_000_000_000, label: "神諭三階", maxBet: 10_000_000_000 },
-  { threshold: 20_000_000_000_000, label: "神諭四階", maxBet: 20_000_000_000 },
-  { threshold: 50_000_000_000_000, label: "神諭五階", maxBet: 50_000_000_000 },
-  { threshold: 100_000_000_000_000, label: "神諭六階", maxBet: 100_000_000_000 },
-  { threshold: 200_000_000_000_000, label: "神諭七階", maxBet: 200_000_000_000 },
-  { threshold: 500_000_000_000_000, label: "神諭八階", maxBet: 500_000_000_000 },
-  { threshold: 1_000_000_000_000_000, label: "神諭九階", maxBet: 1_000_000_000_000 },
-  { threshold: 2_000_000_000_000_000, label: "神諭十階", maxBet: 2_000_000_000_000 },
-  { threshold: 5_000_000_000_000_000, label: "神諭十一階", maxBet: 5_000_000_000_000 },
-  { threshold: 10_000_000_000_000_000, label: "神諭十二階", maxBet: 10_000_000_000_000 },
+  { threshold: 0, label: "普通會員", maxBet: 1_000, dailyBonusMultiplier: 1.0, marketFeeDiscount: 0.0, danmakuColor: "#a0a0a0", danmakuPriority: 0 },
+  { threshold: 10_000, label: "青銅會員", maxBet: 5_000, dailyBonusMultiplier: 1.1, marketFeeDiscount: 0.05, danmakuColor: "#cd7f32", danmakuPriority: 1 },
+  { threshold: 100_000, label: "白銀會員", maxBet: 20_000, dailyBonusMultiplier: 1.25, marketFeeDiscount: 0.10, danmakuColor: "#c0c0c0", danmakuPriority: 2 },
+  { threshold: 1_000_000, label: "黃金會員", maxBet: 100_000, dailyBonusMultiplier: 1.5, marketFeeDiscount: 0.20, danmakuColor: "#ffd700", danmakuPriority: 3 },
+  { threshold: 10_000_000, label: "白金會員", maxBet: 500_000, dailyBonusMultiplier: 2.0, marketFeeDiscount: 0.35, danmakuColor: "#00cfff", danmakuPriority: 4 },
+  { threshold: 50_000_000, label: "鑽石等級", maxBet: 2_000_000, dailyBonusMultiplier: 3.0, marketFeeDiscount: 0.50, danmakuColor: "#ff4fff", danmakuPriority: 5 },
+  // Extended tiers with default VIP privileges
+  { threshold: 100_000_000, label: "黑鑽等級", maxBet: 10_000_000, dailyBonusMultiplier: 3.5, marketFeeDiscount: 0.55, danmakuColor: "#ff4fff", danmakuPriority: 6 },
+  { threshold: 200_000_000, label: "菁英等級", maxBet: 20_000_000, dailyBonusMultiplier: 4.0, marketFeeDiscount: 0.60, danmakuColor: "#ff4fff", danmakuPriority: 7 },
+  { threshold: 500_000_000, label: "宗師等級", maxBet: 50_000_000, dailyBonusMultiplier: 4.5, marketFeeDiscount: 0.65, danmakuColor: "#ff4fff", danmakuPriority: 8 },
+  { threshold: 1_000_000_000, label: "王者等級", maxBet: 100_000_000, dailyBonusMultiplier: 5.0, marketFeeDiscount: 0.70, danmakuColor: "#ff4fff", danmakuPriority: 9 },
+  { threshold: 2_000_000_000, label: "至尊等級", maxBet: 200_000_000, dailyBonusMultiplier: 5.5, marketFeeDiscount: 0.75, danmakuColor: "#ff4fff", danmakuPriority: 10 },
+  { threshold: 5_000_000_000, label: "蒼穹等級", maxBet: 300_000_000, dailyBonusMultiplier: 6.0, marketFeeDiscount: 0.80, danmakuColor: "#ff4fff", danmakuPriority: 11 },
+  { threshold: 10_000_000_000, label: "寰宇等級", maxBet: 500_000_000, dailyBonusMultiplier: 6.5, marketFeeDiscount: 0.85, danmakuColor: "#ff4fff", danmakuPriority: 12 },
+  { threshold: 20_000_000_000, label: "星穹等級", maxBet: 700_000_000, dailyBonusMultiplier: 7.0, marketFeeDiscount: 0.90, danmakuColor: "#ff4fff", danmakuPriority: 13 },
+  { threshold: 50_000_000_000, label: "萬界等級", maxBet: 850_000_000, dailyBonusMultiplier: 7.5, marketFeeDiscount: 0.95, danmakuColor: "#ff4fff", danmakuPriority: 14 },
+  { threshold: 100_000_000_000, label: "創世等級", maxBet: 900_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 15 },
+  { threshold: 1_000_000_000_000, label: "神諭等級", maxBet: 1_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 16 },
+  { threshold: 2_000_000_000_000, label: "神諭一階", maxBet: 2_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 17 },
+  { threshold: 5_000_000_000_000, label: "神諭二階", maxBet: 5_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 18 },
+  { threshold: 10_000_000_000_000, label: "神諭三階", maxBet: 10_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 19 },
+  { threshold: 20_000_000_000_000, label: "神諭四階", maxBet: 20_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 20 },
+  { threshold: 50_000_000_000_000, label: "神諭五階", maxBet: 50_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 21 },
+  { threshold: 100_000_000_000_000, label: "神諭六階", maxBet: 100_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 22 },
+  { threshold: 200_000_000_000_000, label: "神諭七階", maxBet: 200_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 23 },
+  { threshold: 500_000_000_000_000, label: "神諭八階", maxBet: 500_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 24 },
+  { threshold: 1_000_000_000_000_000, label: "神諭九階", maxBet: 1_000_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 25 },
+  { threshold: 2_000_000_000_000_000, label: "神諭十階", maxBet: 2_000_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 26 },
+  { threshold: 5_000_000_000_000_000, label: "神諭十一階", maxBet: 5_000_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 27 },
+  { threshold: 10_000_000_000_000_000, label: "神諭十二階", maxBet: 10_000_000_000_000, dailyBonusMultiplier: 8.0, marketFeeDiscount: 1.0, danmakuColor: "#ff4fff", danmakuPriority: 28 },
 ];
 
 // ─── YJC VIP Tiers ────────────────────────────────────────────────────────────

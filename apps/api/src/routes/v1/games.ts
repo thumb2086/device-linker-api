@@ -104,7 +104,6 @@ export async function gameRoutes(fastify: FastifyInstance) {
         case "bingo": gameResult = gameManager.resolveBingo(action?.numbers || [], roundId); break;
         case "duel": gameResult = gameManager.resolveDuel(action?.p1Selection, action?.p2Selection, roundId); break;
         case "blackjack": gameResult = gameManager.resolveBlackjack(action?.type, action?.state, roundId); break;
-        case "dragon": gameResult = gameManager.resolveDragonTiger(action?.type, action?.state, roundId); break;
         case "crash": gameResult = gameManager.resolveCrash(action?.elapsed || 0, roundId); break;
         case "poker": gameResult = gameManager.resolvePoker(action?.type, action?.state, roundId); break;
         case "bluffdice": gameResult = gameManager.resolveBluffdice(action?.type, action?.state, roundId); break;

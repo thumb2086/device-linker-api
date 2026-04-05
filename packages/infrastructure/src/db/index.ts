@@ -335,7 +335,7 @@ const ensureCoreSchema = async () => {
   await ensureCoreSchemaPromise;
 };
 
-const requireDb = async () => {
+export const requireDb = async () => {
   if (!db) throw new Error("Database not initialized");
   await ensureCoreSchema();
   return db;

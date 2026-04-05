@@ -435,13 +435,25 @@ export class UserRepository implements IUserRepository {
     const user = await this.getUserById(userId);
     if (!user?.address) throw new Error("User not found while saving profile");
     const current = await this.getUserProfile(userId);
+    const nextAddress = current?.address || user.address;
+    const nextPayload = {
+      ...data,
+      address: nextAddress,
+      updatedAt: new Date(),
+    };
+
+    if (current?.id) {
+      await conn
+        .update(schema.userProfiles)
+        .set(nextPayload)
+        .where(eq(schema.userProfiles.id, current.id));
+      return;
+    }
+
     await conn.insert(schema.userProfiles).values({
       userId,
-      address: current?.address || user.address,
-      ...data
-    }).onConflictDoUpdate({
-        target: schema.userProfiles.userId,
-        set: { ...data, updatedAt: new Date() }
+      address: nextAddress,
+      ...data,
     });
   }
 }

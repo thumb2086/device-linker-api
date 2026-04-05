@@ -115,10 +115,15 @@ export async function profileRoutes(fastify: FastifyInstance) {
       }),
     },
   }, async (request) => {
-    const { sessionId, prefs } = request.body;
-    const session = await sessionRepo.getSessionById(sessionId);
-    if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
-    const nextPrefs = await settingsManager.saveSettings(session.userId, prefs);
-    return createApiEnvelope(nextPrefs, request.id);
+    try {
+      const { sessionId, prefs } = request.body;
+      const session = await sessionRepo.getSessionById(sessionId);
+      if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
+      const nextPrefs = await settingsManager.saveSettings(session.userId, prefs);
+      return createApiEnvelope(nextPrefs, request.id);
+    } catch (err: any) {
+      console.error("[profile/prefs] POST error:", err);
+      return createApiEnvelope(null, request.id, false, "Failed to save preferences: " + (err.message || "Unknown error"));
+    }
   });
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Bell,
+  ChevronRight,
   Crown,
   Dice5,
   History,
@@ -237,48 +238,45 @@ export default function LobbyView() {
             </div>
           </GlassCard>
           <GlassCard
-            to="/app/info?tab=vip"
+            to="/app/info"
             icon={Crown}
-            title={isZh ? zh.vipLevels : 'VIP Levels'}
-            subtitle={isZh ? zh.vipSubtitle : 'Tier Benefits Overview'}
+            title={isZh ? '資訊中心' : 'Information Center'}
+            subtitle={isZh ? '說明與指南' : 'Guides & Information'}
+            border
           >
-            <div className="mt-2 inline-block rounded border border-[#fcc025]/20 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[#fcc025]">
-              {isZh ? zh.tierActive : 'Tier 4 Active'}
-            </div>
-            <p className="mt-3 text-[11px] font-bold uppercase tracking-tight text-[#adaaaa]">
-              {isZh ? zh.multiplier : '1.5x Multiplier Enabled'}
-            </p>
-          </GlassCard>
-          <GlassCard
-            to="/app/info?tab=odds"
-            icon={Dice5}
-            title={isZh ? zh.gameOdds : 'Game Odds'}
-            subtitle={isZh ? zh.oddsSubtitle : 'RTP & Fairness Info'}
-          >
-            <p className="mt-2 text-[11px] font-bold uppercase tracking-tight text-[#adaaaa]">
-              {isZh ? '查看各遊戲 RTP 與派彩規則' : 'View game RTP and odds'}
-            </p>
-            <div className="mt-4 flex items-center gap-2">
-              <div className="h-1 w-1 animate-pulse rounded-full bg-emerald-400" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-                {isZh ? '公平遊戲保證' : 'Fair Game Guaranteed'}
-              </span>
-            </div>
-          </GlassCard>
-          <GlassCard
-            to="/app/info?tab=items"
-            icon={Package}
-            title={isZh ? zh.itemsCatalog : 'Items Catalog'}
-            subtitle={isZh ? zh.itemsSubtitle : 'Item Rarity Guide'}
-          >
-            <p className="mt-2 text-[11px] font-bold uppercase tracking-tight text-[#adaaaa]">
-              {isZh ? '探索所有收藏品與稱號' : 'Explore all collectibles'}
-            </p>
-            <div className="mt-4 flex items-center gap-2">
-              <div className="h-1 w-1 animate-pulse rounded-full bg-purple-400" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400">
-                {isZh ? '頭像、稱號與道具' : 'Avatars, Titles & Items'}
-              </span>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center gap-3 rounded-lg border border-[#494847]/20 bg-[#262626] p-3 transition-colors hover:border-[#fcc025]/40">
+                <Crown className="h-5 w-5 text-[#fcc025]" />
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-bold text-white">{isZh ? 'VIP 等級說明' : 'VIP Levels'}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
+                    {isZh ? zh.tierActive : 'Tier 4 Active'}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-[#adaaaa]" />
+              </div>
+              
+              <div className="flex items-center gap-3 rounded-lg border border-[#494847]/20 bg-[#262626] p-3 transition-colors hover:border-emerald-400/40">
+                <Dice5 className="h-5 w-5 text-emerald-400" />
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-bold text-white">{isZh ? '遊戲機率' : 'Game Odds'}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
+                    {isZh ? 'RTP 與公平性' : 'RTP & Fairness'}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-[#adaaaa]" />
+              </div>
+              
+              <div className="flex items-center gap-3 rounded-lg border border-[#494847]/20 bg-[#262626] p-3 transition-colors hover:border-purple-400/40">
+                <Package className="h-5 w-5 text-purple-400" />
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-bold text-white">{isZh ? '物品圖鑑' : 'Items Catalog'}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
+                    {isZh ? '收藏品與道具' : 'Collectibles & Items'}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-[#adaaaa]" />
+              </div>
             </div>
           </GlassCard>
           <GlassCard

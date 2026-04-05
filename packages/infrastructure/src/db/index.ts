@@ -188,6 +188,18 @@ const ensureCoreSchema = async () => {
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
           )
         `;
+        // Migration: Add sound_prefs column if it doesn't exist (for existing tables)
+        await sql`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.columns 
+              WHERE table_name = 'user_profiles' AND column_name = 'sound_prefs'
+            ) THEN
+              ALTER TABLE user_profiles ADD COLUMN sound_prefs JSONB DEFAULT '{"amountDisplay":"compact","danmuEnabled":true,"masterVolume":0.7,"bgmEnabled":true,"bgmVolume":0.45,"sfxEnabled":true,"sfxVolume":0.75}';
+            END IF;
+          END $$;
+        `;
         await sql`
           CREATE TABLE IF NOT EXISTS wallet_accounts (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

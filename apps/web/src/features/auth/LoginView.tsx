@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { RefreshCw, ShieldCheck, Globe, Zap, LogIn, Fingerprint, QrCode, Monitor } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Globe, LogIn, Fingerprint, QrCode, Monitor, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -15,9 +15,18 @@ export default function LoginView() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+
+  // Load saved username and rememberMe preference
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('custody_username');
+    const savedRememberMe = localStorage.getItem('custody_remember_me');
+    if (savedUsername) setUsername(savedUsername);
+    if (savedRememberMe === 'true') setRememberMe(true);
+  }, []);
 
   const toggleLanguage = () => {
     i18n.changeLanguage(isZh ? 'en' : 'zh');
@@ -87,6 +96,14 @@ export default function LoginView() {
       if (!data.success || !payload?.success || !payload?.sessionId || !payload?.address) {
         setError(data.error || 'LOGIN_FAILED');
       } else {
+        // Save remember me preference
+        if (rememberMe) {
+          localStorage.setItem('custody_username', username);
+          localStorage.setItem('custody_remember_me', 'true');
+        } else {
+          localStorage.removeItem('custody_username');
+          localStorage.setItem('custody_remember_me', 'false');
+        }
         setAuth(payload.address, payload.sessionId, payload.publicKey || '0x');
       }
     } catch (err) {
@@ -229,6 +246,24 @@ export default function LoginView() {
                           required
                       />
                   </div>
+              </div>
+
+              {/* Remember Me Checkbox */}
+              <div className="flex items-center gap-3 px-1">
+                <button
+                  type="button"
+                  onClick={() => setRememberMe(!rememberMe)}
+                  className={`flex h-5 w-5 items-center justify-center rounded border transition-all ${
+                    rememberMe
+                      ? 'border-[#fcc025] bg-[#fcc025]'
+                      : 'border-[#494847]/50 bg-transparent'
+                  }`}
+                >
+                  {rememberMe && <Check size={14} className="text-black" />}
+                </button>
+                <span className="text-[11px] font-bold text-[#adaaaa]">
+                  {isZh ? '記住我（下次自動登入）' : 'Remember Me (Auto-login next time)'}
+                </span>
               </div>
               {error && (
                 <motion.div

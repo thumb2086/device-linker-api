@@ -22,6 +22,10 @@
       "import": "./dist/leaderboard/leaderboard-manager.js",
       "types": "./dist/leaderboard/leaderboard-manager.d.ts"
     },
+    "./danmaku/danmaku-manager.js": {
+      "import": "./dist/danmaku/danmaku-manager.js",
+      "types": "./dist/danmaku/danmaku-manager.d.ts"
+    },
     "./levels/vip-manager.js": {
       "import": "./dist/levels/vip-manager.js",
       "types": "./dist/levels/vip-manager.d.ts"

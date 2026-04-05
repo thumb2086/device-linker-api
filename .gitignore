@@ -11,3 +11,4 @@ dist
 .turbo
 .env*.local
 .states/
+remix.config.json

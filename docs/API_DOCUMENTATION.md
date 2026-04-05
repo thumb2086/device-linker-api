@@ -940,7 +940,194 @@ All endpoints require authentication via `sessionId`. It can be provided in:
 
 ---
 
+## Phase 3 Endpoints / Phase 3 端點
+
+### Leaderboard System / 排行榜系統
+
+#### Get Leaderboard / 獲取排行榜
+```http
+GET /api/v1/leaderboard?type=week&limit=50
+```
+
+**Query Parameters / 查詢參數：**
+| Parameter | Type | English | 中文 |
+|-----------|------|---------|------|
+| `type` | enum | Leaderboard type: `week`, `month`, `season`, `all`, `asset` | 排行榜類型 |
+| `limit` | number | Number of entries (1-100, default 50) | 條目數量 |
+| `periodId` | string | Optional specific period ID | 可選特定期間 ID |
+| `sessionId` | string | User session for self-rank display | 用戶會話用於顯示自身排名 |
+
+**Response / 回應：**
+```json
+{
+  "success": true,
+  "data": {
+    "entries": [
+      {
+        "rank": 1,
+        "address": "0x123...",
+        "displayName": "Player1",
+        "amount": 5000000
+      }
+    ],
+    "self": {
+      "rank": 15,
+      "address": "0xabc...",
+      "amount": 100000
+    },
+    "updatedAt": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+### VIP System / VIP 系統
+
+#### Get Own VIP Status / 獲取自身 VIP 狀態
+```http
+GET /api/v1/vip/me?sessionId=abc123
+```
+
+**Response / 回應：**
+```json
+{
+  "success": true,
+  "data": {
+    "address": "0xabc...",
+    "score": 1500000,
+    "totalBetAll": 1000000,
+    "yjcBalance": 500000,
+    "level": {
+      "threshold": 1000000,
+      "label": "黃金會員",
+      "maxBet": 100000,
+      "dailyBonusMultiplier": 1.5,
+      "marketFeeDiscount": 0.2,
+      "danmakuColor": "#ffd700",
+      "danmakuPriority": 3
+    },
+    "nextLevel": {
+      "threshold": 10000000,
+      "label": "白金會員"
+    },
+    "progressPct": 55,
+    "privileges": {
+      "dailyBonusMultiplier": 1.5,
+      "marketFeeDiscount": 0.2,
+      "danmakuColor": "#ffd700",
+      "danmakuPriority": 3
+    }
+  }
+}
+```
+
+#### Get Public VIP Info / 獲取公開 VIP 資訊
+```http
+GET /api/v1/vip/:address
+```
+
+**Response / 回應：**
+```json
+{
+  "success": true,
+  "data": {
+    "level": 1000000,
+    "label": "黃金會員",
+    "danmakuColor": "#ffd700",
+    "danmakuPriority": 3
+  }
+}
+```
+
+#### Get VIP Levels Table / 獲取 VIP 等級表
+```http
+GET /api/v1/vip/levels
+```
+
+**Response / 回應：**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "threshold": 0,
+      "label": "普通會員",
+      "maxBet": 1000,
+      "dailyBonusMultiplier": 1.0,
+      "marketFeeDiscount": 0.0,
+      "danmakuColor": "#a0a0a0",
+      "danmakuPriority": 0
+    },
+    ...
+  ]
+}
+```
+
+### Danmaku System / 彈幕系統
+
+#### Get Recent Danmaku Events / 獲取近期彈幕事件
+```http
+GET /api/v1/danmaku/events?limit=50
+```
+
+**Query Parameters / 查詢參數：**
+| Parameter | Type | English | 中文 |
+|-----------|------|---------|------|
+| `limit` | number | Number of events (1-100, default 50) | 事件數量 |
+
+**Response / 回應：**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "type": "win",
+      "address": "0x123...",
+      "displayName": "Player1",
+      "message": "🎉 Player1 在 slots 中大贏 5000 ZHC！(10x)",
+      "metadata": {
+        "game": "slots",
+        "payout": 5000,
+        "multiplier": 10
+      },
+      "priority": 8,
+      "color": "#ffd700",
+      "createdAt": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+**Danmaku Event Types / 彈幕事件類型：**
+| Type | English | 中文 | Priority Bonus |
+|------|---------|------|----------------|
+| `win` | Regular win | 普通中獎 | 0 |
+| `big_win` | Big win (10x+) | 大獎 | +5 |
+| `leaderboard` | Leaderboard achievement | 排行榜成就 | +3 |
+| `vip_upgrade` | VIP level upgrade | VIP 升級 | +10 |
+
+---
+
 ## Changelog / 更新日誌
+
+### v1.1.0 (Phase 3 - 2026-04-05)
+**English:**
+- Added Leaderboard system with weekly/monthly/season/all-time rankings
+- Added VIP system with 29 tier levels and privileges
+- Added YJC token integration for VIP score calculation (70% bets + 30% YJC)
+- Migrated all 12 games to use GameSessionManager with atomic transactions
+- Added basic Danmaku event system for real-time notifications
+- Added `leaderboard_kings` table for tracking cumulative first-place wins
+- Fixed frontend leaderboard filter mapping
+
+**繁體中文：**
+- 新增排行榜系統，支援週榜/月榜/賽季榜/總榜
+- 新增 VIP 系統，包含 29 個等級與特權
+- 新增 YJC 代幣整合於 VIP 分數計算（70% 投注 + 30% YJC）
+- 將所有 12 款遊戲遷移至使用 GameSessionManager 原子交易
+- 新增基礎彈幕事件系統用於即時通知
+- 新增 `leaderboard_kings` 表格用於追蹤累積第一名次數
+- 修正前端排行榜過濾器映射
 
 ### v1.0.0 (2024-01-15)
 **English:**

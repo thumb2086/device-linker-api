@@ -33,7 +33,8 @@ def run(conn, data):
     announce_rows, claim_rows, profile_rows = [], [], []
     campaign_rows, title_cat_rows, avatar_cat_rows = [], [], []
     grant_log_rows, total_bet_rows, issue_rows = [], [], []
-    market_rows, horse_rows, leaderboard_rows = [], [], []
+    market_rows, horse_rows = [], []
+    leaderboard_kings_rows = []
 
     for item in data:
         key = item["key"]
@@ -149,9 +150,23 @@ def run(conn, data):
                 val.get("podium"), jdump(val.get("last5", []))
             ))
 
-        # leaderboard_settlement
-        elif prefix == "leaderboard_settlement":
-            leaderboard_rows.append((key, jdump(val) if isinstance(val, dict) else jdump({"value": val})))
+        # leaderboard_kings 資料來源 (從舊的 leaderboard_settlement 解析)
+        elif prefix == "leaderboard_settlement" and isinstance(val, dict):
+            # 解析各類別的榜王統計
+            for category in ["weekly", "monthly", "season"]:
+                kings_key = f"{category}Kings"
+                if kings_key in val and isinstance(val[kings_key], list):
+                    for king in val[kings_key]:
+                        if isinstance(king, dict):
+                            leaderboard_kings_rows.append((
+                                category,
+                                king.get("address", ""),
+                                king.get("displayName", ""),
+                                king.get("winCount", 1),
+                                ts(king.get("lastWinAt")),
+                                king.get("periodId", "")
+                            ))
+
 
     def insert(sql, rows, label):
         if not rows:
@@ -189,9 +204,6 @@ def run(conn, data):
 
     insert("""INSERT INTO horse_stats (horse_id,races,wins,podium,last5)
               VALUES %s ON CONFLICT (horse_id) DO NOTHING""", horse_rows, "horse_stats")
-
-    insert("""INSERT INTO leaderboard_settlement (id,raw)
-              VALUES %s ON CONFLICT (id) DO NOTHING""", leaderboard_rows, "leaderboard_settlement")
 
     conn.commit()
     print("\n✅ Redis 資料匯入完成，開始整合...\n")
@@ -268,6 +280,22 @@ def run(conn, data):
             """, (addr, avatar, title, inv, avatars, titles, buffs, addr))
         print(f"  ✅ user_profiles 補齊: {len(profile_rows)} 筆")
 
+    # 補 leaderboard_kings (需要有 users 資料後才能關聯)
+    if leaderboard_kings_rows:
+        for category, address, display_name, win_count, last_win_at, period_id in leaderboard_kings_rows:
+            cur.execute("""
+                INSERT INTO leaderboard_kings (id, category, user_id, address, display_name, win_count, last_win_at, updated_at, period_id)
+                SELECT gen_random_uuid(), %s, u.id, lower(%s), %s, %s, COALESCE(%s, NOW()), NOW(), %s
+                FROM users u WHERE lower(u.address) = lower(%s)
+                ON CONFLICT (category, user_id) DO UPDATE SET
+                    display_name = EXCLUDED.display_name,
+                    win_count = EXCLUDED.win_count,
+                    last_win_at = EXCLUDED.last_win_at,
+                    period_id = EXCLUDED.period_id,
+                    updated_at = NOW()
+            """, (category, address, display_name, win_count, last_win_at, period_id, address))
+        print(f"  ✅ leaderboard_kings 補齊: {len(leaderboard_kings_rows)} 筆")
+
     # display_names -> users (從 redis 資料直接更新)
     for item in data:
         key = item["key"]
@@ -289,8 +317,8 @@ def run(conn, data):
     print(f"  custody_accounts (有 user_id): {cur.fetchone()[0]} 筆")
     cur.execute("SELECT COUNT(*) FROM total_bets")
     print(f"  total_bets: {cur.fetchone()[0]} 筆")
-    cur.execute("SELECT COUNT(*) FROM leaderboard_settlement")
-    print(f"  leaderboard_settlement: {cur.fetchone()[0]} 筆")
+    cur.execute("SELECT COUNT(*) FROM leaderboard_kings")
+    print(f"  leaderboard_kings: {cur.fetchone()[0]} 筆")
 
     print("\n🎉 全部完成！")
 

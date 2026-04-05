@@ -7,7 +7,6 @@ import { useLeaderboard, type LeaderboardType } from '../../hooks/useLeaderboard
 import AppBottomNav from '../../components/AppBottomNav';
 
 const FILTER_MAP: Record<string, LeaderboardType> = {
-  'DAILY': 'week',
   'WEEKLY': 'week',
   'MONTHLY': 'month',
   'SEASON': 'season',

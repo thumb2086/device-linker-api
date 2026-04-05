@@ -135,18 +135,7 @@ PRIMARY KEY (period_type, period_id, address)
 
 ---
 
-### 7. `leaderboard_settlement` — Historical Leaderboard Settlement / 歷史榜王結算
-```sql
-id   TEXT PRIMARY KEY   -- e.g., 'leaderboard_settlement:monthly:current_period' / 例如 'leaderboard_settlement:monthly:current_period'
-raw  JSONB              -- Full settlement data / 完整結算資料
-```
-> **English:** Contains historical leaderboard kings, consecutive win records, etc. Migrated from old system.
-> 
-> **中文：** 包含歷史榜王、連冠紀錄等，從舊系統遷移過來。
-
----
-
-### 8. `announcements` — Announcements / 公告
+### 7. `announcements` — Announcements / 公告
 ```sql
 id         TEXT PRIMARY KEY
 title      TEXT NOT NULL
@@ -159,7 +148,7 @@ updated_at TIMESTAMPTZ NOT NULL
 
 ---
 
-### 9. `reward_title_catalog` — Title Catalog / 稱號目錄
+### 8. `reward_title_catalog` — Title Catalog / 稱號目錄
 ```sql
 id                  TEXT PRIMARY KEY
 name                TEXT
@@ -176,7 +165,7 @@ raw                 JSONB
 
 ---
 
-### 10. `reward_avatar_catalog` — Avatar Catalog / 頭像目錄
+### 9. `reward_avatar_catalog` — Avatar Catalog / 頭像目錄
 ```sql
 id          TEXT PRIMARY KEY
 name        TEXT
@@ -189,7 +178,7 @@ updated_at  TIMESTAMPTZ
 
 ---
 
-### 11. `reward_campaigns` — Campaigns / 活動
+### 10. `reward_campaigns` — Campaigns / 活動
 ```sql
 id                   TEXT PRIMARY KEY
 title                TEXT
@@ -205,7 +194,7 @@ raw                  JSONB
 
 ---
 
-### 12. `reward_claims` — Claim Records / 領獎紀錄
+### 11. `reward_claims` — Claim Records / 領獎紀錄
 ```sql
 campaign_id  TEXT NOT NULL
 address      TEXT NOT NULL
@@ -216,7 +205,7 @@ PRIMARY KEY (campaign_id, address)
 
 ---
 
-### 13. `reward_grant_log` — Admin Grant Log / 管理員發獎紀錄
+### 12. `reward_grant_log` — Admin Grant Log / 管理員發獎紀錄
 ```sql
 id         TEXT PRIMARY KEY
 address    TEXT
@@ -229,7 +218,7 @@ created_at TIMESTAMPTZ
 
 ---
 
-### 14. `horse_stats` — Horse Racing Stats / 賽馬統計
+### 13. `horse_stats` — Horse Racing Stats / 賽馬統計
 ```sql
 horse_id  TEXT PRIMARY KEY   -- '1' ~ '8'
 races     INTEGER DEFAULT 0
@@ -240,7 +229,7 @@ last5     JSONB DEFAULT '[]'  -- Last 5 race positions / 最近5場名次
 
 ---
 
-### 15. `market_portfolios` — Market Simulation Portfolios / 市場模擬投資組合
+### 14. `market_portfolios` — Market Simulation Portfolios / 市場模擬投資組合
 ```sql
 address          TEXT PRIMARY KEY
 sim_mode         BOOLEAN DEFAULT false   -- true = simulation mode / true = 模擬模式
@@ -258,7 +247,7 @@ raw              JSONB
 
 ---
 
-### 16. `issue_reports` — Issue Reports / 問題回報
+### 15. `issue_reports` — Issue Reports / 問題回報
 ```sql
 id           TEXT PRIMARY KEY
 address      TEXT
@@ -274,7 +263,7 @@ raw          JSONB
 
 ---
 
-### 17. `ops_events` — Operations Event Log / 運營事件 Log
+### 16. `ops_events` — Operations Event Log / 運營事件 Log
 ```sql
 id           UUID PRIMARY KEY
 channel      TEXT NOT NULL
@@ -298,26 +287,7 @@ created_at   TIMESTAMPTZ NOT NULL
 
 ---
 
-### 18. `leaderboards` — Real-time Leaderboard Snapshots / 即時排行榜快照
-```sql
-id            UUID PRIMARY KEY
-period        TEXT NOT NULL           -- 'daily' | 'weekly' | 'monthly' | 'season' | 'asset'
-user_id       UUID NOT NULL REFERENCES users(id)
-address       TEXT NOT NULL
-display_name  TEXT
-rank          INTEGER NOT NULL
-score         NUMERIC NOT NULL
-period_id     TEXT                    -- e.g., '2026-03', 'S2026Q1'
-meta          JSONB
-snapshot_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-```
-> **English:** Cached snapshots for fast leaderboard queries. Updated periodically.
->
-> **中文：** 排行榜快取快照，定期更新以加速查詢。
-
----
-
-### 19. `leaderboard_kings` — Leaderboard Kings Statistics / 榜王統計
+### 17. `leaderboard_kings` — Leaderboard Kings Statistics / 榜王統計
 ```sql
 id            UUID PRIMARY KEY
 category      TEXT NOT NULL           -- 'weekly' | 'monthly' | 'season'
@@ -332,22 +302,6 @@ period_id     TEXT
 > **English:** Tracks consecutive wins and king status per category.
 >
 > **中文：** 追蹤各類別榜王連勝紀錄與稱號。
-
----
-
-### 20. `reward_profiles` — Standalone Reward Inventory / 獨立獎勵庫存表
-```sql
-address       TEXT PRIMARY KEY
-inventory     JSONB DEFAULT '{}'
-owned_avatars JSONB DEFAULT '[]'
-owned_titles  JSONB DEFAULT '[]'
-active_buffs  JSONB DEFAULT '[]'
-raw           JSONB
-updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-```
-> **English:** Alternative to `user_profiles` for reward data. Can be used for backup or migration.
->
-> **中文：** `user_profiles` 的替代表，用於獎勵資料備份或遷移。
 
 ---
 
@@ -366,6 +320,8 @@ updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 | `kv_store` | Fully migrated to Postgres / 已全面轉 Postgres |
 | `read_cache_snapshots` | Cache, not preserved / 快取，不保留 |
 | `market_accounts` | Merged into `market_portfolios` / 已合併進 `market_portfolios` |
+| `leaderboard_settlement` | **Deleted** / 已刪除 — Use historical data reconstruction if needed / 如需請重建歷史資料 |
+| `leaderboards` | **Deleted** / 已刪除 — Can be rebuilt from `total_bets` / 可從 `total_bets` 重建 |
 
 ## Address Format / 地址格式
 - **English:** All `address` fields are stored **lowercase**

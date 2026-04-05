@@ -6,8 +6,9 @@ import * as schema from "@repo/infrastructure/db/schema.js";
 
 export interface VipFullStatus {
   address: string;
-  score: number;         // VIP score = total bet amount (period_type='all')
+  score: number;         // VIP score = weighted combination of total_bets + YJC holdings
   totalBetAll: number;   // Total site bets
+  yjcBalance: number;    // YJC token balance
   level: LevelTier;
   nextLevel: LevelTier | null;
   progressPct: number;   // Progress to next level 0-100
@@ -58,14 +59,28 @@ export class VipManager {
 
     const totalBetAll = Number(betRow[0]?.amount ?? 0);
 
-    // 2. VIP score = total bet amount (period_type='all')
-    const score = totalBetAll;
+    // 2. Get YJC token balance
+    const yjcRow = await this.db
+      .select({ balance: schema.walletAccounts.balance })
+      .from(schema.walletAccounts)
+      .where(
+        and(
+          eq(schema.walletAccounts.address, addr),
+          eq(schema.walletAccounts.token, "yjc")
+        )
+      )
+      .limit(1);
 
-    // 3. Determine level
+    const yjcBalance = Number(yjcRow[0]?.balance ?? 0);
+
+    // 3. VIP score = weighted combination: 70% total_bets + 30% YJC holdings
+    const score = Math.floor(totalBetAll * 0.7 + yjcBalance * 0.3);
+
+    // 4. Determine level
     const level = this.getVipTierByScore(score);
     const nextLevel = this.getNextLevel(level);
 
-    // 4. Calculate progress to next level
+    // 5. Calculate progress to next level
     let progressPct = 100;
     if (nextLevel) {
       const span = nextLevel.threshold - level.threshold;
@@ -77,6 +92,7 @@ export class VipManager {
       address: addr,
       score,
       totalBetAll,
+      yjcBalance,
       level,
       nextLevel,
       progressPct,

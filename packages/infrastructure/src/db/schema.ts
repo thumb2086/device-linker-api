@@ -96,6 +96,24 @@ export const totalBets = pgTable("total_bets", {
 export type TotalBets = typeof totalBets.$inferSelect;
 export type NewTotalBets = typeof totalBets.$inferInsert;
 
+export const leaderboardKings = pgTable("leaderboard_kings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  category: text("category").notNull(), // 'weekly' | 'monthly' | 'season'
+  userId: uuid("user_id").notNull().references(() => users.id),
+  address: text("address").notNull(),
+  displayName: text("display_name"),
+  winCount: integer("win_count").notNull().default(0),
+  lastWinAt: timestamp("last_win_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  periodId: text("period_id"),
+}, (t) => ({
+  categoryUserIdx: index("leaderboard_kings_category_user_idx").on(t.category, t.userId),
+  addressIdx: index("leaderboard_kings_address_idx").on(t.address),
+}));
+
+export type LeaderboardKing = typeof leaderboardKings.$inferSelect;
+export type NewLeaderboardKing = typeof leaderboardKings.$inferInsert;
+
 export const levelSnapshots = pgTable("level_snapshots", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().references(() => users.id),

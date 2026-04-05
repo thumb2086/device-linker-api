@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Dice5, HelpCircle, Shield, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Dice5, HelpCircle, Shield } from 'lucide-react';
 
 interface GameOdds {
+  key: string;
   name: string;
   rtp: number;
   houseEdge: number;
@@ -10,128 +11,55 @@ interface GameOdds {
 }
 
 const GAME_ODDS: GameOdds[] = [
-  {
-    name: '輪盤 (Roulette)',
-    rtp: 97.3,
-    houseEdge: 2.7,
-    description: '歐式輪盤單零設計，紅黑單注賠率 1:1，單號賠率 35:1',
-    fairness: '每次旋轉結果由隨機數生成器決定，公開可驗證',
-  },
-  {
-    name: '骰寶 (Sic Bo)',
-    rtp: 96.0,
-    houseEdge: 4.0,
-    description: '三顆骰子點數預測，大小單雙多種玩法',
-    fairness: '骰子點數經過加密隨機算法生成，確保公平',
-  },
-  {
-    name: '吹牛骰 (Bluff Dice)',
-    rtp: 98.0,
-    houseEdge: 2.0,
-    description: '心理博弈遊戲，吹牛與抓謊的較量',
-    fairness: '雙方骰子獨立生成，系統無法預知結果',
-  },
-  {
-    name: '賽馬 (Horse Racing)',
-    rtp: 95.0,
-    houseEdge: 5.0,
-    description: '模擬賽馬競速，8匹馬不同賠率',
-    fairness: '馬匹表現基於歷史數據與隨機因素綜合計算',
-  },
-  {
-    name: '龍虎 (Dragon Tiger)',
-    rtp: 96.3,
-    houseEdge: 3.7,
-    description: '比大小極簡玩法，龍虎和三方下注',
-    fairness: '每局獨立發牌，採用多重洗牌算法',
-  },
-  {
-    name: '拉霸 (Slots)',
-    rtp: 94.0,
-    houseEdge: 6.0,
-    description: '多線拉霸，連線獲獎，大獎彩池累積',
-    fairness: '轉輪結果由加密隨機數決定，獲獎機率公開',
-  },
-  {
-    name: '幣翻 (Coinflip)',
-    rtp: 98.0,
-    houseEdge: 2.0,
-    description: '簡單正反猜測，50/50 公平對決',
-    fairness: '正反面機率嚴格 50%，區塊鏈可驗證隨機數',
-  },
-  {
-    name: '賓果 (Bingo)',
-    rtp: 93.0,
-    houseEdge: 7.0,
-    description: '數字連線遊戲，多人同樂',
-    fairness: '數字球隨機抽取，過程公開透明',
-  },
-  {
-    name: '百家樂 (Baccarat)',
-    rtp: 98.9,
-    houseEdge: 1.1,
-    description: '經典撲克比點，莊閒對決',
-    fairness: '採用標準 8 副牌，洗牌算法經過審計',
-  },
-  {
-    name: '21點 (Blackjack)',
-    rtp: 99.0,
-    houseEdge: 1.0,
-    description: '最接近 21 點獲勝，可選擇要牌停牌',
-    fairness: '標準撲克規則，牌組隨機且不可預測',
-  },
+  { key: 'roulette', name: '輪盤', rtp: 97.3, houseEdge: 2.7, description: '支援紅黑、單雙、大小與單號投注，倍率依下注格位變化。', fairness: '結果由伺服器隨機流程產生，開獎後可追溯當期結果。' },
+  { key: 'sicbo', name: '骰寶', rtp: 96.0, houseEdge: 4.0, description: '三顆骰子多種押法，含大小、點數、豹子與組合投注。', fairness: '骰點結果固定落盤，每局結算依賠率表執行。' },
+  { key: 'bluffdice', name: '吹牛骰', rtp: 98.0, houseEdge: 2.0, description: '低抽水對決型遊戲，節奏快，適合短局對賭。', fairness: '房間制回合有完整下注與結算紀錄。' },
+  { key: 'horse', name: '賽馬', rtp: 95.0, houseEdge: 5.0, description: '多匹賽馬依權重與狀態模擬衝線結果。', fairness: '每場開賽前就已鎖定參數與封盤時間，避免中途改盤。' },
+  { key: 'dragon', name: '龍虎', rtp: 96.3, houseEdge: 3.7, description: '比大小直觀玩法，適合快速連續下注。', fairness: '對戰雙方結果同源計算，結算規則一致。' },
+  { key: 'slots', name: '老虎機', rtp: 94.0, houseEdge: 6.0, description: '高波動遊戲，可能短期連輸，但也有較高倍數獎勵。', fairness: '每次轉動獨立計算，不會受前一局結果影響。' },
+  { key: 'coinflip', name: '擲硬幣', rtp: 98.0, houseEdge: 2.0, description: '簡單 50/50 遊戲，倍率透明。', fairness: '正反面機率對稱，唯一差異來自平台抽水。' },
+  { key: 'bingo', name: '賓果', rtp: 93.0, houseEdge: 7.0, description: '依號碼與投注組合派彩，玩法較多元。', fairness: '開球與結算順序固定，對所有玩家一致。' },
+  { key: 'blackjack', name: '21 點', rtp: 99.0, houseEdge: 1.0, description: '高 RTP 經典玩法，策略選擇會影響實際長期報酬。', fairness: '牌局結構明確，莊閒流程固定。' },
 ];
 
 export default function OddsTab() {
-  const [selectedGame, setSelectedGame] = useState<string | null>(null);
+  const [selectedGame, setSelectedGame] = useState<string | null>('roulette');
 
   return (
     <div className="space-y-6">
-      {/* 公平性聲明 */}
       <section className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-transparent p-6">
         <div className="flex items-center gap-3">
           <Shield className="h-6 w-6 text-emerald-400" />
           <h2 className="text-lg font-black text-emerald-400">公平遊戲保證</h2>
         </div>
-        <p className="mt-3 text-sm font-bold text-[#adaaaa] leading-relaxed">
-          所有遊戲採用經過驗證的隨機數生成算法，確保每次遊戲結果公平、公正、不可預測。
-          部分遊戲採用區塊鏈可驗證隨機數(VRF)，保證結果無法被操控。
+        <p className="mt-3 text-sm font-bold leading-relaxed text-[#adaaaa]">
+          所有遊戲都使用固定規則與可追蹤的回合資料。RTP 代表長期平均回報，不等於單局保證結果，但能作為判斷遊戲期望值的參考。
         </p>
         <div className="mt-4 flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-          <span className="text-xs font-bold text-emerald-400">所有 RTP 數據均經過第三方審計</span>
+          <span className="text-xs font-bold text-emerald-400">所有 RTP 與派彩邏輯都採固定規則</span>
         </div>
       </section>
 
-      {/* RTP 說明 */}
       <section className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6">
-        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">
-          什麼是 RTP？
-        </h2>
-        <p className="mt-3 text-sm font-bold text-[#adaaaa] leading-relaxed">
-          RTP (Return to Player) 表示玩家回報率。例如 97% 的 RTP 表示長期來看，
-          每投注 100 元平均會回報 97 元。RTP 越高，對玩家越有利。
+        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">什麼是 RTP？</h2>
+        <p className="mt-3 text-sm font-bold leading-relaxed text-[#adaaaa]">
+          RTP 是玩家回報率。若 RTP 為 97%，代表長期大量局數下，平均每投注 100 元會返還 97 元。剩餘 3% 即為平台優勢。
         </p>
         <div className="mt-4 rounded-lg bg-[#0e0e0e] p-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-[#adaaaa]">賭場優勢 = 100% - RTP</span>
-            <span className="font-black text-[#fcc025]">越低越好</span>
+            <span className="font-bold text-[#adaaaa]">平台優勢 = 100% - RTP</span>
+            <span className="font-black text-[#fcc025]">數值越低越接近玩家友善</span>
           </div>
         </div>
       </section>
 
-      {/* 遊戲機率列表 */}
       <section className="space-y-3">
-        <h2 className="px-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">
-          各遊戲機率詳情
-        </h2>
+        <h2 className="px-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">各遊戲機率與說明</h2>
         {GAME_ODDS.map((game) => (
-          <div
-            key={game.name}
-            className="rounded-xl border border-[#494847]/10 bg-[#1a1919] p-4"
-          >
+          <div key={game.key} className="rounded-xl border border-[#494847]/10 bg-[#1a1919] p-4">
             <button
-              onClick={() => setSelectedGame(selectedGame === game.name ? null : game.name)}
+              onClick={() => setSelectedGame(selectedGame === game.key ? null : game.key)}
               className="flex w-full items-center justify-between"
             >
               <div className="flex items-center gap-3">
@@ -141,30 +69,26 @@ export default function OddsTab() {
                 <div className="text-left">
                   <h3 className="font-bold text-white">{game.name}</h3>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-emerald-400">
-                      RTP {game.rtp}%
-                    </span>
-                    <span className="text-[10px] font-bold text-[#adaaaa]">
-                      優勢 {game.houseEdge}%
-                    </span>
+                    <span className="text-[10px] font-bold text-emerald-400">RTP {game.rtp}%</span>
+                    <span className="text-[10px] font-bold text-[#adaaaa]">平台優勢 {game.houseEdge}%</span>
                   </div>
                 </div>
               </div>
               <HelpCircle className="h-5 w-5 text-[#494847]" />
             </button>
 
-            {selectedGame === game.name && (
+            {selectedGame === game.key && (
               <div className="mt-4 space-y-3 border-t border-[#494847]/10 pt-4">
                 <p className="text-sm font-bold text-[#adaaaa]">{game.description}</p>
                 <div className="rounded-lg bg-emerald-500/10 p-3">
                   <p className="text-xs font-bold text-emerald-400">
-                    <span className="mr-2">🛡️</span>
+                    <span className="mr-2">公平性</span>
                     {game.fairness}
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-lg bg-[#0e0e0e] p-2 text-center">
-                    <p className="text-[9px] font-bold text-[#adaaaa]">玩家回報率</p>
+                    <p className="text-[9px] font-bold text-[#adaaaa]">長期回報率</p>
                     <p className="text-lg font-black text-emerald-400">{game.rtp}%</p>
                   </div>
                   <div className="rounded-lg bg-[#0e0e0e] p-2 text-center">
@@ -176,17 +100,6 @@ export default function OddsTab() {
             )}
           </div>
         ))}
-      </section>
-
-      {/* 負責任博彩 */}
-      <section className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6">
-        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">
-          負責任博彩提醒
-        </h2>
-        <p className="mt-3 text-sm font-bold text-[#adaaaa] leading-relaxed">
-          請注意：博彩有風險，投注需謹慎。所有遊戲結果均由隨機數決定，
-          不存在必勝策略。請設定預算上限，理性娛樂。
-        </p>
       </section>
     </div>
   );

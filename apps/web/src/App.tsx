@@ -23,7 +23,7 @@ import { useSyncUser } from './hooks/useSyncUser';
 import Layout from './components/Layout';
 import VIPLevelsView from './features/info/VIPLevelsView';
 import OddsView from './features/info/OddsView';
-import ItemsCatalogView from './features/info/ItemsCatalogView';
+import InfoView from './features/info/InfoView';
 
 const queryClient = new QueryClient();
 
@@ -31,7 +31,7 @@ function AppContent() {
   const { isAuthorized } = useAuthStore();
   const { userData, isLoading } = useSyncUser();
 
-  const needsProfileSetup = isAuthorized && !isLoading && userData && !userData.user?.displayName;
+  const needsProfileSetup = isAuthorized && !isLoading && userData && !(userData as any).user?.displayName;
 
   return (
     <div className="relative min-h-screen bg-[#0e0e0e]">
@@ -60,7 +60,7 @@ function AppContent() {
             <Route path="health" element={<HealthView />} />
             <Route path="info/vip-levels" element={<VIPLevelsView />} />
             <Route path="info/odds" element={<OddsView />} />
-            <Route path="info/items" element={<ItemsCatalogView />} />
+            <Route path="info" element={<InfoView />} />
           </Route>
         )}
         {isAuthorized && !needsProfileSetup && (

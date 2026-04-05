@@ -67,10 +67,10 @@ export class LeaderboardManager {
     limit = 50,
     periodId?: string
   ): Promise<LeaderboardResult> {
-    const pid = periodId ?? this.getCurrentPeriodId(type);
+    let pid = periodId ?? this.getCurrentPeriodId(type);
 
     // 1. Query main leaderboard list (JOIN users to get display_name)
-    const rows = await this.db
+    let rows = await this.db
       .select({
         address: schema.totalBets.address,
         amount: schema.totalBets.amount,
@@ -86,6 +86,27 @@ export class LeaderboardManager {
       )
       .orderBy(desc(schema.totalBets.amount))
       .limit(limit);
+
+    // Fallback: if no data for specific period, use 'all' period
+    if (rows.length === 0 && type !== "all") {
+      pid = "";
+      rows = await this.db
+        .select({
+          address: schema.totalBets.address,
+          amount: schema.totalBets.amount,
+          displayName: schema.users.displayName,
+        })
+        .from(schema.totalBets)
+        .leftJoin(schema.users, eq(schema.users.address, schema.totalBets.address))
+        .where(
+          and(
+            eq(schema.totalBets.periodType, "all"),
+            eq(schema.totalBets.periodId, "")
+          )
+        )
+        .orderBy(desc(schema.totalBets.amount))
+        .limit(limit);
+    }
 
     const entries: LeaderboardEntry[] = rows.map((r, i) => ({
       rank: i + 1,

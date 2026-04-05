@@ -25,11 +25,24 @@ export default function SoundPlayer() {
     fetch(`/api/v1/profile/prefs?sessionId=${sessionId}`)
       .then((res) => res.json())
       .then((payload) => {
-        if (payload?.success !== false && payload?.data?.prefs) {
+        if (payload?.success === false) {
+          // API returned error, use defaults but mark as hydrated
+          console.warn('[SoundPlayer] API returned error, using defaults:', payload?.error);
+          replacePrefs({}); // Will use DEFAULT_PREFERENCES and set hydrated: true
+          return;
+        }
+        if (payload?.data?.prefs) {
           replacePrefs(payload.data.prefs);
+        } else {
+          // No prefs data, use defaults
+          replacePrefs({});
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        // Network or other error, use defaults
+        console.warn('[SoundPlayer] Failed to load prefs, using defaults:', err);
+        replacePrefs({});
+      });
   }, [sessionId, isAuthorized, replacePrefs]);
 
   useEffect(() => {

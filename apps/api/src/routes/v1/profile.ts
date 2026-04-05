@@ -90,16 +90,21 @@ export async function profileRoutes(fastify: FastifyInstance) {
       })
     }
   }, async (request) => {
-    const { sessionId } = request.query;
-    const session = await sessionRepo.getSessionById(sessionId);
-    if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
+    try {
+      const { sessionId } = request.query;
+      const session = await sessionRepo.getSessionById(sessionId);
+      if (!session || !session.userId) return createApiEnvelope(null, request.id, false, "Unauthorized");
 
-    const user = await userRepo.getUserById(session.userId);
-    const prefs = await settingsManager.getSettings(session.userId);
-    return createApiEnvelope({
-      displayName: user?.displayName || null,
-      prefs,
-    }, request.id);
+      const user = await userRepo.getUserById(session.userId);
+      const prefs = await settingsManager.getSettings(session.userId);
+      return createApiEnvelope({
+        displayName: user?.displayName || null,
+        prefs,
+      }, request.id);
+    } catch (err: any) {
+      console.error("[profile/prefs] GET error:", err);
+      return createApiEnvelope(null, request.id, false, "Failed to load preferences: " + (err.message || "Unknown error"));
+    }
   });
 
   typedFastify.post("/prefs", {

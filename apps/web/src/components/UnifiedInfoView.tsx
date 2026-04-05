@@ -23,7 +23,7 @@ export default function UnifiedInfoView() {
       </header>
 
       <main className="mx-auto max-w-2xl px-6 pt-20 space-y-8">
-        {/* VIP 等級說明區塊 */}
+        {/* VIP 等級系統區塊 */}
         <section className="relative overflow-hidden rounded-2xl border border-[#fcc025]/20 bg-gradient-to-br from-[#1a1919] to-[#0e0e0e] p-6 shadow-2xl">
           <div className="absolute right-0 top-0 h-32 w-32 translate-x-1/2 -translate-y-1/2 rounded-full bg-[#fcc025]/5 blur-[50px]" />
           
@@ -32,12 +32,12 @@ export default function UnifiedInfoView() {
               <Crown className="h-6 w-6 text-[#fcc025]" />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold uppercase tracking-tight text-[#fcc025]">VIP 等級說明</h2>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">等級特權一覽</p>
+              <h2 className="text-xl font-extrabold uppercase tracking-tight text-[#fcc025]">VIP 等級系統</h2>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">6 個等級 · 專屬特權 · 累積解鎖</p>
             </div>
             <div className="ml-auto">
               <span className="inline-block rounded border border-[#fcc025]/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#fcc025]">
-                等階 4 啟用中
+                6 階等級
               </span>
             </div>
           </div>
@@ -57,12 +57,12 @@ export default function UnifiedInfoView() {
             </div>
             <div>
               <h2 className="text-xl font-extrabold uppercase tracking-tight text-emerald-400">遊戲機率</h2>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">RTP 與公平性說明</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">9 款遊戲 · RTP 說明 · 公平驗證</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-                公平遊戲保證
+                9 款遊戲
               </span>
             </div>
           </div>
@@ -82,12 +82,12 @@ export default function UnifiedInfoView() {
             </div>
             <div>
               <h2 className="text-xl font-extrabold uppercase tracking-tight text-purple-400">物品圖鑑</h2>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">道具稀有度說明</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">頭像 · 稱號 · 5 種稀有度</p>
             </div>
             <div className="ml-auto flex items-center gap-2">
               <div className="h-2 w-2 animate-pulse rounded-full bg-purple-400" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400">
-                頭像、稱號與道具
+                完整圖鑑
               </span>
             </div>
           </div>

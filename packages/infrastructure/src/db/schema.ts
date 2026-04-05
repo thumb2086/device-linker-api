@@ -81,7 +81,20 @@ export const userProfiles = pgTable("user_profiles", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// ─── Levels & Betting ─────────────────────────────────────────────────────────
+// ─── Leaderboard & Betting Totals ───────────────────────────────────────────────
+
+export const totalBets = pgTable("total_bets", {
+  periodType: text("period_type").notNull(), // 'all' | 'week' | 'month' | 'season'
+  periodId: text("period_id").notNull(),     // '' | '20260309' | '2026-03' | 'S15-20260223'
+  address: text("address").notNull(),
+  amount: bigint("amount", { mode: "number" }).default(0),
+}, (t) => ({
+  pk: index("total_bets_pk").on(t.periodType, t.periodId, t.address),
+  addressIdx: index("total_bets_address_idx").on(t.address),
+}));
+
+export type TotalBets = typeof totalBets.$inferSelect;
+export type NewTotalBets = typeof totalBets.$inferInsert;
 
 export const levelSnapshots = pgTable("level_snapshots", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -191,6 +204,27 @@ export const txReceipts = pgTable("tx_receipts", {
   gasUsed: text("gas_used"),
   confirmedAt: timestamp("confirmed_at").notNull().defaultNow(),
 });
+
+// ─── Game Sessions (Phase 3) ───────────────────────────────────────────────────
+
+export const gameSessions = pgTable("game_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  address: text("address").notNull(),
+  game: text("game").notNull(), // 'shoot_dragon_gate' | 'horse_race' | 'dice' | etc.
+  betAmount: numeric("bet_amount").notNull(),
+  result: text("result").notNull(), // 'win' | 'lose' | 'draw'
+  payout: numeric("payout").notNull().default("0"),
+  meta: jsonb("meta").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  addressIdx: index("game_sessions_address_idx").on(t.address),
+  gameIdx: index("game_sessions_game_idx").on(t.game),
+  createdAtIdx: index("game_sessions_created_at_idx").on(t.createdAt),
+}));
+
+export type GameSession = typeof gameSessions.$inferSelect;
+export type NewGameSession = typeof gameSessions.$inferInsert;
 
 // ─── Games ─────────────────────────────────────────────────────────────────────
 

@@ -237,7 +237,7 @@ export default function LobbyView() {
             </div>
           </GlassCard>
           <GlassCard
-            to="/app/info/vip-levels"
+            to="/app/info?tab=vip"
             icon={Crown}
             title={isZh ? zh.vipLevels : 'VIP Levels'}
             subtitle={isZh ? zh.vipSubtitle : 'Tier Benefits Overview'}
@@ -250,7 +250,7 @@ export default function LobbyView() {
             </p>
           </GlassCard>
           <GlassCard
-            to="/app/info/odds"
+            to="/app/info?tab=odds"
             icon={Dice5}
             title={isZh ? zh.gameOdds : 'Game Odds'}
             subtitle={isZh ? zh.oddsSubtitle : 'RTP & Fairness Info'}
@@ -266,7 +266,7 @@ export default function LobbyView() {
             </div>
           </GlassCard>
           <GlassCard
-            to="/app/info/items"
+            to="/app/info?tab=items"
             icon={Package}
             title={isZh ? zh.itemsCatalog : 'Items Catalog'}
             subtitle={isZh ? zh.itemsSubtitle : 'Item Rarity Guide'}

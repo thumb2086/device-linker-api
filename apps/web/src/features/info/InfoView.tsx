@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronLeft, Package, Calculator, Crown, Sparkles } from 'lucide-react';
 import AppBottomNav from '../../components/AppBottomNav';
 import ItemsTab from './tabs/ItemsTab';
@@ -15,7 +15,17 @@ const TABS = [
 ];
 
 export default function InfoView() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<TabId>('items');
+
+  // Read tab from URL query params on mount
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam && ['items', 'odds', 'vip'].includes(tabParam)) {
+      setActiveTab(tabParam as TabId);
+    }
+  }, [location.search]);
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">

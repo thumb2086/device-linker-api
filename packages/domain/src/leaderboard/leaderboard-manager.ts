@@ -51,8 +51,9 @@ export class LeaderboardManager {
     }
 
     if (type === "season") {
-      // Season format: S-{year}{month} - simplified version
-      return `S-${y}${m}`;
+      // Season format: S{year}Q{quarter} (e.g., S2025Q2 for Apr-Jun 2025)
+      const quarter = Math.floor(now.getUTCMonth() / 3) + 1;
+      return `S${y}Q${quarter}`;
     }
 
     return "";
@@ -87,26 +88,7 @@ export class LeaderboardManager {
       .orderBy(desc(schema.totalBets.amount))
       .limit(limit);
 
-    // Fallback: if no data for specific period, use 'all' period
-    if (rows.length === 0 && type !== "all") {
-      pid = "";
-      rows = await this.db
-        .select({
-          address: schema.totalBets.address,
-          amount: schema.totalBets.amount,
-          displayName: schema.users.displayName,
-        })
-        .from(schema.totalBets)
-        .leftJoin(schema.users, eq(schema.users.address, schema.totalBets.address))
-        .where(
-          and(
-            eq(schema.totalBets.periodType, "all"),
-            eq(schema.totalBets.periodId, "")
-          )
-        )
-        .orderBy(desc(schema.totalBets.amount))
-        .limit(limit);
-    }
+    // Note: Removed fallback to 'all' period - week/month/season should show only current period data
 
     const entries: LeaderboardEntry[] = rows.map((r, i) => ({
       rank: i + 1,
@@ -184,7 +166,8 @@ export class LeaderboardManager {
   // ─────────────────────────────────────────
   async getAssetLeaderboard(
     selfAddress?: string,
-    limit = 50
+    limit = 50,
+    token = 'zhixi'
   ): Promise<LeaderboardResult> {
     const rows = await this.db
       .select({
@@ -194,6 +177,7 @@ export class LeaderboardManager {
       })
       .from(schema.walletAccounts)
       .leftJoin(schema.users, eq(schema.users.address, schema.walletAccounts.address))
+      .where(eq(schema.walletAccounts.token, token))
       .orderBy(desc(schema.walletAccounts.balance))
       .limit(limit);
 
@@ -218,7 +202,12 @@ export class LeaderboardManager {
         const selfRow = await this.db
           .select({ balance: schema.walletAccounts.balance })
           .from(schema.walletAccounts)
-          .where(eq(schema.walletAccounts.address, addr))
+          .where(
+            and(
+              eq(schema.walletAccounts.address, addr),
+              eq(schema.walletAccounts.token, token)
+            )
+          )
           .limit(1);
 
         if (selfRow.length > 0) {
@@ -226,7 +215,12 @@ export class LeaderboardManager {
           const rankResult = await this.db
             .select({ cnt: sql<number>`count(*)` })
             .from(schema.walletAccounts)
-            .where(sql`${schema.walletAccounts.balance} > ${selfBalance}`);
+            .where(
+              and(
+                sql`${schema.walletAccounts.balance} > ${selfBalance}`,
+                eq(schema.walletAccounts.token, token)
+              )
+            );
 
           const rank = Number(rankResult[0]?.cnt ?? 0) + 1;
           const userRow = await this.db

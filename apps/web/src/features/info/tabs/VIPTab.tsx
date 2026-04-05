@@ -179,7 +179,7 @@ export default function VIPTab() {
           <section className="rounded-2xl border border-[#494847]/10 bg-gradient-to-br from-[#1a1919] to-[#141414] p-6 shadow-2xl">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">VIP 等級總覽</h2>
             <p className="mt-3 text-sm font-bold leading-relaxed text-[#adaaaa]">
-              VIP 等級依照 <span className="text-[#fcc025]">佑件幣 (YJC) 持有量</span> 決定。持有越多，可進入更高級的專屬房間，並享有特殊特權。
+              VIP 等級依照 <span className="text-[#fcc025]">佑戲幣 (YJC) 持有量</span> 決定。持有越多，可進入更高級的專屬房間，並享有特殊特權。
             </p>
             <div className="mt-4 rounded-xl border border-[#fcc025]/20 bg-[#0e0e0e] p-4">
               <div className="flex items-center gap-2">

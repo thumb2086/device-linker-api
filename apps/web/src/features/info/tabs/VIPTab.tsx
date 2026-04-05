@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { ChevronRight, Gift, MessageCircle, Percent, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronRight, Gift, Percent } from 'lucide-react';
 
 interface VipTier {
   name: string;
@@ -52,15 +52,6 @@ const formatThreshold = (value: number) => {
 export default function VIPTab() {
   const [expandedTier, setExpandedTier] = useState<string | null>('VIP 1');
   const [activeTab, setActiveTab] = useState<'member' | 'vip'>('member');
-
-  const maxDiscount = useMemo(
-    () => Math.max(...VIP_TIERS.map((tier) => tier.feeDiscount)),
-    [],
-  );
-  const maxBonus = useMemo(
-    () => Math.max(...VIP_TIERS.map((tier) => tier.dailyBonus)),
-    [],
-  );
 
   return (
     <div className="space-y-6">

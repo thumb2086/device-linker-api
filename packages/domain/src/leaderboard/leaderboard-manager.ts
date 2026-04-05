@@ -162,33 +162,77 @@ export class LeaderboardManager {
   }
 
   // ─────────────────────────────────────────
-  // Asset leaderboard: Direct query on wallet_accounts.balance
+  // Asset leaderboard: Query both zhixi and yjc, convert YJC to ZXC (1 YJC = 100M ZXC)
   // ─────────────────────────────────────────
   async getAssetLeaderboard(
     selfAddress?: string,
     limit = 50,
-    token = 'zhixi'
   ): Promise<LeaderboardResult> {
-    const rows = await this.db
+    const YJC_TO_ZXC_RATE = 100_000_000; // 1 YJC = 100 million ZXC
+
+    // Query all balances (zhixi + yjc) for each address
+    const allBalances = await this.db
       .select({
         address: schema.walletAccounts.address,
+        token: schema.walletAccounts.token,
         balance: schema.walletAccounts.balance,
-        displayName: schema.users.displayName,
       })
       .from(schema.walletAccounts)
-      .leftJoin(schema.users, eq(schema.users.address, schema.walletAccounts.address))
-      .where(eq(schema.walletAccounts.token, token))
-      .orderBy(desc(schema.walletAccounts.balance))
-      .limit(limit);
+      .where(
+        sql`${schema.walletAccounts.token} IN ('zhixi', 'yjc')`
+      );
 
-    const entries: LeaderboardEntry[] = rows.map((r, i) => ({
-      rank: i + 1,
-      address: r.address,
-      displayName: r.displayName,
-      amount: Number(r.balance ?? 0),
-      balance: Number(r.balance ?? 0),
-    }));
+    // Aggregate balances by address
+    const balanceMap = new Map<string, { zhixi: number; yjc: number; total: number }>();
 
+    for (const row of allBalances) {
+      const addr = row.address.toLowerCase();
+      const bal = Number(row.balance ?? 0);
+
+      if (!balanceMap.has(addr)) {
+        balanceMap.set(addr, { zhixi: 0, yjc: 0, total: 0 });
+      }
+
+      const entry = balanceMap.get(addr)!;
+      if (row.token === 'zhixi') {
+        entry.zhixi = bal;
+      } else if (row.token === 'yjc') {
+        entry.yjc = bal;
+      }
+      // Calculate total in ZXC equivalent
+      entry.total = entry.zhixi + (entry.yjc * YJC_TO_ZXC_RATE);
+    }
+
+    // Get display names for addresses
+    const addresses = Array.from(balanceMap.keys());
+    const userRows = addresses.length > 0
+      ? await this.db
+          .select({
+            address: schema.users.address,
+            displayName: schema.users.displayName,
+          })
+          .from(schema.users)
+          .where(sql`${schema.users.address} IN ${addresses}`)
+      : [];
+
+    const displayNameMap = new Map(
+      userRows.map(u => [u.address.toLowerCase(), u.displayName])
+    );
+
+    // Create entries array sorted by total value
+    const entries: LeaderboardEntry[] = Array.from(balanceMap.entries())
+      .map(([address, balances], i) => ({
+        rank: i + 1, // Will be re-sorted
+        address,
+        displayName: displayNameMap.get(address) ?? null,
+        amount: balances.total,
+        balance: balances.total,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, limit)
+      .map((entry, i) => ({ ...entry, rank: i + 1 }));
+
+    // Calculate self rank
     let selfRank: LeaderboardEntry | null = null;
 
     if (selfAddress) {
@@ -196,33 +240,44 @@ export class LeaderboardManager {
       const inList = entries.find(
         (e) => e.address.toLowerCase() === addr
       );
+
       if (inList) {
         selfRank = inList;
       } else {
-        const selfRow = await this.db
-          .select({ balance: schema.walletAccounts.balance })
+        // Query self balances
+        const selfRows = await this.db
+          .select({
+            token: schema.walletAccounts.token,
+            balance: schema.walletAccounts.balance,
+          })
           .from(schema.walletAccounts)
           .where(
             and(
               eq(schema.walletAccounts.address, addr),
-              eq(schema.walletAccounts.token, token)
+              sql`${schema.walletAccounts.token} IN ('zhixi', 'yjc')`
             )
-          )
-          .limit(1);
+          );
 
-        if (selfRow.length > 0) {
-          const selfBalance = Number(selfRow[0].balance ?? 0);
-          const rankResult = await this.db
-            .select({ cnt: sql<number>`count(*)` })
-            .from(schema.walletAccounts)
-            .where(
-              and(
-                sql`${schema.walletAccounts.balance} > ${selfBalance}`,
-                eq(schema.walletAccounts.token, token)
-              )
-            );
+        let selfZhixi = 0;
+        let selfYjc = 0;
 
-          const rank = Number(rankResult[0]?.cnt ?? 0) + 1;
+        for (const row of selfRows) {
+          const bal = Number(row.balance ?? 0);
+          if (row.token === 'zhixi') selfZhixi = bal;
+          else if (row.token === 'yjc') selfYjc = bal;
+        }
+
+        const selfTotal = selfZhixi + (selfYjc * YJC_TO_ZXC_RATE);
+
+        if (selfTotal > 0) {
+          // Count how many addresses have higher total
+          let rank = 1;
+          for (const [, balances] of balanceMap) {
+            if (balances.total > selfTotal) {
+              rank++;
+            }
+          }
+
           const userRow = await this.db
             .select({ displayName: schema.users.displayName })
             .from(schema.users)
@@ -233,8 +288,8 @@ export class LeaderboardManager {
             rank,
             address: addr,
             displayName: userRow[0]?.displayName ?? null,
-            amount: selfBalance,
-            balance: selfBalance,
+            amount: selfTotal,
+            balance: selfTotal,
           };
         }
       }

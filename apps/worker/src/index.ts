@@ -1,4 +1,4 @@
-import { OnchainWalletManager, WalletManager } from "@repo/domain";
+import { OnchainWalletManager, WalletManager, tokenSymbolToOnchainKey } from "@repo/domain";
 import { WalletRepository, OpsRepository, ChainClient } from "@repo/infrastructure";
 
 export async function processIntents() {
@@ -35,26 +35,33 @@ export async function processIntents() {
           message: `Broadcasting ${intent.type} for intent ${intent.id}`
         });
 
-        const tokenKey = intent.token === "YJC" ? "yjc" : "zhixi";
+        const tokenKey = tokenSymbolToOnchainKey(intent.token);
         const tokenRuntime = runtime.tokens[tokenKey];
         const contractAddress = tokenRuntime.contractAddress;
-        const fromAddress = String(intent.address || "").toLowerCase();
+        const userAddress = String(intent.address || "").toLowerCase();
         const meta = intent.meta && typeof intent.meta === "object" ? intent.meta : {};
         const decimals = Number.isFinite(Number((meta as any).decimals))
           ? Number((meta as any).decimals)
           : await chainClient.getDecimals(contractAddress, 18);
         const amountWei = chainClient.parseUnits(String(intent.amount || "0"), decimals);
+        const treasuryAddress = String((meta as any).treasuryAddress || tokenRuntime.lossPoolAddress || chainClient.getWalletAddress()).toLowerCase();
+        const explicitFromAddress = String((meta as any).fromAddress || "").toLowerCase();
+        const explicitToAddress = String((meta as any).toAddress || "").toLowerCase();
+        const fromAddress =
+          intent.type === "payout" || intent.type === "deposit"
+            ? (explicitFromAddress || treasuryAddress)
+            : userAddress;
         const toAddress =
           intent.type === "transfer"
-            ? String((meta as any).toAddress || "")
-            : intent.type === "withdrawal"
-              ? String(tokenRuntime.lossPoolAddress || chainClient.getWalletAddress())
-              : fromAddress;
+            ? explicitToAddress
+            : intent.type === "withdrawal" || intent.type === "bet"
+              ? treasuryAddress
+              : explicitToAddress || userAddress;
         let txHash = `0xmock_hash_${Date.now()}`;
 
         if (process.env.NODE_ENV === "production" && contractAddress) {
            if (intent.type === "deposit" && (meta as any).mode === "zxc_to_yjc_mint") {
-             const tx = await chainClient.mint(fromAddress, amountWei, contractAddress);
+             const tx = await chainClient.mint(userAddress, amountWei, contractAddress);
              txHash = tx.hash;
              await tx.wait();
            } else if (fromAddress && toAddress) {

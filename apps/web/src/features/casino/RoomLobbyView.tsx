@@ -1,5 +1,4 @@
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { useMemo } from 'react';
 import { ChevronRight, Flame, LayoutGrid, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -44,7 +43,7 @@ export default function RoomLobbyView() {
     highStakes: '\u9ad8\u984d\u5834',
     featuredTitle: '\u738b\u724c\u8cfd\u99ac',
     vipOnly: 'VIP \u5c08\u5c6c',
-    pending: 'VIP \u672a\u958b\u653e',
+    pending: 'VIP \u5c08\u5c6c',
   };
 
   const roomsQuery = useQuery({
@@ -124,7 +123,7 @@ export default function RoomLobbyView() {
           {renderedGames.map((game) => (
             <Link
               key={game.id}
-              to={game.vipOnly ? `/app/casino/${game.id}?locked=vip` : `/app/casino/${game.id}`}
+              to={`/app/casino/${game.id}`}
               className={`group relative overflow-hidden rounded-2xl border p-6 transition-all ${
                 game.vipOnly
                   ? 'border-[#fcc025]/15 bg-[#151515] hover:bg-[#1c1b1b]'
@@ -166,7 +165,7 @@ export default function RoomLobbyView() {
                     <Users size={10} className="text-[#adaaaa]" />
                     <span className="text-[9px] font-bold uppercase tracking-widest text-[#adaaaa]">
                       {game.vipOnly
-                        ? (isZh ? zh.pending : 'VIP pending')
+                        ? (isZh ? zh.pending : 'VIP only')
                         : `${game.players} ${t('casino.active_players')}`}
                     </span>
                   </div>

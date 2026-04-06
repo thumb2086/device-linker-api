@@ -1,41 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import './Slots.css';
+import { extractGameError, unwrapGameEnvelope } from './gameClient';
 
-const SYMBOLS = ["🍒", "🍋", "🍊", "🍇", "🔔", "💎", "7️⃣"];
+const SYMBOLS = ['??', '??', '??', '??', '??', '??', '7儭'];
 
 export const SlotsView: React.FC = () => {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
   const [isSpinning, setIsSpinning] = useState(false);
-  const [grid, setGrid] = useState<string[]>(["🍒", "🍋", "🍊", "🍇", "🔔", "💎", "7️⃣", "🍒", "🍋"].slice(0, 9));
-  const [status, setStatus] = useState('🎬 點擊旋轉開始冒險！');
+  const [grid, setGrid] = useState<string[]>(['??', '??', '??', '??', '??', '??', '7儭', '??', '??'].slice(0, 9));
+  const [status, setStatus] = useState('? 暺??????嚗?');
   const [winSymbols, setWinSymbols] = useState<number[]>([]);
 
   const spinMutation = useMutation({
     mutationFn: async () => {
+      if (!session) throw new Error('No session');
+
       const res = await fetch('/api/v1/games/slots/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session?.id, amount: betAmount, action: {} })
+        body: JSON.stringify({
+          sessionId: session.id,
+          betAmount: Number(betAmount),
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || '旋轉失敗');
-      return data.data;
-    },
-    onSuccess: async (data) => {
-      const responseData = data?.data || data;
-      const result = responseData?.result;
 
-      // Keep spinning for a bit
-      await new Promise(r => setTimeout(r, 1500));
+      const payload = await res.json();
+      if (!res.ok || payload?.success === false) {
+        throw new Error(extractGameError(payload));
+      }
+
+      return unwrapGameEnvelope<any>(payload);
+    },
+    onSuccess: async (result) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
       setIsSpinning(false);
-      // Construct a 3x3 grid from the result.
-      // Legacy code used columns, but our domain simplified it to 3 symbols.
-      // Let's adapt: we'll show the 3 winning symbols in the middle row.
+
       const newGrid = [...grid];
       newGrid[3] = result.symbols[0];
       newGrid[4] = result.symbols[1];
@@ -43,36 +47,38 @@ export const SlotsView: React.FC = () => {
       setGrid(newGrid);
 
       if (result.multiplier > 0) {
-        setStatus(`🏆 恭喜！獲得 ${result.multiplier}x 獎勵！`);
+        setStatus(`?? ?剖?嚗敺?${result.multiplier}x ?嚗`);
         setWinSymbols([3, 4, 5]);
       } else {
-        setStatus('💀 很遺憾，這局沒有中獎。');
+        setStatus('?? 敺?橘???瘝?銝剔???');
         setWinSymbols([]);
       }
+
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
     onError: (err: Error) => {
       setIsSpinning(false);
-      setStatus(`❌ 錯誤: ${err.message}`);
-    }
+      setStatus(`???航炊: ${err.message}`);
+    },
   });
 
   const handleSpin = () => {
     if (isSpinning) return;
     setIsSpinning(true);
-    setStatus('🎰 盤面旋轉中...');
+    setStatus('? ?日??銝?..');
     setWinSymbols([]);
     spinMutation.mutate();
   };
 
-  // Animation for spinning effect
   useEffect(() => {
     let interval: number;
+
     if (isSpinning) {
       interval = window.setInterval(() => {
-        setGrid(prev => prev.map(() => SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]));
+        setGrid((prev) => prev.map(() => SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]));
       }, 100);
     }
+
     return () => clearInterval(interval);
   }, [isSpinning]);
 
@@ -104,13 +110,11 @@ export const SlotsView: React.FC = () => {
           onClick={handleSpin}
           disabled={isSpinning}
         >
-          {isSpinning ? 'SPINNING...' : '🎰 SPIN'}
+          {isSpinning ? 'SPINNING...' : '? SPIN'}
         </button>
       </div>
 
-      <div className="slots-status">
-        {status}
-      </div>
+      <div className="slots-status">{status}</div>
     </div>
   );
 };

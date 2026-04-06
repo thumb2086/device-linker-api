@@ -308,8 +308,20 @@ export class GameSettlementWrapper {
    * Save round to game repository
    */
   async saveRound(game: string, roundId: string, result: any): Promise<void> {
-    const gameManager = await import("@repo/domain/games/game-manager.js").then(m => new m.GameManager());
-    await this.gameRepo.saveRound(gameManager.settleRound({ id: roundId, game } as any, result));
+    const now = new Date();
+    await this.gameRepo.saveRound({
+      id: randomUUID(),
+      game,
+      externalRoundId: roundId,
+      status: "settled",
+      result,
+      opensAt: now,
+      closesAt: now,
+      bettingClosesAt: now,
+      settledAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 }
 

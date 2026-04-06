@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -236,7 +236,7 @@ export default function WalletView() {
                   {isZh ? zh.noTransactions : 'No transactions yet'}
                 </div>
               )}
-              {walletSummary?.recentTransactions?.map((tx) => {
+              {walletSummary?.recentTransactions?.map((tx: any) => {
                 const positive = tx.type === 'airdrop' || tx.type === 'transfer_in';
                 return (
                   <div key={tx.id} className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">

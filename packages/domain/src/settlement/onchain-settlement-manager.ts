@@ -11,7 +11,7 @@ import {
 } from "@repo/shared";
 import { SettlementManager } from "./settlement-manager.js";
 import { WalletManager } from "../wallet/wallet-manager.js";
-import { OnchainWalletManager } from "../wallet/onchain-wallet-manager.js";
+import { OnchainWalletManager, tokenSymbolToOnchainKey } from "../wallet/onchain-wallet-manager.js";
 import { VipManager } from "../levels/vip-manager.js";
 import { ChainClient } from "@repo/infrastructure";
 import { WalletRepository } from "@repo/infrastructure";
@@ -42,6 +42,7 @@ export interface OnchainSettlementDomain {
 
 export class OnchainSettlementManager implements OnchainSettlementDomain {
   private readonly BASE_FEE_RATE = 0.02; // 2% base fee
+  private readonly TREASURY_TARGET_BALANCE = "10000000000000";
 
   constructor(
     private settlementManager: SettlementManager,
@@ -65,6 +66,43 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
     
     this.chainClient = new ChainClient(config.rpcUrl, config.adminPrivateKey);
     return this.chainClient;
+  }
+
+  private async ensureTreasuryLiquidity(
+    tokenConfig: { contractAddress: string; lossPoolAddress: string },
+    requiredAmountWei: bigint,
+    decimals: number
+  ): Promise<string> {
+    const client = this.getChainClient();
+    const treasuryAddress = tokenConfig.lossPoolAddress || client.getWalletAddress();
+    if (!treasuryAddress) {
+      throw new Error("TREASURY_ADDRESS_MISSING");
+    }
+
+    const treasuryBalanceBefore = await client.getBalance(treasuryAddress, tokenConfig.contractAddress);
+    if (treasuryBalanceBefore >= requiredAmountWei) {
+      return treasuryAddress;
+    }
+
+    const targetBalanceWei = client.parseUnits(this.TREASURY_TARGET_BALANCE, decimals);
+    const refillTargetWei = targetBalanceWei > requiredAmountWei ? targetBalanceWei : requiredAmountWei;
+    const refillAmountWei = refillTargetWei - treasuryBalanceBefore;
+    if (refillAmountWei <= 0n) {
+      return treasuryAddress;
+    }
+
+    const topupTx = await client.mint(treasuryAddress, refillAmountWei, tokenConfig.contractAddress);
+    const topupReceipt = await client.waitForReceipt(topupTx.hash);
+    if (!topupReceipt || topupReceipt.status !== 1) {
+      throw new Error(`TREASURY_TOPUP_REVERTED: ${topupTx.hash}`);
+    }
+
+    const treasuryBalanceAfter = await client.getBalance(treasuryAddress, tokenConfig.contractAddress);
+    if (treasuryBalanceAfter < requiredAmountWei) {
+      throw new Error("TREASURY_INSUFFICIENT_AFTER_TOPUP");
+    }
+
+    return treasuryAddress;
   }
 
   /**
@@ -181,19 +219,24 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
     type: "bet" | "payout"
   ): Promise<string> {
     const config = this.onchainWallet.getRuntimeConfig();
-    const tokenKey = intent.token.toLowerCase() as "zhixi" | "yjc";
+    const tokenKey = tokenSymbolToOnchainKey(intent.token);
     const tokenConfig = config.tokens[tokenKey];
 
+    if (!tokenConfig) {
+      throw new Error(`ONCHAIN_TOKEN_CONFIG_MISSING: ${intent.token}`);
+    }
+
     if (!tokenConfig.enabled) {
-      throw new Error(`Token ${intent.token} not enabled for onchain transfer`);
+      throw new Error(`ONCHAIN_TOKEN_DISABLED: ${intent.token}`);
     }
 
     const client = this.getChainClient();
-    const houseAddress = client.getWalletAddress();
     const decimals = await client.getDecimals(tokenConfig.contractAddress);
     const amount = client.parseUnits(intent.amount, decimals);
+    const treasuryAddress = tokenConfig.lossPoolAddress || client.getWalletAddress();
 
     let txHash: string | null = null;
+    let finalizedStatusWritten = false;
     
     try {
       // Save broadcasting attempt
@@ -216,7 +259,7 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
         // Bet: Transfer from player to house (adminTransfer)
         const tx = await client.adminTransfer(
           userAddress,
-          houseAddress,
+          treasuryAddress,
           amount,
           tokenConfig.contractAddress
         );
@@ -254,14 +297,27 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
         }
         
         if (reverted) {
+          if (this.walletRepo) {
+            await this.walletRepo.saveTxIntent(
+              this.walletManager.processTxIntent(intent, "reverted", txHash, "Transaction reverted")
+            );
+            finalizedStatusWritten = true;
+          }
           throw new Error(`Bet transaction reverted: ${tx.hash}`);
         }
-        
+
+        if (this.walletRepo) {
+          await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "confirmed", txHash));
+          finalizedStatusWritten = true;
+        }
+
         return tx.hash;
         
       } else {
-        // Payout: Transfer from house to player
-        const tx = await client.transfer(
+        // Payout: Transfer from treasury to player using adminTransfer
+        const payoutTreasuryAddress = await this.ensureTreasuryLiquidity(tokenConfig, amount, decimals);
+        const tx = await client.adminTransfer(
+          payoutTreasuryAddress,
           userAddress,
           amount,
           tokenConfig.contractAddress
@@ -300,9 +356,20 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
         }
         
         if (reverted) {
+          if (this.walletRepo) {
+            await this.walletRepo.saveTxIntent(
+              this.walletManager.processTxIntent(intent, "reverted", txHash, "Transaction reverted")
+            );
+            finalizedStatusWritten = true;
+          }
           throw new Error(`Payout transaction reverted: ${tx.hash}`);
         }
-        
+
+        if (this.walletRepo) {
+          await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "confirmed", txHash));
+          finalizedStatusWritten = true;
+        }
+
         return tx.hash;
       }
     } catch (error: any) {
@@ -321,6 +388,18 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
           createdAt: new Date(),
         });
       }
+
+      if (this.walletRepo && !finalizedStatusWritten) {
+        await this.walletRepo.saveTxIntent(
+          this.walletManager.processTxIntent(
+            intent,
+            "failed",
+            txHash || undefined,
+            error?.message || `${type} failed`
+          )
+        );
+      }
+
       throw new Error(`Onchain transfer failed (${type}): ${error.message}`);
     }
   }

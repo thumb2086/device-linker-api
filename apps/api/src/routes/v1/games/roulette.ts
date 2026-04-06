@@ -10,7 +10,7 @@ import { getRoundInfo, hashInt } from "@repo/domain/games/auto-round.js";
 import { gameSettlement } from "../../../utils/game-settlement.js";
 
 const BetSchema = z.object({
-  type: z.enum(["number", "color", "parity"]),
+  type: z.enum(["number", "color", "parity", "range", "dozen"]),
   value: z.union([z.number(), z.string()]),
   amount: z.number().optional(),
 });
@@ -121,6 +121,24 @@ export async function rouletteRoutes(fastify: FastifyInstance) {
           const isOdd = winningNumber !== 0 && winningNumber % 2 === 1;
           if ((bet.value === 'even' && isEven) || (bet.value === 'odd' && isOdd)) {
             totalPayoutMultiplier += 2; // 1:1 payout
+          }
+        } else if (bet.type === 'range') {
+          const isLow = winningNumber >= 1 && winningNumber <= 18;
+          const isHigh = winningNumber >= 19 && winningNumber <= 36;
+          if ((bet.value === 'low' && isLow) || (bet.value === 'high' && isHigh)) {
+            totalPayoutMultiplier += 2; // 1:1 payout
+          }
+        } else if (bet.type === 'dozen') {
+          const dozen =
+            winningNumber >= 1 && winningNumber <= 12
+              ? "1"
+              : winningNumber >= 13 && winningNumber <= 24
+                ? "2"
+                : winningNumber >= 25 && winningNumber <= 36
+                  ? "3"
+                  : null;
+          if (dozen && String(bet.value) === dozen) {
+            totalPayoutMultiplier += 3; // 2:1 payout + original bet
           }
         }
       }

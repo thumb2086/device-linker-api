@@ -18,6 +18,8 @@ import { eq, and, desc, sql as drizzleSql } from "drizzle-orm";
 
 const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 if (!connectionString && process.env.NODE_ENV === "production") {
   console.error("❌ Critical Error: DATABASE_URL is missing in production environment!");
 }
@@ -113,6 +115,64 @@ const normalizeLegacyIdentityData = async (sql: any) => {
   `;
 };
 
+const isCoreSchemaReady = async (sql: any) => {
+  const [row] = await sql`
+    SELECT
+      to_regclass('public.users') IS NOT NULL AS "usersExists",
+      to_regclass('public.custody_accounts') IS NOT NULL AS "custodyAccountsExists",
+      to_regclass('public.sessions') IS NOT NULL AS "sessionsExists",
+      to_regclass('public.user_profiles') IS NOT NULL AS "userProfilesExists",
+      to_regclass('public.wallet_accounts') IS NOT NULL AS "walletAccountsExists",
+      to_regclass('public.wallet_ledger_entries') IS NOT NULL AS "walletLedgerEntriesExists",
+      to_regclass('public.tx_intents') IS NOT NULL AS "txIntentsExists",
+      to_regclass('public.tx_attempts') IS NOT NULL AS "txAttemptsExists",
+      to_regclass('public.tx_receipts') IS NOT NULL AS "txReceiptsExists",
+      to_regclass('public.market_accounts') IS NOT NULL AS "marketAccountsExists",
+      to_regclass('public.market_trades') IS NOT NULL AS "marketTradesExists",
+      to_regclass('public.ops_events') IS NOT NULL AS "opsEventsExists",
+      to_regclass('public.announcements') IS NOT NULL AS "announcementsExists",
+      to_regclass('public.total_bets') IS NOT NULL AS "totalBetsExists",
+      to_regclass('public.leaderboard_kings') IS NOT NULL AS "leaderboardKingsExists",
+      to_regclass('public.kv_store') IS NOT NULL AS "kvStoreExists",
+      EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'user_profiles'
+          AND column_name = 'sound_prefs'
+      ) AS "soundPrefsExists"
+  `;
+
+  return Boolean(
+    row?.usersExists &&
+    row?.custodyAccountsExists &&
+    row?.sessionsExists &&
+    row?.userProfilesExists &&
+    row?.walletAccountsExists &&
+    row?.walletLedgerEntriesExists &&
+    row?.txIntentsExists &&
+    row?.txAttemptsExists &&
+    row?.txReceiptsExists &&
+    row?.marketAccountsExists &&
+    row?.marketTradesExists &&
+    row?.opsEventsExists &&
+    row?.announcementsExists &&
+    row?.totalBetsExists &&
+    row?.leaderboardKingsExists &&
+    row?.kvStoreExists &&
+    row?.soundPrefsExists
+  );
+};
+
+const reconcileWalletAccountConstraints = async (sql: any) => {
+  await sql`
+    ALTER TABLE wallet_accounts
+    DROP CONSTRAINT IF EXISTS wallet_accounts_address_key
+  `;
+  await sql`DROP INDEX IF EXISTS wallet_accounts_address_key`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS wallet_addr_token_idx ON wallet_accounts (address, token)`;
+};
+
 const ensureCoreSchema = async () => {
   if (!connectionString || connectionString.includes("mock")) return;
   if (!ensureCoreSchemaPromise) {
@@ -124,6 +184,16 @@ const ensureCoreSchema = async () => {
         connect_timeout: 10,
       });
       try {
+        const walletAccountsExists = await sql`
+          SELECT to_regclass('public.wallet_accounts') IS NOT NULL AS "walletAccountsExists"
+        `;
+        if (walletAccountsExists[0]?.walletAccountsExists) {
+          await reconcileWalletAccountConstraints(sql);
+        }
+
+        if (await isCoreSchemaReady(sql)) {
+          return;
+        }
         await sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
         await sql`
           CREATE TABLE IF NOT EXISTS users (
@@ -212,7 +282,7 @@ const ensureCoreSchema = async () => {
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
           )
         `;
-        await sql`CREATE UNIQUE INDEX IF NOT EXISTS wallet_addr_token_idx ON wallet_accounts (address, token)`;
+        await reconcileWalletAccountConstraints(sql);
         await sql`
           CREATE TABLE IF NOT EXISTS wallet_ledger_entries (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -517,9 +587,14 @@ export class WalletRepository implements IWalletRepository {
     const conn = await requireDb();
     try {
         const user = await conn.query.users.findFirst({ where: (u: any, { eq }: any) => eq(u.id, intent.userId) });
+        const rawRoundId = intent.roundId ? String(intent.roundId) : null;
         const payload = {
           ...intent,
           address: intent.address || user?.address || "",
+          roundId: rawRoundId && UUID_PATTERN.test(rawRoundId) ? rawRoundId : null,
+          meta: rawRoundId && !UUID_PATTERN.test(rawRoundId)
+            ? { ...(intent.meta || {}), externalRoundId: rawRoundId }
+            : intent.meta,
         };
         await conn.insert((schema as any).txIntents).values(payload).onConflictDoUpdate({
           target: (schema as any).txIntents.id,
@@ -530,7 +605,15 @@ export class WalletRepository implements IWalletRepository {
             address: payload.address
           }
         });
-    } catch(e) {}
+    } catch(e) {
+      console.error("saveTxIntent failed", {
+        intentId: intent?.id,
+        userId: intent?.userId,
+        roundId: intent?.roundId,
+        error: e,
+      });
+      throw e;
+    }
   }
 
   async getPendingIntents() {

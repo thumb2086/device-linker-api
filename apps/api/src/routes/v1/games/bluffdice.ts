@@ -32,7 +32,7 @@ export async function bluffdiceRoutes(fastify: FastifyInstance) {
         sessionId: z.string(),
         betAmount: z.number().min(1).max(1_000_000),
         action: z.string().default("roll"),
-        token: z.enum(["zhixi", "yjc"]).optional().default("zhixi"),
+        token: z.enum(["zhixi", "yjc"]).optional().default("yjc"),
       }),
     },
   }, async (request) => {

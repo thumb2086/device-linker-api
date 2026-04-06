@@ -41,7 +41,12 @@ fastify.setSerializerCompiler(serializerCompiler);
 
 // Global Error Handler
 fastify.setErrorHandler((error, request, reply) => {
-  console.error("Global Error Handler:", error);
+  console.error("Global Error Handler:", {
+    message: error?.message,
+    stack: error?.stack,
+    name: error?.name,
+    cause: error?.cause ? String(error.cause) : undefined,
+  });
   if (error.validation) {
     reply.status(400).send({
         success: false,

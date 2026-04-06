@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { motion } from 'framer-motion';
-import { User, ArrowRight, Zap, ShieldCheck, Fingerprint } from 'lucide-react';
+import { User, ArrowRight, ShieldCheck, Fingerprint } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export default function ProfileSetup({ onComplete }: { onComplete: () => void }) {
@@ -9,7 +9,7 @@ export default function ProfileSetup({ onComplete }: { onComplete: () => void })
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (username.length < 2) {
       setError('USERNAME_TOO_SHORT');

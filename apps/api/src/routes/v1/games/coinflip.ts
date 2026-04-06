@@ -78,7 +78,7 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
       return createApiEnvelope({
         success: true,
         data: {
-          roundId: session.id,
+          roundId,
           sessionId: session.id,
           selection,
           winner: gameResult.winner,

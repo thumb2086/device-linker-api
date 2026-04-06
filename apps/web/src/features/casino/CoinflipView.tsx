@@ -84,17 +84,16 @@ export const CoinflipView: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           sessionId: session.id, 
-          amount: betAmount,  // Changed from betAmount to amount (string)
-          action: { selection }  // Wrap selection in action object
+          betAmount: parseFloat(betAmount),
+          selection
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || '下注失敗');
       return data.data;
     },
-    onSuccess: (data) => {
-      // data is the API envelope, actual data is in data.data
-      const responseData = data?.data || data;
+    onSuccess: (responseData) => {
+      // responseData is already unwrapped (data.data from the API response)
       setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), selection, roundId: responseData.roundId }]);
       setStatus('✅ 下注成功，等待開獎...');
       setStatusColor('#00ff88');

@@ -781,6 +781,18 @@ export class AnnouncementRepository {
     });
   }
 
+  async listAllAnnouncements(limit: number = 50) {
+    const conn = await requireDb();
+    return await conn.query.announcements.findMany({
+      limit,
+      orderBy: (announcements: any, { desc }: any) => [
+        desc(announcements.isPinned),
+        desc(announcements.publishedAt),
+        desc(announcements.createdAt),
+      ],
+    });
+  }
+
   async saveAnnouncement(announcement: {
     id?: string;
     announcementId: string;

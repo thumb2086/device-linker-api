@@ -57,19 +57,19 @@ export default function HealthView() {
         <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
            <div className="bg-[#1a1919] p-6 rounded-2xl border border-[#494847]/10 flex flex-col gap-2">
               <span className="text-[8px] font-black text-[#494847] uppercase tracking-[0.3em]">UPTIME</span>
-              <span className="text-xl font-black italic text-emerald-500">{stats?.uptime || '99.98%'}</span>
+              <span className="text-xl font-black italic text-emerald-500">{stats?.uptime ?? (isLoading ? '...' : '--')}</span>
            </div>
            <div className="bg-[#1a1919] p-6 rounded-2xl border border-[#494847]/10 flex flex-col gap-2">
               <span className="text-[8px] font-black text-[#494847] uppercase tracking-[0.3em]">FAILURE RATE</span>
-              <span className="text-xl font-black italic text-[#fcc025]">{stats?.failureRate || '0.02%'}</span>
+              <span className="text-xl font-black italic text-[#fcc025]">{stats?.failureRate ?? (isLoading ? '...' : '--')}</span>
            </div>
            <div className="bg-[#1a1919] p-6 rounded-2xl border border-[#494847]/10 flex flex-col gap-2">
               <span className="text-[8px] font-black text-[#494847] uppercase tracking-[0.3em]">NODES</span>
-              <span className="text-xl font-black italic text-white">12 ACTIVE</span>
+              <span className="text-xl font-black italic text-white">{stats?.nodes ?? (isLoading ? '...' : '--')}</span>
            </div>
            <div className="bg-[#1a1919] p-6 rounded-2xl border border-[#494847]/10 flex flex-col gap-2">
               <span className="text-[8px] font-black text-[#494847] uppercase tracking-[0.3em]">SECURE LAYER</span>
-              <span className="text-xl font-black italic text-[#fcc025]">AES-256</span>
+              <span className="text-xl font-black italic text-[#fcc025]">{stats?.secureLayer ?? '--'}</span>
            </div>
         </section>
 
@@ -87,14 +87,23 @@ export default function HealthView() {
                  </div>
               </div>
               <div className="flex items-end gap-1.5 h-48">
-                 {stats?.last24h?.success.map((val: number, i: number) => (
+                 {stats?.last24h?.success?.length > 0 ? (
+                   stats.last24h.success.map((val: number, i: number) => (
                     <div key={i} className="flex-1 group relative">
                        <div className="bg-emerald-500/10 w-full rounded-t-sm" style={{ height: `${(val/50)*100}%` }} />
                        <div className="bg-red-500/40 w-full rounded-t-sm -mt-1" style={{ height: `${(stats.last24h.failure[i]/50)*100}%` }} />
                     </div>
-                 )) || [40,60,30,80,50,90,70,100,55,65,45,75].map((h, i) => (
-                    <div key={i} className="flex-1 bg-[#262626] rounded-t-sm" style={{ height: `${h}%` }} />
-                 ))}
+                   ))
+                 ) : isLoading ? (
+                   <div className="w-full h-full flex items-center justify-center">
+                     <span className="text-[#494847] text-xs">Loading...</span>
+                   </div>
+                 ) : (
+                   <div className="w-full h-full flex flex-col items-center justify-center opacity-30">
+                     <Activity size={32} className="text-[#494847] mb-2" />
+                     <span className="text-[#494847] text-[10px] font-bold uppercase">No Data Available</span>
+                   </div>
+                 )}
               </div>
               <div className="flex justify-between text-[8px] font-black text-[#494847] uppercase tracking-[0.3em]">
                  <span>24 HOURS AGO</span>

@@ -26,6 +26,63 @@ import {
   kv 
 } from "@repo/infrastructure";
 
+// Helper function for dragon/shoot_dragon_gate game
+function resolveDragonGame(action: any, betAmount: number) {
+  const CARDS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+  const CARD_VALUES: Record<string, number> = {
+    A: 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
+    "8": 8, "9": 9, "10": 10, J: 11, Q: 12, K: 13,
+  };
+  
+  const drawCard = () => CARDS[Math.floor(Math.random() * CARDS.length)];
+  
+  // Draw two side cards
+  const left = drawCard();
+  const right = drawCard();
+  const lv = CARD_VALUES[left];
+  const rv = CARD_VALUES[right];
+
+  // Ensure left < right (if equal, treat as gate)
+  const lo = Math.min(lv, rv);
+  const hi = Math.max(lv, rv);
+  const isGate = lo === hi;
+
+  // Middle card
+  const mid = drawCard();
+  const mv = CARD_VALUES[mid];
+
+  let result: "win" | "lose" | "draw";
+  let payout: number;
+  let multiplier = 0;
+
+  if (isGate) {
+    result = "draw";
+    payout = betAmount; // refund
+    multiplier = 1;
+  } else if (mv > lo && mv < hi) {
+    result = "win";
+    payout = betAmount * 2; // 1:1 payout
+    multiplier = 2;
+  } else {
+    result = "lose";
+    payout = 0;
+    multiplier = 0;
+  }
+
+  return {
+    left,
+    right,
+    mid,
+    lo,
+    hi,
+    result,
+    payout,
+    multiplier,
+    isWin: result === "win",
+    totalPayoutMultiplier: multiplier,
+  };
+}
+
 export async function gameRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   
@@ -125,7 +182,13 @@ export async function gameRoutes(fastify: FastifyInstance) {
         case "blackjack": gameResult = gameManager.resolveBlackjack(action?.type, action?.state, roundId); break;
         case "crash": gameResult = gameManager.resolveCrash(action?.elapsed || 0, roundId); break;
         case "poker": gameResult = gameManager.resolvePoker(action?.type, action?.state, roundId); break;
-        case "bluffdice": gameResult = gameManager.resolveBluffdice(action?.type, action?.state, roundId); break;
+        case "bluffdice": gameResult = gameManager.resolveBluffdice(action?.type, action?.state, roundId, amountNum); break;
+        case "shoot_dragon_gate":
+        case "dragon":
+          // Handle dragon/shoot_dragon_gate game
+          const dragonResult = resolveDragonGame(action, amountNum);
+          gameResult = dragonResult;
+          break;
         default: throw new Error(`Unsupported game: ${game}`);
       }
     } catch (e: any) {

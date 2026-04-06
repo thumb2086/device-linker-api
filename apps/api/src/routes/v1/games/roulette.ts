@@ -6,6 +6,7 @@ import { createApiEnvelope } from "@repo/shared";
 import { GameSessionManager } from "@repo/domain/games/game-session-manager.js";
 import { requireDb } from "@repo/infrastructure/db/index.js";
 import { GameManager } from "@repo/domain/games/game-manager.js";
+import { getRoundInfo, hashInt } from "@repo/domain/games/auto-round.js";
 import { gameSettlement } from "../../../utils/game-settlement.js";
 
 const BetSchema = z.object({
@@ -43,7 +44,6 @@ export async function rouletteRoutes(fastify: FastifyInstance) {
     },
   }, async (request) => {
     const { betAmount, bets, token } = request.body as { sessionId: string; betAmount: number; bets: any[]; token: "zhixi" | "yjc" };
-    const amountStr = betAmount.toString();
 
     const ctx = await getContext(request);
     if (!ctx || !ctx.user) {
@@ -62,7 +62,26 @@ export async function rouletteRoutes(fastify: FastifyInstance) {
       );
     }
 
-    const roundId = `roulette_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    // Get auto-round info (统一分局)
+    const roundInfo = getRoundInfo('roulette');
+    if (!roundInfo.isBettingOpen) {
+      return createApiEnvelope(
+        { 
+          success: false, 
+          error: { 
+            code: "ROUND_CLOSED", 
+            message: "本局开奖中，请等待下一局",
+            roundId: roundInfo.roundId,
+            closesAt: roundInfo.closesAt,
+            bettingClosesAt: roundInfo.bettingClosesAt,
+          } 
+        },
+        request.id
+      );
+    }
+
+    const roundId = String(roundInfo.roundId);
+    const amountStr = betAmount.toString();
 
     // 1. Validate and deduct balance
     const validation = await gameSettlement.validateAndDeductBalance(
@@ -80,10 +99,30 @@ export async function rouletteRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // 2. Resolve game
-      const gameResult = gameManager.resolveRoulette(bets, roundId);
-      const isWin = gameResult.totalPayoutMultiplier > 0;
-      const payout = isWin ? betAmount * gameResult.totalPayoutMultiplier : 0;
+      // 2. Resolve game using deterministic hash based on roundId
+      const winningNumber = hashInt(`roulette:${roundInfo.roundId}`) % 37; // 0-36
+      const isRed = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(winningNumber);
+      const isBlack = winningNumber !== 0 && !isRed;
+      const color = winningNumber === 0 ? 'green' : (isRed ? 'red' : 'black');
+      
+      // Calculate payout based on bets
+      let totalPayoutMultiplier = 0;
+      for (const bet of bets) {
+        if (bet.type === 'number' && bet.value === winningNumber) {
+          totalPayoutMultiplier += 36; // 35:1 payout + 1x original bet
+        } else if (bet.type === 'color' && bet.value === color) {
+          totalPayoutMultiplier += 2; // 1:1 payout
+        } else if (bet.type === 'parity') {
+          const isEven = winningNumber !== 0 && winningNumber % 2 === 0;
+          const isOdd = winningNumber !== 0 && winningNumber % 2 === 1;
+          if ((bet.value === 'even' && isEven) || (bet.value === 'odd' && isOdd)) {
+            totalPayoutMultiplier += 2; // 1:1 payout
+          }
+        }
+      }
+      
+      const isWin = totalPayoutMultiplier > 0;
+      const payout = isWin ? betAmount * totalPayoutMultiplier : 0;
       const payoutStr = payout.toString();
 
       // 3. Execute on-chain settlement
@@ -130,12 +169,14 @@ export async function rouletteRoutes(fastify: FastifyInstance) {
           result: settlement.isWin ? "win" : "lose",
           payout: settlement.finalPayout,
           meta: { 
-            winningNumber: gameResult.winningNumber, 
-            color: gameResult.color,
+            winningNumber, 
+            color,
             bets,
             betTxHash: settlement.betTxHash,
             payoutTxHash: settlement.payoutTxHash,
             fee: settlement.feeAmount,
+            roundId: roundInfo.roundId,
+            closesAt: roundInfo.closesAt,
           },
         },
       });
@@ -149,30 +190,37 @@ export async function rouletteRoutes(fastify: FastifyInstance) {
         payout: settlement.finalPayout.toString(),
         fee: settlement.feeAmount.toString(),
         isWin: settlement.isWin,
-        multiplier: gameResult.totalPayoutMultiplier,
+        multiplier: totalPayoutMultiplier,
         betTxHash: settlement.betTxHash,
         payoutTxHash: settlement.payoutTxHash,
         roundId,
       });
 
       // 8. Save round
-      await gameSettlement.saveRound("roulette", roundId, gameResult);
+      await gameSettlement.saveRound("roulette", roundId, {
+        winningNumber,
+        color,
+        isWin,
+        roundInfo,
+      });
 
       return createApiEnvelope({
         success: true,
         data: {
           sessionId: session.id,
-          roundId,
-          winningNumber: gameResult.winningNumber,
-          color: gameResult.color,
+          roundId: roundInfo.roundId,
+          winningNumber,
+          color,
           result: settlement.isWin ? "win" : "lose",
           payout: settlement.finalPayout,
           betAmount,
-          multiplier: gameResult.totalPayoutMultiplier,
+          multiplier: totalPayoutMultiplier,
           fee: settlement.feeAmount,
           balance: finalBalance,
           betTxHash: settlement.betTxHash,
           payoutTxHash: settlement.payoutTxHash,
+          closesAt: roundInfo.closesAt,
+          bettingClosesAt: roundInfo.bettingClosesAt,
         }
       }, request.id);
 

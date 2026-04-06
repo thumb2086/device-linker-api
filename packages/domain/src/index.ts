@@ -12,6 +12,7 @@ export * from "./transactions/transaction-manager.js";
 export * from "./games/game-manager.js";
 export * from "./games/game-session-manager.js";
 export * from "./games/room-manager.js";
+export * from "./games/auto-round.js";
 export * from "./levels/level-manager.js";
 export * from "./levels/vip-manager.js";
 export * from "./leaderboard/leaderboard-manager.js";

@@ -6,6 +6,7 @@ import { createApiEnvelope } from "@repo/shared";
 import { GameSessionManager } from "@repo/domain/games/game-session-manager.js";
 import { requireDb } from "@repo/infrastructure/db/index.js";
 import { GameManager } from "@repo/domain/games/game-manager.js";
+import { getRoundInfo, hashInt } from "@repo/domain/games/auto-round.js";
 import { gameSettlement } from "../../../utils/game-settlement.js";
 
 export async function coinflipRoutes(fastify: FastifyInstance) {
@@ -37,7 +38,6 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
     },
   }, async (request) => {
     const { betAmount, selection, token } = request.body as { sessionId: string; betAmount: number; selection: "heads" | "tails"; token: "zhixi" | "yjc" };
-    const amountStr = betAmount.toString();
 
     const ctx = await getContext(request);
     if (!ctx || !ctx.user) {
@@ -56,7 +56,26 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
       );
     }
 
-    const roundId = `coinflip_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    // Get auto-round info (统一分局)
+    const roundInfo = getRoundInfo('coinflip');
+    if (!roundInfo.isBettingOpen) {
+      return createApiEnvelope(
+        { 
+          success: false, 
+          error: { 
+            code: "ROUND_CLOSED", 
+            message: "本局开奖中，请等待下一局",
+            roundId: roundInfo.roundId,
+            closesAt: roundInfo.closesAt,
+            bettingClosesAt: roundInfo.bettingClosesAt,
+          } 
+        },
+        request.id
+      );
+    }
+
+    const roundId = String(roundInfo.roundId);
+    const amountStr = betAmount.toString();
 
     // 1. Validate and deduct balance
     const validation = await gameSettlement.validateAndDeductBalance(
@@ -74,10 +93,10 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // 2. Resolve game
-      const gameResult = gameManager.resolveCoinflip(selection, roundId);
-      const isWin = gameResult.isWin;
-      const payout = isWin ? betAmount * gameResult.multiplier : 0;
+      // 2. Resolve game using deterministic hash based on roundId
+      const resultSide = (hashInt(`coinflip:${roundInfo.roundId}`) % 2 === 0) ? 'heads' : 'tails';
+      const isWin = (selection === resultSide);
+      const payout = isWin ? betAmount * 1.8 : 0;
       const payoutStr = payout.toString();
 
       // 3. Execute on-chain settlement
@@ -124,11 +143,13 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
           result: settlement.isWin ? "win" : "lose",
           payout: settlement.finalPayout,
           meta: { 
-            winner: gameResult.winner, 
+            winner: resultSide, 
             selection,
             betTxHash: settlement.betTxHash,
             payoutTxHash: settlement.payoutTxHash,
             fee: settlement.feeAmount,
+            roundId: roundInfo.roundId,
+            closesAt: roundInfo.closesAt,
           },
         },
       });
@@ -142,30 +163,37 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
         payout: settlement.finalPayout.toString(),
         fee: settlement.feeAmount.toString(),
         isWin: settlement.isWin,
-        multiplier: gameResult.multiplier,
+        multiplier: 1.8,
         betTxHash: settlement.betTxHash,
         payoutTxHash: settlement.payoutTxHash,
         roundId,
       });
 
       // 8. Save round
-      await gameSettlement.saveRound("coinflip", roundId, gameResult);
+      await gameSettlement.saveRound("coinflip", roundId, {
+        winner: resultSide,
+        selection,
+        isWin,
+        roundInfo,
+      });
 
       return createApiEnvelope({
         success: true,
         data: {
           sessionId: session.id,
-          roundId,
+          roundId: roundInfo.roundId,
           selection,
-          winner: gameResult.winner,
+          winner: resultSide,
           result: settlement.isWin ? "win" : "lose",
           payout: settlement.finalPayout,
           betAmount,
-          multiplier: gameResult.multiplier,
+          multiplier: 1.8,
           fee: settlement.feeAmount,
           balance: finalBalance,
           betTxHash: settlement.betTxHash,
           payoutTxHash: settlement.payoutTxHash,
+          closesAt: roundInfo.closesAt,
+          bettingClosesAt: roundInfo.bettingClosesAt,
         }
       }, request.id);
 

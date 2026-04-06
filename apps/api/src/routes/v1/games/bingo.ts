@@ -6,6 +6,7 @@ import { createApiEnvelope } from "@repo/shared";
 import { GameSessionManager } from "@repo/domain/games/game-session-manager.js";
 import { requireDb } from "@repo/infrastructure/db/index.js";
 import { GameManager } from "@repo/domain/games/game-manager.js";
+import { getRoundInfo, hashInt } from "@repo/domain/games/auto-round.js";
 import { gameSettlement } from "../../../utils/game-settlement.js";
 
 export async function bingoRoutes(fastify: FastifyInstance) {
@@ -37,7 +38,6 @@ export async function bingoRoutes(fastify: FastifyInstance) {
     },
   }, async (request) => {
     const { betAmount, numbers, token } = request.body as { sessionId: string; betAmount: number; numbers: number[]; token: "zhixi" | "yjc" };
-    const amountStr = betAmount.toString();
 
     const ctx = await getContext(request);
     if (!ctx || !ctx.user) {
@@ -56,7 +56,26 @@ export async function bingoRoutes(fastify: FastifyInstance) {
       );
     }
 
-    const roundId = `bingo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    // Get auto-round info (统一分局)
+    const roundInfo = getRoundInfo('bingo');
+    if (!roundInfo.isBettingOpen) {
+      return createApiEnvelope(
+        { 
+          success: false, 
+          error: { 
+            code: "ROUND_CLOSED", 
+            message: "本局开奖中，请等待下一局",
+            roundId: roundInfo.roundId,
+            closesAt: roundInfo.closesAt,
+            bettingClosesAt: roundInfo.bettingClosesAt,
+          } 
+        },
+        request.id
+      );
+    }
+
+    const roundId = String(roundInfo.roundId);
+    const amountStr = betAmount.toString();
 
     // 1. Validate and deduct balance
     const validation = await gameSettlement.validateAndDeductBalance(
@@ -74,10 +93,30 @@ export async function bingoRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // 2. Resolve game
-      const gameResult = gameManager.resolveBingo(numbers, roundId);
-      const isWin = gameResult.multiplier > 0;
-      const payout = isWin ? betAmount * gameResult.multiplier : 0;
+      // 2. Resolve game using deterministic hash based on roundId
+      // Generate 30 winning numbers from 1-75
+      const seed = hashInt(`bingo:${roundInfo.roundId}`);
+      const winningNumbers = new Set<number>();
+      let hashCursor = seed;
+      while (winningNumbers.size < 30) {
+        hashCursor = hashInt(`${hashCursor}`);
+        const num = (hashCursor % 75) + 1;
+        winningNumbers.add(num);
+      }
+      const winningNumbersArray = Array.from(winningNumbers).sort((a, b) => a - b);
+      
+      // Calculate matches
+      const matches = numbers.filter(n => winningNumbersArray.includes(n));
+      const matchCount = matches.length;
+      
+      // Determine multiplier based on match count
+      const matchMultipliers: Record<number, number> = {
+        0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 1,
+        6: 2, 7: 5, 8: 10, 9: 20, 10: 100
+      };
+      const multiplier = matchMultipliers[matchCount] || 0;
+      const isWin = multiplier > 0;
+      const payout = isWin ? betAmount * multiplier : 0;
       const payoutStr = payout.toString();
 
       // 3. Execute on-chain settlement
@@ -125,12 +164,14 @@ export async function bingoRoutes(fastify: FastifyInstance) {
           payout: settlement.finalPayout,
           meta: { 
             selectedNumbers: numbers,
-            winningNumbers: gameResult.winningNumbers,
-            matches: gameResult.matches,
-            matchCount: gameResult.matches.length,
+            winningNumbers: winningNumbersArray,
+            matches,
+            matchCount,
             betTxHash: settlement.betTxHash,
             payoutTxHash: settlement.payoutTxHash,
             fee: settlement.feeAmount,
+            roundId: roundInfo.roundId,
+            closesAt: roundInfo.closesAt,
           },
         },
       });
@@ -144,32 +185,41 @@ export async function bingoRoutes(fastify: FastifyInstance) {
         payout: settlement.finalPayout.toString(),
         fee: settlement.feeAmount.toString(),
         isWin: settlement.isWin,
-        multiplier: gameResult.multiplier,
+        multiplier,
         betTxHash: settlement.betTxHash,
         payoutTxHash: settlement.payoutTxHash,
         roundId,
       });
 
       // 8. Save round
-      await gameSettlement.saveRound("bingo", roundId, gameResult);
+      await gameSettlement.saveRound("bingo", roundId, {
+        selectedNumbers: numbers,
+        winningNumbers: winningNumbersArray,
+        matches,
+        matchCount,
+        isWin,
+        roundInfo,
+      });
 
       return createApiEnvelope({
         success: true,
         data: {
           sessionId: session.id,
-          roundId,
+          roundId: roundInfo.roundId,
           selectedNumbers: numbers,
-          winningNumbers: gameResult.winningNumbers,
-          matches: gameResult.matches,
-          matchCount: gameResult.matches.length,
+          winningNumbers: winningNumbersArray,
+          matches,
+          matchCount,
           result: settlement.isWin ? "win" : "lose",
           payout: settlement.finalPayout,
           betAmount,
-          multiplier: gameResult.multiplier,
+          multiplier,
           fee: settlement.feeAmount,
           balance: finalBalance,
           betTxHash: settlement.betTxHash,
           payoutTxHash: settlement.payoutTxHash,
+          closesAt: roundInfo.closesAt,
+          bettingClosesAt: roundInfo.bettingClosesAt,
         }
       }, request.id);
 

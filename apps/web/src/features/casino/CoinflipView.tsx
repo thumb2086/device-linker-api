@@ -93,7 +93,9 @@ export const CoinflipView: React.FC = () => {
       return data.data;
     },
     onSuccess: (data) => {
-      setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), selection, roundId: data.roundId }]);
+      // data is the API envelope, actual data is in data.data
+      const responseData = data?.data || data;
+      setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), selection, roundId: responseData.roundId }]);
       setStatus('✅ 下注成功，等待開獎...');
       setStatusColor('#00ff88');
       queryClient.invalidateQueries({ queryKey: ['user'] });

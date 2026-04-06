@@ -207,8 +207,9 @@ export const HorseRacingView: React.FC = () => {
       return data.data;
     },
     onSuccess: (data) => {
-      setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), horseId: selectedHorseId, roundId: data.roundId }]);
-      setStatusMsg(`✅ 下注成功！等待第 ${data.roundId} 局開獎`);
+      const responseData = data?.data || data;
+      setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), horseId: selectedHorseId, roundId: responseData.roundId }]);
+      setStatusMsg(`✅ 下注成功！等待第 ${responseData.roundId} 局開獎`);
       setStatusColor('#00ff88');
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },

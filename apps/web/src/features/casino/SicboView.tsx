@@ -104,7 +104,8 @@ export const SicboView: React.FC = () => {
       return data.data;
     },
     onSuccess: (data) => {
-      setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), type: selectedBet, roundId: data.roundId }]);
+      const responseData = data?.data || data;
+      setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), type: selectedBet, roundId: responseData.roundId }]);
       setStatus('✅ 下注成功，等待開獎...');
       setStatusColor('#00ff88');
       queryClient.invalidateQueries({ queryKey: ['user'] });

@@ -21,6 +21,7 @@ import { useUserStore } from '../../store/useUserStore';
 import AppBottomNav from '../../components/AppBottomNav';
 import { useWallet } from '../wallet/useWallet';
 import { resolvePreferredBalance } from '../../utils/balance';
+import { useLeaderboard } from '../../hooks/useLeaderboard';
 
 function GlassCard({
   to,
@@ -64,6 +65,8 @@ export default function LobbyView() {
   const { i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
   const { summary } = useWallet();
+  const { data: leaderboardData } = useLeaderboard('all', 50);
+  const selfRank = leaderboardData?.selfRank?.rank;
   const liveBalance = resolvePreferredBalance({
     onchainBalance: summary.data?.onchain?.zxc?.balance,
     onchainAvailable: summary.data?.onchain?.zxc?.available,
@@ -196,7 +199,7 @@ export default function LobbyView() {
             to="/app/leaderboard"
             icon={Trophy}
             title={isZh ? zh.rankings : 'Rankings'}
-            value="#128"
+            value={selfRank ? `#${selfRank}` : '-'}
             subtitle={isZh ? zh.globalSector : 'Global Sector'}
           />
           <GlassCard

@@ -9,9 +9,11 @@ import {
   RoomManager, 
   WalletManager, 
   SettlementManager, 
+  OnchainSettlementManager,
+  OnchainWalletManager,
   IdentityManager,
-  getVipLevel,
-  assertVipBetLimit
+  assertVipBetLimit,
+  VipManager
 } from "@repo/domain";
 import { 
   WalletRepository, 
@@ -29,6 +31,14 @@ export async function gameRoutes(fastify: FastifyInstance) {
   const walletManager = new WalletManager();
   const roomManager = new RoomManager();
   const settlementManager = new SettlementManager(walletManager);
+  const onchainWallet = new OnchainWalletManager();
+  // VipManager requires db - skip for now, onchain settlement will work without it
+  const onchainSettlement = new OnchainSettlementManager(
+    settlementManager,
+    walletManager,
+    onchainWallet,
+    null as any // VipManager placeholder - fee calculation will use default tier
+  );
   const identityManager = new IdentityManager();
   
   const walletRepo = new WalletRepository();
@@ -120,20 +130,39 @@ export async function gameRoutes(fastify: FastifyInstance) {
     const payoutAmountNum = amountNum * multiplier;
     const payoutAmount = payoutAmountNum.toString();
 
-    // 6. Create Settlement Record
-    const settlement = settlementManager.createSettlement(
-      roundId, userId, address, game, token.toUpperCase() as any, amount, payoutAmount, request.id
-    );
+    // 6. Unified Onchain Settlement
+    let settlementResult;
+    try {
+      settlementResult = await onchainSettlement.settleGame({
+        userId,
+        address,
+        game: game as any,
+        token: token.toUpperCase() as any,
+        betAmount: amount,
+        payoutAmount,
+        roundId,
+        requestId: request.id
+      });
+    } catch (error: any) {
+      // Rollback on settlement error
+      await kv.set(balanceKey, currentBalanceStr);
+      return createApiEnvelope({ 
+        error: { code: "SETTLEMENT_ERROR", message: error.message } 
+      }, request.id);
+    }
+
+    const finalPayout = settlementResult.finalPayout;
+    const feeAmount = settlementResult.feeAmount;
 
     // 7. Credit Payout & Update Total Bet
-    const finalBalance = (parseFloat(afterBetBalance) + payoutAmountNum).toString();
+    const finalBalance = (parseFloat(afterBetBalance) + finalPayout).toString();
     await kv.set(balanceKey, finalBalance);
     
     const newTotalBet = (parseFloat(totalBetStr) + amountNum).toString();
     await kv.set(`total_bet:${address}`, newTotalBet);
 
     // 8. Persistence & Logging
-    const { betIntent, payoutIntent } = settlementManager.generateIntents(settlement, request.id);
+    const { betIntent, payoutIntent } = settlementManager.generateIntents(settlementResult.settlement, request.id);
     await walletRepo.saveTxIntent(betIntent);
     if (payoutIntent) await walletRepo.saveTxIntent(payoutIntent);
     
@@ -148,17 +177,21 @@ export async function gameRoutes(fastify: FastifyInstance) {
       address,
       game,
       amount,
-      payout: payoutAmount,
-      isWin: settlement.isWin,
-      message: `User played ${game}: bet ${amount}, payout ${payoutAmount} (${multiplier}x)`
+      payout: finalPayout.toString(),
+      fee: feeAmount.toString(),
+      isWin: settlementResult.settlement.isWin,
+      message: `User played ${game}: bet ${amount}, payout ${finalPayout} (${multiplier}x), fee ${feeAmount}`
     });
 
     return createApiEnvelope({
       roundId,
       result: gameResult,
       balance: finalBalance,
-      isWin: settlement.isWin,
-      multiplier
+      isWin: settlementResult.settlement.isWin,
+      multiplier,
+      fee: feeAmount,
+      betTxHash: settlementResult.betTxHash,
+      payoutTxHash: settlementResult.payoutTxHash
     }, request.id);
   });
 

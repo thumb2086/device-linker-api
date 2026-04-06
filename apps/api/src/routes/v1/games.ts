@@ -15,6 +15,8 @@ import {
   assertVipBetLimit,
   VipManager
 } from "@repo/domain";
+import { GameSessionManager } from "@repo/domain/games/game-session-manager.js";
+import { requireDb } from "@repo/infrastructure/db/index.js";
 import { 
   WalletRepository, 
   OpsRepository, 
@@ -156,14 +158,55 @@ export async function gameRoutes(fastify: FastifyInstance) {
     const finalPayout = settlementResult.finalPayout;
     const feeAmount = settlementResult.feeAmount;
 
-    // 7. Credit Payout & Update Total Bet
+    // 7. Record game session to database (for leaderboard & history)
+    try {
+      const db = await requireDb();
+      const sessionManager = new GameSessionManager(db);
+      
+      const isWin = settlementResult.settlement.isWin;
+      
+      await sessionManager.recordGame({
+        userId,
+        address,
+        game: game as any,
+        betAmount: amountNum,
+        gameResult: {
+          result: isWin ? "win" : "lose",
+          payout: finalPayout,
+          meta: { 
+            ...gameResult,
+            roundId,
+            multiplier,
+            fee: feeAmount,
+            token,
+            betTxHash: settlementResult.betTxHash,
+            payoutTxHash: settlementResult.payoutTxHash
+          },
+        },
+      });
+    } catch (err: any) {
+      // Log error but don't fail the request - game already settled on-chain
+      await opsRepo.logEvent({
+        channel: "game",
+        severity: "error",
+        source: game,
+        kind: "record_game_failed",
+        userId,
+        address,
+        game,
+        message: `Failed to record game session: ${err.message}`,
+        meta: { roundId, error: err.message }
+      });
+    }
+
+    // 8. Credit Payout & Update Total Bet
     const finalBalance = (parseFloat(afterBetBalance) + finalPayout).toString();
     await kv.set(balanceKey, finalBalance);
     
     const newTotalBet = (parseFloat(totalBetStr) + amountNum).toString();
     await kv.set(`total_bet:${address}`, newTotalBet);
 
-    // 8. Persistence & Logging
+    // 9. Persistence & Logging
     const { betIntent, payoutIntent } = settlementManager.generateIntents(settlementResult.settlement, request.id);
     await walletRepo.saveTxIntent(betIntent);
     if (payoutIntent) await walletRepo.saveTxIntent(payoutIntent);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/useAuth';
 import './Bingo.css';
 
 const BINGO_ROUND_MS = 30000;
@@ -7,6 +8,7 @@ const BINGO_LOCK_MS = 5000;
 
 export const BingoView: React.FC = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
   const [drawnNumbers, setDrawnNumbers] = useState<number[]>([]);
@@ -105,10 +107,10 @@ export const BingoView: React.FC = () => {
 
   const betMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/games/bingo/rounds', {
+      const res = await fetch('/api/v1/games/bingo/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(betAmount), action: { numbers: selectedNumbers } })
+        body: JSON.stringify({ sessionId: session?.id, amount: betAmount, action: { numbers: selectedNumbers } })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || '下注失敗');

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useUserStore } from '../../store/useUserStore';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/useAuth';
 import './Roulette.css';
 
 const EUROPEAN_LAYOUT = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
@@ -32,7 +32,7 @@ function getColor(num: number) {
 }
 
 export function RouletteView() {
-    const { address, token } = useUserStore();
+    const { session } = useAuth();
     const queryClient = useQueryClient();
     const [betAmount, setBetAmount] = useState('10');
     const [betType, setBetType] = useState('color');
@@ -42,29 +42,22 @@ export function RouletteView() {
     const [result, setResult] = useState<{ number: number; color: string } | null>(null);
     const wheelRef = useRef<HTMLDivElement>(null);
 
-    const roundQuery = useQuery({
-        queryKey: ['roulette-round'],
-        queryFn: async () => {
-            const res = await fetch('/api/v1/games/roulette/rounds', { method: 'POST' });
-            return res.json();
-        },
-        refetchInterval: 10000,
-    });
-
     const betMutation = useMutation({
         mutationFn: async () => {
-            const roundId = roundQuery.data?.data?.round?.id;
-            const res = await fetch(`/api/v1/games/roulette/rounds/${roundId}/actions`, {
+            const res = await fetch('/api/v1/games/roulette/play', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'bet', amount: betAmount, token, payload: { betType, betValue } }),
+                body: JSON.stringify({ sessionId: session?.id, amount: betAmount, action: { betType, betValue } }),
             });
-            return res.json();
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error?.message || '下注失敗');
+            return data.data;
         },
         onSuccess: (data) => {
-            if (data.data?.result) {
-                animateWheel(data.data.result.winningNumber);
+            if (data?.result) {
+                animateWheel(data.result.winningNumber);
             }
+            queryClient.invalidateQueries({ queryKey: ['user'] });
         }
     });
 

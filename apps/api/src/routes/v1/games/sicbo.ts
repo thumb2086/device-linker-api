@@ -138,7 +138,7 @@ export async function sicboRoutes(fastify: FastifyInstance) {
         userId,
         address,
         game: "sicbo",
-        token: token.toUpperCase() as "ZXC" | "YJC",
+        token: token === "yjc" ? "YJC" : "ZXC",
         betAmount: amountStr,
         payoutAmount: payoutStr,
         roundId,

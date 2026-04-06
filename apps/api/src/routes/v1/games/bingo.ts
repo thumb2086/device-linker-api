@@ -128,7 +128,7 @@ export async function bingoRoutes(fastify: FastifyInstance) {
         userId,
         address,
         game: "bingo",
-        token: token.toUpperCase() as "ZXC" | "YJC",
+        token: token === "yjc" ? "YJC" : "ZXC",
         betAmount: amountStr,
         payoutAmount: payoutStr,
         roundId,

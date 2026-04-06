@@ -128,7 +128,7 @@ export async function shootDragonGateRoutes(fastify: FastifyInstance) {
         userId,
         address,
         game: "shoot_dragon_gate",
-        token: token.toUpperCase() as "ZXC" | "YJC",
+        token: token === "yjc" ? "YJC" : "ZXC",
         betAmount: amountStr,
         payoutAmount: payoutStr,
         roundId,

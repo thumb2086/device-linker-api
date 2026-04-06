@@ -134,7 +134,7 @@ export async function rouletteRoutes(fastify: FastifyInstance) {
         userId,
         address,
         game: "roulette",
-        token: token.toUpperCase() as "ZXC" | "YJC",
+        token: token === "yjc" ? "YJC" : "ZXC",
         betAmount: amountStr,
         payoutAmount: payoutStr,
         roundId,

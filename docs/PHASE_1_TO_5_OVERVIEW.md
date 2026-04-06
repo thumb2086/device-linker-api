@@ -128,6 +128,116 @@
 
 **詳情**: 見 `docs/PHASE3_URGENT_GAMERECORD_ISSUE.md`
 
+#### 5. 🚨 分局遊戲 roundId 不匹配問題 (P0 緊急 - 已修復)
+**問題**: 5 個分局遊戲（coinflip, roulette, horse, sicbo, bingo）前端顯示 "目前下注：反(#undefined)"
+
+**原因**:
+- 後端錯誤響應格式不符合 API 規範（error 應為 string，但傳遞了 object）
+- 前端未正確處理 roundId 缺失情況
+
+**修復**:
+- 修復 5 個分局遊戲後端錯誤響應格式，統一使用 `createApiEnvelope(data, requestId, success, error)` 格式
+- 前端添加 roundId 防禦性檢查，缺失時顯示 "未知"
+- 確保所有錯誤響應都包含正確的 roundId 信息
+
+**修復的遊戲**:
+- ✅ coinflip
+- ✅ roulette
+- ✅ horse
+- ✅ sicbo
+- ✅ bingo
+
+**檔案**:
+- `apps/api/src/routes/v1/games/coinflip.ts`
+- `apps/api/src/routes/v1/games/roulette.ts`
+- `apps/api/src/routes/v1/games/horse.ts`
+- `apps/api/src/routes/v1/games/sicbo.ts`
+- `apps/api/src/routes/v1/games/bingo.ts`
+- `apps/web/src/features/casino/CoinflipView.tsx`
+
+#### 6. 🚨 即時遊戲錯誤響應格式統一 (P0 緊急 - 已修復)
+**問題**: 7 個即時遊戲（shoot-dragon-gate, slots, blackjack, crash, duel, poker, bluffdice）錯誤響應格式不符合 API 規範
+
+**原因**:
+- 後端錯誤響應格式不符合 API 規範（error 應為 string，但傳遞了 object）
+
+**修復**:
+- 修復 7 個即時遊戲後端錯誤響應格式，統一使用 `createApiEnvelope(data, requestId, success, error)` 格式
+- 確保所有遊戲的錯誤響應格式一致
+
+**修復的遊戲**:
+- ✅ shoot-dragon-gate
+- ✅ slots
+- ✅ blackjack
+- ✅ crash
+- ✅ duel
+- ✅ poker
+- ✅ bluffdice
+
+**檔案**:
+- `apps/api/src/routes/v1/games/shoot-dragon-gate.ts`
+- `apps/api/src/routes/v1/games/slots.ts`
+- `apps/api/src/routes/v1/games/blackjack.ts`
+- `apps/api/src/routes/v1/games/crash.ts`
+- `apps/api/src/routes/v1/games/duel.ts`
+- `apps/api/src/routes/v1/games/poker.ts`
+- `apps/api/src/routes/v1/games/bluffdice.ts`
+
+**結算流程確認**:
+所有 7 個即時遊戲的結算流程都正確：
+- ✅ 使用 gameSettlement.validateAndDeductBalance
+- ✅ 使用 gameSettlement.executeSettlement
+- ✅ 使用 gameSettlement.creditPayout
+- ✅ 使用 gameSettlement.updateTotalBet
+- ✅ 使用 GameSessionManager.recordGame
+- ✅ 使用 gameSettlement.logGameEvent
+- ✅ 使用 gameSettlement.saveRound
+
+#### 7. 🎨 前端視覺效果增強 (P1 重要 - 進行中)
+**目標**: 為遊戲添加視覺效果，提升用戶體驗
+
+**已實作**:
+- ✅ 創建籌碼動畫組件 (ChipAnimation.tsx)
+- ✅ 在 CoinflipView 添加 ALL IN 按鈕
+- ✅ 在 CoinflipView 集成籌碼飛入動畫
+
+**檔案**:
+- `apps/web/src/components/ChipAnimation.tsx` (新增)
+- `apps/web/src/components/ChipAnimation.css` (新增)
+- `apps/web/src/features/casino/CoinflipView.tsx`
+
+**功能說明**:
+- **籌碼動畫**: 下注時籌碼從按鈕飛向遊戲區域，帶有拋物線效果
+- **ALL IN 按鈕**: 一鍵將餘額全部設定為下注金額
+
+**待完成**:
+- 🔄 在其他遊戲添加 ALL IN 按鈕和籌碼動畫（roulette, slots, crash, blackjack 等）
+
+#### 8. 🧹 儲存庫清理 (P1 重要 - 已完成)
+**目標**: 清理專案中的測試檔和未使用的臨時檔案
+
+**測試檔案狀態**:
+- ✅ 保留：`packages/domain/tests/` 下的單元測試（測試核心業務邏輯）
+- ✅ 保留：`packages/infrastructure/tests/db.test.ts`（測試資料庫配置）
+
+**已刪除的臨時檔案**:
+- ✅ `main-auto-round.js` - 舊版自動回合邏輯（已遷移至 auto-round.ts）
+- ✅ `main-coinflip.js` - 舊版擲幣遊戲處理器
+- ✅ `main-game-clean.js` - 臨時遊戲清理腳本
+- ✅ `tmp-main-game.js` - 臨時主遊戲腳本
+- ✅ `data/__pycache__/` - Python 快取目錄
+- ✅ `data/import_new.py` - 臨時資料導入腳本
+- ✅ `data/redis_export.json` - 臨時 Redis 導出數據（8MB）
+- ✅ `git_status.txt` - 臨時 Git 狀態檔案
+- ✅ `data/` - 已清空並刪除空目錄
+- ✅ `test-results/` - 已清空並刪除空目錄
+
+**清理結果**:
+- 刪除了 4 個舊版 JS 腳本檔案
+- 刪除了 data 目錄下的臨時檔案（~8MB）
+- 刪除了 2 個空目錄
+- 保留了所有有用的單元測試檔案
+
 ---
 
 ## Phase 4: 市場與交易系統

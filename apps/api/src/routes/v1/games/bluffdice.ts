@@ -96,7 +96,7 @@ export async function bluffdiceRoutes(fastify: FastifyInstance) {
         userId,
         address,
         game: "bluffdice",
-        token: token.toUpperCase() as "ZXC" | "YJC",
+        token: token === "yjc" ? "YJC" : "ZXC",
         betAmount: amountStr,
         payoutAmount: payoutStr,
         roundId,

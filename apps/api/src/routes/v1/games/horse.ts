@@ -125,7 +125,7 @@ export async function horseRoutes(fastify: FastifyInstance) {
         userId,
         address,
         game: "horse",
-        token: token.toUpperCase() as "ZXC" | "YJC",
+        token: token === "yjc" ? "YJC" : "ZXC",
         betAmount: amountStr,
         payoutAmount: payoutStr,
         roundId,

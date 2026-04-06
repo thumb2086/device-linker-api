@@ -96,7 +96,7 @@ export async function pokerRoutes(fastify: FastifyInstance) {
         userId,
         address,
         game: "poker",
-        token: token.toUpperCase() as "ZXC" | "YJC",
+        token: token === "yjc" ? "YJC" : "ZXC",
         betAmount: amountStr,
         payoutAmount: payoutStr,
         roundId,

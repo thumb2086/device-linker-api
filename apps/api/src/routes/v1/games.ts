@@ -105,7 +105,12 @@ export async function gameRoutes(fastify: FastifyInstance) {
     await kv.set(balanceKey, afterBetBalance);
 
     // 4. Resolve Game Logic
-    const roundId = `game_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const now = Date.now();
+    const COINFLIP_ROUND_MS = 15000;
+    const isCoinflip = game === 'coinflip';
+    const roundId = isCoinflip 
+      ? Math.floor(now / COINFLIP_ROUND_MS).toString()  // Use same logic as frontend for coinflip
+      : `game_${now}_${Math.random().toString(36).slice(2, 7)}`;
     let gameResult: any = null;
 
     try {

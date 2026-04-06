@@ -58,10 +58,10 @@ export async function pokerRoutes(fastify: FastifyInstance) {
     }
 
     const roundId = `poker_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const gameResult = gameManager.resolvePoker(action, {}, roundId);
+    const gameResult = gameManager.resolvePoker(action as 'deal' | 'hold', {}, roundId, betAmount);
     
     const isWin = gameResult.isWin;
-    const payout = isWin ? betAmount * gameResult.multiplier : 0;
+    const payout = gameResult.payout;
 
     try {
       const db = await requireDb();
@@ -77,7 +77,7 @@ export async function pokerRoutes(fastify: FastifyInstance) {
           payout,
           meta: { 
             hand: gameResult.hand,
-            action: gameResult.action,
+            cards: gameResult.cards,
           },
         },
       });

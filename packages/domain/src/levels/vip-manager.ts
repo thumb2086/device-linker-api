@@ -1,7 +1,7 @@
 // packages/domain/src/levels/vip-manager.ts
 import { eq, and } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { LEVEL_TIERS, LevelTier } from "@repo/shared";
+import { LEVEL_TIERS, LevelTier, YJC_VIP_TIERS, YjcVipTier } from "@repo/shared";
 import * as schema from "@repo/infrastructure/db/schema.js";
 
 export interface VipFullStatus {
@@ -12,6 +12,7 @@ export interface VipFullStatus {
   level: LevelTier;
   nextLevel: LevelTier | null;
   progressPct: number;   // Progress to next level 0-100
+  yjcVipTier: YjcVipTier; // YJC VIP tier (separate from level)
   privileges: {
     dailyBonusMultiplier: number;
     marketFeeDiscount: number;
@@ -76,11 +77,14 @@ export class VipManager {
     // 3. VIP score = weighted combination: 70% total_bets + 30% YJC holdings
     const score = Math.floor(totalBetAll * 0.7 + yjcBalance * 0.3);
 
-    // 4. Determine level
+    // 4. Determine level (based on score/总投注)
     const level = this.getVipTierByScore(score);
     const nextLevel = this.getNextLevel(level);
 
-    // 5. Calculate progress to next level
+    // 5. Determine YJC VIP tier (based on YJC balance) - separate system!
+    const yjcVipTier = this.getYjcVipTier(yjcBalance);
+
+    // 6. Calculate progress to next level
     let progressPct = 100;
     if (nextLevel) {
       const span = nextLevel.threshold - level.threshold;
@@ -96,6 +100,7 @@ export class VipManager {
       level,
       nextLevel,
       progressPct,
+      yjcVipTier,
       privileges: {
         dailyBonusMultiplier: level.dailyBonusMultiplier ?? 1.0,
         marketFeeDiscount: level.marketFeeDiscount ?? 0.0,
@@ -103,6 +108,42 @@ export class VipManager {
         danmakuPriority: level.danmakuPriority ?? 0,
       },
     };
+  }
+
+  // Get YJC VIP tier based on YJC balance (separate from level system)
+  private getYjcVipTier(yjcBalance: number): YjcVipTier {
+    for (let i = YJC_VIP_TIERS.length - 1; i >= 0; i--) {
+      if (yjcBalance >= YJC_VIP_TIERS[i].minBalance) {
+        return YJC_VIP_TIERS[i];
+      }
+    }
+    return YJC_VIP_TIERS[0]; // "none" tier
+  }
+
+  // Get YJC VIP tier by address (for game fee calculation)
+  async getYjcVipTierByAddress(address: string): Promise<YjcVipTier> {
+    const addr = address.toLowerCase();
+
+    // Get YJC token balance
+    const yjcRow = await this.db
+      .select({ balance: schema.walletAccounts.balance })
+      .from(schema.walletAccounts)
+      .where(
+        and(
+          eq(schema.walletAccounts.address, addr),
+          eq(schema.walletAccounts.token, "yjc")
+        )
+      )
+      .limit(1);
+
+    const yjcBalance = Number(yjcRow[0]?.balance ?? 0);
+    return this.getYjcVipTier(yjcBalance);
+  }
+
+  // Check if user has VIP2 (for zero game fees)
+  async hasVip2(address: string): Promise<boolean> {
+    const tier = await this.getYjcVipTierByAddress(address);
+    return tier.key === "vip2";
   }
 
   // Quick level lookup (for other managers)

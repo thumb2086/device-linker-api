@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/useAuth';
 import './Coinflip.css';
 
 const COINFLIP_ROUND_MS = 15000;
@@ -7,6 +8,7 @@ const COINFLIP_LOCK_MS = 4000;
 
 export const CoinflipView: React.FC = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
   const [selection, setSelection] = useState<'heads' | 'tails'>('heads');
   const [isDrawing, setIsDrawing] = useState(false);
@@ -76,10 +78,11 @@ export const CoinflipView: React.FC = () => {
 
   const betMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/games/coinflip/rounds', {
+      if (!session) throw new Error('未登入');
+      const res = await fetch('/api/v1/games/coinflip/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(betAmount), action: { selection } })
+        body: JSON.stringify({ sessionId: session.id, betAmount: parseFloat(betAmount), selection })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || '下注失敗');

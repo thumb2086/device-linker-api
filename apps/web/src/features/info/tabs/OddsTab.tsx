@@ -11,15 +11,18 @@ interface GameOdds {
 }
 
 const GAME_ODDS: GameOdds[] = [
-  { key: 'roulette', name: '輪盤', rtp: 97.3, houseEdge: 2.7, description: '支援紅黑、單雙、大小與單號投注，倍率依下注格位變化。', fairness: '結果由伺服器隨機流程產生，開獎後可追溯當期結果。' },
-  { key: 'sicbo', name: '骰寶', rtp: 96.0, houseEdge: 4.0, description: '三顆骰子多種押法，含大小、點數、豹子與組合投注。', fairness: '骰點結果固定落盤，每局結算依賠率表執行。' },
-  { key: 'bluffdice', name: '吹牛骰', rtp: 98.0, houseEdge: 2.0, description: '低抽水對決型遊戲，節奏快，適合短局對賭。', fairness: '房間制回合有完整下注與結算紀錄。' },
-  { key: 'horse', name: '賽馬', rtp: 95.0, houseEdge: 5.0, description: '多匹賽馬依權重與狀態模擬衝線結果。', fairness: '每場開賽前就已鎖定參數與封盤時間，避免中途改盤。' },
-  { key: 'dragon', name: '龍虎', rtp: 96.3, houseEdge: 3.7, description: '比大小直觀玩法，適合快速連續下注。', fairness: '對戰雙方結果同源計算，結算規則一致。' },
-  { key: 'slots', name: '老虎機', rtp: 94.0, houseEdge: 6.0, description: '高波動遊戲，可能短期連輸，但也有較高倍數獎勵。', fairness: '每次轉動獨立計算，不會受前一局結果影響。' },
-  { key: 'coinflip', name: '擲硬幣', rtp: 98.0, houseEdge: 2.0, description: '簡單 50/50 遊戲，倍率透明。', fairness: '正反面機率對稱，唯一差異來自平台抽水。' },
-  { key: 'bingo', name: '賓果', rtp: 93.0, houseEdge: 7.0, description: '依號碼與投注組合派彩，玩法較多元。', fairness: '開球與結算順序固定，對所有玩家一致。' },
-  { key: 'blackjack', name: '21 點', rtp: 99.0, houseEdge: 1.0, description: '高 RTP 經典玩法，策略選擇會影響實際長期報酬。', fairness: '牌局結構明確，莊閒流程固定。' },
+  { key: 'roulette', name: '輪盤', rtp: 97.3, houseEdge: 2.7, description: '歐式輪盤 37 格（0-36）。單號投注賠率 35:1，紅黑/單雙/大小投注賠率 1:1。綠色 0 為莊家優勢來源。', fairness: 'FNV-1a 雜湊演算法產生中獎號碼，結果可透過種子驗證。' },
+  { key: 'sicbo', name: '骰寶', rtp: 96.0, houseEdge: 4.0, description: '三顆六面骰。大小投注（4-10 小，11-17 大）賠率 1:1，總和投注賠率 1:6。三顆骰點數總和決定勝負。', fairness: 'FNV-1a 雜湊產生三顆骰子結果，公開透明。' },
+  { key: 'bluffdice', name: '吹牛骰', rtp: 98.0, houseEdge: 2.0, description: '五顆骰子對決遊戲。押中總和區間獲勝，依準確度派彩。低抽水對決型遊戲，節奏快速。', fairness: '五顆骰子結果由雜湊決定，公開可驗證。' },
+  { key: 'horse', name: '賽馬', rtp: 95.0, houseEdge: 5.0, description: '六匹賽馬競速。選擇馬匹下注，獲勝馬匹依權重倍率派彩。赤焰 1.8x、雷霆 2.2x、幻影 2.9x、夜刃 4.0x、霜牙 5.8x、流星 8.5x。', fairness: '勝利馬匹由雜湊演算法決定，結果鎖定後不可更改。' },
+  { key: 'dragon', name: '龍虎（射龍門）', rtp: 96.3, houseEdge: 3.7, description: '兩張牌開「門」，玩家射出一張牌。若射中兩門之間獲勝，倍率為 12/牌差。柱倒（射中門牌）為 0 倍。', fairness: '三張牌（左門、右門、射牌）皆由雜湊演算法產生，公平可驗證。' },
+  { key: 'slots', name: '老虎機', rtp: 94.0, houseEdge: 6.0, description: '三軸老虎機。三同符號獲 10 倍（777 獲 50 倍），兩同符號獲 2 倍。符號：🍒 🍋 🍊 🍇 🔔 💎 7️⃣', fairness: '每個軸獨立由雜湊產生，三軸組合決定結果。' },
+  { key: 'coinflip', name: '擲硬幣', rtp: 98.0, houseEdge: 2.0, description: '簡單 50/50 遊戲。選擇正面或反面，猜中獲 1.96 倍（2% 平台抽水），猜錯歸零。', fairness: 'FNV-1a 雜湊末位決定正反面，機率對稱可驗證。' },
+  { key: 'bingo', name: '賓果', rtp: 93.0, houseEdge: 7.0, description: '玩家選 5 個號碼（1-75），開出 5 個中獎號碼。中 3 個獲 5 倍，中 4 個獲 20 倍，中 5 個獲 100 倍。', fairness: '中獎號碼由雜湊演算法產生，無法預測。' },
+  { key: 'blackjack', name: '21 點', rtp: 99.0, houseEdge: 1.0, description: '經典 Blackjack。莊家 17 點停牌，玩家可選擇 Hit 或 Stand。BlackJack (A+10) 獲 1.5 倍，普通贏家獲 1 倍，和局退注。', fairness: '每張牌由 FNV-1a 雜湊產生，牌局結構透明。' },
+  { key: 'crash', name: '暴漲', rtp: 96.0, houseEdge: 4.0, description: '倍率從 1.00x 開始上漲，隨機暴漲結束。玩家在暴漲前停利即可獲得當前倍率。暴漲點由指數分佈決定。', fairness: '暴漲點由雜湊演算法決定，公式：0.99 / (1 - random) ^ 0.05' },
+  { key: 'duel', name: '對決', rtp: 97.5, houseEdge: 2.5, description: '兩人對決擲硬幣。一方選正面另一方反面，開出結果決定勝負。贏家拿走雙方下注（扣除 2.5% 手續費）。', fairness: '硬幣結果由雜湊演算法產生，公平對決。' },
+  { key: 'poker', name: '德州撲克', rtp: 97.0, houseEdge: 3.0, description: '簡化版德州撲克。發兩張底牌，五張公牌，組成最佳五張牌型。皇家同花順獲 100 倍，同花順 50 倍，四條 20 倍，葫蘆 10 倍。', fairness: '所有牌由 FNV-1a 雜湊產生，牌局結果可驗證。' },
 ];
 
 export default function OddsTab() {

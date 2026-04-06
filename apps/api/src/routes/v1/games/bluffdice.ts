@@ -58,12 +58,11 @@ export async function bluffdiceRoutes(fastify: FastifyInstance) {
     }
 
     const roundId = `bluffdice_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const gameResult = gameManager.resolveBluffdice(action, {}, roundId);
+    const gameResult = gameManager.resolveBluffdice(action as 'bet' | 'call', { predictedTotal: action === 'bet' ? 18 : undefined }, roundId, betAmount);
     
-    // Bluff dice is a skill game, for now simple implementation
-    // Win if total > 15
-    const isWin = gameResult.total > 15;
-    const payout = isWin ? betAmount * 2 : 0;
+    // Use the game manager's payout calculation
+    const isWin = gameResult.isWin;
+    const payout = gameResult.payout;
 
     try {
       const db = await requireDb();

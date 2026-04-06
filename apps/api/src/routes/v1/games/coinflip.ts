@@ -87,8 +87,10 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
 
     if (!validation.success) {
       return createApiEnvelope(
-        { success: false, error: validation.error },
-        request.id
+        { success: false, error: validation.error, roundId: roundInfo.roundId },
+        request.id,
+        false,
+        validation.error?.message || "Validation failed"
       );
     }
 
@@ -115,7 +117,7 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
         // Rollback balance on settlement error
         await gameSettlement.rollbackBalance(address, token, validation.balanceBefore);
         return createApiEnvelope(
-          { success: false },
+          { success: false, roundId: roundInfo.roundId },
           request.id,
           false,
           settlement.error?.message || "Settlement failed"

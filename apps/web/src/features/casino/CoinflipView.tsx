@@ -118,12 +118,17 @@ export const CoinflipView: React.FC = () => {
       }
     },
     onSuccess: (responseData) => {
-      if (responseData?.roundId !== undefined) {
-        setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), selection, roundId: responseData.roundId }]);
+      // Handle both direct response and envelope response
+      const data = responseData?.data || responseData;
+      const roundId = data?.roundId;
+      
+      if (roundId !== undefined) {
+        setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), selection, roundId }]);
         setStatus('✅ 下注成功，等待開獎...');
         setStatusColor('#00ff88');
         queryClient.invalidateQueries({ queryKey: ['user'] });
       } else {
+        console.log('Full response data:', responseData);
         setStatus('❌ 錯誤: roundId 未返回');
         setStatusColor('#ff4d4d');
       }

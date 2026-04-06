@@ -55,8 +55,10 @@ export async function horseRoutes(fastify: FastifyInstance) {
     const ctx = await getContext(request);
     if (!ctx || !ctx.user) {
       return createApiEnvelope(
-        { success: false, error: { code: "UNAUTHORIZED", message: "Invalid session" } },
-        request.id
+        { success: false },
+        request.id,
+        false,
+        "UNAUTHORIZED: Invalid session"
       );
     }
 
@@ -64,8 +66,10 @@ export async function horseRoutes(fastify: FastifyInstance) {
     const userId = ctx.user.id;
     if (!address) {
       return createApiEnvelope(
-        { success: false, error: { code: "USER_NOT_FOUND", message: "Address not found" } },
-        request.id
+        { success: false },
+        request.id,
+        false,
+        "USER_NOT_FOUND: Address not found"
       );
     }
 
@@ -75,15 +79,13 @@ export async function horseRoutes(fastify: FastifyInstance) {
       return createApiEnvelope(
         { 
           success: false, 
-          error: { 
-            code: "ROUND_CLOSED", 
-            message: "本局开奖中，请等待下一局",
-            roundId: roundInfo.roundId,
-            closesAt: roundInfo.closesAt,
-            bettingClosesAt: roundInfo.bettingClosesAt,
-          } 
+          roundId: roundInfo.roundId,
+          closesAt: roundInfo.closesAt,
+          bettingClosesAt: roundInfo.bettingClosesAt,
         },
-        request.id
+        request.id,
+        false,
+        "本局开奖中，请等待下一局"
       );
     }
 
@@ -100,8 +102,10 @@ export async function horseRoutes(fastify: FastifyInstance) {
 
     if (!validation.success) {
       return createApiEnvelope(
-        { success: false, error: validation.error },
-        request.id
+        { success: false },
+        request.id,
+        false,
+        validation.error?.message || "Validation failed"
       );
     }
 
@@ -132,8 +136,10 @@ export async function horseRoutes(fastify: FastifyInstance) {
         // Rollback balance on settlement error
         await gameSettlement.rollbackBalance(address, token, validation.balanceBefore);
         return createApiEnvelope(
-          { success: false, error: settlement.error },
-          request.id
+          { success: false },
+          request.id,
+          false,
+          settlement.error?.message || "Settlement failed"
         );
       }
 
@@ -230,16 +236,20 @@ export async function horseRoutes(fastify: FastifyInstance) {
     const ctx = await getContext(request);
     if (!ctx || !ctx.user) {
       return createApiEnvelope(
-        { success: false, error: { code: "UNAUTHORIZED", message: "Invalid session" } },
-        request.id
+        { success: false },
+        request.id,
+        false,
+        "UNAUTHORIZED: Invalid session"
       );
     }
 
     const address = ctx.session.address;
     if (!address) {
       return createApiEnvelope(
-        { success: false, error: { code: "USER_NOT_FOUND", message: "Address not found" } },
-        request.id
+        { success: false },
+        request.id,
+        false,
+        "USER_NOT_FOUND: Address not found"
       );
     }
 

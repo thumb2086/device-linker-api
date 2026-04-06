@@ -18,6 +18,10 @@
       "import": "./dist/games/game-session-manager.js",
       "types": "./dist/games/game-session-manager.d.ts"
     },
+    "./games/auto-round.js": {
+      "import": "./dist/games/auto-round.js",
+      "types": "./dist/games/auto-round.d.ts"
+    },
     "./leaderboard/leaderboard-manager.js": {
       "import": "./dist/leaderboard/leaderboard-manager.js",
       "types": "./dist/leaderboard/leaderboard-manager.d.ts"

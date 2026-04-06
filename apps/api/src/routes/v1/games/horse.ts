@@ -6,6 +6,7 @@ import { createApiEnvelope } from "@repo/shared";
 import { GameSessionManager } from "@repo/domain/games/game-session-manager.js";
 import { requireDb } from "@repo/infrastructure/db/index.js";
 import { GameManager } from "@repo/domain/games/game-manager.js";
+import { getRoundInfo, hashInt, pickWeighted } from "@repo/domain/games/auto-round.js";
 import { gameSettlement } from "../../../utils/game-settlement.js";
 
 const HORSES = [
@@ -50,7 +51,6 @@ export async function horseRoutes(fastify: FastifyInstance) {
     },
   }, async (request) => {
     const { betAmount, horseId, token } = request.body as { sessionId: string; betAmount: number; horseId: number; token: "zhixi" | "yjc" };
-    const amountStr = betAmount.toString();
 
     const ctx = await getContext(request);
     if (!ctx || !ctx.user) {
@@ -69,7 +69,26 @@ export async function horseRoutes(fastify: FastifyInstance) {
       );
     }
 
-    const roundId = `horse_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    // Get auto-round info (统一分局)
+    const roundInfo = getRoundInfo('horse');
+    if (!roundInfo.isBettingOpen) {
+      return createApiEnvelope(
+        { 
+          success: false, 
+          error: { 
+            code: "ROUND_CLOSED", 
+            message: "本局开奖中，请等待下一局",
+            roundId: roundInfo.roundId,
+            closesAt: roundInfo.closesAt,
+            bettingClosesAt: roundInfo.bettingClosesAt,
+          } 
+        },
+        request.id
+      );
+    }
+
+    const roundId = String(roundInfo.roundId);
+    const amountStr = betAmount.toString();
 
     // 1. Validate and deduct balance
     const validation = await gameSettlement.validateAndDeductBalance(
@@ -87,10 +106,14 @@ export async function horseRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // 2. Resolve game
-      const gameResult = gameManager.resolveHorseRace(horseId, roundId);
-      const isWin = gameResult.isWin;
-      const payout = isWin ? betAmount * gameResult.multiplier : 0;
+      // 2. Resolve game using deterministic hash based on roundId
+      const winner = pickWeighted(
+        `horse:${roundInfo.roundId}`,
+        HORSES.map(h => ({ ...h, weight: h.multiplier })),
+        'weight'
+      );
+      const isWin = winner.id === horseId;
+      const payout = isWin ? betAmount * winner.multiplier : 0;
       const payoutStr = payout.toString();
 
       // 3. Execute on-chain settlement
@@ -138,11 +161,13 @@ export async function horseRoutes(fastify: FastifyInstance) {
           payout: settlement.finalPayout,
           meta: { 
             selectedHorse: horseId,
-            winnerId: gameResult.winnerId,
-            winnerName: gameResult.winnerName,
+            winnerId: winner.id,
+            winnerName: winner.name,
             betTxHash: settlement.betTxHash,
             payoutTxHash: settlement.payoutTxHash,
             fee: settlement.feeAmount,
+            roundId: roundInfo.roundId,
+            closesAt: roundInfo.closesAt,
           },
         },
       });
@@ -156,31 +181,39 @@ export async function horseRoutes(fastify: FastifyInstance) {
         payout: settlement.finalPayout.toString(),
         fee: settlement.feeAmount.toString(),
         isWin: settlement.isWin,
-        multiplier: gameResult.multiplier,
+        multiplier: winner.multiplier,
         betTxHash: settlement.betTxHash,
         payoutTxHash: settlement.payoutTxHash,
         roundId,
       });
 
       // 8. Save round
-      await gameSettlement.saveRound("horse", roundId, gameResult);
+      await gameSettlement.saveRound("horse", roundId, {
+        selectedHorse: horseId,
+        winnerId: winner.id,
+        winnerName: winner.name,
+        isWin,
+        roundInfo,
+      });
 
       return createApiEnvelope({
         success: true,
         data: {
           sessionId: session.id,
-          roundId,
+          roundId: roundInfo.roundId,
           selectedHorse: horseId,
-          winnerId: gameResult.winnerId,
-          winnerName: gameResult.winnerName,
+          winnerId: winner.id,
+          winnerName: winner.name,
           result: settlement.isWin ? "win" : "lose",
           payout: settlement.finalPayout,
           betAmount,
-          multiplier: gameResult.multiplier,
+          multiplier: winner.multiplier,
           fee: settlement.feeAmount,
           balance: finalBalance,
           betTxHash: settlement.betTxHash,
           payoutTxHash: settlement.payoutTxHash,
+          closesAt: roundInfo.closesAt,
+          bettingClosesAt: roundInfo.bettingClosesAt,
         }
       }, request.id);
 

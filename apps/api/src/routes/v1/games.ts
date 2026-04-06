@@ -25,6 +25,7 @@ import {
   UserRepository, 
   kv 
 } from "@repo/infrastructure";
+import { playShootDragonGateRound } from "./games/shoot-dragon-gate-shared.js";
 
 // Helper function for dragon/shoot_dragon_gate game
 function resolveDragonGame(action: any, betAmount: number) {
@@ -140,6 +141,38 @@ export async function gameRoutes(fastify: FastifyInstance) {
 
     const address = ctx.session.address;
     const userId = ctx.user.id;
+
+    if (game !== "dragon") {
+      return createApiEnvelope(
+        { code: "DEPRECATED_ROUTE", message: `Use /api/v1/games/${game}/play` },
+        request.id,
+        false,
+        "DEPRECATED_ROUTE"
+      );
+    }
+
+    try {
+      const result = await playShootDragonGateRound({
+        userId,
+        address,
+        betAmount: amountNum,
+        token,
+        requestId: request.id,
+      });
+
+      if (!result.ok) {
+        return createApiEnvelope({ code: "SETTLEMENT_ERROR", message: result.error }, request.id, false, result.error);
+      }
+
+      return createApiEnvelope(result.data, request.id);
+    } catch (error: any) {
+      return createApiEnvelope(
+        { code: "SETTLEMENT_ERROR", message: error?.message || "Dragon settlement failed" },
+        request.id,
+        false,
+        error?.message || "Dragon settlement failed"
+      );
+    }
 
     // 1. VIP & Bet Limit Check
     const totalBetStr = await kv.get<string>(`total_bet:${address}`) || "0";

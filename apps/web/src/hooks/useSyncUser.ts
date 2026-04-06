@@ -4,11 +4,21 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { resolvePreferredBalance } from '../utils/balance';
 
+type SyncUserData = {
+  address?: string;
+  balance?: string;
+  username?: string;
+  user?: {
+    displayName?: string;
+  };
+  wallet: Record<string, any>;
+};
+
 export function useSyncUser() {
   const { address, sessionId } = useAuthStore();
   const { setAddress, setBalance, setUsername } = useUserStore();
 
-  const { data: userData, isLoading } = useQuery({
+  const { data: userData, isLoading } = useQuery<SyncUserData>({
     queryKey: ['user-me', address, sessionId],
     queryFn: async () => {
       const [meResult, walletResult] = await Promise.allSettled([
@@ -40,7 +50,7 @@ export function useSyncUser() {
         ...authData,
         wallet: walletData,
         balance: walletBalance,
-      };
+      } as SyncUserData;
     },
     enabled: !!sessionId,
     refetchInterval: 30000,

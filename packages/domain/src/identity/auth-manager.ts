@@ -74,13 +74,6 @@ export class AuthManager {
     const custodyUser = this.identityManager.createCustodyUser(normalizedUsername, password);
     await this.custodyRepo.saveCustodyUser(normalizedUsername, { ...custodyUser, username: normalizedUsername });
 
-    if (bonusAmount) {
-      const balance = await this.walletRepo.getBalance(custodyUser.address);
-      if (parseFloat(balance) === 0) {
-        await this.walletRepo.updateBalance(custodyUser.address, bonusAmount);
-      }
-    }
-
     let user = await this.userRepo.getUserByAddress(custodyUser.address);
     if (!user) {
       user = {

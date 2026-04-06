@@ -1,6 +1,8 @@
 import { ethers } from "ethers";
+import type { TokenSymbol } from "@repo/shared";
 
 export type OnchainTokenKey = "zhixi" | "yjc";
+export type RequestTokenKey = OnchainTokenKey;
 
 export interface OnchainTokenRuntime {
   key: OnchainTokenKey;
@@ -32,6 +34,21 @@ function normalizeAddress(raw: string): string {
     return ethers.getAddress(String(raw || "").trim()).toLowerCase();
   } catch {
     return "";
+  }
+}
+
+export function requestTokenToSymbol(token: RequestTokenKey): TokenSymbol {
+  return token === "yjc" ? "YJC" : "ZXC";
+}
+
+export function tokenSymbolToOnchainKey(token: TokenSymbol): OnchainTokenKey {
+  switch (token) {
+    case "ZXC":
+      return "zhixi";
+    case "YJC":
+      return "yjc";
+    default:
+      throw new Error(`UNSUPPORTED_TOKEN: ${String(token)}`);
   }
 }
 

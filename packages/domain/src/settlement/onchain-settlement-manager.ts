@@ -1,5 +1,6 @@
 // packages/domain/src/settlement/onchain-settlement-manager.ts
 
+import { randomUUID } from "crypto";
 import {
   GameSettlement,
   GameSettlementSchema,
@@ -13,6 +14,7 @@ import { WalletManager } from "../wallet/wallet-manager.js";
 import { OnchainWalletManager } from "../wallet/onchain-wallet-manager.js";
 import { VipManager } from "../levels/vip-manager.js";
 import { ChainClient } from "@repo/infrastructure";
+import { WalletRepository } from "@repo/infrastructure";
 import { ethers } from "ethers";
 
 export interface SettlementResult {
@@ -46,6 +48,7 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
     private walletManager: WalletManager,
     private onchainWallet: OnchainWalletManager,
     private vipManager: VipManager,
+    private walletRepo: WalletRepository | null = null,
     private chainClient: ChainClient | null = null
   ) {}
 
@@ -111,17 +114,23 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
       requestId
     );
 
+    // Save intents to repository
+    if (this.walletRepo) {
+      await this.walletRepo.saveTxIntent(betIntent);
+      if (payoutIntent) await this.walletRepo.saveTxIntent(payoutIntent);
+    }
+
     // 5. Execute onchain transactions
     let betTxHash: string | undefined;
     let payoutTxHash: string | undefined;
 
     try {
       // Execute bet transaction (transfer to house)
-      betTxHash = await this.executeOnchainTransfer(address, betIntent, "bet");
+      betTxHash = await this.executeOnchainTransfer(userId, address, betIntent, "bet");
 
       // Execute payout transaction if there is a win
       if (finalPayout > 0 && payoutIntent) {
-        payoutTxHash = await this.executeOnchainTransfer(address, payoutIntent, "payout");
+        payoutTxHash = await this.executeOnchainTransfer(userId, address, payoutIntent, "payout");
       }
 
       // 6. Resolve settlement
@@ -166,6 +175,7 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
    * Execute onchain transfer using real blockchain transactions
    */
   private async executeOnchainTransfer(
+    userId: string,
     userAddress: string,
     intent: TxIntent,
     type: "bet" | "payout"
@@ -183,7 +193,25 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
     const decimals = await client.getDecimals(tokenConfig.contractAddress);
     const amount = client.parseUnits(intent.amount, decimals);
 
+    let txHash: string | null = null;
+    
     try {
+      // Save broadcasting attempt
+      if (this.walletRepo) {
+        await this.walletRepo.saveTxAttempt({
+          id: randomUUID(),
+          txIntentId: intent.id,
+          attemptNumber: 1,
+          status: "broadcasting",
+          txHash: null,
+          error: null,
+          errorCode: null,
+          broadcastAt: new Date(),
+          confirmedAt: null,
+          createdAt: new Date(),
+        });
+      }
+
       if (type === "bet") {
         // Bet: Transfer from player to house (adminTransfer)
         const tx = await client.adminTransfer(
@@ -192,11 +220,41 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
           amount,
           tokenConfig.contractAddress
         );
+        txHash = tx.hash;
         
         // Wait for confirmation
         const receipt = await client.waitForReceipt(tx.hash);
-        if (!receipt || receipt.status !== 1) {
-          throw new Error(`Bet transaction failed: ${tx.hash}`);
+        const reverted = !receipt || receipt.status !== 1;
+        
+        // Save attempt result
+        if (this.walletRepo) {
+          await this.walletRepo.saveTxAttempt({
+            id: randomUUID(),
+            txIntentId: intent.id,
+            attemptNumber: 1,
+            status: reverted ? "reverted" : "confirmed",
+            txHash,
+            error: reverted ? "Transaction reverted" : null,
+            errorCode: reverted ? "TX_REVERTED" : null,
+            broadcastAt: new Date(),
+            confirmedAt: new Date(),
+            createdAt: new Date(),
+          });
+          
+          // Save receipt
+          await this.walletRepo.saveTxReceipt({
+            id: randomUUID(),
+            txIntentId: intent.id,
+            txHash,
+            blockNumber: receipt?.blockNumber ? Number(receipt.blockNumber) : null,
+            status: reverted ? "reverted" : "confirmed",
+            gasUsed: receipt?.gasUsed ? String(receipt.gasUsed) : null,
+            confirmedAt: new Date(),
+          });
+        }
+        
+        if (reverted) {
+          throw new Error(`Bet transaction reverted: ${tx.hash}`);
         }
         
         return tx.hash;
@@ -208,16 +266,61 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
           amount,
           tokenConfig.contractAddress
         );
+        txHash = tx.hash;
         
         // Wait for confirmation
         const receipt = await client.waitForReceipt(tx.hash);
-        if (!receipt || receipt.status !== 1) {
-          throw new Error(`Payout transaction failed: ${tx.hash}`);
+        const reverted = !receipt || receipt.status !== 1;
+        
+        // Save attempt result
+        if (this.walletRepo) {
+          await this.walletRepo.saveTxAttempt({
+            id: randomUUID(),
+            txIntentId: intent.id,
+            attemptNumber: 1,
+            status: reverted ? "reverted" : "confirmed",
+            txHash,
+            error: reverted ? "Transaction reverted" : null,
+            errorCode: reverted ? "TX_REVERTED" : null,
+            broadcastAt: new Date(),
+            confirmedAt: new Date(),
+            createdAt: new Date(),
+          });
+          
+          // Save receipt
+          await this.walletRepo.saveTxReceipt({
+            id: randomUUID(),
+            txIntentId: intent.id,
+            txHash,
+            blockNumber: receipt?.blockNumber ? Number(receipt.blockNumber) : null,
+            status: reverted ? "reverted" : "confirmed",
+            gasUsed: receipt?.gasUsed ? String(receipt.gasUsed) : null,
+            confirmedAt: new Date(),
+          });
+        }
+        
+        if (reverted) {
+          throw new Error(`Payout transaction reverted: ${tx.hash}`);
         }
         
         return tx.hash;
       }
     } catch (error: any) {
+      // Save failed attempt
+      if (this.walletRepo) {
+        await this.walletRepo.saveTxAttempt({
+          id: randomUUID(),
+          txIntentId: intent.id,
+          attemptNumber: 1,
+          status: "failed",
+          txHash,
+          error: error?.message || `${type} failed`,
+          errorCode: "TX_BROADCAST_ERROR",
+          broadcastAt: new Date(),
+          confirmedAt: new Date(),
+          createdAt: new Date(),
+        });
+      }
       throw new Error(`Onchain transfer failed (${type}): ${error.message}`);
     }
   }

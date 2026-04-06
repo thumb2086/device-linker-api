@@ -27,25 +27,27 @@ import {
 export async function gameRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   
-  const gameManager = new GameManager();
-  const walletManager = new WalletManager();
-  const roomManager = new RoomManager();
-  const settlementManager = new SettlementManager(walletManager);
-  const onchainWallet = new OnchainWalletManager();
-  // VipManager requires db - skip for now, onchain settlement will work without it
-  const onchainSettlement = new OnchainSettlementManager(
-    settlementManager,
-    walletManager,
-    onchainWallet,
-    null as any // VipManager placeholder - fee calculation will use default tier
-  );
-  const identityManager = new IdentityManager();
-  
+  // Initialize repositories first (needed by managers)
   const walletRepo = new WalletRepository();
   const gameRepo = new GameRepository();
   const opsRepo = new OpsRepository();
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
+  
+  const gameManager = new GameManager();
+  const walletManager = new WalletManager();
+  const roomManager = new RoomManager();
+  const settlementManager = new SettlementManager(walletManager);
+  const onchainWallet = new OnchainWalletManager();
+  const onchainSettlement = new OnchainSettlementManager(
+    settlementManager,
+    walletManager,
+    onchainWallet,
+    null as any, // VipManager placeholder - fee calculation will use default tier
+    walletRepo,  // WalletRepository for saving tx attempts and receipts
+    null         // ChainClient - will auto-initialize from config
+  );
+  const identityManager = new IdentityManager();
 
   // Helper to get context
   const getContext = async (req: any) => {

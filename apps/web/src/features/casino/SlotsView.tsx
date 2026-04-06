@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/useAuth';
 import './Slots.css';
 
 const SYMBOLS = ["🍒", "🍋", "🍊", "🍇", "🔔", "💎", "7️⃣"];
 
 export const SlotsView: React.FC = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
   const [isSpinning, setIsSpinning] = useState(false);
   const [grid, setGrid] = useState<string[]>(["🍒", "🍋", "🍊", "🍇", "🔔", "💎", "7️⃣", "🍒", "🍋"].slice(0, 9));
@@ -14,10 +16,10 @@ export const SlotsView: React.FC = () => {
 
   const spinMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/games/slots/rounds', {
+      const res = await fetch('/api/v1/games/slots/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(betAmount), action: {} })
+        body: JSON.stringify({ sessionId: session?.id, amount: betAmount, action: {} })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || '旋轉失敗');

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/useAuth';
 import './Sicbo.css';
 
 const SICBO_ROUND_MS = 20000;
@@ -7,6 +8,7 @@ const SICBO_LOCK_MS = 4000;
 
 export const SicboView: React.FC = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
   const [selectedBet, setSelectedBet] = useState<'big' | 'small' | 'total'>('big');
   const [dice, setDice] = useState<number[]>([1, 1, 1]);
@@ -92,10 +94,10 @@ export const SicboView: React.FC = () => {
 
   const betMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/games/sicbo/rounds', {
+      const res = await fetch('/api/v1/games/sicbo/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(betAmount), action: { bets: [{ type: selectedBet }] } })
+        body: JSON.stringify({ sessionId: session?.id, amount: betAmount, action: { bets: [{ type: selectedBet }] } })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || '下注失敗');

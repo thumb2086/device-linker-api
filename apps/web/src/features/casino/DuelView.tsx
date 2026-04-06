@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/useAuth';
 import './Duel.css';
 
 export const DuelView: React.FC = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
   const [stakeTier, setStakeTier] = useState(1000);
   const [status, setStatus] = useState('⚔️ 選擇檔位加入配對，與其他玩家進行 1v1 對戰！');
   const [logs, setLogs] = useState<string[]>([]);
@@ -22,10 +24,10 @@ export const DuelView: React.FC = () => {
 
   const joinMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/games/duel/rounds', {
+      const res = await fetch('/api/v1/games/duel/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: stakeTier, action: { type: 'join' } })
+        body: JSON.stringify({ sessionId: session?.id, amount: stakeTier.toString(), action: { type: 'join' } })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || '加入失敗');

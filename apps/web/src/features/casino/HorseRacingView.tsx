@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/useAuth';
 import './HorseRacing.css';
 
 // Constants from legacy logic
@@ -79,6 +80,7 @@ function simulateRaceDeterministic(roundId: number) {
 
 export const HorseRacingView: React.FC = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
   const [selectedHorseId, setSelectedHorseId] = useState(1);
   const [betAmount, setBetAmount] = useState('10');
   const [raceInProgress, setRaceInProgress] = useState(false);
@@ -195,11 +197,10 @@ export const HorseRacingView: React.FC = () => {
 
   const betMutation = useMutation({
     mutationFn: async () => {
-      const amount = parseFloat(betAmount);
-      const res = await fetch('/api/v1/games/horse/rounds', {
+      const res = await fetch('/api/v1/games/horse/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, action: { horseId: selectedHorseId } })
+        body: JSON.stringify({ sessionId: session?.id, amount: betAmount, action: { horseId: selectedHorseId } })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || '下注失敗');

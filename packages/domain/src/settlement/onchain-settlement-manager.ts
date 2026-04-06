@@ -12,6 +12,7 @@ import { SettlementManager } from "./settlement-manager.js";
 import { WalletManager } from "../wallet/wallet-manager.js";
 import { OnchainWalletManager } from "../wallet/onchain-wallet-manager.js";
 import { VipManager } from "../levels/vip-manager.js";
+import { ChainClient } from "@repo/infrastructure";
 import { ethers } from "ethers";
 
 export interface SettlementResult {
@@ -44,8 +45,24 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
     private settlementManager: SettlementManager,
     private walletManager: WalletManager,
     private onchainWallet: OnchainWalletManager,
-    private vipManager: VipManager
+    private vipManager: VipManager,
+    private chainClient: ChainClient | null = null
   ) {}
+
+  /**
+   * Initialize chain client from runtime config
+   */
+  private getChainClient(): ChainClient {
+    if (this.chainClient) return this.chainClient;
+    
+    const config = this.onchainWallet.getRuntimeConfig();
+    if (!config.rpcUrl || !config.adminPrivateKey) {
+      throw new Error("Chain not configured: missing RPC_URL or ADMIN_PRIVATE_KEY");
+    }
+    
+    this.chainClient = new ChainClient(config.rpcUrl, config.adminPrivateKey);
+    return this.chainClient;
+  }
 
   /**
    * Unified settlement for all 12 games
@@ -146,7 +163,7 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
   }
 
   /**
-   * Execute onchain transfer
+   * Execute onchain transfer using real blockchain transactions
    */
   private async executeOnchainTransfer(
     userAddress: string,
@@ -161,18 +178,48 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
       throw new Error(`Token ${intent.token} not enabled for onchain transfer`);
     }
 
-    // In a real implementation, this would:
-    // 1. Create and sign transaction
-    // 2. Broadcast to network
-    // 3. Wait for confirmation
-    // 4. Return txHash
+    const client = this.getChainClient();
+    const houseAddress = client.getWalletAddress();
+    const decimals = await client.getDecimals(tokenConfig.contractAddress);
+    const amount = client.parseUnits(intent.amount, decimals);
 
-    // For now, return a mock hash
-    const mockHash = `0x${Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join("")}`;
-
-    return mockHash;
+    try {
+      if (type === "bet") {
+        // Bet: Transfer from player to house (adminTransfer)
+        const tx = await client.adminTransfer(
+          userAddress,
+          houseAddress,
+          amount,
+          tokenConfig.contractAddress
+        );
+        
+        // Wait for confirmation
+        const receipt = await client.waitForReceipt(tx.hash);
+        if (!receipt || receipt.status !== 1) {
+          throw new Error(`Bet transaction failed: ${tx.hash}`);
+        }
+        
+        return tx.hash;
+        
+      } else {
+        // Payout: Transfer from house to player
+        const tx = await client.transfer(
+          userAddress,
+          amount,
+          tokenConfig.contractAddress
+        );
+        
+        // Wait for confirmation
+        const receipt = await client.waitForReceipt(tx.hash);
+        if (!receipt || receipt.status !== 1) {
+          throw new Error(`Payout transaction failed: ${tx.hash}`);
+        }
+        
+        return tx.hash;
+      }
+    } catch (error: any) {
+      throw new Error(`Onchain transfer failed (${type}): ${error.message}`);
+    }
   }
 
   /**

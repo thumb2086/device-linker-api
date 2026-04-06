@@ -1,8 +1,8 @@
 // packages/domain/src/levels/vip-manager.ts
 import { eq, and } from "drizzle-orm";
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { LEVEL_TIERS, LevelTier, YJC_VIP_TIERS, YjcVipTier } from "@repo/shared";
 import * as schema from "@repo/infrastructure/db/schema.js";
+import { requireDb } from "@repo/infrastructure/db/index.js";
 
 export interface VipFullStatus {
   address: string;
@@ -22,7 +22,10 @@ export interface VipFullStatus {
 }
 
 export class VipManager {
-  constructor(private db: PostgresJsDatabase<typeof schema>) {}
+  // Helper to get DB connection lazily
+  private async getDb() {
+    return await requireDb();
+  }
 
   // Get VIP tier by total bet amount
   private getVipTierByScore(score: number): LevelTier {
@@ -44,9 +47,10 @@ export class VipManager {
   // Get VIP status for address
   async getVipStatus(address: string): Promise<VipFullStatus | null> {
     const addr = address.toLowerCase();
+    const db = await this.getDb();
 
     // 1. Get total bets for 'all' period
-    const betRow = await this.db
+    const betRow = await db
       .select({ amount: schema.totalBets.amount })
       .from(schema.totalBets)
       .where(
@@ -61,7 +65,7 @@ export class VipManager {
     const totalBetAll = Number(betRow[0]?.amount ?? 0);
 
     // 2. Get YJC token balance
-    const yjcRow = await this.db
+    const yjcRow = await db
       .select({ balance: schema.walletAccounts.balance })
       .from(schema.walletAccounts)
       .where(
@@ -123,9 +127,10 @@ export class VipManager {
   // Get YJC VIP tier by address (for game fee calculation)
   async getYjcVipTierByAddress(address: string): Promise<YjcVipTier> {
     const addr = address.toLowerCase();
+    const db = await this.getDb();
 
     // Get YJC token balance
-    const yjcRow = await this.db
+    const yjcRow = await db
       .select({ balance: schema.walletAccounts.balance })
       .from(schema.walletAccounts)
       .where(

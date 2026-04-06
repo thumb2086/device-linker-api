@@ -80,21 +80,64 @@ export class GameSettlementWrapper {
     );
   }
 
-  /**
-   * Get balance from KV store
-   */
-  async getBalance(address: string, token: "zhixi" | "yjc"): Promise<string> {
-    const key = token === "yjc" ? `balance_yjc:${address}` : `balance:${address}`;
-    const balance = await kv.get<string>(key);
-    return balance || "0";
+  private getBalanceKey(token: "zhixi" | "yjc", address: string): string {
+    return token === "yjc" ? `balance_yjc:${address}` : `balance:${address}`;
   }
 
   /**
-   * Set balance in KV store
+   * Read legacy mirror balance from KV.
+   */
+  async getMirrorBalance(address: string, token: "zhixi" | "yjc"): Promise<string | null> {
+    const key = this.getBalanceKey(token, address);
+    const balance = await kv.get<string>(key);
+    return balance ?? null;
+  }
+
+  /**
+   * Keep the legacy KV balance in sync with the balance source used by game routes.
    */
   async setBalance(address: string, token: "zhixi" | "yjc", balance: string): Promise<void> {
-    const key = token === "yjc" ? `balance_yjc:${address}` : `balance:${address}`;
+    const key = this.getBalanceKey(token, address);
     await kv.set(key, balance);
+  }
+
+  /**
+   * Resolve the playable balance using the same source priority as wallet summary:
+   * on-chain when available, otherwise DB wallet, then legacy KV mirror.
+   * The resolved balance is also backfilled into DB/KV so later steps see the same value.
+   */
+  async getBalance(address: string, token: "zhixi" | "yjc"): Promise<string> {
+    const normalizedAddress = address.toLowerCase();
+    const dbBalance = await this.walletRepo.getBalance(normalizedAddress, token);
+    const mirrorBalance = await this.getMirrorBalance(normalizedAddress, token);
+
+    let resolvedBalance = dbBalance || "0";
+
+    try {
+      const runtime = this.onchainWallet.getRuntimeConfig();
+      const tokenRuntime = runtime.tokens[token];
+      if (tokenRuntime?.enabled && runtime.rpcUrl && runtime.adminPrivateKey) {
+        const client = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
+        const decimals = await client.getDecimals(tokenRuntime.contractAddress, 18);
+        const rawBalance = await client.getBalance(normalizedAddress, tokenRuntime.contractAddress);
+        resolvedBalance = client.formatUnits(rawBalance, decimals);
+      } else if (Number(dbBalance || 0) <= 0 && mirrorBalance !== null) {
+        resolvedBalance = mirrorBalance;
+      }
+    } catch {
+      if (Number(dbBalance || 0) <= 0 && mirrorBalance !== null) {
+        resolvedBalance = mirrorBalance;
+      }
+    }
+
+    if (resolvedBalance !== dbBalance) {
+      await this.walletRepo.updateBalance(normalizedAddress, resolvedBalance, token);
+    }
+    if (resolvedBalance !== mirrorBalance) {
+      await this.setBalance(normalizedAddress, token, resolvedBalance);
+    }
+
+    return resolvedBalance || "0";
   }
 
   /**

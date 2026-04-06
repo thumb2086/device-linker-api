@@ -54,7 +54,7 @@ export async function vipRoutes(fastify: FastifyInstance) {
       );
     }
 
-    const vipManager = new VipManager(db);
+    const vipManager = new VipManager();
     const status = await vipManager.getVipStatus(address);
     
     if (!status) {
@@ -78,7 +78,7 @@ export async function vipRoutes(fastify: FastifyInstance) {
     const { address } = request.params as { address: string };
 
     const db = await requireDb();
-    const vipManager = new VipManager(db);
+    const vipManager = new VipManager();
     const level = await vipManager.getVipLevel(address);
 
     return createApiEnvelope({

@@ -82,7 +82,11 @@ export const CoinflipView: React.FC = () => {
       const res = await fetch('/api/v1/games/coinflip/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.id, betAmount: parseFloat(betAmount), selection })
+        body: JSON.stringify({ 
+          sessionId: session.id, 
+          amount: betAmount,  // Changed from betAmount to amount (string)
+          action: { selection }  // Wrap selection in action object
+        })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || '下注失敗');

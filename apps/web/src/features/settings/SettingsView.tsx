@@ -415,7 +415,7 @@ export default function SettingsView() {
             type="button"
             onClick={() => {
               clearAuth();
-              window.location.href = '/login';
+              window.location.href = '/';
             }}
             className="flex w-full items-center justify-center gap-3 rounded-2xl border border-red-500/20 bg-gradient-to-r from-red-600 to-red-800 py-4 text-sm font-black uppercase tracking-[0.2em]"
           >

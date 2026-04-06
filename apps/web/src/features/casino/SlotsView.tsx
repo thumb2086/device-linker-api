@@ -26,8 +26,8 @@ export const SlotsView: React.FC = () => {
       return data.data;
     },
     onSuccess: async (data) => {
-      // Data contains result.symbols and result.multiplier
-      const result = data.result;
+      const responseData = data?.data || data;
+      const result = responseData?.result;
 
       // Keep spinning for a bit
       await new Promise(r => setTimeout(r, 1500));

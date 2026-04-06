@@ -18,9 +18,10 @@ export async function announcementRoutes(fastify: FastifyInstance) {
   const repo = new AnnouncementRepository();
 
   typedFastify.get("/", async (request) => {
-    const dbAnnouncements = await repo.listActiveAnnouncements();
-    const list = dbAnnouncements.length > 0
-      ? dbAnnouncements.map((item: any) => ({
+    // 先嘗試讀取所有公告（包含非活動中的歷史公告）
+    const allAnnouncements = await repo.listAllAnnouncements(50);
+    const list = allAnnouncements.length > 0
+      ? allAnnouncements.map((item: any) => ({
           id: item.announcementId || item.id,
           title: item.title,
           content: item.content,

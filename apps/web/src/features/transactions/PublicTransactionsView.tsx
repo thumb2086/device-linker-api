@@ -132,7 +132,7 @@ export default function PublicTransactionsView() {
                   {isZh ? zh.uptime : 'Uptime'}
                 </p>
                 <p className="mt-2 text-2xl font-black italic tracking-tight text-emerald-400">
-                  {serviceStats?.uptime || '99.98%'}
+                  {serviceStats?.uptime ?? (isLoading ? '...' : '--')}
                 </p>
               </div>
               <div className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
@@ -140,7 +140,7 @@ export default function PublicTransactionsView() {
                   {isZh ? zh.failureRate : 'Failure Rate'}
                 </p>
                 <p className="mt-2 text-2xl font-black italic tracking-tight text-[#fcc025]">
-                  {serviceStats?.failureRate || '0.02%'}
+                  {serviceStats?.failureRate ?? (isLoading ? '...' : '--')}
                 </p>
               </div>
             </div>

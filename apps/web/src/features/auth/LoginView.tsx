@@ -149,8 +149,8 @@ export default function LoginView() {
             >
                 <Fingerprint size={42} className="text-[#fcc025]" />
             </motion.div>
-            <h1 className="text-4xl font-extrabold text-[#fcc025] tracking-tighter uppercase italic">ZiXi Identity</h1>
-            <p className="text-[#adaaaa] text-[10px] font-bold uppercase tracking-[0.4em] leading-relaxed">Secured Simulation Access Protocol</p>
+            <h1 className="text-4xl font-extrabold text-[#fcc025] tracking-tighter uppercase italic">{isZh ? '知悉身分認證' : 'ZiXi Identity'}</h1>
+            <p className="text-[#adaaaa] text-[10px] font-bold uppercase tracking-[0.4em] leading-relaxed">{isZh ? '安全模擬存取協定' : 'Secured Simulation Access Protocol'}</p>
         </header>
 
         <div className="flex bg-[#0e0e0e] p-1.5 rounded-xl border border-[#494847]/20">
@@ -197,12 +197,12 @@ export default function LoginView() {
                      href={deepLinkUrl}
                      className="inline-flex items-center justify-center mt-2 px-4 py-2 rounded-lg bg-[#262626] border border-[#fcc025]/20 text-[#fcc025] text-[10px] font-black uppercase tracking-widest hover:bg-[#2c2c2c] transition-all"
                    >
-                     Open App
+                     {isZh ? '開啟 App' : 'Open App'}
                    </a>
                  )}
                  <div className="flex items-center justify-center gap-2 pt-2">
                      <QrCode size={12} className="text-[#fcc025]" />
-                     <span className="text-[9px] text-[#fcc025]/60 font-bold uppercase tracking-[0.2em]">Encrypted Session Active</span>
+                     <span className="text-[9px] text-[#fcc025]/60 font-bold uppercase tracking-[0.2em]">{isZh ? '加密連線已啟用' : 'Encrypted Session Active'}</span>
                  </div>
               </div>
             </motion.div>
@@ -225,7 +225,7 @@ export default function LoginView() {
                         type="text"
                         value={username}
                         onChange={e => setUsername(e.target.value)}
-                        placeholder="Operator ID"
+                        placeholder={isZh ? '操作員 ID' : 'Operator ID'}
                         className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-xl pl-14 pr-5 py-4 text-white text-sm focus:border-[#fcc025]/50 focus:ring-4 focus:ring-[#fcc025]/5 outline-none transition-all placeholder:text-[#494847] font-bold"
                         required
                     />
@@ -241,7 +241,7 @@ export default function LoginView() {
                           type="password"
                           value={password}
                           onChange={e => setPassword(e.target.value)}
-                          placeholder="Pass-Code"
+                          placeholder={isZh ? '通行密碼' : 'Pass-Code'}
                           className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-xl pl-14 pr-5 py-4 text-white text-sm focus:border-[#fcc025]/50 focus:ring-4 focus:ring-[#fcc025]/5 outline-none transition-all placeholder:text-[#494847] font-bold"
                           required
                       />
@@ -309,7 +309,7 @@ export default function LoginView() {
 
       <p className="mt-12 text-[9px] font-bold text-[#494847] uppercase tracking-[0.5em] flex items-center gap-3">
           <ShieldCheck size={12} className="text-[#fcc025]/30" />
-          Powered by Modular Monolith Infrastructure v4.1
+          {isZh ? '模組化單體架構 v4.1 驅動' : 'Powered by Modular Monolith Infrastructure v4.1'}
       </p>
     </div>
   );

@@ -141,7 +141,7 @@ export const VIP_CHAT_ROOMS = [
     label: "VIP 大廳",
     requiredLevel: "黃金會員",
     announcement: "VIP 專屬聊天室，僅開放黃金會員以上玩家加入。",
-    bettingToken: { symbol: "優件幣", key: "youjian", chainStatus: "reserved", bettingEnabled: false },
+    bettingToken: { symbol: "佑戩幣", key: "youjian", chainStatus: "reserved", bettingEnabled: false },
   },
 ];
 

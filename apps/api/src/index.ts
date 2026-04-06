@@ -201,19 +201,19 @@ fastify.register(transactionRoutes, { prefix: "/api/v1/transactions" });
 fastify.register(leaderboardRoutes, { prefix: "/api/v1/leaderboard" });
 fastify.register(vipRoutes, { prefix: "/api/v1/vip" });
 fastify.register(danmakuRoutes, { prefix: "/api/v1/danmaku" });
-// Phase 3: 12 Game routes
-fastify.register(slotsRoutes, { prefix: "/api/v1/games/slots" });
-fastify.register(coinflipRoutes, { prefix: "/api/v1/games/coinflip" });
-fastify.register(rouletteRoutes, { prefix: "/api/v1/games/roulette" });
-fastify.register(horseRoutes, { prefix: "/api/v1/games/horse" });
-fastify.register(sicboRoutes, { prefix: "/api/v1/games/sicbo" });
-fastify.register(bingoRoutes, { prefix: "/api/v1/games/bingo" });
-fastify.register(duelRoutes, { prefix: "/api/v1/games/duel" });
-fastify.register(blackjackRoutes, { prefix: "/api/v1/games/blackjack" });
-fastify.register(crashRoutes, { prefix: "/api/v1/games/crash" });
-fastify.register(pokerRoutes, { prefix: "/api/v1/games/poker" });
-fastify.register(bluffdiceRoutes, { prefix: "/api/v1/games/bluffdice" });
-fastify.register(shootDragonGateRoutes, { prefix: "/api/v1/games/shoot-dragon-gate" });
+// Phase 3: 12 Game routes - DISABLED (using unified /api/v1/games/:game/play instead)
+// fastify.register(slotsRoutes, { prefix: "/api/v1/games/slots" });
+// fastify.register(coinflipRoutes, { prefix: "/api/v1/games/coinflip" });
+// fastify.register(rouletteRoutes, { prefix: "/api/v1/games/roulette" });
+// fastify.register(horseRoutes, { prefix: "/api/v1/games/horse" });
+// fastify.register(sicboRoutes, { prefix: "/api/v1/games/sicbo" });
+// fastify.register(bingoRoutes, { prefix: "/api/v1/games/bingo" });
+// fastify.register(duelRoutes, { prefix: "/api/v1/games/duel" });
+// fastify.register(blackjackRoutes, { prefix: "/api/v1/games/blackjack" });
+// fastify.register(crashRoutes, { prefix: "/api/v1/games/crash" });
+// fastify.register(pokerRoutes, { prefix: "/api/v1/games/poker" });
+// fastify.register(bluffdiceRoutes, { prefix: "/api/v1/games/bluffdice" });
+// fastify.register(shootDragonGateRoutes, { prefix: "/api/v1/games/shoot-dragon-gate" });
 
 fastify.get("/health", async () => {
   return { status: "ok", env: process.env.NODE_ENV };

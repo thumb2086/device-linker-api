@@ -3,7 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { LEVEL_TIERS, LevelTier, YJC_VIP_TIERS, YjcVipTier } from "@repo/shared";
 import * as schema from "@repo/infrastructure/db/schema.js";
 import { requireDb } from "@repo/infrastructure/db/index.js";
-import { ChainClient } from "@repo/infrastructure/chain/index.js";
+import { ChainClient } from "@repo/infrastructure";
 import { OnchainWalletManager } from "../wallet/onchain-wallet-manager.js";
 
 export interface VipFullStatus {

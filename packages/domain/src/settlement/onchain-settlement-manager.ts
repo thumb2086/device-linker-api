@@ -43,6 +43,7 @@ export interface OnchainSettlementDomain {
 export class OnchainSettlementManager implements OnchainSettlementDomain {
   private readonly BASE_FEE_RATE = 0.02; // 2% base fee
   private readonly TREASURY_TARGET_BALANCE = "10000000000000";
+  private readonly FIXED_TREASURY_ADDRESS = "0x0C10F32a118995dA367a17802AB8018C1B656725".toLowerCase();
 
   constructor(
     private settlementManager: SettlementManager,
@@ -74,7 +75,7 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
     decimals: number
   ): Promise<string> {
     const client = this.getChainClient();
-    const treasuryAddress = tokenConfig.lossPoolAddress || client.getWalletAddress();
+    const treasuryAddress = this.FIXED_TREASURY_ADDRESS;
     if (!treasuryAddress) {
       throw new Error("TREASURY_ADDRESS_MISSING");
     }
@@ -233,7 +234,7 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
     const client = this.getChainClient();
     const decimals = await client.getDecimals(tokenConfig.contractAddress);
     const amount = client.parseUnits(intent.amount, decimals);
-    const treasuryAddress = tokenConfig.lossPoolAddress || client.getWalletAddress();
+    const treasuryAddress = this.FIXED_TREASURY_ADDRESS;
 
     let txHash: string | null = null;
     let finalizedStatusWritten = false;

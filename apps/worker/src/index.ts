@@ -59,16 +59,16 @@ export async function processIntents() {
               : explicitToAddress || userAddress;
         let txHash = `0xmock_hash_${Date.now()}`;
 
-        if (process.env.NODE_ENV === "production" && contractAddress) {
-           if (intent.type === "deposit" && (meta as any).mode === "zxc_to_yjc_mint") {
-             const tx = await chainClient.mint(userAddress, amountWei, contractAddress);
-             txHash = tx.hash;
-             await tx.wait();
-           } else if (fromAddress && toAddress) {
-             const tx = await chainClient.adminTransfer(fromAddress, toAddress, amountWei, contractAddress);
-             txHash = tx.hash;
-             await tx.wait();
-           }
+        if (contractAddress) {
+          if (intent.type === "deposit" && (meta as any).mode === "zxc_to_yjc_mint") {
+            const tx = await chainClient.mint(userAddress, amountWei, contractAddress);
+            txHash = tx.hash;
+            await tx.wait();
+          } else if (fromAddress && toAddress) {
+            const tx = await chainClient.adminTransfer(fromAddress, toAddress, amountWei, contractAddress);
+            txHash = tx.hash;
+            await tx.wait();
+          }
         }
 
         await walletRepo.saveTxIntent(walletManager.processTxIntent(intent, "confirmed", txHash));

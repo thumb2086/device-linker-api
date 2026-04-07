@@ -18,6 +18,7 @@ export interface PlayOptions {
   game: GameName;
   betAmount: number;
   gameResult: GameResult;
+  adjustWalletBalance?: boolean;
 }
 
 export class GameSessionManager {
@@ -25,34 +26,37 @@ export class GameSessionManager {
 
   // ── Core: Record game result + update total_bets + adjust wallet ──────────
   async recordGame(opts: PlayOptions): Promise<schema.GameSession> {
-    const { userId, address, game, betAmount, gameResult } = opts;
+    const { userId, address, game, betAmount, gameResult, adjustWalletBalance = false } = opts;
     const addr = address.toLowerCase();
 
     return await this.db.transaction(async (tx) => {
-      // 1. Check wallet balance
-      const walletRow = await tx
-        .select({ balance: schema.walletAccounts.balance })
-        .from(schema.walletAccounts)
-        .where(eq(schema.walletAccounts.address, addr))
-        .limit(1)
-        .for("update"); // row lock
+      // 1. (Optional) Deduct bet and credit payout in DB wallet ledger.
+      // Most game routes already do balance handling via the settlement pipeline.
+      // Keep this path opt-in to avoid double deduction / false insufficient-balance.
+      if (adjustWalletBalance) {
+        const walletRow = await tx
+          .select({ balance: schema.walletAccounts.balance })
+          .from(schema.walletAccounts)
+          .where(eq(schema.walletAccounts.address, addr))
+          .limit(1)
+          .for("update"); // row lock
 
-      const currentBalance = Number(walletRow[0]?.balance ?? 0);
-      if (currentBalance < betAmount) {
-        throw new Error("INSUFFICIENT_BALANCE");
+        const currentBalance = Number(walletRow[0]?.balance ?? 0);
+        if (currentBalance < betAmount) {
+          throw new Error("INSUFFICIENT_BALANCE");
+        }
+
+        const netChange = gameResult.payout - betAmount; // positive=win, negative=lose
+        await tx
+          .update(schema.walletAccounts)
+          .set({
+            balance: sql`${schema.walletAccounts.balance} + ${netChange}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.walletAccounts.address, addr));
       }
 
-      // 2. Deduct bet and credit payout
-      const netChange = gameResult.payout - betAmount; // positive=win, negative=lose
-      await tx
-        .update(schema.walletAccounts)
-        .set({
-          balance: sql`${schema.walletAccounts.balance} + ${netChange}`,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.walletAccounts.address, addr));
-
-      // 3. Accumulate total_bets (all + week + month)
+      // 2. Accumulate total_bets (all + week + month)
       const periodIds = this.getPeriodIds();
       for (const { periodType, periodId } of periodIds) {
         await tx
@@ -69,7 +73,7 @@ export class GameSessionManager {
           });
       }
 
-      // 4. Write to game_sessions
+      // 3. Write to game_sessions
       const [session] = await tx
         .insert(schema.gameSessions)
         .values({

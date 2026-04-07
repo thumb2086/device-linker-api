@@ -3,6 +3,8 @@ import { eq, and } from "drizzle-orm";
 import { LEVEL_TIERS, LevelTier, YJC_VIP_TIERS, YjcVipTier } from "@repo/shared";
 import * as schema from "@repo/infrastructure/db/schema.js";
 import { requireDb } from "@repo/infrastructure/db/index.js";
+import { ChainClient } from "@repo/infrastructure/chain/index.js";
+import { OnchainWalletManager } from "../wallet/onchain-wallet-manager.js";
 
 export interface VipFullStatus {
   address: string;
@@ -22,9 +24,45 @@ export interface VipFullStatus {
 }
 
 export class VipManager {
+  private onchainWallet = new OnchainWalletManager();
+
   // Helper to get DB connection lazily
   private async getDb() {
     return await requireDb();
+  }
+
+  private async resolveYjcBalance(db: any, address: string): Promise<number> {
+    const addr = address.toLowerCase();
+    const yjcRow = await db
+      .select({ balance: schema.walletAccounts.balance })
+      .from(schema.walletAccounts)
+      .where(
+        and(
+          eq(schema.walletAccounts.address, addr),
+          eq(schema.walletAccounts.token, "yjc")
+        )
+      )
+      .limit(1);
+    const dbBalance = Number(yjcRow[0]?.balance ?? 0);
+
+    try {
+      const runtime = this.onchainWallet.getRuntimeConfig();
+      const yjcRuntime = runtime.tokens.yjc;
+      if (!runtime.rpcUrl || !runtime.adminPrivateKey || !yjcRuntime?.enabled) {
+        return dbBalance;
+      }
+
+      const client = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
+      const decimals = await client.getDecimals(yjcRuntime.contractAddress, 18);
+      const raw = await client.getBalance(addr, yjcRuntime.contractAddress);
+      const onchainBalance = Number(client.formatUnits(raw, decimals));
+      if (!Number.isFinite(onchainBalance)) {
+        return dbBalance;
+      }
+      return onchainBalance;
+    } catch {
+      return dbBalance;
+    }
   }
 
   // Get VIP tier by total bet amount
@@ -64,19 +102,8 @@ export class VipManager {
 
     const totalBetAll = Number(betRow[0]?.amount ?? 0);
 
-    // 2. Get YJC token balance
-    const yjcRow = await db
-      .select({ balance: schema.walletAccounts.balance })
-      .from(schema.walletAccounts)
-      .where(
-        and(
-          eq(schema.walletAccounts.address, addr),
-          eq(schema.walletAccounts.token, "yjc")
-        )
-      )
-      .limit(1);
-
-    const yjcBalance = Number(yjcRow[0]?.balance ?? 0);
+    // 2. Get YJC token balance (prefer on-chain balance when available)
+    const yjcBalance = await this.resolveYjcBalance(db, addr);
 
     // 3. VIP score = weighted combination: 70% total_bets + 30% YJC holdings
     const score = Math.floor(totalBetAll * 0.7 + yjcBalance * 0.3);
@@ -129,19 +156,7 @@ export class VipManager {
     const addr = address.toLowerCase();
     const db = await this.getDb();
 
-    // Get YJC token balance
-    const yjcRow = await db
-      .select({ balance: schema.walletAccounts.balance })
-      .from(schema.walletAccounts)
-      .where(
-        and(
-          eq(schema.walletAccounts.address, addr),
-          eq(schema.walletAccounts.token, "yjc")
-        )
-      )
-      .limit(1);
-
-    const yjcBalance = Number(yjcRow[0]?.balance ?? 0);
+    const yjcBalance = await this.resolveYjcBalance(db, addr);
     return this.getYjcVipTier(yjcBalance);
   }
 

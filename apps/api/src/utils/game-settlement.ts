@@ -7,6 +7,7 @@ import {
   SettlementManager,
   OnchainWalletManager,
   OnchainSettlementManager,
+  tokenSymbolToOnchainKey,
   assertVipBetLimit,
   VipManager,
   IdentityManager,
@@ -21,6 +22,7 @@ import {
   kv,
 } from "@repo/infrastructure";
 import type { Game, TokenSymbol } from "@repo/shared";
+import type { TxIntent } from "@repo/shared";
 
 export interface SettlementContext {
   userId: string;
@@ -47,6 +49,7 @@ export interface SettlementResult {
 }
 
 export class GameSettlementWrapper {
+  private readonly FIXED_TREASURY_ADDRESS = "0x0C10F32a118995dA367a17802AB8018C1B656725".toLowerCase();
   private walletManager: WalletManager;
   private settlementManager: SettlementManager;
   private onchainWallet: OnchainWalletManager;
@@ -246,6 +249,9 @@ export class GameSettlementWrapper {
           });
         }
 
+        const queuedIntents: TxIntent[] = payoutIntent ? [betIntent, payoutIntent] : [betIntent];
+        void this.processQueuedIntents(queuedIntents, ctx.address.toLowerCase(), ctx.game, ctx.roundId);
+
         await this.opsRepo.logEvent({
           channel: "game",
           severity: "info",
@@ -321,6 +327,80 @@ export class GameSettlementWrapper {
         balanceAfter: "0",
         error: { code: "SETTLEMENT_ERROR", message: error.message }
       };
+    }
+  }
+
+  private async processQueuedIntents(
+    intents: TxIntent[],
+    userAddress: string,
+    game: string,
+    roundId: string
+  ): Promise<void> {
+    const runtime = this.onchainWallet.getRuntimeConfig();
+    if (!runtime.rpcUrl || !runtime.adminPrivateKey) {
+      return;
+    }
+
+    const client = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
+
+    for (const intent of intents) {
+      let txHash: string | undefined;
+      try {
+        await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "broadcasted"));
+
+        const tokenKey = tokenSymbolToOnchainKey(intent.token);
+        const tokenRuntime = runtime.tokens[tokenKey];
+        if (!tokenRuntime?.contractAddress) {
+          throw new Error(`ONCHAIN_TOKEN_CONFIG_MISSING: ${intent.token}`);
+        }
+
+        const decimals = await client.getDecimals(tokenRuntime.contractAddress, 18);
+        const amountWei = client.parseUnits(String(intent.amount || "0"), decimals);
+
+        const fromAddress = intent.type === "payout"
+          ? this.FIXED_TREASURY_ADDRESS
+          : userAddress;
+        const toAddress = intent.type === "payout"
+          ? userAddress
+          : this.FIXED_TREASURY_ADDRESS;
+
+        const tx = await client.adminTransfer(fromAddress, toAddress, amountWei, tokenRuntime.contractAddress);
+        txHash = tx.hash;
+        await tx.wait();
+
+        await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "confirmed", txHash));
+        await this.opsRepo.logEvent({
+          channel: "game",
+          severity: "info",
+          source: game,
+          kind: "settlement_tx_confirmed",
+          userId: intent.userId,
+          address: userAddress,
+          game,
+          roundId,
+          txIntentId: intent.id,
+          txHash,
+          message: `Settlement tx confirmed: ${intent.type} ${txHash}`,
+        });
+      } catch (error: any) {
+        await this.walletRepo.saveTxIntent(
+          this.walletManager.processTxIntent(intent, "failed", txHash, error?.message || "Settlement tx failed")
+        );
+        await this.opsRepo.logEvent({
+          channel: "game",
+          severity: "error",
+          source: game,
+          kind: "settlement_tx_failed",
+          userId: intent.userId,
+          address: userAddress,
+          game,
+          roundId,
+          txIntentId: intent.id,
+          txHash,
+          errorCode: "TX_BROADCAST_ERROR",
+          message: `Settlement tx failed: ${intent.type} ${error?.message || "unknown error"}`,
+        });
+      }
     }
   }
 

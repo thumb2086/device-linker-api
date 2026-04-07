@@ -235,14 +235,14 @@ export class GameSettlementWrapper {
         await this.walletRepo.saveTxIntent({
           ...betIntent,
           address: ctx.address.toLowerCase(),
-          meta: { ...(betIntent.meta || {}), settlementId: settlement.id, async: true },
+          meta: { settlementId: settlement.id, async: true },
         });
 
         if (payoutIntent) {
           await this.walletRepo.saveTxIntent({
             ...payoutIntent,
             address: ctx.address.toLowerCase(),
-            meta: { ...(payoutIntent.meta || {}), settlementId: settlement.id, async: true },
+            meta: { settlementId: settlement.id, async: true },
           });
         }
 

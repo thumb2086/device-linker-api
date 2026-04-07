@@ -740,7 +740,18 @@ export class OpsRepository implements IOpsRepository {
        return;
     }
     const conn = await requireDb();
-    const log = { ...event, id: randomUUID(), createdAt: new Date() };
+    const rawRoundId = event?.roundId ? String(event.roundId) : null;
+    const rawTxIntentId = event?.txIntentId ? String(event.txIntentId) : null;
+    const log = {
+      ...event,
+      id: randomUUID(),
+      roundId: rawRoundId && UUID_PATTERN.test(rawRoundId) ? rawRoundId : null,
+      txIntentId: rawTxIntentId && UUID_PATTERN.test(rawTxIntentId) ? rawTxIntentId : null,
+      meta: rawRoundId && !UUID_PATTERN.test(rawRoundId)
+        ? { ...(event?.meta || {}), externalRoundId: rawRoundId }
+        : event?.meta,
+      createdAt: new Date()
+    };
     await conn.insert(schema.opsEvents).values(log);
   }
   async listEvents(options: { limit?: number; userId?: string } = {}) {

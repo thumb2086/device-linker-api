@@ -76,6 +76,15 @@ export class VipManager {
     return LEVEL_TIERS[0];
   }
 
+  private getLevelByTotalBet(totalBetAll: number): LevelTier {
+    for (let i = LEVEL_TIERS.length - 1; i >= 0; i--) {
+      if (totalBetAll >= LEVEL_TIERS[i].threshold) {
+        return LEVEL_TIERS[i];
+      }
+    }
+    return LEVEL_TIERS[0];
+  }
+
   // Get next level
   private getNextLevel(currentLevel: LevelTier): LevelTier | null {
     const currentIndex = LEVEL_TIERS.findIndex((t) => t.label === currentLevel.label);
@@ -182,5 +191,29 @@ export class VipManager {
   async getDailyBonusMultiplier(address: string): Promise<number> {
     const level = await this.getVipLevel(address);
     return level.dailyBonusMultiplier ?? 1.0;
+  }
+
+  // Bet-amount level only (ignores YJC VIP holdings)
+  async getBetLevel(address: string): Promise<LevelTier> {
+    const addr = address.toLowerCase();
+    const db = await this.getDb();
+    const betRow = await db
+      .select({ amount: schema.totalBets.amount })
+      .from(schema.totalBets)
+      .where(
+        and(
+          eq(schema.totalBets.periodType, "all"),
+          eq(schema.totalBets.periodId, ""),
+          eq(schema.totalBets.address, addr)
+        )
+      )
+      .limit(1);
+    const totalBetAll = Number(betRow[0]?.amount ?? 0);
+    return this.getLevelByTotalBet(totalBetAll);
+  }
+
+  async getBetLevelFeeDiscount(address: string): Promise<number> {
+    const level = await this.getBetLevel(address);
+    return level.marketFeeDiscount ?? 0.0;
   }
 }

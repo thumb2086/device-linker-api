@@ -37,7 +37,7 @@ export interface OnchainSettlementDomain {
     requestId?: string;
   }): Promise<SettlementResult>;
 
-  calculateFee(betAmount: string, isVip2: boolean): number;
+  calculateFee(betAmount: string, feeDiscountRate?: number): number;
 }
 
 export class OnchainSettlementManager implements OnchainSettlementDomain {
@@ -122,11 +122,13 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
   }): Promise<SettlementResult> {
     const { userId, address, game, token, betAmount, payoutAmount, roundId, requestId } = params;
 
-    // 1. Check if user has VIP2 (YJC VIP system) for zero game fees
-    const isVip2 = this.vipManager ? await this.vipManager.hasVip2(address) : false;
+    // 1. Calculate fee discount by bet-based level membership (押注額等級)
+    const levelDiscountRate = this.vipManager
+      ? await this.vipManager.getBetLevelFeeDiscount(address)
+      : 0;
 
-    // 2. Calculate fee based on VIP status
-    const feeAmount = this.calculateFee(betAmount, isVip2);
+    // 2. Calculate fee based on level discount
+    const feeAmount = this.calculateFee(betAmount, levelDiscountRate);
     const payoutNum = parseFloat(payoutAmount);
     const finalPayout = Math.max(0, payoutNum - feeAmount);
 
@@ -194,20 +196,14 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
   }
 
   /**
-   * Calculate fee based on YJC VIP status
-   * VIP2 (YJC balance >= 1000) gets 0% fee
-   * Others pay base 2% fee
+   * Calculate fee based on bet-level discount.
+   * discountRate=0 means full base fee, discountRate=1 means free.
    */
-  calculateFee(betAmount: string, isVip2: boolean): number {
+  calculateFee(betAmount: string, feeDiscountRate: number = 0): number {
     const betNum = parseFloat(betAmount);
-
-    // VIP2 gets free fees
-    if (isVip2) {
-      return 0;
-    }
-
-    // Base fee for non-VIP
-    return betNum * this.BASE_FEE_RATE;
+    const baseFee = betNum * this.BASE_FEE_RATE;
+    const discount = Math.min(1, Math.max(0, feeDiscountRate));
+    return baseFee * (1 - discount);
   }
 
   /**

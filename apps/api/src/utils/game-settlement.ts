@@ -209,8 +209,8 @@ export class GameSettlementWrapper {
   async executeSettlement(ctx: SettlementContext): Promise<SettlementResult> {
     if (this.isAsyncSettlementEnabled()) {
       try {
-        const isVip2 = await this.vipManager.hasVip2(ctx.address);
-        const feeAmount = this.onchainSettlement.calculateFee(ctx.betAmount, isVip2);
+        const levelDiscountRate = await this.vipManager.getBetLevelFeeDiscount(ctx.address);
+        const feeAmount = this.onchainSettlement.calculateFee(ctx.betAmount, levelDiscountRate);
         const requestedPayout = parseFloat(ctx.payoutAmount);
         const finalPayout = Math.max(0, requestedPayout - feeAmount);
 

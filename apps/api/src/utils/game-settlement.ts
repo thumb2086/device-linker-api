@@ -42,6 +42,7 @@ export interface SettlementResult {
   payoutTxHash?: string;
   balanceBefore: string;
   balanceAfter: string;
+  status?: "pending" | "settled";
   error?: { code: string; message: string };
 }
 
@@ -82,6 +83,11 @@ export class GameSettlementWrapper {
 
   private getBalanceKey(token: "zhixi" | "yjc", address: string): string {
     return token === "yjc" ? `balance_yjc:${address}` : `balance:${address}`;
+  }
+
+  private isAsyncSettlementEnabled(): boolean {
+    const raw = String(process.env.GAME_SETTLEMENT_ASYNC ?? "true").toLowerCase();
+    return raw !== "false" && raw !== "0";
   }
 
   /**
@@ -198,6 +204,90 @@ export class GameSettlementWrapper {
    * Execute on-chain settlement
    */
   async executeSettlement(ctx: SettlementContext): Promise<SettlementResult> {
+    if (this.isAsyncSettlementEnabled()) {
+      try {
+        const isVip2 = await this.vipManager.hasVip2(ctx.address);
+        const feeAmount = this.onchainSettlement.calculateFee(ctx.betAmount, isVip2);
+        const requestedPayout = parseFloat(ctx.payoutAmount);
+        const finalPayout = Math.max(0, requestedPayout - feeAmount);
+
+        const settlement = this.settlementManager.createSettlement(
+          ctx.roundId,
+          ctx.userId,
+          ctx.address,
+          ctx.game,
+          ctx.token,
+          ctx.betAmount,
+          finalPayout.toString(),
+          ctx.requestId
+        );
+
+        const { betIntent, payoutIntent } = this.walletManager.createSettlementIntent(
+          ctx.userId,
+          ctx.token,
+          ctx.betAmount,
+          finalPayout.toString(),
+          ctx.game,
+          ctx.roundId,
+          ctx.requestId
+        );
+
+        await this.walletRepo.saveTxIntent({
+          ...betIntent,
+          address: ctx.address.toLowerCase(),
+          meta: { ...(betIntent.meta || {}), settlementId: settlement.id, async: true },
+        });
+
+        if (payoutIntent) {
+          await this.walletRepo.saveTxIntent({
+            ...payoutIntent,
+            address: ctx.address.toLowerCase(),
+            meta: { ...(payoutIntent.meta || {}), settlementId: settlement.id, async: true },
+          });
+        }
+
+        await this.opsRepo.logEvent({
+          channel: "game",
+          severity: "info",
+          source: ctx.game,
+          kind: "settlement_queued",
+          userId: ctx.userId,
+          address: ctx.address,
+          game: ctx.game,
+          roundId: ctx.roundId,
+          message: `Queued async settlement for ${ctx.game} round ${ctx.roundId}`,
+          meta: {
+            requestId: ctx.requestId,
+            settlementId: settlement.id,
+            payoutIntentId: payoutIntent?.id,
+            betIntentId: betIntent.id,
+            feeAmount,
+            finalPayout,
+          },
+        });
+
+        return {
+          success: true,
+          finalPayout,
+          feeAmount,
+          isWin: settlement.isWin,
+          balanceBefore: "0",
+          balanceAfter: "0",
+          status: "pending",
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          finalPayout: 0,
+          feeAmount: 0,
+          isWin: false,
+          balanceBefore: "0",
+          balanceAfter: "0",
+          error: { code: "SETTLEMENT_QUEUE_ERROR", message: error.message },
+        };
+      }
+    }
+
     try {
       const result = await this.onchainSettlement.settleGame({
         userId: ctx.userId,
@@ -219,6 +309,7 @@ export class GameSettlementWrapper {
         payoutTxHash: result.payoutTxHash,
         balanceBefore: "0", // Will be set by caller
         balanceAfter: "0",  // Will be set by caller
+        status: "settled",
       };
     } catch (error: any) {
       return {
@@ -242,6 +333,10 @@ export class GameSettlementWrapper {
     currentBalance: string,
     payout: number
   ): Promise<string> {
+    if (this.isAsyncSettlementEnabled()) {
+      return currentBalance;
+    }
+
     const finalBalance = (parseFloat(currentBalance) + payout).toString();
     await this.setBalance(address, token, finalBalance);
     return finalBalance;

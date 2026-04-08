@@ -863,8 +863,46 @@ export class CustodyRepository implements ICustodyRepository {
 }
 
 export class AnnouncementRepository {
+  private async hasAnnouncementIdColumn(conn: any): Promise<boolean> {
+    const rows = await conn.execute(
+      drizzleSql`
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'announcements'
+            AND column_name = 'announcement_id'
+        ) AS "exists"
+      `
+    );
+    return Boolean(rows?.[0]?.exists);
+  }
+
   async listActiveAnnouncements() {
     const conn = await requireDb();
+    const hasAnnouncementId = await this.hasAnnouncementIdColumn(conn);
+    if (!hasAnnouncementId) {
+      const rows = await conn.execute(
+        drizzleSql`
+          SELECT
+            id,
+            id AS "announcementId",
+            title,
+            content,
+            is_pinned AS "isPinned",
+            is_active AS "isActive",
+            published_by AS "publishedBy",
+            updated_by AS "updatedBy",
+            published_at AS "publishedAt",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM announcements
+          WHERE is_active IS DISTINCT FROM FALSE
+          ORDER BY is_pinned DESC, published_at DESC NULLS LAST, created_at DESC
+        `
+      );
+      return rows;
+    }
     return await conn.query.announcements.findMany({
       where: (announcements: any, { eq }: any) => eq(announcements.isActive, true),
       orderBy: (announcements: any, { desc }: any) => [
@@ -877,6 +915,29 @@ export class AnnouncementRepository {
 
   async listAllAnnouncements(limit: number = 50) {
     const conn = await requireDb();
+    const hasAnnouncementId = await this.hasAnnouncementIdColumn(conn);
+    if (!hasAnnouncementId) {
+      const rows = await conn.execute(
+        drizzleSql`
+          SELECT
+            id,
+            id AS "announcementId",
+            title,
+            content,
+            is_pinned AS "isPinned",
+            is_active AS "isActive",
+            published_by AS "publishedBy",
+            updated_by AS "updatedBy",
+            published_at AS "publishedAt",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM announcements
+          ORDER BY is_pinned DESC, published_at DESC NULLS LAST, created_at DESC
+          LIMIT ${limit}
+        `
+      );
+      return rows;
+    }
     return await conn.query.announcements.findMany({
       limit,
       orderBy: (announcements: any, { desc }: any) => [
@@ -901,6 +962,30 @@ export class AnnouncementRepository {
     updatedAt?: string | Date | null;
   }) {
     const conn = await requireDb();
+    const hasAnnouncementId = await this.hasAnnouncementIdColumn(conn);
+    if (!hasAnnouncementId) {
+      await conn.execute(
+        drizzleSql`
+          INSERT INTO announcements (
+            id, title, content, is_pinned, is_active, published_by, updated_by, published_at, created_at, updated_at
+          )
+          VALUES (
+            ${announcement.id || randomUUID()},
+            ${announcement.title},
+            ${announcement.content},
+            ${announcement.isPinned ?? false},
+            ${announcement.isActive ?? true},
+            ${announcement.publishedBy || null},
+            ${announcement.updatedBy || announcement.publishedBy || null},
+            ${announcement.publishedAt ? new Date(announcement.publishedAt) : new Date()},
+            ${announcement.createdAt ? new Date(announcement.createdAt) : new Date()},
+            ${announcement.updatedAt ? new Date(announcement.updatedAt) : new Date()}
+          )
+        `
+      );
+      return;
+    }
+
     await conn.insert(schema.announcements).values({
       id: announcement.id || randomUUID(),
       announcementId: announcement.announcementId,

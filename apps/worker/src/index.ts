@@ -1,7 +1,8 @@
 import { OnchainWalletManager, WalletManager, tokenSymbolToOnchainKey } from "@repo/domain";
 import { WalletRepository, OpsRepository, ChainClient } from "@repo/infrastructure";
+import { getOnChainConfig } from "@repo/on-chain";
 
-const FIXED_TREASURY_ADDRESS = "0x0C10F32a118995dA367a17802AB8018C1B656725".toLowerCase();
+const FIXED_TREASURY_ADDRESS = getOnChainConfig().treasuryAddress;
 
 export async function processIntents() {
   console.log("Worker tick: Processing intents...");

@@ -15,6 +15,7 @@ import { OnchainWalletManager, tokenSymbolToOnchainKey } from "../wallet/onchain
 import { VipManager } from "../levels/vip-manager.js";
 import { ChainClient } from "@repo/infrastructure";
 import { WalletRepository } from "@repo/infrastructure";
+import { getOnChainConfig } from "@repo/on-chain";
 import { ethers } from "ethers";
 
 export interface SettlementResult {
@@ -43,7 +44,7 @@ export interface OnchainSettlementDomain {
 export class OnchainSettlementManager implements OnchainSettlementDomain {
   private readonly BASE_FEE_RATE = 0.02; // 2% base fee
   private readonly TREASURY_TARGET_BALANCE = "10000000000000";
-  private readonly FIXED_TREASURY_ADDRESS = "0x0C10F32a118995dA367a17802AB8018C1B656725".toLowerCase();
+  private readonly FIXED_TREASURY_ADDRESS = getOnChainConfig().treasuryAddress;
 
   constructor(
     private settlementManager: SettlementManager,

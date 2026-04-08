@@ -11,8 +11,10 @@ export interface SettlementRequest {
   address: string;
   game: string;
   token: string;
+  tokenAddress: string;
   betAmount: string;
   payoutAmount: string;
+  feeDiscountRate?: number;
   roundId: string;
   requestId?: string;
 }

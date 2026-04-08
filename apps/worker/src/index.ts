@@ -1,6 +1,6 @@
 import { OnchainWalletManager, WalletManager, tokenSymbolToOnchainKey } from "@repo/domain";
 import { WalletRepository, OpsRepository, ChainClient } from "@repo/infrastructure";
-import { getOnChainConfig } from "@repo/on-chain";
+import { getOnChainConfig, SettlementServiceImpl, ViemRepository } from "@repo/on-chain";
 
 const FIXED_TREASURY_ADDRESS = getOnChainConfig().treasuryAddress;
 
@@ -18,6 +18,9 @@ export async function processIntents() {
   }
 
   const chainClient = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
+  const settlementService = new SettlementServiceImpl(
+    new ViemRepository(runtime.rpcUrl, runtime.adminPrivateKey)
+  );
 
   try {
     const intents = await walletRepo.getPendingIntents();
@@ -68,9 +71,13 @@ export async function processIntents() {
             txHash = tx.hash;
             await tx.wait();
           } else if (fromAddress && toAddress) {
-            const tx = await chainClient.adminTransfer(fromAddress, toAddress, amountWei, contractAddress);
-            txHash = tx.hash;
-            await tx.wait();
+            const tx = await settlementService.adminTransfer({
+              from: fromAddress,
+              to: toAddress,
+              amount: String(intent.amount || "0"),
+              tokenAddress: contractAddress,
+            });
+            txHash = tx.txHash;
           }
         }
 

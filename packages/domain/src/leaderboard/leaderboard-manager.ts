@@ -2,6 +2,7 @@
 import { eq, and, desc, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import * as schema from "@repo/infrastructure/db/schema.js";
+import { MarketManager } from "../market/market-manager.js";
 
 export type LeaderboardType = "all" | "week" | "month" | "season";
 
@@ -167,6 +168,7 @@ export class LeaderboardManager {
   async getAssetLeaderboard(
     selfAddress?: string,
     limit = 50,
+    includeMarketAssets = false,
   ): Promise<LeaderboardResult> {
     const YJC_TO_ZXC_RATE = 100_000_000; // 1 YJC = 100 million ZXC
 
@@ -201,6 +203,36 @@ export class LeaderboardManager {
       }
       // Calculate total in ZXC equivalent
       entry.total = entry.zhixi + (entry.yjc * YJC_TO_ZXC_RATE);
+    }
+
+    if (includeMarketAssets) {
+      const marketManager = new MarketManager();
+      const snapshot = marketManager.buildSnapshot();
+
+      const marketAccounts = await this.db
+        .select({
+          address: schema.marketAccounts.address,
+          data: schema.marketAccounts.data,
+        })
+        .from(schema.marketAccounts);
+
+      for (const row of marketAccounts) {
+        const addr = row.address.toLowerCase();
+        const normalizedAccount = marketManager.normalizeAccount(row.data);
+        marketManager.settleLiquidations(normalizedAccount, snapshot);
+        const marketSummary = marketManager.buildAccountSummary(normalizedAccount, snapshot);
+        const overlayNetWorth = Number(marketSummary.bankBalance || 0)
+          + Number(marketSummary.stockValue || 0)
+          + Number(marketSummary.futuresUnrealizedPnl || 0)
+          - Number(marketSummary.loanPrincipal || 0);
+
+        if (!balanceMap.has(addr)) {
+          balanceMap.set(addr, { zhixi: 0, yjc: 0, total: 0 });
+        }
+
+        const entry = balanceMap.get(addr)!;
+        entry.total = entry.total + overlayNetWorth;
+      }
     }
 
     // Get display names for addresses

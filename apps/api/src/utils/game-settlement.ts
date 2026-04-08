@@ -211,6 +211,21 @@ export class GameSettlementWrapper {
   async executeSettlement(ctx: SettlementContext): Promise<SettlementResult> {
     if (this.isAsyncSettlementEnabled()) {
       try {
+        const runtime = this.onchainWallet.getRuntimeConfig();
+        const tokenKey = ctx.token === "YJC" ? "yjc" : "zhixi";
+        const tokenRuntime = runtime.tokens[tokenKey];
+        if (!runtime.rpcUrl || !runtime.adminPrivateKey || !tokenRuntime?.enabled || !tokenRuntime.contractAddress) {
+          return {
+            success: false,
+            finalPayout: 0,
+            feeAmount: 0,
+            isWin: false,
+            balanceBefore: "0",
+            balanceAfter: "0",
+            error: { code: "ONCHAIN_CONFIG_MISSING", message: `On-chain config missing for token ${ctx.token}` },
+          };
+        }
+
         const levelDiscountRate = await this.vipManager.getBetLevelFeeDiscount(ctx.address);
         const feeAmount = this.levelFeeService.calculateFee(ctx.betAmount, levelDiscountRate);
         const requestedPayout = parseFloat(ctx.payoutAmount);
@@ -252,7 +267,20 @@ export class GameSettlementWrapper {
         }
 
         const queuedIntents: TxIntent[] = payoutIntent ? [betIntent, payoutIntent] : [betIntent];
-        void this.processQueuedIntents(queuedIntents, ctx.address.toLowerCase(), ctx.game, ctx.roundId);
+        void this.processQueuedIntents(queuedIntents, ctx.address.toLowerCase(), ctx.game, ctx.roundId)
+          .catch(async (error) => {
+            await this.opsRepo.logEvent({
+              channel: "game",
+              severity: "error",
+              source: ctx.game,
+              kind: "settlement_queue_runtime_error",
+              userId: ctx.userId,
+              address: ctx.address,
+              game: ctx.game,
+              roundId: ctx.roundId,
+              message: `Async queue runtime failed: ${error?.message || "unknown error"}`,
+            });
+          });
 
         await this.opsRepo.logEvent({
           channel: "game",
@@ -340,7 +368,7 @@ export class GameSettlementWrapper {
   ): Promise<void> {
     const runtime = this.onchainWallet.getRuntimeConfig();
     if (!runtime.rpcUrl || !runtime.adminPrivateKey) {
-      return;
+      throw new Error("ONCHAIN_RUNTIME_NOT_CONFIGURED");
     }
 
     const repo = new ViemRepository(runtime.rpcUrl, runtime.adminPrivateKey);

@@ -390,15 +390,25 @@ export async function authRoutes(fastify: FastifyInstance) {
           bonusAmount: CUSTODY_REGISTER_BONUS
         });
         if (!result.success) return createApiEnvelope(null, request.id, false, result.error?.message);
-        const registerBonus = result.user?.id && result.address
-          ? await grantRegisterBonus({
+        let registerBonus: any = null;
+        if (result.user?.id && result.address) {
+          try {
+            registerBonus = await grantRegisterBonus({
               userId: result.user.id,
               address: result.address,
               username,
               amount: CUSTODY_REGISTER_BONUS,
               requestId: request.id,
-            })
-          : null;
+            });
+          } catch (bonusError: any) {
+            request.log.warn({ err: bonusError }, "custody_register_bonus_failed");
+            registerBonus = {
+              granted: false,
+              mode: "failed",
+              error: bonusError?.message || "REGISTER_BONUS_FAILED",
+            };
+          }
+        }
         return createApiEnvelope({ ...result, registerBonus }, request.id);
     } catch (e: any) {
         console.error(e);

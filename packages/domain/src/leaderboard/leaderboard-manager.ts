@@ -122,34 +122,35 @@ export class LeaderboardManager {
           )
           .limit(1);
 
-        if (selfRow.length > 0) {
-          const selfAmount = Number(selfRow[0].amount ?? 0);
+        const userRow = await this.db
+          .select({ displayName: schema.users.displayName })
+          .from(schema.users)
+          .where(eq(schema.users.address, addr))
+          .limit(1);
 
-          const rankResult = await this.db
-            .select({ cnt: sql<number>`count(*)` })
-            .from(schema.totalBets)
-            .where(
-              and(
-                eq(schema.totalBets.periodType, type),
-                eq(schema.totalBets.periodId, pid),
-                sql`${schema.totalBets.amount} > ${selfAmount}`
-              )
-            );
+        // Even if user has no total_bets row yet, still return a self rank row with amount=0
+        // so Device Linker app users can always see themselves on leaderboard.
+        // Also allow session-address users to appear even when users profile row is not ready yet.
+        const selfAmount = Number(selfRow[0]?.amount ?? 0);
 
-          const rank = Number(rankResult[0]?.cnt ?? 0) + 1;
-          const userRow = await this.db
-            .select({ displayName: schema.users.displayName })
-            .from(schema.users)
-            .where(eq(schema.users.address, addr))
-            .limit(1);
+        const rankResult = await this.db
+          .select({ cnt: sql<number>`count(*)` })
+          .from(schema.totalBets)
+          .where(
+            and(
+              eq(schema.totalBets.periodType, type),
+              eq(schema.totalBets.periodId, pid),
+              sql`${schema.totalBets.amount} > ${selfAmount}`
+            )
+          );
 
-          selfRank = {
-            rank,
-            address: addr,
-            displayName: userRow[0]?.displayName ?? null,
-            amount: selfAmount,
-          };
-        }
+        const rank = Number(rankResult[0]?.cnt ?? 0) + 1;
+        selfRank = {
+          rank,
+          address: addr,
+          displayName: userRow[0]?.displayName ?? null,
+          amount: selfAmount,
+        };
       }
     }
 
@@ -172,16 +173,23 @@ export class LeaderboardManager {
   ): Promise<LeaderboardResult> {
     const YJC_TO_ZXC_RATE = 100_000_000; // 1 YJC = 100 million ZXC
 
-    // Start from all user addresses so app users appear even before wallet rows are created.
+    // Start from all known addresses so app users appear even before full profile rows are created.
     const allUsers = await this.db
       .select({ address: schema.users.address })
       .from(schema.users);
+    const sessionRows = await this.db
+      .select({ address: schema.sessions.address })
+      .from(schema.sessions)
+      .where(sql`${schema.sessions.address} IS NOT NULL`);
+    const walletRows = await this.db
+      .select({ address: schema.walletAccounts.address })
+      .from(schema.walletAccounts);
 
     // Aggregate balances by address
     const balanceMap = new Map<string, { zhixi: number; yjc: number; total: number }>();
-    for (const user of allUsers) {
-      balanceMap.set(user.address.toLowerCase(), { zhixi: 0, yjc: 0, total: 0 });
-    }
+    for (const user of allUsers) balanceMap.set(user.address.toLowerCase(), { zhixi: 0, yjc: 0, total: 0 });
+    for (const row of sessionRows) if (row.address) balanceMap.set(row.address.toLowerCase(), { zhixi: 0, yjc: 0, total: 0 });
+    for (const row of walletRows) balanceMap.set(row.address.toLowerCase(), { zhixi: 0, yjc: 0, total: 0 });
 
     // Query all balances (zhixi + yjc) for each address
     const allBalances = await this.db

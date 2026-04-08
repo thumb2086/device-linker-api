@@ -483,9 +483,22 @@ try {
 export class UserRepository implements IUserRepository {
   async saveUser(user: any) {
     const conn = await requireDb();
-    await conn.insert(schema.users).values(user).onConflictDoUpdate({
+    const normalizedAddress = String(user.address || "").toLowerCase();
+    await conn.insert(schema.users).values({
+      ...user,
+      address: normalizedAddress,
+    }).onConflictDoUpdate({
       target: schema.users.id,
-      set: { updatedAt: new Date() },
+      set: {
+        address: normalizedAddress,
+        displayName: user.displayName ?? null,
+        isAdmin: user.isAdmin ?? false,
+        isBlacklisted: user.isBlacklisted ?? false,
+        blacklistReason: user.blacklistReason ?? null,
+        blacklistedAt: user.blacklistedAt ?? null,
+        blacklistedBy: user.blacklistedBy ?? null,
+        updatedAt: new Date(),
+      },
     });
   }
   async getUserById(id: string) {
@@ -550,7 +563,36 @@ export class SessionRepository implements ISessionRepository {
   }
   async getSessionById(id: string) {
     const conn = await requireDb();
-    return await conn.query.sessions.findFirst({ where: (sessions: any, { eq }: any) => eq(sessions.id, id) });
+    const session = await conn.query.sessions.findFirst({ where: (sessions: any, { eq }: any) => eq(sessions.id, id) });
+    if (!session) return null;
+
+    // Backfill non-custody/live authorized sessions that have address but no bound user yet.
+    if (session.status === "authorized" && session.address && !session.userId) {
+      const normalizedAddress = session.address.toLowerCase();
+      let user = await conn.query.users.findFirst({
+        where: (users: any, { eq }: any) => eq(users.address, normalizedAddress)
+      });
+
+      if (!user) {
+        const userId = randomUUID();
+        await conn.insert(schema.users).values({
+          id: userId,
+          address: normalizedAddress,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        user = { id: userId };
+      }
+
+      await conn
+        .update(schema.sessions)
+        .set({ userId: user.id, address: normalizedAddress })
+        .where(eq(schema.sessions.id, id));
+
+      return { ...session, userId: user.id, address: normalizedAddress };
+    }
+
+    return session;
   }
 }
 

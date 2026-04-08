@@ -83,17 +83,30 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
                   decimals: await client.getDecimals(t.config!.contractAddress, 18),
                 })));
 
-                const addresses = await db
+                const userAddresses = await db
                   .selectDistinct({ address: schema.users.address })
                   .from(schema.users);
+                const sessionAddresses = await db
+                  .selectDistinct({ address: schema.sessions.address })
+                  .from(schema.sessions)
+                  .where(sql`${schema.sessions.address} IS NOT NULL`);
+                const walletAddresses = await db
+                  .selectDistinct({ address: schema.walletAccounts.address })
+                  .from(schema.walletAccounts);
 
-                for (const row of addresses) {
-                  const addr = row.address.toLowerCase();
+                const addresses = Array.from(new Set([
+                  ...userAddresses.map((r) => r.address),
+                  ...sessionAddresses.map((r) => String(r.address || "").toLowerCase()).filter(Boolean),
+                  ...walletAddresses.map((r) => r.address),
+                ]));
+
+                for (const addr of addresses) {
+                  const normalizedAddr = addr.toLowerCase();
                   await Promise.all(tokenMeta.map(async (token) => {
                     try {
-                      const raw = await client.getBalance(addr, token.contractAddress);
+                      const raw = await client.getBalance(normalizedAddr, token.contractAddress);
                       const balance = client.formatUnits(raw, token.decimals);
-                      await walletRepo.updateBalance(addr, balance, token.key);
+                      await walletRepo.updateBalance(normalizedAddr, balance, token.key);
                     } catch {
                       // keep best effort sync; ignore per-user/per-token failures
                     }

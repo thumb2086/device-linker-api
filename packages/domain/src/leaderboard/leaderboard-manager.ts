@@ -172,6 +172,17 @@ export class LeaderboardManager {
   ): Promise<LeaderboardResult> {
     const YJC_TO_ZXC_RATE = 100_000_000; // 1 YJC = 100 million ZXC
 
+    // Start from all user addresses so app users appear even before wallet rows are created.
+    const allUsers = await this.db
+      .select({ address: schema.users.address })
+      .from(schema.users);
+
+    // Aggregate balances by address
+    const balanceMap = new Map<string, { zhixi: number; yjc: number; total: number }>();
+    for (const user of allUsers) {
+      balanceMap.set(user.address.toLowerCase(), { zhixi: 0, yjc: 0, total: 0 });
+    }
+
     // Query all balances (zhixi + yjc) for each address
     const allBalances = await this.db
       .select({
@@ -183,9 +194,6 @@ export class LeaderboardManager {
       .where(
         sql`${schema.walletAccounts.token} IN ('zhixi', 'yjc')`
       );
-
-    // Aggregate balances by address
-    const balanceMap = new Map<string, { zhixi: number; yjc: number; total: number }>();
 
     for (const row of allBalances) {
       const addr = row.address.toLowerCase();
@@ -301,29 +309,27 @@ export class LeaderboardManager {
 
         const selfTotal = selfZhixi + (selfYjc * YJC_TO_ZXC_RATE);
 
-        if (selfTotal > 0) {
-          // Count how many addresses have higher total
-          let rank = 1;
-          for (const [, balances] of balanceMap) {
-            if (balances.total > selfTotal) {
-              rank++;
-            }
+        // Count how many addresses have higher total
+        let rank = 1;
+        for (const [, balances] of balanceMap) {
+          if (balances.total > selfTotal) {
+            rank++;
           }
-
-          const userRow = await this.db
-            .select({ displayName: schema.users.displayName })
-            .from(schema.users)
-            .where(eq(schema.users.address, addr))
-            .limit(1);
-
-          selfRank = {
-            rank,
-            address: addr,
-            displayName: userRow[0]?.displayName ?? null,
-            amount: selfTotal,
-            balance: selfTotal,
-          };
         }
+
+        const userRow = await this.db
+          .select({ displayName: schema.users.displayName })
+          .from(schema.users)
+          .where(eq(schema.users.address, addr))
+          .limit(1);
+
+        selfRank = {
+          rank,
+          address: addr,
+          displayName: userRow[0]?.displayName ?? null,
+          amount: selfTotal,
+          balance: selfTotal,
+        };
       }
     }
 

@@ -8,7 +8,6 @@ import {
   OnchainWalletManager,
   OnchainSettlementManager,
   tokenSymbolToOnchainKey,
-  assertVipBetLimit,
   VipManager,
   IdentityManager,
 } from "@repo/domain";
@@ -170,17 +169,27 @@ export class GameSettlementWrapper {
       };
     }
 
-    // VIP & Bet Limit Check
+    // VIP & Bet Limit Check (use unified VipManager tier, not legacy KV total_bet mirror)
     if (totalBetKey) {
-      const totalBetStr = await kv.get<string>(totalBetKey) || "0";
       try {
-        assertVipBetLimit(betAmount, totalBetStr);
+        const vipLevel = await this.vipManager.getVipLevel(address);
+        if (amountNum > Number(vipLevel.maxBet || 0)) {
+          return {
+            success: false,
+            balanceBefore: "0",
+            balanceAfter: "0",
+            error: {
+              code: "LIMIT_EXCEEDED",
+              message: `目前 ${vipLevel.label} 單注上限為 ${Number(vipLevel.maxBet || 0).toLocaleString()} 子熙幣`,
+            },
+          };
+        }
       } catch (e: any) {
         return {
           success: false,
           balanceBefore: "0",
           balanceAfter: "0",
-          error: { code: "LIMIT_EXCEEDED", message: e.message }
+          error: { code: "LIMIT_EXCEEDED", message: e?.message || "VIP limit validation failed" }
         };
       }
     }
@@ -226,7 +235,7 @@ export class GameSettlementWrapper {
           };
         }
 
-        const levelDiscountRate = await this.vipManager.getBetLevelFeeDiscount(ctx.address);
+        const levelDiscountRate = await this.vipManager.getMarketFeeDiscount(ctx.address);
         const feeAmount = this.levelFeeService.calculateFee(ctx.betAmount, levelDiscountRate);
         const requestedPayout = parseFloat(ctx.payoutAmount);
         const finalPayout = Math.max(0, requestedPayout - feeAmount);

@@ -483,9 +483,22 @@ try {
 export class UserRepository implements IUserRepository {
   async saveUser(user: any) {
     const conn = await requireDb();
-    await conn.insert(schema.users).values(user).onConflictDoUpdate({
+    const normalizedAddress = String(user.address || "").toLowerCase();
+    await conn.insert(schema.users).values({
+      ...user,
+      address: normalizedAddress,
+    }).onConflictDoUpdate({
       target: schema.users.id,
-      set: { updatedAt: new Date() },
+      set: {
+        address: normalizedAddress,
+        displayName: user.displayName ?? null,
+        isAdmin: user.isAdmin ?? false,
+        isBlacklisted: user.isBlacklisted ?? false,
+        blacklistReason: user.blacklistReason ?? null,
+        blacklistedAt: user.blacklistedAt ?? null,
+        blacklistedBy: user.blacklistedBy ?? null,
+        updatedAt: new Date(),
+      },
     });
   }
   async getUserById(id: string) {

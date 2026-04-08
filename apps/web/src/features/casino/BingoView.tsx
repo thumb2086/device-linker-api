@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import './Bingo.css';
+import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
+import { BetQuickActions } from './BetQuickActions';
 
 export const BingoView: React.FC = () => {
   const queryClient = useQueryClient();
@@ -89,6 +91,7 @@ export const BingoView: React.FC = () => {
           onChange={(e) => setBetAmount(e.target.value)}
           className="flex-1 bg-slate-800 border border-slate-700 p-2 rounded text-white font-mono"
         />
+        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending} />
         <button
           className="bg-yellow-500 text-black font-bold px-8 rounded hover:bg-yellow-400 disabled:opacity-50"
           onClick={() => betMutation.mutate()}

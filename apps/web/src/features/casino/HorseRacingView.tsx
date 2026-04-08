@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import './HorseRacing.css';
+import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
+import { BetQuickActions } from './BetQuickActions';
 
 const HORSES = [
   { id: 1, name: 'Blaze Runner', multiplier: 1.8 },
@@ -100,6 +102,7 @@ export const HorseRacingView: React.FC = () => {
           onChange={(e) => setBetAmount(e.target.value)}
           disabled={betMutation.isPending}
         />
+        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending} />
         <button
           className="btn-bet"
           onClick={() => betMutation.mutate()}

@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { api } from "../../store/api";
 import "./Blackjack.css";
+import "./CasinoCommon.css";
 import { extractGameError, unwrapGameEnvelope } from "./gameClient";
+import { BetQuickActions } from "./BetQuickActions";
 
 interface Card {
   rank: string;
@@ -95,6 +97,7 @@ export const BlackjackView: React.FC = () => {
         {gameState.status === "idle" || gameState.status === "settled" ? (
           <>
             <input type="number" value={betAmount} onChange={(e) => setBetAmount(e.target.value)} />
+            <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={false} />
             <button className="start-btn" onClick={() => handleAction("start")}>發牌</button>
           </>
         ) : (

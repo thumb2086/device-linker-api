@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import './Sicbo.css';
+import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
+import { BetQuickActions } from './BetQuickActions';
 
 export const SicboView: React.FC = () => {
   const queryClient = useQueryClient();
@@ -72,6 +74,7 @@ export const SicboView: React.FC = () => {
           onChange={(e) => setBetAmount(e.target.value)}
           className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-lg text-white font-mono"
         />
+        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending} />
         <button
           className="bg-yellow-500 text-black font-bold px-12 rounded-lg hover:bg-yellow-400 disabled:opacity-50"
           onClick={() => betMutation.mutate()}

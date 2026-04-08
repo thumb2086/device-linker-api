@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import './Slots.css';
+import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
+import { BetQuickActions } from './BetQuickActions';
 
 const SYMBOLS = ['🍒', '🍋', '🍉', '⭐', '🔔', '💎', '7️⃣'];
 
@@ -105,6 +107,7 @@ export const SlotsView: React.FC = () => {
           disabled={isSpinning}
           className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-lg text-white"
         />
+        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={isSpinning} />
         <button
           className="btn-spin"
           onClick={handleSpin}

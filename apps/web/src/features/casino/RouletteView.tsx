@@ -2,7 +2,9 @@ import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import './Roulette.css';
+import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
+import { BetQuickActions } from './BetQuickActions';
 
 const EUROPEAN_LAYOUT = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 
@@ -180,6 +182,7 @@ export function RouletteView() {
               value={betAmount}
               onChange={(e) => setBetAmount(e.target.value)}
             />
+            <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending || isSpinning} />
             <button
               className="bg-gold text-black px-8 py-2 rounded font-bold hover:opacity-90 disabled:opacity-50"
               onClick={() => betMutation.mutate()}

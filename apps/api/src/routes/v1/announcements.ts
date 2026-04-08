@@ -18,18 +18,42 @@ export async function announcementRoutes(fastify: FastifyInstance) {
   const repo = new AnnouncementRepository();
 
   typedFastify.get("/", async (request) => {
-    // 先嘗試讀取所有公告（包含非活動中的歷史公告）
+    // Merge DB announcements + legacy KV announcements:list (for old active announcements)
     const allAnnouncements = await repo.listAllAnnouncements(50);
-    const list = allAnnouncements.length > 0
-      ? allAnnouncements.map((item: any) => ({
-          id: item.announcementId || item.id,
-          title: item.title,
-          content: item.content,
-          type: inferAnnouncementType(item),
-          createdAt: new Date(item.publishedAt || item.createdAt).toISOString(),
-          active: item.isActive ?? true,
-        }))
-      : await manager.getActiveAnnouncements();
+    const legacyAnnouncements = await kv.get<any[]>("announcements:list") || [];
+
+    const normalizedDb = allAnnouncements.map((item: any) => ({
+      id: item.announcementId || item.id,
+      title: item.title,
+      content: item.content,
+      type: inferAnnouncementType(item),
+      createdAt: new Date(item.publishedAt || item.createdAt).toISOString(),
+      active: item.isActive ?? true,
+    }));
+
+    const normalizedLegacy = legacyAnnouncements.map((item: any) => ({
+      id: item.announcementId || item.id,
+      title: item.title,
+      content: item.content,
+      type: inferAnnouncementType(item),
+      createdAt: new Date(item.publishedAt || item.createdAt || Date.now()).toISOString(),
+      active: item.isActive ?? true,
+    }));
+
+    const merged = [...normalizedDb, ...normalizedLegacy];
+    const deduped = new Map<string, any>();
+    for (const item of merged) {
+      const key = String(item.id || `${item.title}:${item.createdAt}`);
+      const prev = deduped.get(key);
+      if (!prev || new Date(item.createdAt).getTime() > new Date(prev.createdAt).getTime()) {
+        deduped.set(key, item);
+      }
+    }
+
+    const list = Array.from(deduped.values())
+      .filter((item) => item.active)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
     return createApiEnvelope(list, request.id);
   });
 

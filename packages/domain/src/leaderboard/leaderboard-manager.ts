@@ -130,28 +130,27 @@ export class LeaderboardManager {
 
         // Even if user has no total_bets row yet, still return a self rank row with amount=0
         // so Device Linker app users can always see themselves on leaderboard.
-        if (userRow.length > 0) {
-          const selfAmount = Number(selfRow[0]?.amount ?? 0);
+        // Also allow session-address users to appear even when users profile row is not ready yet.
+        const selfAmount = Number(selfRow[0]?.amount ?? 0);
 
-          const rankResult = await this.db
-            .select({ cnt: sql<number>`count(*)` })
-            .from(schema.totalBets)
-            .where(
-              and(
-                eq(schema.totalBets.periodType, type),
-                eq(schema.totalBets.periodId, pid),
-                sql`${schema.totalBets.amount} > ${selfAmount}`
-              )
-            );
+        const rankResult = await this.db
+          .select({ cnt: sql<number>`count(*)` })
+          .from(schema.totalBets)
+          .where(
+            and(
+              eq(schema.totalBets.periodType, type),
+              eq(schema.totalBets.periodId, pid),
+              sql`${schema.totalBets.amount} > ${selfAmount}`
+            )
+          );
 
-          const rank = Number(rankResult[0]?.cnt ?? 0) + 1;
-          selfRank = {
-            rank,
-            address: addr,
-            displayName: userRow[0]?.displayName ?? null,
-            amount: selfAmount,
-          };
-        }
+        const rank = Number(rankResult[0]?.cnt ?? 0) + 1;
+        selfRank = {
+          rank,
+          address: addr,
+          displayName: userRow[0]?.displayName ?? null,
+          amount: selfAmount,
+        };
       }
     }
 

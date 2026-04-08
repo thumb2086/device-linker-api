@@ -81,9 +81,8 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
                 })));
 
                 const addresses = await db
-                  .selectDistinct({ address: schema.walletAccounts.address })
-                  .from(schema.walletAccounts)
-                  .where(sql`${schema.walletAccounts.token} IN ('zhixi', 'yjc')`);
+                  .selectDistinct({ address: schema.users.address })
+                  .from(schema.users);
 
                 for (const row of addresses) {
                   const addr = row.address.toLowerCase();

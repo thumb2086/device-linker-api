@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@repo/infrastructure": "workspace:*",
+    "@repo/on-chain": "workspace:*",
     "@repo/shared": "workspace:*",
     "drizzle-orm": "^0.30.0",
     "ethers": "^6.10.0"

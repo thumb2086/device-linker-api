@@ -2,8 +2,8 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { AnnouncementManager } from "@repo/domain";
-import { AnnouncementRepository, kv } from "@repo/infrastructure";
+import { AnnouncementRepository } from "@repo/infrastructure";
+import { randomUUID } from "crypto";
 
 function inferAnnouncementType(item: { title?: string | null; content?: string | null; isPinned?: boolean | null }) {
   const haystack = `${item.title || ""} ${item.content || ""}`.toLowerCase();
@@ -14,22 +14,22 @@ function inferAnnouncementType(item: { title?: string | null; content?: string |
 
 export async function announcementRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
-  const manager = new AnnouncementManager(kv);
   const repo = new AnnouncementRepository();
 
   typedFastify.get("/", async (request) => {
-    // 先嘗試讀取所有公告（包含非活動中的歷史公告）
-    const allAnnouncements = await repo.listAllAnnouncements(50);
-    const list = allAnnouncements.length > 0
-      ? allAnnouncements.map((item: any) => ({
-          id: item.announcementId || item.id,
-          title: item.title,
-          content: item.content,
-          type: inferAnnouncementType(item),
-          createdAt: new Date(item.publishedAt || item.createdAt).toISOString(),
-          active: item.isActive ?? true,
-        }))
-      : await manager.getActiveAnnouncements();
+    // DB column `is_active` is nullable in schema; treat NULL as active for legacy rows.
+    const allAnnouncements = await repo.listAllAnnouncements(200);
+    const list = allAnnouncements
+      .filter((item: any) => item.isActive !== false)
+      .map((item: any) => ({
+      id: item.announcementId || item.id,
+      title: item.title,
+      content: item.content,
+      type: inferAnnouncementType(item),
+      createdAt: new Date(item.publishedAt || item.createdAt).toISOString(),
+      active: item.isActive ?? true,
+      }));
+
     return createApiEnvelope(list, request.id);
   });
 
@@ -43,7 +43,20 @@ export async function announcementRoutes(fastify: FastifyInstance) {
       })
     }
   }, async (request) => {
-    await manager.addAnnouncement(request.body);
+    const now = new Date();
+    await repo.saveAnnouncement({
+      id: randomUUID(),
+      announcementId: `ann_${Date.now()}_${randomUUID().slice(0, 8)}`,
+      title: request.body.title,
+      content: request.body.content,
+      isPinned: request.body.type === "urgent",
+      isActive: true,
+      publishedBy: "system",
+      updatedBy: "system",
+      publishedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
     return createApiEnvelope({ success: true }, request.id);
   });
 }

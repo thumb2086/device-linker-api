@@ -7,7 +7,7 @@ import {
   SettlementManager,
   OnchainWalletManager,
   OnchainSettlementManager,
-  assertVipBetLimit,
+  tokenSymbolToOnchainKey,
   VipManager,
   IdentityManager,
 } from "@repo/domain";
@@ -20,7 +20,9 @@ import {
   ChainClient,
   kv,
 } from "@repo/infrastructure";
+import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService } from "@repo/on-chain";
 import type { Game, TokenSymbol } from "@repo/shared";
+import type { TxIntent } from "@repo/shared";
 
 export interface SettlementContext {
   userId: string;
@@ -42,10 +44,13 @@ export interface SettlementResult {
   payoutTxHash?: string;
   balanceBefore: string;
   balanceAfter: string;
+  status?: "pending" | "settled";
   error?: { code: string; message: string };
 }
 
 export class GameSettlementWrapper {
+  private readonly FIXED_TREASURY_ADDRESS = getOnChainConfig().treasuryAddress;
+  private readonly levelFeeService = new VipBetLevelService();
   private walletManager: WalletManager;
   private settlementManager: SettlementManager;
   private onchainWallet: OnchainWalletManager;
@@ -82,6 +87,11 @@ export class GameSettlementWrapper {
 
   private getBalanceKey(token: "zhixi" | "yjc", address: string): string {
     return token === "yjc" ? `balance_yjc:${address}` : `balance:${address}`;
+  }
+
+  private isAsyncSettlementEnabled(): boolean {
+    const raw = String(process.env.GAME_SETTLEMENT_ASYNC ?? "true").toLowerCase();
+    return raw !== "false" && raw !== "0";
   }
 
   /**
@@ -159,17 +169,27 @@ export class GameSettlementWrapper {
       };
     }
 
-    // VIP & Bet Limit Check
+    // VIP & Bet Limit Check (use unified VipManager tier, not legacy KV total_bet mirror)
     if (totalBetKey) {
-      const totalBetStr = await kv.get<string>(totalBetKey) || "0";
       try {
-        assertVipBetLimit(betAmount, totalBetStr);
+        const vipLevel = await this.vipManager.getVipLevel(address);
+        if (amountNum > Number(vipLevel.maxBet || 0)) {
+          return {
+            success: false,
+            balanceBefore: "0",
+            balanceAfter: "0",
+            error: {
+              code: "LIMIT_EXCEEDED",
+              message: `目前 ${vipLevel.label} 單注上限為 ${Number(vipLevel.maxBet || 0).toLocaleString()} 子熙幣`,
+            },
+          };
+        }
       } catch (e: any) {
         return {
           success: false,
           balanceBefore: "0",
           balanceAfter: "0",
-          error: { code: "LIMIT_EXCEEDED", message: e.message }
+          error: { code: "LIMIT_EXCEEDED", message: e?.message || "VIP limit validation failed" }
         };
       }
     }
@@ -198,6 +218,121 @@ export class GameSettlementWrapper {
    * Execute on-chain settlement
    */
   async executeSettlement(ctx: SettlementContext): Promise<SettlementResult> {
+    if (this.isAsyncSettlementEnabled()) {
+      try {
+        const runtime = this.onchainWallet.getRuntimeConfig();
+        const tokenKey = ctx.token === "YJC" ? "yjc" : "zhixi";
+        const tokenRuntime = runtime.tokens[tokenKey];
+        if (!runtime.rpcUrl || !runtime.adminPrivateKey || !tokenRuntime?.enabled || !tokenRuntime.contractAddress) {
+          return {
+            success: false,
+            finalPayout: 0,
+            feeAmount: 0,
+            isWin: false,
+            balanceBefore: "0",
+            balanceAfter: "0",
+            error: { code: "ONCHAIN_CONFIG_MISSING", message: `On-chain config missing for token ${ctx.token}` },
+          };
+        }
+
+        const levelDiscountRate = await this.vipManager.getMarketFeeDiscount(ctx.address);
+        const feeAmount = this.levelFeeService.calculateFee(ctx.betAmount, levelDiscountRate);
+        const requestedPayout = parseFloat(ctx.payoutAmount);
+        const finalPayout = Math.max(0, requestedPayout - feeAmount);
+
+        const settlement = this.settlementManager.createSettlement(
+          ctx.roundId,
+          ctx.userId,
+          ctx.address,
+          ctx.game,
+          ctx.token,
+          ctx.betAmount,
+          finalPayout.toString(),
+          ctx.requestId
+        );
+
+        const { betIntent, payoutIntent } = this.walletManager.createSettlementIntent(
+          ctx.userId,
+          ctx.token,
+          ctx.betAmount,
+          finalPayout.toString(),
+          ctx.game,
+          ctx.roundId,
+          ctx.requestId
+        );
+
+        await this.walletRepo.saveTxIntent({
+          ...betIntent,
+          address: ctx.address.toLowerCase(),
+          meta: { settlementId: settlement.id, async: true },
+        });
+
+        if (payoutIntent) {
+          await this.walletRepo.saveTxIntent({
+            ...payoutIntent,
+            address: ctx.address.toLowerCase(),
+            meta: { settlementId: settlement.id, async: true },
+          });
+        }
+
+        const queuedIntents: TxIntent[] = payoutIntent ? [betIntent, payoutIntent] : [betIntent];
+        void this.processQueuedIntents(queuedIntents, ctx.address.toLowerCase(), ctx.game, ctx.roundId)
+          .catch(async (error) => {
+            await this.opsRepo.logEvent({
+              channel: "game",
+              severity: "error",
+              source: ctx.game,
+              kind: "settlement_queue_runtime_error",
+              userId: ctx.userId,
+              address: ctx.address,
+              game: ctx.game,
+              roundId: ctx.roundId,
+              message: `Async queue runtime failed: ${error?.message || "unknown error"}`,
+            });
+          });
+
+        await this.opsRepo.logEvent({
+          channel: "game",
+          severity: "info",
+          source: ctx.game,
+          kind: "settlement_queued",
+          userId: ctx.userId,
+          address: ctx.address,
+          game: ctx.game,
+          roundId: ctx.roundId,
+          message: `Queued async settlement for ${ctx.game} round ${ctx.roundId}`,
+          meta: {
+            requestId: ctx.requestId,
+            settlementId: settlement.id,
+            payoutIntentId: payoutIntent?.id,
+            betIntentId: betIntent.id,
+            feeAmount,
+            finalPayout,
+          },
+        });
+
+        return {
+          success: true,
+          finalPayout,
+          feeAmount,
+          isWin: settlement.isWin,
+          balanceBefore: "0",
+          balanceAfter: "0",
+          status: "pending",
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          finalPayout: 0,
+          feeAmount: 0,
+          isWin: false,
+          balanceBefore: "0",
+          balanceAfter: "0",
+          error: { code: "SETTLEMENT_QUEUE_ERROR", message: error.message },
+        };
+      }
+    }
+
     try {
       const result = await this.onchainSettlement.settleGame({
         userId: ctx.userId,
@@ -219,6 +354,7 @@ export class GameSettlementWrapper {
         payoutTxHash: result.payoutTxHash,
         balanceBefore: "0", // Will be set by caller
         balanceAfter: "0",  // Will be set by caller
+        status: "settled",
       };
     } catch (error: any) {
       return {
@@ -233,6 +369,82 @@ export class GameSettlementWrapper {
     }
   }
 
+  private async processQueuedIntents(
+    intents: TxIntent[],
+    userAddress: string,
+    game: string,
+    roundId: string
+  ): Promise<void> {
+    const runtime = this.onchainWallet.getRuntimeConfig();
+    if (!runtime.rpcUrl || !runtime.adminPrivateKey) {
+      throw new Error("ONCHAIN_RUNTIME_NOT_CONFIGURED");
+    }
+
+    const repo = new ViemRepository(runtime.rpcUrl, runtime.adminPrivateKey);
+    const settlementService = new SettlementServiceImpl(repo);
+
+    for (const intent of intents) {
+      let txHash: string | undefined;
+      try {
+        await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "broadcasted"));
+
+        const tokenKey = tokenSymbolToOnchainKey(intent.token);
+        const tokenRuntime = runtime.tokens[tokenKey];
+        if (!tokenRuntime?.contractAddress) {
+          throw new Error(`ONCHAIN_TOKEN_CONFIG_MISSING: ${intent.token}`);
+        }
+
+        const fromAddress = intent.type === "payout"
+          ? this.FIXED_TREASURY_ADDRESS
+          : userAddress;
+        const toAddress = intent.type === "payout"
+          ? userAddress
+          : this.FIXED_TREASURY_ADDRESS;
+
+        const txResult = await settlementService.adminTransfer({
+          from: fromAddress,
+          to: toAddress,
+          amount: String(intent.amount || "0"),
+          tokenAddress: tokenRuntime.contractAddress,
+        });
+        txHash = txResult.txHash;
+
+        await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "confirmed", txHash));
+        await this.opsRepo.logEvent({
+          channel: "game",
+          severity: "info",
+          source: game,
+          kind: "settlement_tx_confirmed",
+          userId: intent.userId,
+          address: userAddress,
+          game,
+          roundId,
+          txIntentId: intent.id,
+          txHash,
+          message: `Settlement tx confirmed: ${intent.type} ${txHash}`,
+        });
+      } catch (error: any) {
+        await this.walletRepo.saveTxIntent(
+          this.walletManager.processTxIntent(intent, "failed", txHash, error?.message || "Settlement tx failed")
+        );
+        await this.opsRepo.logEvent({
+          channel: "game",
+          severity: "error",
+          source: game,
+          kind: "settlement_tx_failed",
+          userId: intent.userId,
+          address: userAddress,
+          game,
+          roundId,
+          txIntentId: intent.id,
+          txHash,
+          errorCode: "TX_BROADCAST_ERROR",
+          message: `Settlement tx failed: ${intent.type} ${error?.message || "unknown error"}`,
+        });
+      }
+    }
+  }
+
   /**
    * Credit payout to KV balance
    */
@@ -242,6 +454,10 @@ export class GameSettlementWrapper {
     currentBalance: string,
     payout: number
   ): Promise<string> {
+    if (this.isAsyncSettlementEnabled()) {
+      return currentBalance;
+    }
+
     const finalBalance = (parseFloat(currentBalance) + payout).toString();
     await this.setBalance(address, token, finalBalance);
     return finalBalance;

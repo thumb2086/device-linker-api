@@ -5,12 +5,17 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import AppBottomNav from '../../components/AppBottomNav';
 
-type PublicTransaction = {
+type DashboardTransaction = {
   id: string;
-  summary: string;
-  scope: string;
-  maskedAddress: string;
-  kind: string;
+  roundId: string | number;
+  userAddress: string;
+  type: string;
+  amount: string;
+  tokenSymbol?: string;
+  status: string;
+  txHash?: string;
+  gameType?: string;
+  extensionMetadata?: Record<string, any>;
   createdAt: string;
 };
 
@@ -21,16 +26,19 @@ export default function PublicTransactionsView() {
   const { data, isLoading } = useQuery({
     queryKey: ['public-transactions'],
     queryFn: async () => {
-      const res = await axios.get('/api/v1/transactions/public', { params: { limit: 40 } });
-      return res.data.data as {
-        items: PublicTransaction[];
-        stats: {
-          overallSuccessRate?: number;
-          walletExecutionSuccessRate?: number;
-          marketWinRate?: number;
-          successfulTransactions?: number;
-          scoredTransactions?: number;
-        };
+      const [txRes, summaryRes] = await Promise.all([
+        axios.get('/api/v1/dashboard/transactions', { params: { limit: 40, page: 1 } }),
+        axios.get('/api/v1/dashboard/summary'),
+      ]);
+      return {
+        items: txRes.data.data.items as DashboardTransaction[],
+        summary: summaryRes.data.data as {
+          total: number;
+          confirmed: number;
+          failed: number;
+          pending: number;
+          successRate: number;
+        },
       };
     },
     refetchInterval: 15000,
@@ -72,25 +80,21 @@ export default function PublicTransactionsView() {
   };
 
   const items = data?.items || [];
-  const stats = data?.stats;
+  const summary = data?.summary;
+  const registerBonusItems = items.filter((item) =>
+    item.type?.toLowerCase() === 'register_bonus' ||
+    item.extensionMetadata?.reason === 'register_bonus'
+  ).slice(0, 8);
   const serviceStats = healthData?.stats;
 
   const metric = (value: number | null | undefined, suffix = '%') =>
     typeof value === 'number' ? `${value}${suffix}` : '--';
 
-  const scopeLabel = (scope: string) => {
-    if (!isZh) return scope;
-    if (scope === 'wallet') return zh.wallet;
-    if (scope === 'market') return zh.market;
-    return zh.public;
-  };
-
-  const kindLabel = (kind: string) => {
-    if (!isZh) return kind;
-    if (kind === 'wallet') return zh.wallet;
-    if (kind === 'market') return zh.market;
-    return zh.public;
-  };
+  const successRatePct = Number.isFinite((summary?.successRate ?? 0) * 100)
+    ? Number(((summary?.successRate ?? 0) * 100).toFixed(2))
+    : 0;
+  const walletExecutionPct = summary?.total ? Math.round((summary.confirmed / summary.total) * 10000) / 100 : 0;
+  const marketWinRatePct = Math.max(0, 100 - (summary?.failed ?? 0) * 100 / Math.max(summary?.total || 1, 1));
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
@@ -148,20 +152,20 @@ export default function PublicTransactionsView() {
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
               {isZh ? zh.overallSuccessRate : 'Overall Success Rate'}
             </p>
-            <p className="mt-3 text-3xl font-black italic tracking-tight text-[#fcc025]">{metric(stats?.overallSuccessRate)}</p>
+            <p className="mt-3 text-3xl font-black italic tracking-tight text-[#fcc025]">{metric(successRatePct)}</p>
             <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">
               {isZh
                 ? zh.successSummary
-                    .replace('{{success}}', String(stats?.successfulTransactions ?? 0))
-                    .replace('{{scored}}', String(stats?.scoredTransactions ?? 0))
-                : `${stats?.successfulTransactions ?? 0} success / ${stats?.scoredTransactions ?? 0} scored`}
+                    .replace('{{success}}', String(summary?.confirmed ?? 0))
+                    .replace('{{scored}}', String(summary?.total ?? 0))
+                : `${summary?.confirmed ?? 0} success / ${summary?.total ?? 0} scored`}
             </p>
           </div>
           <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-5 shadow-2xl">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
               {isZh ? zh.walletExecution : 'Wallet Execution'}
             </p>
-            <p className="mt-3 text-3xl font-black italic tracking-tight text-[#fcc025]">{metric(stats?.walletExecutionSuccessRate)}</p>
+            <p className="mt-3 text-3xl font-black italic tracking-tight text-[#fcc025]">{metric(walletExecutionPct)}</p>
             <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">
               {isZh ? zh.confirmedWalletIntents : 'Confirmed wallet intents'}
             </p>
@@ -170,7 +174,7 @@ export default function PublicTransactionsView() {
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
               {isZh ? zh.marketWinRate : 'Market Win Rate'}
             </p>
-            <p className="mt-3 text-3xl font-black italic tracking-tight text-[#fcc025]">{metric(stats?.marketWinRate)}</p>
+            <p className="mt-3 text-3xl font-black italic tracking-tight text-[#fcc025]">{metric(marketWinRatePct)}</p>
             <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">
               {isZh ? zh.marketOutcomes : 'Closed/realized market outcomes'}
             </p>
@@ -192,15 +196,39 @@ export default function PublicTransactionsView() {
               <div key={item.id} className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white">{item.summary}</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white">
+                      {`${item.type?.toUpperCase?.() || 'TX'} • ${item.amount} ${item.tokenSymbol || ''}`}
+                    </p>
                     <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#adaaaa]">
-                      {scopeLabel(item.scope)} / {item.maskedAddress}
+                      {item.userAddress} / round {String(item.roundId)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#fcc025]">{kindLabel(item.kind)}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#fcc025]">{item.status}</p>
                     <p className="mt-1 text-[10px] font-bold text-[#adaaaa]">{new Date(item.createdAt).toLocaleString('zh-TW')}</p>
                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">Latest REGISTER_BONUS</p>
+          <div className="mt-4 space-y-2">
+            {!registerBonusItems.length && (
+              <div className="rounded-xl border border-dashed border-[#494847]/20 p-4 text-sm text-[#adaaaa]">No register bonus records</div>
+            )}
+            {registerBonusItems.map((item) => (
+              <div key={item.id} className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-3 text-xs text-[#adaaaa]">
+                <div className="flex items-center justify-between">
+                  <span>{item.userAddress}</span>
+                  <span className="uppercase text-[#fcc025]">{item.type}</span>
+                </div>
+                <div className="text-[#fcc025]">{item.amount} {item.tokenSymbol || ''}</div>
+                <div className="mt-1">status: {item.status}</div>
+                <div className="truncate">
+                  tx: {item.txHash ? <a className="text-[#fcc025] underline" href={`https://sepolia.etherscan.io/tx/${item.txHash}`} target="_blank" rel="noreferrer">{item.txHash}</a> : '--'}
                 </div>
               </div>
             ))}

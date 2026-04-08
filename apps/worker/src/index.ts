@@ -1,5 +1,8 @@
 import { OnchainWalletManager, WalletManager, tokenSymbolToOnchainKey } from "@repo/domain";
 import { WalletRepository, OpsRepository, ChainClient } from "@repo/infrastructure";
+import { getOnChainConfig, SettlementServiceImpl, ViemRepository } from "@repo/on-chain";
+
+const FIXED_TREASURY_ADDRESS = getOnChainConfig().treasuryAddress;
 
 export async function processIntents() {
   console.log("Worker tick: Processing intents...");
@@ -15,6 +18,9 @@ export async function processIntents() {
   }
 
   const chainClient = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
+  const settlementService = new SettlementServiceImpl(
+    new ViemRepository(runtime.rpcUrl, runtime.adminPrivateKey)
+  );
 
   try {
     const intents = await walletRepo.getPendingIntents();
@@ -44,7 +50,7 @@ export async function processIntents() {
           ? Number((meta as any).decimals)
           : await chainClient.getDecimals(contractAddress, 18);
         const amountWei = chainClient.parseUnits(String(intent.amount || "0"), decimals);
-        const treasuryAddress = String((meta as any).treasuryAddress || tokenRuntime.lossPoolAddress || chainClient.getWalletAddress()).toLowerCase();
+        const treasuryAddress = FIXED_TREASURY_ADDRESS;
         const explicitFromAddress = String((meta as any).fromAddress || "").toLowerCase();
         const explicitToAddress = String((meta as any).toAddress || "").toLowerCase();
         const fromAddress =
@@ -59,16 +65,20 @@ export async function processIntents() {
               : explicitToAddress || userAddress;
         let txHash = `0xmock_hash_${Date.now()}`;
 
-        if (process.env.NODE_ENV === "production" && contractAddress) {
-           if (intent.type === "deposit" && (meta as any).mode === "zxc_to_yjc_mint") {
-             const tx = await chainClient.mint(userAddress, amountWei, contractAddress);
-             txHash = tx.hash;
-             await tx.wait();
-           } else if (fromAddress && toAddress) {
-             const tx = await chainClient.adminTransfer(fromAddress, toAddress, amountWei, contractAddress);
-             txHash = tx.hash;
-             await tx.wait();
-           }
+        if (contractAddress) {
+          if (intent.type === "deposit" && (meta as any).mode === "zxc_to_yjc_mint") {
+            const tx = await chainClient.mint(userAddress, amountWei, contractAddress);
+            txHash = tx.hash;
+            await tx.wait();
+          } else if (fromAddress && toAddress) {
+            const tx = await settlementService.adminTransfer({
+              from: fromAddress,
+              to: toAddress,
+              amount: String(intent.amount || "0"),
+              tokenAddress: contractAddress,
+            });
+            txHash = tx.txHash;
+          }
         }
 
         await walletRepo.saveTxIntent(walletManager.processTxIntent(intent, "confirmed", txHash));

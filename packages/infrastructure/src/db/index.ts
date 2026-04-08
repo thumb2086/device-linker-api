@@ -740,7 +740,18 @@ export class OpsRepository implements IOpsRepository {
        return;
     }
     const conn = await requireDb();
-    const log = { ...event, id: randomUUID(), createdAt: new Date() };
+    const rawRoundId = event?.roundId ? String(event.roundId) : null;
+    const rawTxIntentId = event?.txIntentId ? String(event.txIntentId) : null;
+    const log = {
+      ...event,
+      id: randomUUID(),
+      roundId: rawRoundId && UUID_PATTERN.test(rawRoundId) ? rawRoundId : null,
+      txIntentId: rawTxIntentId && UUID_PATTERN.test(rawTxIntentId) ? rawTxIntentId : null,
+      meta: rawRoundId && !UUID_PATTERN.test(rawRoundId)
+        ? { ...(event?.meta || {}), externalRoundId: rawRoundId }
+        : event?.meta,
+      createdAt: new Date()
+    };
     await conn.insert(schema.opsEvents).values(log);
   }
   async listEvents(options: { limit?: number; userId?: string } = {}) {
@@ -852,8 +863,51 @@ export class CustodyRepository implements ICustodyRepository {
 }
 
 export class AnnouncementRepository {
+  private async getAnnouncementColumns(conn: any): Promise<Set<string>> {
+    const rows = await conn.execute(
+      drizzleSql`
+        SELECT column_name AS "columnName"
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'announcements'
+      `
+    );
+    return new Set((rows || []).map((row: any) => String(row.columnName || "").toLowerCase()));
+  }
+
   async listActiveAnnouncements() {
     const conn = await requireDb();
+    const columns = await this.getAnnouncementColumns(conn);
+    const hasModernColumns = columns.has("announcement_id") && columns.has("is_pinned");
+    if (!hasModernColumns) {
+      const hasPinned = columns.has("is_pinned");
+      const hasActive = columns.has("is_active");
+      const hasPublishedBy = columns.has("published_by");
+      const hasUpdatedBy = columns.has("updated_by");
+      const hasPublishedAt = columns.has("published_at");
+      const hasUpdatedAt = columns.has("updated_at");
+
+      const rows = await conn.execute(
+        drizzleSql.raw(`
+          SELECT
+            id,
+            id AS "announcementId",
+            title,
+            content,
+            ${hasPinned ? `is_pinned` : `FALSE`} AS "isPinned",
+            ${hasActive ? `is_active` : `TRUE`} AS "isActive",
+            ${hasPublishedBy ? `published_by` : `NULL`} AS "publishedBy",
+            ${hasUpdatedBy ? `updated_by` : `NULL`} AS "updatedBy",
+            ${hasPublishedAt ? `published_at` : `created_at`} AS "publishedAt",
+            created_at AS "createdAt",
+            ${hasUpdatedAt ? `updated_at` : `created_at`} AS "updatedAt"
+          FROM announcements
+          WHERE ${hasActive ? `is_active IS DISTINCT FROM FALSE` : `TRUE`}
+          ORDER BY ${hasPinned ? `is_pinned DESC,` : ``} ${hasPublishedAt ? `published_at DESC NULLS LAST,` : ``} created_at DESC
+        `)
+      );
+      return rows;
+    }
     return await conn.query.announcements.findMany({
       where: (announcements: any, { eq }: any) => eq(announcements.isActive, true),
       orderBy: (announcements: any, { desc }: any) => [
@@ -866,6 +920,37 @@ export class AnnouncementRepository {
 
   async listAllAnnouncements(limit: number = 50) {
     const conn = await requireDb();
+    const columns = await this.getAnnouncementColumns(conn);
+    const hasModernColumns = columns.has("announcement_id") && columns.has("is_pinned");
+    if (!hasModernColumns) {
+      const hasPinned = columns.has("is_pinned");
+      const hasActive = columns.has("is_active");
+      const hasPublishedBy = columns.has("published_by");
+      const hasUpdatedBy = columns.has("updated_by");
+      const hasPublishedAt = columns.has("published_at");
+      const hasUpdatedAt = columns.has("updated_at");
+      const safeLimit = Math.max(1, Math.min(500, Number(limit || 50)));
+      const rows = await conn.execute(
+        drizzleSql.raw(`
+          SELECT
+            id,
+            id AS "announcementId",
+            title,
+            content,
+            ${hasPinned ? `is_pinned` : `FALSE`} AS "isPinned",
+            ${hasActive ? `is_active` : `TRUE`} AS "isActive",
+            ${hasPublishedBy ? `published_by` : `NULL`} AS "publishedBy",
+            ${hasUpdatedBy ? `updated_by` : `NULL`} AS "updatedBy",
+            ${hasPublishedAt ? `published_at` : `created_at`} AS "publishedAt",
+            created_at AS "createdAt",
+            ${hasUpdatedAt ? `updated_at` : `created_at`} AS "updatedAt"
+          FROM announcements
+          ORDER BY ${hasPinned ? `is_pinned DESC,` : ``} ${hasPublishedAt ? `published_at DESC NULLS LAST,` : ``} created_at DESC
+          LIMIT ${safeLimit}
+        `)
+      );
+      return rows;
+    }
     return await conn.query.announcements.findMany({
       limit,
       orderBy: (announcements: any, { desc }: any) => [
@@ -890,6 +975,58 @@ export class AnnouncementRepository {
     updatedAt?: string | Date | null;
   }) {
     const conn = await requireDb();
+    const columns = await this.getAnnouncementColumns(conn);
+    const hasModernColumns = columns.has("announcement_id") && columns.has("is_pinned");
+    if (!hasModernColumns) {
+      const hasPinned = columns.has("is_pinned");
+      const hasActive = columns.has("is_active");
+      const hasPublishedBy = columns.has("published_by");
+      const hasUpdatedBy = columns.has("updated_by");
+      const hasPublishedAt = columns.has("published_at");
+      const hasUpdatedAt = columns.has("updated_at");
+      const fields = ["id", "title", "content", "created_at"];
+      const values: string[] = [
+        `'${String(announcement.id || randomUUID()).replace(/'/g, "''")}'`,
+        `'${String(announcement.title || "").replace(/'/g, "''")}'`,
+        `'${String(announcement.content || "").replace(/'/g, "''")}'`,
+        `'${(announcement.createdAt ? new Date(announcement.createdAt) : new Date()).toISOString()}'`,
+      ];
+      if (hasPinned) {
+        fields.push("is_pinned");
+        values.push(announcement.isPinned ? "TRUE" : "FALSE");
+      }
+      if (hasActive) {
+        fields.push("is_active");
+        values.push((announcement.isActive ?? true) ? "TRUE" : "FALSE");
+      }
+      if (hasPublishedBy) {
+        fields.push("published_by");
+        values.push(announcement.publishedBy ? `'${String(announcement.publishedBy).replace(/'/g, "''")}'` : "NULL");
+      }
+      if (hasUpdatedBy) {
+        fields.push("updated_by");
+        values.push((announcement.updatedBy || announcement.publishedBy)
+          ? `'${String(announcement.updatedBy || announcement.publishedBy).replace(/'/g, "''")}'`
+          : "NULL");
+      }
+      if (hasPublishedAt) {
+        fields.push("published_at");
+        values.push(`'${(announcement.publishedAt ? new Date(announcement.publishedAt) : new Date()).toISOString()}'`);
+      }
+      if (hasUpdatedAt) {
+        fields.push("updated_at");
+        values.push(`'${(announcement.updatedAt ? new Date(announcement.updatedAt) : new Date()).toISOString()}'`);
+      }
+
+      await conn.execute(
+        drizzleSql.raw(`
+          INSERT INTO announcements (${fields.join(", ")})
+          VALUES (${values.join(", ")})
+        `)
+      );
+      return;
+    }
+
     await conn.insert(schema.announcements).values({
       id: announcement.id || randomUUID(),
       announcementId: announcement.announcementId,

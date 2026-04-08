@@ -18,10 +18,10 @@ type TxRow = {
 };
 
 const statusColors: Record<string, string> = {
-  pending: 'text-amber-300',
-  broadcasted: 'text-sky-300',
-  confirmed: 'text-emerald-300',
-  failed: 'text-rose-300',
+  pending: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
+  broadcasted: 'bg-sky-500/15 text-sky-300 border-sky-500/40',
+  confirmed: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
+  failed: 'bg-rose-500/15 text-rose-300 border-rose-500/40',
 };
 
 function toExplorerUrl(txHash: string) {
@@ -75,6 +75,10 @@ export default function TransactionsDashboardView() {
 
   const total = data?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / 20));
+  const statusCounts = (data?.items || []).reduce<Record<string, number>>((acc, row) => {
+    acc[row.status] = (acc[row.status] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-28 text-white">
@@ -101,10 +105,18 @@ export default function TransactionsDashboardView() {
         </section>
 
         <section className="grid gap-3 md:grid-cols-4">
-          <div className="rounded-xl bg-[#1a1919] p-3 text-sm">Total: <b>{summary?.total ?? 0}</b></div>
-          <div className="rounded-xl bg-[#1a1919] p-3 text-sm">Confirmed: <b>{summary?.confirmed ?? 0}</b></div>
-          <div className="rounded-xl bg-[#1a1919] p-3 text-sm">Pending: <b>{summary?.pending ?? 0}</b></div>
-          <div className="rounded-xl bg-[#1a1919] p-3 text-sm">Success: <b>{((summary?.successRate ?? 0) * 100).toFixed(2)}%</b></div>
+          <div className="rounded-xl border border-[#494847]/20 bg-gradient-to-br from-[#1e1d1d] to-[#151414] p-3 text-sm">Total: <b>{summary?.total ?? 0}</b></div>
+          <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-900/20 to-[#151414] p-3 text-sm">Confirmed: <b>{summary?.confirmed ?? 0}</b></div>
+          <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-900/20 to-[#151414] p-3 text-sm">Pending: <b>{summary?.pending ?? 0}</b></div>
+          <div className="rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-900/20 to-[#151414] p-3 text-sm">Success: <b>{((summary?.successRate ?? 0) * 100).toFixed(2)}%</b></div>
+        </section>
+
+        <section className="grid gap-2 md:grid-cols-4">
+          {['confirmed', 'pending', 'broadcasted', 'failed'].map((st) => (
+            <div key={st} className="rounded-lg border border-[#494847]/20 bg-[#141313] p-2 text-xs uppercase text-[#adaaaa]">
+              {st}: <span className="text-white font-bold">{statusCounts[st] || 0}</span>
+            </div>
+          ))}
         </section>
 
         <section className="overflow-x-auto rounded-xl border border-[#494847]/10 bg-[#1a1919]">
@@ -131,7 +143,11 @@ export default function TransactionsDashboardView() {
                   <td className="p-3">{row.userAddress}</td>
                   <td className="p-3 uppercase">{row.type}</td>
                   <td className="p-3">{row.amount} {row.tokenSymbol || ''}</td>
-                  <td className={`p-3 font-semibold ${statusColors[row.status] || 'text-white'}`}>{row.status}</td>
+                  <td className="p-3">
+                    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${statusColors[row.status] || 'bg-white/10 text-white border-white/20'}`}>
+                      {row.status}
+                    </span>
+                  </td>
                   <td className="p-3">
                     {row.txHash ? (
                       <a className="text-[#fcc025] underline" href={toExplorerUrl(row.txHash)} target="_blank" rel="noreferrer">{row.txHash.slice(0, 10)}...</a>

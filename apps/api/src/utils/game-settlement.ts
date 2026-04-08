@@ -21,7 +21,7 @@ import {
   ChainClient,
   kv,
 } from "@repo/infrastructure";
-import { getOnChainConfig } from "@repo/on-chain";
+import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService } from "@repo/on-chain";
 import type { Game, TokenSymbol } from "@repo/shared";
 import type { TxIntent } from "@repo/shared";
 
@@ -51,6 +51,7 @@ export interface SettlementResult {
 
 export class GameSettlementWrapper {
   private readonly FIXED_TREASURY_ADDRESS = getOnChainConfig().treasuryAddress;
+  private readonly levelFeeService = new VipBetLevelService();
   private walletManager: WalletManager;
   private settlementManager: SettlementManager;
   private onchainWallet: OnchainWalletManager;
@@ -211,7 +212,7 @@ export class GameSettlementWrapper {
     if (this.isAsyncSettlementEnabled()) {
       try {
         const levelDiscountRate = await this.vipManager.getBetLevelFeeDiscount(ctx.address);
-        const feeAmount = this.onchainSettlement.calculateFee(ctx.betAmount, levelDiscountRate);
+        const feeAmount = this.levelFeeService.calculateFee(ctx.betAmount, levelDiscountRate);
         const requestedPayout = parseFloat(ctx.payoutAmount);
         const finalPayout = Math.max(0, requestedPayout - feeAmount);
 
@@ -342,7 +343,8 @@ export class GameSettlementWrapper {
       return;
     }
 
-    const client = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
+    const repo = new ViemRepository(runtime.rpcUrl, runtime.adminPrivateKey);
+    const settlementService = new SettlementServiceImpl(repo);
 
     for (const intent of intents) {
       let txHash: string | undefined;
@@ -355,9 +357,6 @@ export class GameSettlementWrapper {
           throw new Error(`ONCHAIN_TOKEN_CONFIG_MISSING: ${intent.token}`);
         }
 
-        const decimals = await client.getDecimals(tokenRuntime.contractAddress, 18);
-        const amountWei = client.parseUnits(String(intent.amount || "0"), decimals);
-
         const fromAddress = intent.type === "payout"
           ? this.FIXED_TREASURY_ADDRESS
           : userAddress;
@@ -365,9 +364,13 @@ export class GameSettlementWrapper {
           ? userAddress
           : this.FIXED_TREASURY_ADDRESS;
 
-        const tx = await client.adminTransfer(fromAddress, toAddress, amountWei, tokenRuntime.contractAddress);
-        txHash = tx.hash;
-        await tx.wait();
+        const txResult = await settlementService.adminTransfer({
+          from: fromAddress,
+          to: toAddress,
+          amount: String(intent.amount || "0"),
+          tokenAddress: tokenRuntime.contractAddress,
+        });
+        txHash = txResult.txHash;
 
         await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "confirmed", txHash));
         await this.opsRepo.logEvent({

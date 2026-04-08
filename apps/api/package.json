@@ -12,6 +12,7 @@
   "dependencies": {
     "@repo/domain": "workspace:*",
     "@repo/infrastructure": "workspace:*",
+    "@repo/on-chain": "workspace:*",
     "@repo/shared": "workspace:*",
     "ethers": "^6.10.0",
     "fastify": "^4.26.0",

@@ -19,6 +19,7 @@ import ProfileSetup from './features/profile/ProfileSetup';
 import AnnouncementCenter from './features/announcement/AnnouncementCenter';
 import SettingsView from './features/settings/SettingsView';
 import PublicTransactionsView from './features/transactions/PublicTransactionsView';
+import TransactionsDashboardView from './features/dashboard/TransactionsDashboardView';
 import SoundPlayer from './components/SoundPlayer';
 import { useSyncUser } from './hooks/useSyncUser';
 import Layout from './components/Layout';
@@ -113,6 +114,7 @@ function AppContent() {
             <Route path="admin" element={<AdminView />} />
             <Route path="settings" element={<SettingsView />} />
             <Route path="transactions" element={<PublicTransactionsView />} />
+            <Route path="dashboard/transactions" element={<TransactionsDashboardView />} />
             <Route path="health" element={<HealthView />} />
             <Route path="info/vip-levels" element={<VIPLevelsView />} />
             <Route path="info/odds" element={<OddsView />} />

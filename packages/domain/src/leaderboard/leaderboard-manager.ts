@@ -2,6 +2,7 @@
 import { eq, and, desc, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import * as schema from "@repo/infrastructure/db/schema.js";
+import { MarketManager } from "../market/market-manager.js";
 
 export type LeaderboardType = "all" | "week" | "month" | "season";
 
@@ -167,8 +168,20 @@ export class LeaderboardManager {
   async getAssetLeaderboard(
     selfAddress?: string,
     limit = 50,
+    includeMarketAssets = false,
   ): Promise<LeaderboardResult> {
     const YJC_TO_ZXC_RATE = 100_000_000; // 1 YJC = 100 million ZXC
+
+    // Start from all user addresses so app users appear even before wallet rows are created.
+    const allUsers = await this.db
+      .select({ address: schema.users.address })
+      .from(schema.users);
+
+    // Aggregate balances by address
+    const balanceMap = new Map<string, { zhixi: number; yjc: number; total: number }>();
+    for (const user of allUsers) {
+      balanceMap.set(user.address.toLowerCase(), { zhixi: 0, yjc: 0, total: 0 });
+    }
 
     // Query all balances (zhixi + yjc) for each address
     const allBalances = await this.db
@@ -181,9 +194,6 @@ export class LeaderboardManager {
       .where(
         sql`${schema.walletAccounts.token} IN ('zhixi', 'yjc')`
       );
-
-    // Aggregate balances by address
-    const balanceMap = new Map<string, { zhixi: number; yjc: number; total: number }>();
 
     for (const row of allBalances) {
       const addr = row.address.toLowerCase();
@@ -201,6 +211,36 @@ export class LeaderboardManager {
       }
       // Calculate total in ZXC equivalent
       entry.total = entry.zhixi + (entry.yjc * YJC_TO_ZXC_RATE);
+    }
+
+    if (includeMarketAssets) {
+      const marketManager = new MarketManager();
+      const snapshot = marketManager.buildSnapshot();
+
+      const marketAccounts = await this.db
+        .select({
+          address: schema.marketAccounts.address,
+          data: schema.marketAccounts.data,
+        })
+        .from(schema.marketAccounts);
+
+      for (const row of marketAccounts) {
+        const addr = row.address.toLowerCase();
+        const normalizedAccount = marketManager.normalizeAccount(row.data);
+        marketManager.settleLiquidations(normalizedAccount, snapshot);
+        const marketSummary = marketManager.buildAccountSummary(normalizedAccount, snapshot);
+        const overlayNetWorth = Number(marketSummary.bankBalance || 0)
+          + Number(marketSummary.stockValue || 0)
+          + Number(marketSummary.futuresUnrealizedPnl || 0)
+          - Number(marketSummary.loanPrincipal || 0);
+
+        if (!balanceMap.has(addr)) {
+          balanceMap.set(addr, { zhixi: 0, yjc: 0, total: 0 });
+        }
+
+        const entry = balanceMap.get(addr)!;
+        entry.total = entry.total + overlayNetWorth;
+      }
     }
 
     // Get display names for addresses
@@ -269,29 +309,27 @@ export class LeaderboardManager {
 
         const selfTotal = selfZhixi + (selfYjc * YJC_TO_ZXC_RATE);
 
-        if (selfTotal > 0) {
-          // Count how many addresses have higher total
-          let rank = 1;
-          for (const [, balances] of balanceMap) {
-            if (balances.total > selfTotal) {
-              rank++;
-            }
+        // Count how many addresses have higher total
+        let rank = 1;
+        for (const [, balances] of balanceMap) {
+          if (balances.total > selfTotal) {
+            rank++;
           }
-
-          const userRow = await this.db
-            .select({ displayName: schema.users.displayName })
-            .from(schema.users)
-            .where(eq(schema.users.address, addr))
-            .limit(1);
-
-          selfRank = {
-            rank,
-            address: addr,
-            displayName: userRow[0]?.displayName ?? null,
-            amount: selfTotal,
-            balance: selfTotal,
-          };
         }
+
+        const userRow = await this.db
+          .select({ displayName: schema.users.displayName })
+          .from(schema.users)
+          .where(eq(schema.users.address, addr))
+          .limit(1);
+
+        selfRank = {
+          rank,
+          address: addr,
+          displayName: userRow[0]?.displayName ?? null,
+          amount: selfTotal,
+          balance: selfTotal,
+        };
       }
     }
 

@@ -28,7 +28,8 @@ function formatRelativeTime(value: string) {
 }
 
 export default function AnnouncementCenter() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isZh = (i18n.language || 'zh').toLowerCase().startsWith('zh');
   const [filter, setFilter] = useState<'LATEST' | 'MAINTENANCE' | 'EVENTS'>('LATEST');
   const [items, setItems] = useState<AnnouncementItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +70,17 @@ export default function AnnouncementCenter() {
     }
   };
 
+  const typeLabel = (type: AnnouncementItem['type']) => {
+    if (!isZh) return type.toUpperCase();
+    if (type === 'urgent') return '緊急';
+    if (type === 'warning') return '維護';
+    return '活動';
+  };
+
+  const tabLabel: Record<'LATEST' | 'MAINTENANCE' | 'EVENTS', string> = isZh
+    ? { LATEST: '最新', MAINTENANCE: '維護', EVENTS: '活動' }
+    : { LATEST: 'LATEST', MAINTENANCE: 'MAINTENANCE', EVENTS: 'EVENTS' };
+
   return (
     <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">
       <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
@@ -90,10 +102,10 @@ export default function AnnouncementCenter() {
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">{t('announcement.critical_alert')}</span>
           </div>
           <h2 className="text-2xl font-black italic tracking-tighter uppercase mb-2">
-            {featured?.title || 'No active announcements'}
+            {featured?.title || (isZh ? '目前沒有啟用中的公告' : 'No active announcements')}
           </h2>
           <p className="text-xs text-[#adaaaa] font-bold uppercase leading-relaxed mb-6">
-            {featured?.content || 'The announcement feed is online, but there are no active messages right now.'}
+            {featured?.content || (isZh ? '公告系統連線正常，但目前沒有正在啟用的公告。' : 'The announcement feed is online, but there are no active messages right now.')}
           </p>
           <div className="text-[10px] font-black uppercase tracking-widest text-white/70">
             {featured ? formatRelativeTime(featured.createdAt) : 'SYNCED'}
@@ -115,7 +127,7 @@ export default function AnnouncementCenter() {
                 filter === entry ? 'bg-[#fcc025] text-black shadow-lg' : 'text-[#adaaaa] hover:text-white'
               }`}
             >
-              {entry}
+              {tabLabel[entry]}
             </button>
           ))}
         </div>
@@ -123,13 +135,13 @@ export default function AnnouncementCenter() {
         <section className="space-y-4">
           {loading && (
             <div className="bg-[#1a1919] rounded-xl p-5 border border-[#494847]/10 text-[11px] font-bold uppercase tracking-widest text-[#adaaaa]">
-              Loading announcements...
+              {isZh ? '公告載入中...' : 'Loading announcements...'}
             </div>
           )}
 
           {!loading && filteredItems.length === 0 && (
             <div className="bg-[#1a1919] rounded-xl p-5 border border-[#494847]/10 text-[11px] font-bold uppercase tracking-widest text-[#adaaaa]">
-              No announcements in this category.
+              {isZh ? '此分類目前沒有公告。' : 'No announcements in this category.'}
             </div>
           )}
 
@@ -138,7 +150,7 @@ export default function AnnouncementCenter() {
               <div className="flex flex-col gap-3 flex-1">
                 <div className="flex items-center gap-3">
                   <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-sm border ${getBadgeStyle(item.type)}`}>
-                    {item.type.toUpperCase()}
+                    {typeLabel(item.type)}
                   </span>
                   <span className="text-[9px] font-bold text-[#494847] uppercase tracking-widest">{formatRelativeTime(item.createdAt)}</span>
                 </div>

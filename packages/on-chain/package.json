@@ -1,17 +1,17 @@
 {
-  "name": "@repo/worker",
+  "name": "@repo/on-chain",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "start": "tsx src/index.ts"
+    "build": "tsc"
   },
   "dependencies": {
-    "@repo/domain": "workspace:*",
     "@repo/infrastructure": "workspace:*",
-    "@repo/on-chain": "workspace:*",
-    "@repo/shared": "workspace:*"
+    "@repo/shared": "workspace:*",
+    "ethers": "^6.15.0"
   },
   "devDependencies": {
     "@types/node": "^25.5.0"

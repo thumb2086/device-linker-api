@@ -4,7 +4,7 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { IdentityManager, RewardManager, buildVipStatus } from "@repo/domain";
+import { IdentityManager, RewardManager, VipManager } from "@repo/domain";
 import { SessionRepository, UserRepository, kv, OpsRepository } from "@repo/infrastructure";
 
 export async function meRoutes(fastify: FastifyInstance) {
@@ -12,6 +12,7 @@ export async function meRoutes(fastify: FastifyInstance) {
   
   const identityManager = new IdentityManager();
   const rewardManager = new RewardManager();
+  const vipManager = new VipManager();
   
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
@@ -34,7 +35,7 @@ export async function meRoutes(fastify: FastifyInstance) {
 
     const address = ctx.session.address;
     const totalBet = await kv.get<string>(`total_bet:${address}`) || "0";
-    const vip = buildVipStatus(totalBet);
+    const vip = await vipManager.getVipStatus(address);
     
     const activeTitleId = await kv.get<string>(`active_title:${address}`) || "newbie";
     const activeAvatarId = await kv.get<string>(`active_avatar:${address}`) || "std_1";
@@ -48,8 +49,8 @@ export async function meRoutes(fastify: FastifyInstance) {
          address,
          displayName: ctx.user.displayName || (ctx.session.accountId ? `@${ctx.session.accountId}` : address.slice(0, 6) + "..." + address.slice(-4)),
          totalBet,
-         vipLevel: vip.vipLevel,
-         maxBet: vip.maxBet,
+         vipLevel: vip?.level?.label || "普通會員",
+         maxBet: Number(vip?.level?.maxBet || 1000),
          title: title?.label || "新手",
          avatar: avatar?.url || "/assets/avatars/1.png",
          mode: ctx.session.mode,

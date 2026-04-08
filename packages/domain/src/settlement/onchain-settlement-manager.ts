@@ -15,6 +15,7 @@ import { OnchainWalletManager, tokenSymbolToOnchainKey } from "../wallet/onchain
 import { VipManager } from "../levels/vip-manager.js";
 import { ChainClient } from "@repo/infrastructure";
 import { WalletRepository } from "@repo/infrastructure";
+import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService } from "@repo/on-chain";
 import { ethers } from "ethers";
 
 export interface SettlementResult {
@@ -37,12 +38,14 @@ export interface OnchainSettlementDomain {
     requestId?: string;
   }): Promise<SettlementResult>;
 
-  calculateFee(betAmount: string, isVip2: boolean): number;
+  calculateFee(betAmount: string, feeDiscountRate?: number): number;
 }
 
 export class OnchainSettlementManager implements OnchainSettlementDomain {
   private readonly BASE_FEE_RATE = 0.02; // 2% base fee
   private readonly TREASURY_TARGET_BALANCE = "10000000000000";
+  private readonly FIXED_TREASURY_ADDRESS = getOnChainConfig().treasuryAddress;
+  private readonly levelFeeService = new VipBetLevelService(this.BASE_FEE_RATE);
 
   constructor(
     private settlementManager: SettlementManager,
@@ -74,7 +77,7 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
     decimals: number
   ): Promise<string> {
     const client = this.getChainClient();
-    const treasuryAddress = tokenConfig.lossPoolAddress || client.getWalletAddress();
+    const treasuryAddress = this.FIXED_TREASURY_ADDRESS;
     if (!treasuryAddress) {
       throw new Error("TREASURY_ADDRESS_MISSING");
     }
@@ -121,11 +124,13 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
   }): Promise<SettlementResult> {
     const { userId, address, game, token, betAmount, payoutAmount, roundId, requestId } = params;
 
-    // 1. Check if user has VIP2 (YJC VIP system) for zero game fees
-    const isVip2 = this.vipManager ? await this.vipManager.hasVip2(address) : false;
+    // 1. Calculate fee discount by bet-based level membership (押注額等級)
+    const levelDiscountRate = this.vipManager
+      ? await this.vipManager.getBetLevelFeeDiscount(address)
+      : 0;
 
-    // 2. Calculate fee based on VIP status
-    const feeAmount = this.calculateFee(betAmount, isVip2);
+    // 2. Calculate fee based on level discount
+    const feeAmount = this.calculateFee(betAmount, levelDiscountRate);
     const payoutNum = parseFloat(payoutAmount);
     const finalPayout = Math.max(0, payoutNum - feeAmount);
 
@@ -193,20 +198,11 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
   }
 
   /**
-   * Calculate fee based on YJC VIP status
-   * VIP2 (YJC balance >= 1000) gets 0% fee
-   * Others pay base 2% fee
+   * Calculate fee based on bet-level discount.
+   * discountRate=0 means full base fee, discountRate=1 means free.
    */
-  calculateFee(betAmount: string, isVip2: boolean): number {
-    const betNum = parseFloat(betAmount);
-
-    // VIP2 gets free fees
-    if (isVip2) {
-      return 0;
-    }
-
-    // Base fee for non-VIP
-    return betNum * this.BASE_FEE_RATE;
+  calculateFee(betAmount: string, feeDiscountRate: number = 0): number {
+    return this.levelFeeService.calculateFee(betAmount, feeDiscountRate);
   }
 
   /**
@@ -231,9 +227,12 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
     }
 
     const client = this.getChainClient();
+    const settlementService = new SettlementServiceImpl(
+      new ViemRepository(config.rpcUrl, config.adminPrivateKey)
+    );
     const decimals = await client.getDecimals(tokenConfig.contractAddress);
     const amount = client.parseUnits(intent.amount, decimals);
-    const treasuryAddress = tokenConfig.lossPoolAddress || client.getWalletAddress();
+    const treasuryAddress = this.FIXED_TREASURY_ADDRESS;
 
     let txHash: string | null = null;
     let finalizedStatusWritten = false;
@@ -257,16 +256,16 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
 
       if (type === "bet") {
         // Bet: Transfer from player to house (adminTransfer)
-        const tx = await client.adminTransfer(
-          userAddress,
-          treasuryAddress,
-          amount,
-          tokenConfig.contractAddress
-        );
-        txHash = tx.hash;
+        const tx = await settlementService.adminTransfer({
+          from: userAddress,
+          to: treasuryAddress,
+          amount: intent.amount,
+          tokenAddress: tokenConfig.contractAddress,
+        });
+        txHash = tx.txHash;
         
         // Wait for confirmation
-        const receipt = await client.waitForReceipt(tx.hash);
+        const receipt = await client.waitForReceipt(txHash);
         const reverted = !receipt || receipt.status !== 1;
         
         // Save attempt result
@@ -303,7 +302,7 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
             );
             finalizedStatusWritten = true;
           }
-          throw new Error(`Bet transaction reverted: ${tx.hash}`);
+          throw new Error(`Bet transaction reverted: ${txHash}`);
         }
 
         if (this.walletRepo) {
@@ -311,21 +310,21 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
           finalizedStatusWritten = true;
         }
 
-        return tx.hash;
+        return txHash;
         
       } else {
         // Payout: Transfer from treasury to player using adminTransfer
         const payoutTreasuryAddress = await this.ensureTreasuryLiquidity(tokenConfig, amount, decimals);
-        const tx = await client.adminTransfer(
-          payoutTreasuryAddress,
-          userAddress,
-          amount,
-          tokenConfig.contractAddress
-        );
-        txHash = tx.hash;
+        const tx = await settlementService.adminTransfer({
+          from: payoutTreasuryAddress,
+          to: userAddress,
+          amount: intent.amount,
+          tokenAddress: tokenConfig.contractAddress,
+        });
+        txHash = tx.txHash;
         
         // Wait for confirmation
-        const receipt = await client.waitForReceipt(tx.hash);
+        const receipt = await client.waitForReceipt(txHash);
         const reverted = !receipt || receipt.status !== 1;
         
         // Save attempt result
@@ -362,7 +361,7 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
             );
             finalizedStatusWritten = true;
           }
-          throw new Error(`Payout transaction reverted: ${tx.hash}`);
+          throw new Error(`Payout transaction reverted: ${txHash}`);
         }
 
         if (this.walletRepo) {
@@ -370,7 +369,7 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
           finalizedStatusWritten = true;
         }
 
-        return tx.hash;
+        return txHash;
       }
     } catch (error: any) {
       // Save failed attempt

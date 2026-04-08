@@ -17,15 +17,18 @@ export async function announcementRoutes(fastify: FastifyInstance) {
   const repo = new AnnouncementRepository();
 
   typedFastify.get("/", async (request) => {
-    const activeAnnouncements = await repo.listActiveAnnouncements();
-    const list = activeAnnouncements.map((item: any) => ({
+    // DB column `is_active` is nullable in schema; treat NULL as active for legacy rows.
+    const allAnnouncements = await repo.listAllAnnouncements(200);
+    const list = allAnnouncements
+      .filter((item: any) => item.isActive !== false)
+      .map((item: any) => ({
       id: item.announcementId || item.id,
       title: item.title,
       content: item.content,
       type: inferAnnouncementType(item),
       createdAt: new Date(item.publishedAt || item.createdAt).toISOString(),
       active: item.isActive ?? true,
-    }));
+      }));
 
     return createApiEnvelope(list, request.id);
   });

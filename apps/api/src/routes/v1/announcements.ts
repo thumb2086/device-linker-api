@@ -2,8 +2,8 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { AnnouncementManager } from "@repo/domain";
-import { AnnouncementRepository, kv } from "@repo/infrastructure";
+import { AnnouncementRepository } from "@repo/infrastructure";
+import { randomUUID } from "crypto";
 
 function inferAnnouncementType(item: { title?: string | null; content?: string | null; isPinned?: boolean | null }) {
   const haystack = `${item.title || ""} ${item.content || ""}`.toLowerCase();
@@ -14,15 +14,11 @@ function inferAnnouncementType(item: { title?: string | null; content?: string |
 
 export async function announcementRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
-  const manager = new AnnouncementManager(kv);
   const repo = new AnnouncementRepository();
 
   typedFastify.get("/", async (request) => {
-    // Merge DB announcements + legacy KV announcements:list (for old active announcements)
-    const allAnnouncements = await repo.listAllAnnouncements(50);
-    const legacyAnnouncements = await kv.get<any[]>("announcements:list") || [];
-
-    const normalizedDb = allAnnouncements.map((item: any) => ({
+    const activeAnnouncements = await repo.listActiveAnnouncements();
+    const list = activeAnnouncements.map((item: any) => ({
       id: item.announcementId || item.id,
       title: item.title,
       content: item.content,
@@ -30,29 +26,6 @@ export async function announcementRoutes(fastify: FastifyInstance) {
       createdAt: new Date(item.publishedAt || item.createdAt).toISOString(),
       active: item.isActive ?? true,
     }));
-
-    const normalizedLegacy = legacyAnnouncements.map((item: any) => ({
-      id: item.announcementId || item.id,
-      title: item.title,
-      content: item.content,
-      type: inferAnnouncementType(item),
-      createdAt: new Date(item.publishedAt || item.createdAt || Date.now()).toISOString(),
-      active: item.isActive ?? true,
-    }));
-
-    const merged = [...normalizedDb, ...normalizedLegacy];
-    const deduped = new Map<string, any>();
-    for (const item of merged) {
-      const key = String(item.id || `${item.title}:${item.createdAt}`);
-      const prev = deduped.get(key);
-      if (!prev || new Date(item.createdAt).getTime() > new Date(prev.createdAt).getTime()) {
-        deduped.set(key, item);
-      }
-    }
-
-    const list = Array.from(deduped.values())
-      .filter((item) => item.active)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return createApiEnvelope(list, request.id);
   });
@@ -67,7 +40,20 @@ export async function announcementRoutes(fastify: FastifyInstance) {
       })
     }
   }, async (request) => {
-    await manager.addAnnouncement(request.body);
+    const now = new Date();
+    await repo.saveAnnouncement({
+      id: randomUUID(),
+      announcementId: `ann_${Date.now()}_${randomUUID().slice(0, 8)}`,
+      title: request.body.title,
+      content: request.body.content,
+      isPinned: request.body.type === "urgent",
+      isActive: true,
+      publishedBy: "system",
+      updatedBy: "system",
+      publishedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
     return createApiEnvelope({ success: true }, request.id);
   });
 }

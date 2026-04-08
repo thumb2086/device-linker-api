@@ -344,19 +344,19 @@ export default function SettingsView() {
             <SliderRow label={isZh ? zh.sfxVolume : 'SFX Volume'} value={sfxVolume} onChange={(value) => persistPrefs({ sfxVolume: value })} />
 
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
+              <div className="rounded-2xl border border-[#494847]/10 bg-[#0e0e0e] p-4 min-h-[74px]">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider">BGM</span>
                   <Toggle enabled={bgmEnabled} onClick={() => persistPrefs({ bgmEnabled: !bgmEnabled })} />
                 </div>
               </div>
-              <div className="rounded-2xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
+              <div className="rounded-2xl border border-[#494847]/10 bg-[#0e0e0e] p-4 min-h-[74px]">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider">SFX</span>
                   <Toggle enabled={sfxEnabled} onClick={() => persistPrefs({ sfxEnabled: !sfxEnabled })} />
                 </div>
               </div>
-              <div className="rounded-2xl border border-[#494847]/10 bg-[#0e0e0e] p-4">
+              <div className="rounded-2xl border border-[#494847]/10 bg-[#0e0e0e] p-4 min-h-[74px]">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider">{isZh ? zh.danmaku : 'Danmaku'}</span>
                   <Toggle enabled={danmuEnabled} onClick={() => persistPrefs({ danmuEnabled: !danmuEnabled })} />
@@ -410,7 +410,9 @@ export default function SettingsView() {
         </section>
 
         <section className="space-y-3 pb-4">
-          {statusText && <p className="text-center text-[11px] font-bold uppercase tracking-[0.12em] text-[#fcc025]">{statusText}</p>}
+          <p className="min-h-[18px] text-center text-[11px] font-bold uppercase tracking-[0.12em] text-[#fcc025]">
+            {statusText ?? ''}
+          </p>
           <button
             type="button"
             onClick={() => {

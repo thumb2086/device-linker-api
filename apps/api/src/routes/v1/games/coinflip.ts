@@ -98,7 +98,7 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
       // 2. Resolve game using deterministic hash based on roundId
       const resultSide = (hashInt(`coinflip:${roundInfo.roundId}`) % 2 === 0) ? 'heads' : 'tails';
       const isWin = (selection === resultSide);
-      const payout = isWin ? betAmount * 1.8 : 0;
+      const payout = isWin ? betAmount * 2 : 0;
       const payoutStr = payout.toString();
 
       // 3. Execute on-chain settlement
@@ -167,7 +167,7 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
         payout: settlement.finalPayout.toString(),
         fee: settlement.feeAmount.toString(),
         isWin: settlement.isWin,
-        multiplier: 1.8,
+        multiplier: 2,
         betTxHash: settlement.betTxHash,
         payoutTxHash: settlement.payoutTxHash,
         roundId,
@@ -191,7 +191,7 @@ export async function coinflipRoutes(fastify: FastifyInstance) {
           result: settlement.isWin ? "win" : "lose",
           payout: settlement.finalPayout,
           betAmount,
-          multiplier: 1.8,
+          multiplier: 2,
           fee: settlement.feeAmount,
           balance: finalBalance,
           betTxHash: settlement.betTxHash,

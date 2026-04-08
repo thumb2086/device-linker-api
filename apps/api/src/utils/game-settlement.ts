@@ -107,8 +107,10 @@ export class GameSettlementWrapper {
    * Keep the legacy KV balance in sync with the balance source used by game routes.
    */
   async setBalance(address: string, token: "zhixi" | "yjc", balance: string): Promise<void> {
-    const key = this.getBalanceKey(token, address);
+    const normalizedAddress = address.toLowerCase();
+    const key = this.getBalanceKey(token, normalizedAddress);
     await kv.set(key, balance);
+    await this.walletRepo.updateBalance(normalizedAddress, balance, token);
   }
 
   /**

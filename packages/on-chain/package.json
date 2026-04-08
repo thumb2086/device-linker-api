@@ -9,6 +9,7 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@repo/infrastructure": "workspace:*",
     "@repo/shared": "workspace:*",
     "ethers": "^6.15.0"
   },

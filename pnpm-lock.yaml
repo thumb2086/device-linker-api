@@ -208,6 +208,9 @@ importers:
 
   packages/on-chain:
     dependencies:
+      '@repo/infrastructure':
+        specifier: workspace:*
+        version: link:../infrastructure
       '@repo/shared':
         specifier: workspace:*
         version: link:../shared

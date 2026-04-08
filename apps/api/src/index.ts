@@ -12,6 +12,7 @@ import { supportRoutes } from "./routes/v1/support.js";
 import { profileRoutes } from "./routes/v1/profile.js";
 import { announcementRoutes } from "./routes/v1/announcements.js";
 import { transactionRoutes } from "./routes/v1/transactions.js";
+import { dashboardRoutes } from "./routes/v1/dashboard/index.js";
 import { legacyRoutes } from "./routes/legacy/index.js";
 // Phase 3: New routes
 import { leaderboardRoutes } from "./routes/v1/leaderboard.js";
@@ -202,6 +203,7 @@ fastify.register(supportRoutes, { prefix: "/api/v1/support" });
 fastify.register(profileRoutes, { prefix: "/api/v1/profile" });
 fastify.register(announcementRoutes, { prefix: "/api/v1/announcements" });
 fastify.register(transactionRoutes, { prefix: "/api/v1/transactions" });
+fastify.register(dashboardRoutes, { prefix: "/api/v1/dashboard" });
 // Phase 3: New routes
 fastify.register(leaderboardRoutes, { prefix: "/api/v1/leaderboard" });
 fastify.register(vipRoutes, { prefix: "/api/v1/vip" });

@@ -48,7 +48,8 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
       const manager = new LeaderboardManager(db);
 
       if (type === "asset") {
-        const result = await manager.getAssetLeaderboard(selfAddress, limit);
+        const includeMarketAssets = process.env.ASSET_LEADERBOARD_INCLUDE_MARKET === "true";
+        const result = await manager.getAssetLeaderboard(selfAddress, limit, includeMarketAssets);
         return createApiEnvelope({ success: true, data: result }, request.id);
       }
 

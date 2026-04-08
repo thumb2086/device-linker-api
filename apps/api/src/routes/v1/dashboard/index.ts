@@ -39,7 +39,10 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
     schema: { querystring: z.object({ address: z.string().optional() }) },
   }, async (request) => {
     const { address } = request.query as { address?: string };
-    const summary = await dashboard.getSummary(address);
-    return createApiEnvelope({ success: true, data: summary }, request.id);
+    const [summary, reconciliation] = await Promise.all([
+      dashboard.getSummary(address),
+      dashboard.getReconciliationCheckpoint(address),
+    ]);
+    return createApiEnvelope({ success: true, data: { ...summary, reconciliation } }, request.id);
   });
 }

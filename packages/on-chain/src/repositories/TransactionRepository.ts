@@ -6,6 +6,14 @@ const KEY = "onchain:transactions:v1";
 
 export class TransactionRepository {
   async saveTransactionRecord(view: Omit<TransactionView, "id" | "createdAt" | "updatedAt"> & Partial<Pick<TransactionView, "id" | "createdAt" | "updatedAt">>): Promise<TransactionView> {
+    const idempotencyKey = view.extensionMetadata?.idempotencyKey as string | undefined;
+    if (idempotencyKey) {
+      const existing = await this.findByIdempotencyKey(idempotencyKey);
+      if (existing) {
+        return existing;
+      }
+    }
+
     const now = new Date();
     const record: TransactionView = {
       ...view,
@@ -16,7 +24,19 @@ export class TransactionRepository {
 
     await kv.lpush(KEY, record);
     await kv.ltrim(KEY, 0, 4999);
+    console.log("[on-chain][tx-record]", {
+      settlementId: record.settlementId,
+      roundId: record.roundId,
+      txHash: record.txHash,
+      status: record.status,
+      idempotencyKey,
+    });
     return record;
+  }
+
+  private async findByIdempotencyKey(idempotencyKey: string): Promise<TransactionView | null> {
+    const list = await kv.lrange<TransactionView>(KEY, 0, -1);
+    return list.find((item) => item.extensionMetadata?.idempotencyKey === idempotencyKey) || null;
   }
 
   async getTransactionById(id: string): Promise<TransactionView | null> {

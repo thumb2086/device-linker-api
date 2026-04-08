@@ -15,6 +15,7 @@ type DashboardTransaction = {
   status: string;
   txHash?: string;
   gameType?: string;
+  extensionMetadata?: Record<string, any>;
   createdAt: string;
 };
 
@@ -80,7 +81,10 @@ export default function PublicTransactionsView() {
 
   const items = data?.items || [];
   const summary = data?.summary;
-  const registerBonusItems = items.filter((item) => item.type?.toLowerCase() === 'register_bonus').slice(0, 8);
+  const registerBonusItems = items.filter((item) =>
+    item.type?.toLowerCase() === 'register_bonus' ||
+    item.extensionMetadata?.reason === 'register_bonus'
+  ).slice(0, 8);
   const serviceStats = healthData?.stats;
 
   const metric = (value: number | null | undefined, suffix = '%') =>
@@ -217,8 +221,15 @@ export default function PublicTransactionsView() {
             )}
             {registerBonusItems.map((item) => (
               <div key={item.id} className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-3 text-xs text-[#adaaaa]">
-                <div>{item.userAddress}</div>
+                <div className="flex items-center justify-between">
+                  <span>{item.userAddress}</span>
+                  <span className="uppercase text-[#fcc025]">{item.type}</span>
+                </div>
                 <div className="text-[#fcc025]">{item.amount} {item.tokenSymbol || ''}</div>
+                <div className="mt-1">status: {item.status}</div>
+                <div className="truncate">
+                  tx: {item.txHash ? <a className="text-[#fcc025] underline" href={`https://sepolia.etherscan.io/tx/${item.txHash}`} target="_blank" rel="noreferrer">{item.txHash}</a> : '--'}
+                </div>
               </div>
             ))}
           </div>

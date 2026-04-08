@@ -69,6 +69,9 @@ export class SettlementServiceImpl implements OnChainSettlementService {
         txHash: result.txHash,
         chainId: result.chainId,
         treasuryAddress: this.config.treasuryAddress,
+        extensionMetadata: {
+          idempotencyKey: `admin-transfer:${params.from}:${params.to}:${params.amount}:${params.tokenAddress}`,
+        },
       });
       return result;
     } catch (error: any) {
@@ -80,6 +83,9 @@ export class SettlementServiceImpl implements OnChainSettlementService {
         status: "failed",
         error: error?.message || "admin transfer failed",
         treasuryAddress: this.config.treasuryAddress,
+        extensionMetadata: {
+          idempotencyKey: `admin-transfer:${params.from}:${params.to}:${params.amount}:${params.tokenAddress}`,
+        },
       });
       throw error;
     }

@@ -29,6 +29,9 @@ export class BetPayoutService {
         chainId: result.chainId,
         gameType: params.gameType,
         treasuryAddress: this.treasuryAddress,
+        extensionMetadata: {
+          idempotencyKey: `${params.settlementId || 'na'}:bet:${params.roundId || ''}:${params.amount}`,
+        },
       });
       return result;
     } catch (error: any) {
@@ -43,6 +46,9 @@ export class BetPayoutService {
         error: error?.message || "bet transfer failed",
         gameType: params.gameType,
         treasuryAddress: this.treasuryAddress,
+        extensionMetadata: {
+          idempotencyKey: `${params.settlementId || 'na'}:bet:${params.roundId || ''}:${params.amount}`,
+        },
       });
       throw error;
     }
@@ -68,6 +74,9 @@ export class BetPayoutService {
         chainId: result.chainId,
         gameType: params.gameType,
         treasuryAddress: this.treasuryAddress,
+        extensionMetadata: {
+          idempotencyKey: `${params.settlementId || 'na'}:payout:${params.roundId || ''}:${params.amount}`,
+        },
       });
       return result;
     } catch (error: any) {
@@ -82,6 +91,9 @@ export class BetPayoutService {
         error: error?.message || "payout transfer failed",
         gameType: params.gameType,
         treasuryAddress: this.treasuryAddress,
+        extensionMetadata: {
+          idempotencyKey: `${params.settlementId || 'na'}:payout:${params.roundId || ''}:${params.amount}`,
+        },
       });
       throw error;
     }

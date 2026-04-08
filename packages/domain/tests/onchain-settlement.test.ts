@@ -11,6 +11,31 @@ import {
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const ADDRESS = '0x1111111111111111111111111111111111111111';
+const TREASURY = '0x2222222222222222222222222222222222222222';
+
+const mockState = vi.hoisted(() => ({
+  nextTx: 1,
+  payoutFails: false,
+}));
+
+vi.mock('@repo/on-chain', () => ({
+  getOnChainConfig: () => ({ treasuryAddress: TREASURY }),
+  ViemRepository: class {},
+  VipBetLevelService: class {
+    constructor(private readonly baseFeeRate: number) {}
+    calculateFee(betAmount: string, discountRate: number = 0) {
+      return parseFloat(betAmount) * this.baseFeeRate * (1 - discountRate);
+    }
+  },
+  SettlementServiceImpl: class {
+    async adminTransfer(params: { to: string }) {
+      if (mockState.payoutFails && params.to.toLowerCase() === ADDRESS.toLowerCase()) {
+        throw new Error('mock payout failed');
+      }
+      return { txHash: `0xmock${mockState.nextTx++}` };
+    }
+  },
+}));
 
 type RuntimeMode = {
   payoutFails?: boolean;
@@ -53,8 +78,17 @@ class MockChainClient {
     return 18;
   }
 
+  async getBalance() {
+    return 999999999999999999999999n;
+  }
+
   parseUnits(amount: string) {
-    return amount;
+    const normalized = amount.includes('.') ? amount.split('.')[0] : amount;
+    return BigInt(normalized || '0');
+  }
+
+  async mint() {
+    return { hash: '0xmint1' };
   }
 
   async adminTransfer() {
@@ -89,12 +123,16 @@ describe('Onchain settlement', () => {
   });
 
   it('confirms bet intents immediately for settled losing rounds', async () => {
+    mockState.payoutFails = false;
     const walletManager = new WalletManager();
     const settlementManager = new SettlementManager(walletManager);
     const onchainWallet = new OnchainWalletManager();
     const walletRepo = new MemoryWalletRepo();
     const chainClient = new MockChainClient();
-    const vipManager = { hasVip2: vi.fn().mockResolvedValue(false) };
+    const vipManager = {
+      hasVip2: vi.fn().mockResolvedValue(false),
+      getBetLevelFeeDiscount: vi.fn().mockResolvedValue(0),
+    };
 
     vi.spyOn(onchainWallet, 'getRuntimeConfig').mockReturnValue({
       rpcUrl: 'http://localhost:8545',
@@ -137,7 +175,7 @@ describe('Onchain settlement', () => {
       requestId: 'req-lose',
     });
 
-    expect(result.betTxHash).toBe('0xbet1');
+    expect(result.betTxHash).toBe('0xmock1');
     expect(result.payoutTxHash).toBeUndefined();
     expect(await walletRepo.getPendingIntents()).toHaveLength(0);
 
@@ -148,12 +186,16 @@ describe('Onchain settlement', () => {
   });
 
   it('marks payout intent failed while preserving confirmed bet intent', async () => {
+    mockState.payoutFails = true;
     const walletManager = new WalletManager();
     const settlementManager = new SettlementManager(walletManager);
     const onchainWallet = new OnchainWalletManager();
     const walletRepo = new MemoryWalletRepo();
     const chainClient = new MockChainClient({ payoutFails: true });
-    const vipManager = { hasVip2: vi.fn().mockResolvedValue(false) };
+    const vipManager = {
+      hasVip2: vi.fn().mockResolvedValue(false),
+      getBetLevelFeeDiscount: vi.fn().mockResolvedValue(0),
+    };
 
     vi.spyOn(onchainWallet, 'getRuntimeConfig').mockReturnValue({
       rpcUrl: 'http://localhost:8545',

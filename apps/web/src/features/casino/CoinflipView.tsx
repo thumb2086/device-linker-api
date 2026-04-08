@@ -182,16 +182,16 @@ export const CoinflipView: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-stretch">
           <input
             type="number"
             value={betAmount}
             onChange={(e) => setBetAmount(e.target.value)}
             disabled={isDrawing || !isBettingOpen}
-            className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-lg text-white"
+            className="min-w-0 rounded-lg border border-slate-700 bg-slate-800 p-4 text-white"
           />
           <button
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 rounded-lg font-bold disabled:opacity-50"
+            className="min-h-[56px] rounded-lg bg-purple-600 px-4 font-bold text-white hover:bg-purple-700 disabled:opacity-50 sm:min-w-[96px]"
             onClick={handleAllIn}
             disabled={isDrawing || !isBettingOpen}
             title="全部下注"
@@ -200,7 +200,7 @@ export const CoinflipView: React.FC = () => {
           </button>
           <button
             ref={buttonRef}
-            className="btn-play px-8"
+            className="btn-play min-h-[56px] px-8 sm:min-w-[132px]"
             onClick={() => betMutation.mutate()}
             disabled={isDrawing || !isBettingOpen || betMutation.isPending}
           >

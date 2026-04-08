@@ -122,8 +122,16 @@ export class LeaderboardManager {
           )
           .limit(1);
 
-        if (selfRow.length > 0) {
-          const selfAmount = Number(selfRow[0].amount ?? 0);
+        const userRow = await this.db
+          .select({ displayName: schema.users.displayName })
+          .from(schema.users)
+          .where(eq(schema.users.address, addr))
+          .limit(1);
+
+        // Even if user has no total_bets row yet, still return a self rank row with amount=0
+        // so Device Linker app users can always see themselves on leaderboard.
+        if (userRow.length > 0) {
+          const selfAmount = Number(selfRow[0]?.amount ?? 0);
 
           const rankResult = await this.db
             .select({ cnt: sql<number>`count(*)` })
@@ -137,12 +145,6 @@ export class LeaderboardManager {
             );
 
           const rank = Number(rankResult[0]?.cnt ?? 0) + 1;
-          const userRow = await this.db
-            .select({ displayName: schema.users.displayName })
-            .from(schema.users)
-            .where(eq(schema.users.address, addr))
-            .limit(1);
-
           selfRank = {
             rank,
             address: addr,

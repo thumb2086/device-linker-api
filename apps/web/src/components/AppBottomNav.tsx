@@ -26,12 +26,12 @@ export default function AppBottomNav({ current }: { current: NavKey }) {
             <Link
               key={item.key}
               to={item.to}
-              className={`flex flex-col items-center justify-center transition-all ${
+              className={`flex min-w-0 flex-1 flex-col items-center justify-center px-1 transition-all ${
                 active ? 'text-[#fcc025] drop-shadow-[0_0_8px_rgba(252,192,37,0.4)]' : 'text-[#adaaaa] hover:text-white'
               }`}
             >
               <Icon size={24} className="mb-1" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{item.label}</span>
+              <span className="w-full truncate text-center text-[10px] font-bold uppercase tracking-[0.06em]">{item.label}</span>
             </Link>
           );
         })}

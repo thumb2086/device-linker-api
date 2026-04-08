@@ -173,16 +173,23 @@ export class LeaderboardManager {
   ): Promise<LeaderboardResult> {
     const YJC_TO_ZXC_RATE = 100_000_000; // 1 YJC = 100 million ZXC
 
-    // Start from all user addresses so app users appear even before wallet rows are created.
+    // Start from all known addresses so app users appear even before full profile rows are created.
     const allUsers = await this.db
       .select({ address: schema.users.address })
       .from(schema.users);
+    const sessionRows = await this.db
+      .select({ address: schema.sessions.address })
+      .from(schema.sessions)
+      .where(sql`${schema.sessions.address} IS NOT NULL`);
+    const walletRows = await this.db
+      .select({ address: schema.walletAccounts.address })
+      .from(schema.walletAccounts);
 
     // Aggregate balances by address
     const balanceMap = new Map<string, { zhixi: number; yjc: number; total: number }>();
-    for (const user of allUsers) {
-      balanceMap.set(user.address.toLowerCase(), { zhixi: 0, yjc: 0, total: 0 });
-    }
+    for (const user of allUsers) balanceMap.set(user.address.toLowerCase(), { zhixi: 0, yjc: 0, total: 0 });
+    for (const row of sessionRows) if (row.address) balanceMap.set(row.address.toLowerCase(), { zhixi: 0, yjc: 0, total: 0 });
+    for (const row of walletRows) balanceMap.set(row.address.toLowerCase(), { zhixi: 0, yjc: 0, total: 0 });
 
     // Query all balances (zhixi + yjc) for each address
     const allBalances = await this.db

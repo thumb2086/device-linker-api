@@ -550,7 +550,36 @@ export class SessionRepository implements ISessionRepository {
   }
   async getSessionById(id: string) {
     const conn = await requireDb();
-    return await conn.query.sessions.findFirst({ where: (sessions: any, { eq }: any) => eq(sessions.id, id) });
+    const session = await conn.query.sessions.findFirst({ where: (sessions: any, { eq }: any) => eq(sessions.id, id) });
+    if (!session) return null;
+
+    // Backfill non-custody/live authorized sessions that have address but no bound user yet.
+    if (session.status === "authorized" && session.address && !session.userId) {
+      const normalizedAddress = session.address.toLowerCase();
+      let user = await conn.query.users.findFirst({
+        where: (users: any, { eq }: any) => eq(users.address, normalizedAddress)
+      });
+
+      if (!user) {
+        const userId = randomUUID();
+        await conn.insert(schema.users).values({
+          id: userId,
+          address: normalizedAddress,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        user = { id: userId };
+      }
+
+      await conn
+        .update(schema.sessions)
+        .set({ userId: user.id, address: normalizedAddress })
+        .where(eq(schema.sessions.id, id));
+
+      return { ...session, userId: user.id, address: normalizedAddress };
+    }
+
+    return session;
   }
 }
 

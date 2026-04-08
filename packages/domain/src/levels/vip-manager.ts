@@ -214,6 +214,14 @@ export class VipManager {
 
   async getBetLevelFeeDiscount(address: string): Promise<number> {
     const level = await this.getBetLevel(address);
-    return level.marketFeeDiscount ?? 0.0;
+
+    // Game fee policy (統一版本):
+    // fee = betAmount × 2% × (1 - levelDiscountRate)
+    // 普通 0%、白銀 10%、黃金 20%、鑽石 50%、創世以上 100%
+    if (level.threshold >= 100_000_000_000) return 1.0; // 創世等級以上
+    if (level.threshold >= 50_000_000) return 0.5; // 鑽石等級
+    if (level.threshold >= 1_000_000) return 0.2; // 黃金會員
+    if (level.threshold >= 100_000) return 0.1; // 白銀會員
+    return 0.0; // 普通/青銅
   }
 }

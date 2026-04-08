@@ -41,6 +41,9 @@ importers:
       '@repo/infrastructure':
         specifier: workspace:*
         version: link:../../packages/infrastructure
+      '@repo/on-chain':
+        specifier: workspace:*
+        version: link:../../packages/on-chain
       '@repo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -145,6 +148,9 @@ importers:
       '@repo/infrastructure':
         specifier: workspace:*
         version: link:../../packages/infrastructure
+      '@repo/on-chain':
+        specifier: workspace:*
+        version: link:../../packages/on-chain
       '@repo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -158,6 +164,9 @@ importers:
       '@repo/infrastructure':
         specifier: workspace:*
         version: link:../infrastructure
+      '@repo/on-chain':
+        specifier: workspace:*
+        version: link:../on-chain
       '@repo/shared':
         specifier: workspace:*
         version: link:../shared

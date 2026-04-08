@@ -21,6 +21,7 @@ import {
   ChainClient,
   kv,
 } from "@repo/infrastructure";
+import { getOnChainConfig } from "@repo/on-chain";
 import type { Game, TokenSymbol } from "@repo/shared";
 import type { TxIntent } from "@repo/shared";
 
@@ -49,7 +50,7 @@ export interface SettlementResult {
 }
 
 export class GameSettlementWrapper {
-  private readonly FIXED_TREASURY_ADDRESS = "0x0C10F32a118995dA367a17802AB8018C1B656725".toLowerCase();
+  private readonly FIXED_TREASURY_ADDRESS = getOnChainConfig().treasuryAddress;
   private walletManager: WalletManager;
   private settlementManager: SettlementManager;
   private onchainWallet: OnchainWalletManager;

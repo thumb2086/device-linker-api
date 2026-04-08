@@ -64,7 +64,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
           const lastSyncAt = Number(await kv.get<number>(ASSET_LB_SYNC_KEY) || 0);
           const syncEveryRead = String(process.env.ASSET_LEADERBOARD_SYNC_EVERY_READ ?? "true").toLowerCase() !== "false";
           const shouldSync = sync === "force"
-            || (syncEveryRead && sync !== "off")
+            || syncEveryRead
             || (!syncEveryRead && (now - lastSyncAt >= ASSET_LB_SYNC_INTERVAL_MS));
 
           if (shouldSync) {

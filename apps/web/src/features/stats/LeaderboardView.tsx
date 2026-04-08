@@ -63,6 +63,7 @@ export default function LeaderboardView() {
 
   const currentType: LeaderboardType = useMemo(() => {
     if (category === 'asset') return 'asset';
+    if (category === 'winnings') return 'winnings';
     return FILTER_MAP[filter];
   }, [category, filter]);
 
@@ -74,7 +75,11 @@ export default function LeaderboardView() {
     { id: 'asset' as LeaderboardCategory, icon: Wallet, label: t('leaderboard.tabs.asset') },
   ];
 
-  const metricLabel = category === 'asset' ? t('leaderboard.tabs.asset') : t('leaderboard.tabs.betting');
+  const metricLabel = category === 'asset'
+    ? t('leaderboard.tabs.asset')
+    : category === 'winnings'
+      ? t('leaderboard.tabs.winnings')
+      : t('leaderboard.tabs.betting');
 
   const { topThree, otherPlayers, selfEntry } = useMemo(() => {
     const entries = data?.entries ?? [];
@@ -108,7 +113,7 @@ export default function LeaderboardView() {
     return [topThree[1], topThree[0], topThree[2]].filter(Boolean);
   }, [topThree]);
 
-  const showTimeRemaining = category !== 'asset' && currentType !== 'all';
+  const showTimeRemaining = category !== 'asset' && category !== 'winnings' && currentType !== 'all';
   const timeRemaining = useMemo(() => getTimeRemaining(currentType), [currentType]);
 
   return (

@@ -36,7 +36,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
   typedFastify.get("/", {
     schema: {
       querystring: z.object({
-        type: z.enum(["all", "week", "month", "season", "asset"]).default("all"),
+        type: z.enum(["all", "week", "month", "season", "asset", "winnings"]).default("all"),
         limit: z.coerce.number().min(1).max(100).default(50),
         periodId: z.string().optional(),
         sync: z.enum(["auto", "force", "off"]).default("auto"),
@@ -45,7 +45,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
     },
   }, async (request) => {
     const { type, limit, periodId, sync } = request.query as {
-      type: "all" | "week" | "month" | "season" | "asset";
+      type: "all" | "week" | "month" | "season" | "asset" | "winnings";
       limit: number;
       periodId?: string;
       sync: "auto" | "force" | "off";
@@ -109,6 +109,30 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
 
         const includeMarketAssets = process.env.ASSET_LEADERBOARD_INCLUDE_MARKET === "true";
         const result = await manager.getAssetLeaderboard(selfAddress, limit, includeMarketAssets);
+        return createApiEnvelope({ success: true, data: result }, request.id);
+      }
+
+      if (type === "winnings") {
+        const includeMarketAssets = process.env.ASSET_LEADERBOARD_INCLUDE_MARKET === "true";
+        const baseAsset = Number(process.env.LEADERBOARD_WINNINGS_BASELINE_ZXC ?? "100000");
+        const assetResult = await manager.getAssetLeaderboard(selfAddress, limit, includeMarketAssets);
+        const result = {
+          ...assetResult,
+          type: "winnings" as const,
+          periodId: "winnings",
+          entries: assetResult.entries.map((entry) => ({
+            ...entry,
+            amount: Number(entry.amount || 0) - baseAsset,
+            balance: Number(entry.balance || entry.amount || 0) - baseAsset,
+          })),
+          selfRank: assetResult.selfRank
+            ? {
+                ...assetResult.selfRank,
+                amount: Number(assetResult.selfRank.amount || 0) - baseAsset,
+                balance: Number(assetResult.selfRank.balance || assetResult.selfRank.amount || 0) - baseAsset,
+              }
+            : null,
+        };
         return createApiEnvelope({ success: true, data: result }, request.id);
       }
 

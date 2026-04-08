@@ -10,7 +10,7 @@ export const SicboView: React.FC = () => {
   const [betAmount, setBetAmount] = useState('10');
   const [selectedBet, setSelectedBet] = useState<'big' | 'small'>('big');
   const [result, setResult] = useState<any>(null);
-  const [status, setStatus] = useState('? ?之撠?暺蝮賢?嚗?');
+  const [status, setStatus] = useState('🎲 請選擇大小並下注');
   const [statusColor, setStatusColor] = useState('#ffd36a');
 
   const betMutation = useMutation({
@@ -36,12 +36,12 @@ export const SicboView: React.FC = () => {
     },
     onSuccess: (data) => {
       setResult(data);
-      setStatus(`?? 蝮賢? ${data.total} (${data.isBig ? '憭?' : '撠?'})`);
+      setStatus(`🎯 開獎總點 ${data.total}（${data.isBig ? '大' : '小'}）`);
       setStatusColor(data.result === 'win' ? '#00ff88' : '#ff4d4d');
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
     onError: (err: Error) => {
-      setStatus(`???航炊: ${err.message}`);
+      setStatus(`❌ 下注失敗：${err.message}`);
       setStatusColor('#ff4d4d');
     },
   });
@@ -56,11 +56,11 @@ export const SicboView: React.FC = () => {
 
       <div className="sicbo-betting-grid">
         <div className={`bet-option ${selectedBet === 'small' ? 'active' : ''}`} onClick={() => setSelectedBet('small')}>
-          <span className="bet-label">撠?(4-10)</span>
+          <span className="bet-label">小 (4-10)</span>
           <span className="bet-odds">x2.0</span>
         </div>
         <div className={`bet-option ${selectedBet === 'big' ? 'active' : ''}`} onClick={() => setSelectedBet('big')}>
-          <span className="bet-label">憭?(11-17)</span>
+          <span className="bet-label">大 (11-17)</span>
           <span className="bet-odds">x2.0</span>
         </div>
       </div>
@@ -77,7 +77,7 @@ export const SicboView: React.FC = () => {
           onClick={() => betMutation.mutate()}
           disabled={betMutation.isPending}
         >
-          {betMutation.isPending ? '??銝?..' : '蝣箄?銝釣'}
+          {betMutation.isPending ? '下注中…' : '立即下注'}
         </button>
       </div>
 

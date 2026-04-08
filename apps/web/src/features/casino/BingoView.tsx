@@ -9,7 +9,7 @@ export const BingoView: React.FC = () => {
   const { session } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
-  const [status, setStatus] = useState('? 隢??8 ??蝣潘?1-75嚗敺?憪?瘜剁?');
+  const [status, setStatus] = useState('📋 請從 1~75 中選 8 個號碼');
   const [statusColor, setStatusColor] = useState('#ffd36a');
   const [result, setResult] = useState<any>(null);
 
@@ -50,12 +50,12 @@ export const BingoView: React.FC = () => {
     },
     onSuccess: (data) => {
       setResult(data);
-      setStatus(`?? ?剖?嚗?敺?${data.payout}`);
+      setStatus(`🎉 本局結算：派彩 ${data.payout}`);
       setStatusColor(data.result === 'win' ? '#00ff88' : '#ff4d4d');
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
     onError: (err: Error) => {
-      setStatus(`???航炊: ${err.message}`);
+      setStatus(`❌ 下注失敗：${err.message}`);
       setStatusColor('#ff4d4d');
     },
   });
@@ -81,8 +81,8 @@ export const BingoView: React.FC = () => {
       </div>
 
       <div className="bingo-controls">
-        <button className="bg-slate-700 px-4 py-2 rounded" onClick={randomPick}>?冽??貉?</button>
-        <button className="bg-slate-700 px-4 py-2 rounded" onClick={() => setSelectedNumbers([])}>?身</button>
+        <button className="bg-slate-700 px-4 py-2 rounded" onClick={randomPick}>隨機選號</button>
+        <button className="bg-slate-700 px-4 py-2 rounded" onClick={() => setSelectedNumbers([])}>清空已選</button>
         <input
           type="number"
           value={betAmount}
@@ -94,7 +94,7 @@ export const BingoView: React.FC = () => {
           onClick={() => betMutation.mutate()}
           disabled={selectedNumbers.length === 0 || betMutation.isPending}
         >
-          {betMutation.isPending ? '??銝?..' : '蝣箄?銝釣'}
+          {betMutation.isPending ? '下注中…' : '立即下注'}
         </button>
       </div>
 
@@ -102,7 +102,7 @@ export const BingoView: React.FC = () => {
         {status}
         {result && (
           <div className="mt-2 text-sm text-slate-300">
-            matches: {(result.matches || []).join(', ') || 'none'}
+            命中號碼： {(result.matches || []).join(', ') || 'none'}
           </div>
         )}
       </div>

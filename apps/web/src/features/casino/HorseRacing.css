@@ -192,3 +192,9 @@
         grid-template-columns: 1fr 1fr;
     }
 }
+
+
+@media (max-width: 640px) {
+  .betting-controls { flex-direction: column; }
+  .btn-bet { width: 100%; }
+}

@@ -8,16 +8,16 @@ const EUROPEAN_LAYOUT = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11,
 
 const BET_OPTIONS = {
   color: [
-    { value: 'red', label: '蝝' },
-    { value: 'black', label: '暺' },
+    { value: 'red', label: '紅' },
+    { value: 'black', label: '黑' },
   ],
   parity: [
-    { value: 'odd', label: '?格' },
-    { value: 'even', label: '?' },
+    { value: 'odd', label: '單' },
+    { value: 'even', label: '雙' },
   ],
   range: [
-    { value: 'low', label: '撠?1-18' },
-    { value: 'high', label: '憭?19-36' },
+    { value: 'low', label: '小 (1-18)' },
+    { value: 'high', label: '大 (19-36)' },
   ],
   dozen: [
     { value: '1', label: '1-12' },
@@ -113,7 +113,7 @@ export function RouletteView() {
 
   return (
     <div className="roulette-container space-y-6">
-      <h2 className="text-2xl font-bold">ROULETTE</h2>
+      <h2 className="text-2xl font-bold">輪盤</h2>
 
       <div className="roulette-stage">
         <div className="wheel-container">
@@ -133,7 +133,7 @@ export function RouletteView() {
         <div className="bet-controls bg-white p-6 rounded-lg shadow border space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-bold">Bet Type</label>
+              <label className="text-sm font-bold">下注類型</label>
               <select
                 className="w-full border p-2 rounded"
                 value={betType}
@@ -144,15 +144,15 @@ export function RouletteView() {
                   else setBetValue(BET_OPTIONS[nextType][0].value);
                 }}
               >
-                <option value="color">Color</option>
-                <option value="parity">Parity</option>
-                <option value="range">Range</option>
-                <option value="dozen">Dozen</option>
-                <option value="number">Number</option>
+                <option value="color">顏色</option>
+                <option value="parity">單雙</option>
+                <option value="range">大小區間</option>
+                <option value="dozen">12區段</option>
+                <option value="number">指定號碼</option>
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold">Selection</label>
+              <label className="text-sm font-bold">選項</label>
               <select
                 className="w-full border p-2 rounded"
                 value={betValue}
@@ -185,7 +185,7 @@ export function RouletteView() {
               onClick={() => betMutation.mutate()}
               disabled={betMutation.isPending || isSpinning}
             >
-              SPIN
+              旋轉開獎
             </button>
           </div>
         </div>

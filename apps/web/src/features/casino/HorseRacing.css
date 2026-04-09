@@ -69,11 +69,10 @@
 
 .horse-avatar {
     position: absolute;
-    left: 60px;
+    left: 16px;
     font-size: 2rem;
-    transition: left 0.2s linear;
+    transition: transform 0.2s linear;
     z-index: 2;
-    transform: scaleX(-1);
 }
 
 .horse-avatar.running {
@@ -85,8 +84,8 @@
 }
 
 @keyframes horse-bob {
-    from { transform: translateY(-2px) scaleX(-1); }
-    to { transform: translateY(2px) scaleX(-1); }
+    from { transform: translateY(-2px); }
+    to { transform: translateY(2px); }
 }
 
 .race-hud {

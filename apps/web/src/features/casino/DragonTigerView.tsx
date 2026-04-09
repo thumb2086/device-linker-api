@@ -57,8 +57,8 @@ export const DragonTigerView: React.FC = () => {
     </div>
   );
 
-  const handleOpenGate = async () => {
-    if (!session) return;
+  const handleOpenGate = async (): Promise<OpenGateData | null> => {
+    if (!session) return null;
 
     try {
       setError("");
@@ -67,16 +67,21 @@ export const DragonTigerView: React.FC = () => {
       const res = await api.post("/api/v1/games/shoot-dragon-gate/open", {
         sessionId: session.id
       });
-      setOpenGate(unwrapGameEnvelope<OpenGateData>(res.data));
+      const opened = unwrapGameEnvelope<OpenGateData>(res.data);
+      setOpenGate(opened);
+      return opened;
     } catch (e: any) {
       setError(extractGameError(e?.response?.data || e));
+      return null;
     } finally {
       setIsOpening(false);
     }
   };
 
-  const handlePlay = async () => {
-    if (!session || !openGate) return;
+  const handlePlay = async (gateFromOpen?: OpenGateData) => {
+    if (!session) return;
+    const gate = gateFromOpen || openGate;
+    if (!gate) return;
 
     try {
       setError("");
@@ -84,7 +89,7 @@ export const DragonTigerView: React.FC = () => {
       const res = await api.post("/api/v1/games/shoot-dragon-gate/play", {
         sessionId: session.id,
         betAmount: Number(betAmount),
-        gateId: openGate.gateId,
+        gateId: gate.gateId,
         token: "zhixi",
       });
       setResult(unwrapGameEnvelope<DragonResult>(res.data));
@@ -93,6 +98,14 @@ export const DragonTigerView: React.FC = () => {
       setError(extractGameError(e?.response?.data || e));
     } finally {
       setIsPlaying(false);
+    }
+  };
+
+  const handleOneClickPlay = async () => {
+    if (!session || isOpening || isPlaying) return;
+    const opened = await handleOpenGate();
+    if (opened) {
+      await handlePlay(opened);
     }
   };
 
@@ -129,16 +142,13 @@ export const DragonTigerView: React.FC = () => {
           disabled={isPlaying}
           placeholder="下注金額"
         />
-        <button className="gate-btn" onClick={handleOpenGate} disabled={isOpening || isPlaying}>
-          {isOpening ? "開門中..." : "1. 先開門"}
-        </button>
-        <button className="gate-btn" onClick={handlePlay} disabled={!openGate || isPlaying || isOpening}>
-          {isPlaying ? "結算中..." : "2. 決定下注並開射"}
+        <button className="gate-btn" onClick={handleOneClickPlay} disabled={isOpening || isPlaying}>
+          {isOpening ? "開門中..." : isPlaying ? "結算中..." : "開門並開射"}
         </button>
       </div>
 
       {!openGate && !result && !error && (
-        <div className="text-center text-sm text-gray-300">先開門看兩張門牌，再決定是否下注。</div>
+        <div className="text-center text-sm text-gray-300">按下按鈕即可完成本局射龍門。</div>
       )}
 
       {error && <div className="result-banner lose"><h2>{error}</h2></div>}

@@ -13,6 +13,7 @@ export const CrashView: React.FC = () => {
   const [lastResult, setLastResult] = useState<any>(null);
   const [error, setError] = useState<string>("");
   const [targetCrashPoint, setTargetCrashPoint] = useState<number | null>(null);
+  const [roundId, setRoundId] = useState<string | null>(null);
 
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -30,13 +31,16 @@ export const CrashView: React.FC = () => {
         betAmount: Number(betAmount),
         elapsedSeconds,
         cashout,
+        roundId: roundId || undefined,
       });
 
       const payload = unwrapGameEnvelope<any>(res.data);
       setLastResult(payload);
+      if (payload.roundId) setRoundId(payload.roundId);
       setCrashPoint(payload.crashPoint || shownMultiplier);
       setMultiplier(payload.crashPoint || shownMultiplier);
       setStatus(payload.crashed ? "crashed" : "cashed_out");
+      setRoundId(null);
     } catch (e: any) {
       setError(extractGameError(e?.response?.data || e));
       setStatus("idle");
@@ -50,10 +54,27 @@ export const CrashView: React.FC = () => {
     setError("");
     setLastResult(null);
     setCrashPoint(0);
+    setRoundId(null);
     setStatus("running");
     setMultiplier(1.0);
     startTimeRef.current = Date.now();
-    const nextCrash = Number((1.05 + Math.random() * 3.5).toFixed(2));
+
+    let nextCrash = 1.5;
+    try {
+      const startRes = await api.post("/api/v1/games/crash/play", {
+        sessionId: session.id,
+        betAmount: Number(betAmount),
+        elapsedSeconds: 0,
+        cashout: false,
+      });
+      const startPayload = unwrapGameEnvelope<any>(startRes.data);
+      nextCrash = Number(startPayload?.crashPoint || 1.5);
+      setRoundId(startPayload?.roundId || null);
+    } catch (e: any) {
+      setError(extractGameError(e?.response?.data || e));
+      setStatus("idle");
+      return;
+    }
     setTargetCrashPoint(nextCrash);
 
     timerRef.current = window.setInterval(() => {
@@ -81,7 +102,8 @@ export const CrashView: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+    if (timerRef.current) clearInterval(timerRef.current);
+    setRoundId(null);
     };
   }, []);
 

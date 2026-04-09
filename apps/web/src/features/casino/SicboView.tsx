@@ -15,24 +15,10 @@ export const SicboView: React.FC = () => {
   const [status, setStatus] = useState('🎲 請選擇大小並下注');
   const [statusColor, setStatusColor] = useState('#ffd36a');
   const [dicePreview, setDicePreview] = useState([1, 1, 1]);
-  const [now, setNow] = useState(Date.now());
-
-  const ROUND_MS = 20000;
-  const LOCK_MS = 4000;
-  const currentRoundId = Math.floor(now / ROUND_MS);
-  const closesAt = (currentRoundId + 1) * ROUND_MS;
-  const isBettingOpen = now < closesAt - LOCK_MS;
-  const secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   const betMutation = useMutation({
     mutationFn: async () => {
       if (!session) throw new Error('未登入');
-      if (!isBettingOpen) throw new Error('封盤中，請等下一局');
 
       const res = await fetch('/api/v1/games/sicbo/play', {
         method: 'POST',
@@ -78,12 +64,6 @@ export const SicboView: React.FC = () => {
 
   return (
     <div className="sicbo-container">
-      <div className="text-center text-sm">
-        <div className="text-slate-300">第 {currentRoundId} 局</div>
-        <div className={isBettingOpen ? 'text-yellow-500' : 'text-red-500'}>
-          {isBettingOpen ? `封盤倒數 ${secLeft} 秒` : `開獎中 ${secLeft} 秒`}
-        </div>
-      </div>
       <div className="dice-area">
         {(betMutation.isPending ? dicePreview : result?.dice || dicePreview).map((d: number, i: number) => (
           <div key={i} className="die">{d}</div>
@@ -107,15 +87,15 @@ export const SicboView: React.FC = () => {
           value={betAmount}
           onChange={(e) => setBetAmount(e.target.value)}
           className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-lg text-white font-mono"
-          disabled={betMutation.isPending || !isBettingOpen}
+          disabled={betMutation.isPending}
         />
-        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending || !isBettingOpen} />
+        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending} />
         <button
           className="bg-yellow-500 text-black font-bold px-12 rounded-lg hover:bg-yellow-400 disabled:opacity-50"
           onClick={() => betMutation.mutate()}
-          disabled={betMutation.isPending || !isBettingOpen}
+          disabled={betMutation.isPending}
         >
-          {betMutation.isPending ? '搖骰中…' : isBettingOpen ? '立即下注' : '封盤中'}
+          {betMutation.isPending ? '搖骰中…' : '立即下注'}
         </button>
       </div>
 

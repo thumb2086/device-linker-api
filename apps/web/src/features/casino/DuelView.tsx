@@ -42,6 +42,9 @@ export const DuelView: React.FC = () => {
 
   return (
     <div className="duel-container">
+      <div className="mb-6 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-center text-yellow-300">
+        PVP 真人配對開發中（玩法待定）
+      </div>
       <div className="duel-stage">
         <div className="player-card active">
           <div className="text-sm text-slate-500 mb-2">你</div>
@@ -75,10 +78,10 @@ export const DuelView: React.FC = () => {
 
       <button
         className="w-full bg-yellow-500 text-black font-bold py-4 rounded-xl text-lg hover:bg-yellow-400 disabled:opacity-50"
-        onClick={() => duelMutation.mutate()}
-        disabled={duelMutation.isPending}
+        onClick={() => {}}
+        disabled
       >
-        {duelMutation.isPending ? '配對中...' : '發起對決'}
+        開發中
       </button>
 
       {duelMutation.error && (

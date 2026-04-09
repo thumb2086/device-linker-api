@@ -241,7 +241,7 @@ export default function SettingsView() {
       <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 pt-24">
         <section className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
+            <div className="flex min-w-0 items-start gap-4">
               <div className="rounded-2xl bg-[#262626] p-3">
                 <User className="text-[#fcc025]" />
               </div>
@@ -287,6 +287,14 @@ export default function SettingsView() {
                     <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.18em] text-[#adaaaa]">
                       {address || (isZh ? zh.noAddress : 'NO ADDRESS')}
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingName(true)}
+                      className="mt-3 inline-flex items-center gap-2 rounded-xl border border-[#fcc025]/40 bg-[#262626] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[#fcc025] hover:bg-[#313131]"
+                    >
+                      <Edit2 size={12} />
+                      {isZh ? '修改名稱' : 'Edit Name'}
+                    </button>
                   </>
                 )}
               </div>
@@ -295,7 +303,7 @@ export default function SettingsView() {
               <button
                 type="button"
                 onClick={() => setIsEditingName(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#262626] text-[#fcc025]"
+                className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#262626] text-[#fcc025] sm:flex"
               >
                 <Edit2 size={16} />
               </button>

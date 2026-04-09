@@ -35,6 +35,14 @@ function cleanupExpiredGates(now = Date.now()) {
   }
 }
 
+function clearUserPendingGates(userId: string) {
+  for (const [gateId, gate] of pendingGates.entries()) {
+    if (gate.userId === userId) {
+      pendingGates.delete(gateId);
+    }
+  }
+}
+
 export async function shootDragonGateRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
 
@@ -82,6 +90,7 @@ export async function shootDragonGateRoutes(fastify: FastifyInstance) {
     const multiplier = diff === 0 ? 0 : Number((12 / diff).toFixed(2));
     const gateId = `gate_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
+    clearUserPendingGates(ctx.user.id);
     pendingGates.set(gateId, {
       userId: ctx.user.id,
       left,
@@ -109,7 +118,7 @@ export async function shootDragonGateRoutes(fastify: FastifyInstance) {
       body: z.object({
         sessionId: z.string(),
         betAmount: z.number().min(1).max(1_000_000),
-        gateId: z.string().optional(),
+        gateId: z.string().min(1),
         token: z.enum(["zhixi", "yjc"]).optional().default("zhixi"),
       }),
     },
@@ -117,7 +126,7 @@ export async function shootDragonGateRoutes(fastify: FastifyInstance) {
     const { betAmount, token, gateId } = request.body as {
       sessionId: string;
       betAmount: number;
-      gateId?: string;
+      gateId: string;
       token: "zhixi" | "yjc";
     };
 
@@ -144,20 +153,17 @@ export async function shootDragonGateRoutes(fastify: FastifyInstance) {
     }
 
     cleanupExpiredGates();
-    let openCards: { left: DragonGateCard; right: DragonGateCard } | undefined;
-    if (gateId) {
-      const pendingGate = pendingGates.get(gateId);
-      if (!pendingGate || pendingGate.userId !== userId) {
-        return createApiEnvelope(
-          { success: false },
-          request.id,
-          false,
-          "GATE_INVALID: Please open a new gate."
-        );
-      }
-      openCards = { left: pendingGate.left, right: pendingGate.right };
-      pendingGates.delete(gateId);
+    const pendingGate = pendingGates.get(gateId);
+    if (!pendingGate || pendingGate.userId !== userId) {
+      return createApiEnvelope(
+        { success: false },
+        request.id,
+        false,
+        "GATE_INVALID: Please open a new gate."
+      );
     }
+    const openCards = { left: pendingGate.left, right: pendingGate.right };
+    pendingGates.delete(gateId);
 
     try {
       const result = await playShootDragonGateRound({

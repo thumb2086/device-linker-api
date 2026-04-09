@@ -15,7 +15,7 @@ export type DragonGateOpenCards = {
   right: DragonGateCard;
 };
 
-function drawCard(): string {
+function drawCard(): DragonGateCard {
   return CARDS[Math.floor(Math.random() * CARDS.length)];
 }
 

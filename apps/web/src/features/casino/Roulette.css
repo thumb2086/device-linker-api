@@ -93,4 +93,10 @@
 @media (max-width: 640px) {
   .roulette-stage { padding: 12px; }
   .wheel-container { width: 220px; height: 220px; }
+  .bet-controls {
+    padding: 14px !important;
+  }
+  .bet-controls .quick-bet-row {
+    margin-top: 0;
+  }
 }

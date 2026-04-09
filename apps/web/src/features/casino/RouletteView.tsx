@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
+import { Link } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
 import './Roulette.css';
 import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
@@ -115,7 +117,16 @@ export function RouletteView() {
 
   return (
     <div className="roulette-container space-y-6">
-      <h2 className="text-2xl font-bold">輪盤</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-2xl font-bold">輪盤</h2>
+        <Link
+          to="/app/casino/lobby"
+          className="inline-flex items-center gap-1 rounded-md border border-slate-600 px-3 py-1 text-sm text-slate-200 transition-colors hover:bg-slate-700"
+        >
+          <ChevronLeft size={14} />
+          返回大廳
+        </Link>
+      </div>
 
       <div className="roulette-stage">
         <div className="wheel-container">
@@ -133,7 +144,7 @@ export function RouletteView() {
         </div>
 
         <div className="bet-controls bg-white p-6 rounded-lg shadow border space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-bold">下注類型</label>
               <select
@@ -175,16 +186,16 @@ export function RouletteView() {
             </div>
           </div>
 
-          <div className="flex space-x-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               type="number"
-              className="flex-1 border p-2 rounded"
+              className="min-w-0 flex-1 border p-2 rounded"
               value={betAmount}
               onChange={(e) => setBetAmount(e.target.value)}
             />
             <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending || isSpinning} />
             <button
-              className="bg-gold text-black px-8 py-2 rounded font-bold hover:opacity-90 disabled:opacity-50"
+              className="bg-gold rounded px-8 py-2 font-bold text-black hover:opacity-90 disabled:opacity-50"
               onClick={() => betMutation.mutate()}
               disabled={betMutation.isPending || isSpinning}
             >

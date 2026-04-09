@@ -9,6 +9,12 @@ const CARD_VALUES: Record<string, number> = {
   "8": 8, "9": 9, "10": 10, J: 11, Q: 12, K: 13,
 };
 
+export type DragonGateCard = typeof CARDS[number];
+export type DragonGateOpenCards = {
+  left: DragonGateCard;
+  right: DragonGateCard;
+};
+
 function drawCard(): string {
   return CARDS[Math.floor(Math.random() * CARDS.length)];
 }
@@ -19,8 +25,9 @@ export async function playShootDragonGateRound(params: {
   betAmount: number;
   token: RequestTokenKey;
   requestId: string;
+  openCards?: DragonGateOpenCards;
 }) {
-  const { userId, address, betAmount, token, requestId } = params;
+  const { userId, address, betAmount, token, requestId, openCards } = params;
   const amountStr = betAmount.toString();
   const roundId = `dragon_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
@@ -39,8 +46,8 @@ export async function playShootDragonGateRound(params: {
   }
 
   try {
-    const left = drawCard();
-    const right = drawCard();
+    const left = openCards?.left ?? drawCard();
+    const right = openCards?.right ?? drawCard();
     const lv = CARD_VALUES[left];
     const rv = CARD_VALUES[right];
     const lo = Math.min(lv, rv);

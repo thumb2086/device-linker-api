@@ -99,7 +99,7 @@ export const BluffDiceView: React.FC = () => {
           onClick={() => setBetAmount(String(MAX_BET))}
           disabled={status === "rolling"}
         >
-          ALL-IN
+          全下
         </button>
         <button className="roll-btn" onClick={handleRoll} disabled={status === "rolling"}>
           {status === "rolling" ? "搖骰中…" : "搖骰開盅"}

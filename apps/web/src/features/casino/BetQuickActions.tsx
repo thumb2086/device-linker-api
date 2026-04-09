@@ -29,7 +29,7 @@ export const BetQuickActions: React.FC<Props> = ({ amount, onChange, disabled = 
         onClick={() => onChange(String(maxBet))}
         className="quick-bet-btn allin"
       >
-        ALL-IN
+        全下
       </button>
     </div>
   );

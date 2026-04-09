@@ -172,13 +172,13 @@ export const CoinflipView: React.FC = () => {
             className={`btn-choice ${selection === 'heads' ? 'active' : ''}`}
             onClick={() => !isDrawing && setSelection('heads')}
           >
-            正面 (Heads)
+            正面
           </button>
           <button
             className={`btn-choice ${selection === 'tails' ? 'active' : ''}`}
             onClick={() => !isDrawing && setSelection('tails')}
           >
-            反面 (Tails)
+            反面
           </button>
         </div>
 
@@ -196,7 +196,7 @@ export const CoinflipView: React.FC = () => {
             disabled={isDrawing || !isBettingOpen}
             title="全部下注"
           >
-            ALL IN
+            全下
           </button>
           <button
             ref={buttonRef}

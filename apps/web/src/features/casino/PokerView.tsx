@@ -82,7 +82,7 @@ export const PokerView: React.FC = () => {
           disabled={status === "playing"}
           onClick={() => setBetAmount(String(MAX_BET))}
         >
-          ALL-IN
+          全下
         </button>
         <button className="deal-btn" onClick={handlePlay} disabled={status === "playing"}>
           {status === "settled" ? "再來一局" : "發牌"}

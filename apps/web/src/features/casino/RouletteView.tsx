@@ -1,8 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
-import { Link } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
 import './Roulette.css';
 import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
@@ -117,16 +115,7 @@ export function RouletteView() {
 
   return (
     <div className="roulette-container space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold">輪盤</h2>
-        <Link
-          to="/app/casino/lobby"
-          className="inline-flex items-center gap-1 rounded-md border border-slate-600 px-3 py-1 text-sm text-slate-200 transition-colors hover:bg-slate-700"
-        >
-          <ChevronLeft size={14} />
-          返回大廳
-        </Link>
-      </div>
+      <h2 className="text-2xl font-bold text-slate-100">輪盤</h2>
 
       <div className="roulette-stage">
         <div className="wheel-container">
@@ -143,12 +132,12 @@ export function RouletteView() {
           </div>
         </div>
 
-        <div className="bet-controls bg-white p-6 rounded-lg shadow border space-y-4">
+        <div className="bet-controls space-y-4 rounded-lg border border-slate-700 bg-slate-900/80 p-6 shadow">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-bold">下注類型</label>
+              <label className="text-sm font-bold text-slate-200">下注類型</label>
               <select
-                className="w-full border p-2 rounded"
+                className="w-full rounded border border-slate-600 bg-slate-800 p-2 text-white"
                 value={betType}
                 onChange={(e) => {
                   const nextType = e.target.value as typeof betType;
@@ -165,9 +154,9 @@ export function RouletteView() {
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold">選項</label>
+              <label className="text-sm font-bold text-slate-200">選項</label>
               <select
-                className="w-full border p-2 rounded"
+                className="w-full rounded border border-slate-600 bg-slate-800 p-2 text-white"
                 value={betValue}
                 onChange={(e) => setBetValue(e.target.value)}
               >
@@ -189,7 +178,7 @@ export function RouletteView() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               type="number"
-              className="min-w-0 flex-1 border p-2 rounded"
+              className="min-w-0 flex-1 rounded border border-slate-600 bg-slate-800 p-2 text-white"
               value={betAmount}
               onChange={(e) => setBetAmount(e.target.value)}
             />

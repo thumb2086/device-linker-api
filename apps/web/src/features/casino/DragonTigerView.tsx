@@ -141,10 +141,10 @@ export const DragonTigerView: React.FC = () => {
         <div className="text-center text-sm text-gray-300">先開門看兩張門牌，再決定是否下注。</div>
       )}
 
-      {error && <div className="result-overlay lose"><h2>{error}</h2></div>}
+      {error && <div className="result-banner lose"><h2>{error}</h2></div>}
 
       {result && !error && (
-        <div className={`result-overlay ${result.result === "win" ? "win" : result.result === "draw" ? "pillar" : "lose"}`}>
+        <div className={`result-banner ${result.result === "win" ? "win" : result.result === "draw" ? "pillar" : "lose"}`}>
           <h2>{result.result === "win" ? "贏了！" : result.result === "draw" ? "平手" : "未中"}</h2>
         </div>
       )}

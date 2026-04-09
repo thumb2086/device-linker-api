@@ -15,6 +15,15 @@ export default function VIPLevelsView() {
     return num.toString();
   };
 
+
+  const gameFeeDiscountByThreshold = (threshold: number) => {
+    if (threshold >= 100_000_000_000) return 100;
+    if (threshold >= 50_000_000) return 50;
+    if (threshold >= 1_000_000) return 20;
+    if (threshold >= 100_000) return 10;
+    return 0;
+  };
+
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
@@ -69,9 +78,9 @@ export default function VIPLevelsView() {
                 <Percent className="h-4 w-4 text-emerald-400" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">市場手續費折扣</h3>
+                <h3 className="text-sm font-bold text-white">遊戲手續費折扣</h3>
                 <p className="text-xs font-bold text-[#adaaaa]">
-                  股票交易手續費依等級享有 0% ~ 100% 折扣，VIP 等級越高交易越划算
+                  依統一規則：普通/青銅 0%、白銀 10%、黃金 20%、鑽石 50%、創世以上 100%
                 </p>
               </div>
             </div>
@@ -163,7 +172,7 @@ export default function VIPLevelsView() {
                     <div className="rounded-lg bg-[#0e0e0e] p-2">
                       <p className="text-[9px] font-bold text-[#adaaaa]">手續費折扣</p>
                       <p className="text-sm font-black text-emerald-400">
-                        {((tier.marketFeeDiscount || 0) * 100).toFixed(0)}%
+                        {gameFeeDiscountByThreshold(tier.threshold)}%
                       </p>
                     </div>
                     <div className="rounded-lg bg-[#0e0e0e] p-2">

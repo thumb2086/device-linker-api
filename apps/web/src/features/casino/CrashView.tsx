@@ -82,8 +82,8 @@ export const CrashView: React.FC = () => {
     <div className="crash-container">
       <div className="crash-display">
         <h1 className={status === "crashed" ? "crashed-text" : ""}>{multiplier.toFixed(2)}x</h1>
-        {status === "crashed" && <div className="crash-msg">CRASHED!</div>}
-        {status === "cashed_out" && <div className="win-msg">CASHED OUT!</div>}
+        {status === "crashed" && <div className="crash-msg">爆線！</div>}
+        {status === "cashed_out" && <div className="win-msg">已停利！</div>}
       </div>
 
       <div className="crash-controls">
@@ -94,16 +94,16 @@ export const CrashView: React.FC = () => {
           disabled={status === "running"}
         />
         {status === "running" ? (
-          <button className="cashout-btn" onClick={cashOut}>CASH OUT</button>
+          <button className="cashout-btn" onClick={cashOut}>立即停利</button>
         ) : (
-          <button className="bet-btn" onClick={startRace}>BET</button>
+          <button className="bet-btn" onClick={startRace}>開始下注</button>
         )}
       </div>
 
-      {error && <div className="last-result">Error: {error}</div>}
+      {error && <div className="last-result">錯誤：{error}</div>}
       {lastResult && (
         <div className="last-result">
-          Last: {lastResult.result} | {lastResult.multiplier?.toFixed?.(2) || lastResult.multiplier}x | crash {crashPoint.toFixed(2)}
+          上局：{lastResult.result} ｜ 倍率 {lastResult.multiplier?.toFixed?.(2) || lastResult.multiplier}x ｜ 爆線點 {crashPoint.toFixed(2)}
         </div>
       )}
     </div>

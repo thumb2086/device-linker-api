@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { ChevronRight, Flame, LayoutGrid, Users } from 'lucide-react';
+import { ChevronRight, Flame, LayoutGrid, Lock, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import AppBottomNav from '../../components/AppBottomNav';
+import { useAuth } from '../auth/useAuth';
 
 type GameCard = {
   id: string;
@@ -23,27 +24,31 @@ type RoomState = {
 export default function RoomLobbyView() {
   const { t, i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
+  const navigate = useNavigate();
+  const { session } = useAuth();
 
   const games: GameCard[] = [
-    { id: 'coinflip', name: 'Coinflip', nameZh: '\u731c\u786c\u5e63', icon: '\ud83e\ude99' },
-    { id: 'slots', name: 'Slots', nameZh: '\u8001\u864e\u6a5f', icon: '\ud83c\udfb0' },
-    { id: 'roulette', name: 'Roulette', nameZh: '\u8f2a\u76e4', icon: '\ud83c\udfa1' },
-    { id: 'blackjack', name: 'Blackjack', nameZh: '21 \u9ede', icon: '\ud83c\udccf' },
-    { id: 'horse', name: 'Horse Racing', nameZh: '\u8cfd\u99ac', icon: '\ud83c\udfa0' },
-    { id: 'dragon', name: 'Shoot Dragon Gate', nameZh: '\u5c04\u9f8d\u9580', icon: ['\u9f8d', '\u9580'] },
-    { id: 'sicbo', name: 'Sicbo', nameZh: '\u9ab0\u5bf6', icon: '\ud83c\udfb2' },
-    { id: 'bingo', name: 'Bingo', nameZh: '\u8cd3\u679c', icon: '\ud83c\udfb1' },
-    { id: 'crash', name: 'Crash', nameZh: '\u66b4\u885d', icon: '\ud83d\udcc8' },
-    { id: 'duel', name: 'Duel', nameZh: '\u5c0d\u6c7a', icon: '\u2694\ufe0f' },
-    { id: 'poker', name: 'Poker', nameZh: '\u64b2\u514b', icon: '\ud83c\udccf', vipOnly: true },
-    { id: 'bluffdice', name: 'Bluff Dice', nameZh: '\u5439\u725b', icon: '\ud83c\udfb2', vipOnly: true },
+    { id: 'coinflip', name: 'Coinflip', nameZh: '猜硬幣', icon: '🪙' },
+    { id: 'slots', name: 'Slots', nameZh: '老虎機', icon: '🎰' },
+    { id: 'roulette', name: 'Roulette', nameZh: '輪盤', icon: '🎡' },
+    { id: 'blackjack', name: 'Blackjack', nameZh: '21 點', icon: '🃏' },
+    { id: 'horse', name: 'Horse Racing', nameZh: '賽馬', icon: '🏇' },
+    { id: 'dragon', name: 'Shoot Dragon Gate', nameZh: '射龍門', icon: ['龍', '門'] },
+    { id: 'sicbo', name: 'Sicbo', nameZh: '骰寶', icon: '🎲' },
+    { id: 'bingo', name: 'Bingo', nameZh: '賓果', icon: '🎱' },
+    { id: 'crash', name: 'Crash', nameZh: '暴衝', icon: '📈' },
+    { id: 'duel', name: 'Duel', nameZh: '對決', icon: '⚔️' },
+    { id: 'poker', name: 'Poker', nameZh: '撲克', icon: '🃏', vipOnly: true },
+    { id: 'bluffdice', name: 'Bluff Dice', nameZh: '吹牛', icon: '🎲', vipOnly: true },
   ];
 
   const zh = {
-    highStakes: '\u9ad8\u984d\u5834',
-    featuredTitle: '\u738b\u724c\u8cfd\u99ac',
-    vipOnly: 'VIP \u5c08\u5c6c',
-    pending: 'VIP \u5c08\u5c6c',
+    highStakes: '高額場',
+    featuredTitle: '王牌賽馬',
+    vipOnly: 'VIP 專屬',
+    pending: 'VIP 專屬',
+    vipLocked: '需 VIP1 (1 YJC)',
+    entering: '進入中…',
   };
 
   const roomsQuery = useQuery({
@@ -53,6 +58,25 @@ export default function RoomLobbyView() {
       return (res.data?.data?.rooms || []) as RoomState[];
     },
     refetchInterval: 15000,
+  });
+
+  const vipMeQuery = useQuery({
+    queryKey: ['vip-me', session?.id],
+    enabled: Boolean(session?.id),
+    queryFn: async () => {
+      const res = await axios.get('/api/v1/vip/me', { params: { sessionId: session?.id } });
+      return res.data?.data;
+    },
+  });
+
+  const hasVip1 = (vipMeQuery.data?.yjcVipTier?.key || 'none') !== 'none';
+
+  const joinRoomMutation = useMutation({
+    mutationFn: async ({ roomId }: { roomId: string }) => {
+      if (!session?.id) throw new Error('NO_SESSION');
+      const res = await axios.post('/api/v1/games/rooms/join', { sessionId: session.id, roomId });
+      return res.data;
+    },
   });
 
   const playerCountByGame = useMemo(() => {
@@ -74,6 +98,22 @@ export default function RoomLobbyView() {
       };
     })
   ), [games, playerCountByGame]);
+
+  const resolveRoomId = (gameId: string) => {
+    if (gameId === 'poker') return 'poker_vip';
+    if (gameId === 'bluffdice') return 'bluffdice_vip';
+    return `${gameId}_01`;
+  };
+
+  const handleVipEnter = async (gameId: string) => {
+    if (!hasVip1 || joinRoomMutation.isPending) return;
+    try {
+      await joinRoomMutation.mutateAsync({ roomId: resolveRoomId(gameId) });
+      navigate(`/app/casino/${gameId}`);
+    } catch {
+      // ignore; join error shown by backend message in subsequent page attempts
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
@@ -120,60 +160,82 @@ export default function RoomLobbyView() {
         </section>
 
         <section className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
-          {renderedGames.map((game) => (
-            <Link
-              key={game.id}
-              to={`/app/casino/${game.id}`}
-              className={`group relative overflow-hidden rounded-2xl border p-6 transition-all ${
-                game.vipOnly
-                  ? 'border-[#fcc025]/15 bg-[#151515] hover:bg-[#1c1b1b]'
-                  : 'border-[#494847]/10 bg-[#1a1919] hover:bg-[#262626]'
-              }`}
-            >
-              {game.vipOnly && (
-                <div className="absolute left-3 top-3 rounded-full border border-[#fcc025]/25 bg-[#fcc025]/10 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-[#fcc025]">
-                  VIP
-                </div>
-              )}
-              {game.hot && (
-                <div className="absolute right-0 top-0 p-3">
-                  <div className="h-2 w-2 animate-ping rounded-full bg-[#fcc025]" />
-                </div>
-              )}
-              <div className="flex flex-col items-center space-y-4 text-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-[#494847]/20 bg-[#0e0e0e] text-4xl transition-transform duration-300 group-hover:scale-110">
-                  {Array.isArray(game.icon) ? (
-                    <div className="flex items-center gap-2 text-base font-black text-[#fcc025]">
-                      {game.icon.map((label) => (
-                        <span
-                          key={label}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#fcc025]/25 bg-[#161616] shadow-[0_0_12px_rgba(252,192,37,0.08)]"
-                        >
-                          {label}
-                        </span>
-                      ))}
+          {renderedGames.map((game) => {
+            const locked = Boolean(game.vipOnly && !hasVip1);
+            return (
+              <div
+                key={game.id}
+                className={`group relative overflow-hidden rounded-2xl border p-6 transition-all ${
+                  game.vipOnly
+                    ? 'border-[#fcc025]/15 bg-[#151515] hover:bg-[#1c1b1b]'
+                    : 'border-[#494847]/10 bg-[#1a1919] hover:bg-[#262626]'
+                }`}
+              >
+                {game.vipOnly && (
+                  <div className="absolute left-3 top-3 rounded-full border border-[#fcc025]/25 bg-[#fcc025]/10 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-[#fcc025]">
+                    VIP
+                  </div>
+                )}
+                {game.hot && (
+                  <div className="absolute right-0 top-0 p-3">
+                    <div className="h-2 w-2 animate-ping rounded-full bg-[#fcc025]" />
+                  </div>
+                )}
+                <div className="flex flex-col items-center space-y-4 text-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-[#494847]/20 bg-[#0e0e0e] text-4xl transition-transform duration-300 group-hover:scale-110">
+                    {Array.isArray(game.icon) ? (
+                      <div className="flex items-center gap-2 text-base font-black text-[#fcc025]">
+                        {game.icon.map((label) => (
+                          <span
+                            key={label}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#fcc025]/25 bg-[#161616] shadow-[0_0_12px_rgba(252,192,37,0.08)]"
+                          >
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="drop-shadow-[0_0_12px_rgba(252,192,37,0.2)]">{game.icon}</span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-tight text-white transition-colors group-hover:text-[#fcc025]">
+                      {isZh ? game.nameZh : game.name}
+                    </h3>
+                    <div className="mt-2 flex items-center justify-center gap-1.5">
+                      <Users size={10} className="text-[#adaaaa]" />
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-[#adaaaa]">
+                        {game.vipOnly
+                          ? (locked ? (isZh ? zh.vipLocked : 'VIP1 required') : (isZh ? zh.pending : 'VIP room'))
+                          : `${game.players} ${t('casino.active_players')}`}
+                      </span>
                     </div>
+                  </div>
+
+                  {game.vipOnly ? (
+                    <button
+                      type="button"
+                      disabled={locked || joinRoomMutation.isPending}
+                      onClick={() => handleVipEnter(game.id)}
+                      className="mt-1 inline-flex items-center gap-2 rounded-lg border border-[#fcc025]/30 bg-[#121212] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#fcc025] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {locked ? <Lock size={12} /> : <ChevronRight size={12} />}
+                      {joinRoomMutation.isPending ? (isZh ? zh.entering : 'Entering...') : (isZh ? '進入房間' : 'Enter Room')}
+                    </button>
                   ) : (
-                    <span className="drop-shadow-[0_0_12px_rgba(252,192,37,0.2)]">{game.icon}</span>
+                    <Link
+                      to={`/app/casino/${game.id}`}
+                      className="mt-1 inline-flex items-center gap-2 rounded-lg border border-[#494847]/30 bg-[#121212] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#d7d7d7]"
+                    >
+                      <ChevronRight size={12} />
+                      {isZh ? '開始遊戲' : 'Play'}
+                    </Link>
                   )}
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-tight text-white transition-colors group-hover:text-[#fcc025]">
-                    {isZh ? game.nameZh : game.name}
-                  </h3>
-                  <div className="mt-2 flex items-center justify-center gap-1.5">
-                    <Users size={10} className="text-[#adaaaa]" />
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-[#adaaaa]">
-                      {game.vipOnly
-                        ? (isZh ? zh.pending : 'VIP only')
-                        : `${game.players} ${t('casino.active_players')}`}
-                    </span>
-                  </div>
-                </div>
+                <div className="absolute inset-x-0 bottom-0 h-1 origin-left scale-x-0 bg-[#fcc025] transition-transform group-hover:scale-x-100" />
               </div>
-              <div className="absolute inset-x-0 bottom-0 h-1 origin-left scale-x-0 bg-[#fcc025] transition-transform group-hover:scale-x-100" />
-            </Link>
-          ))}
+            );
+          })}
         </section>
       </main>
 

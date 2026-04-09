@@ -83,14 +83,14 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
                   decimals: await client.getDecimals(t.config!.contractAddress, 18),
                 })));
 
-                const userAddresses = await db
+                const userAddresses: Array<{ address: string }> = await db
                   .selectDistinct({ address: schema.users.address })
                   .from(schema.users);
-                const sessionAddresses = await db
+                const sessionAddresses: Array<{ address: string | null }> = await db
                   .selectDistinct({ address: schema.sessions.address })
                   .from(schema.sessions)
                   .where(sql`${schema.sessions.address} IS NOT NULL`);
-                const walletAddresses = await db
+                const walletAddresses: Array<{ address: string }> = await db
                   .selectDistinct({ address: schema.walletAccounts.address })
                   .from(schema.walletAccounts);
 

@@ -85,3 +85,9 @@
   pointer-events: none;
   z-index: 10;
 }
+
+
+@media (max-width: 640px) {
+  .slot-controls { flex-direction: column; }
+  .btn-spin { width: 100%; padding: 0.9rem 1rem; font-size: 1rem; }
+}

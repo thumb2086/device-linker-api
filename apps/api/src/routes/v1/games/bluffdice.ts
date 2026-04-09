@@ -7,10 +7,12 @@ import { GameSessionManager } from "@repo/domain/games/game-session-manager.js";
 import { requireDb } from "@repo/infrastructure/db/index.js";
 import { GameManager } from "@repo/domain/games/game-manager.js";
 import { gameSettlement } from "../../../utils/game-settlement.js";
+import { VipManager } from "@repo/domain/levels/vip-manager.js";
 
 export async function bluffdiceRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   const gameManager = new GameManager();
+  const vipManager = new VipManager();
 
   const getContext = async (req: any) => {
     const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
@@ -62,6 +64,16 @@ export async function bluffdiceRoutes(fastify: FastifyInstance) {
         request.id,
         false,
         "USER_NOT_FOUND: Address not found"
+      );
+    }
+
+    const yjcVipTier = await vipManager.getYjcVipTierByAddress(address);
+    if (yjcVipTier.key === "none") {
+      return createApiEnvelope(
+        { success: false },
+        request.id,
+        false,
+        "VIP1_REQUIRED: 吹牛/撲克房需 VIP 1 以上資格（持有至少 1 YJC）"
       );
     }
 
@@ -208,6 +220,16 @@ export async function bluffdiceRoutes(fastify: FastifyInstance) {
         request.id,
         false,
         "USER_NOT_FOUND: Address not found"
+      );
+    }
+
+    const yjcVipTier = await vipManager.getYjcVipTierByAddress(address);
+    if (yjcVipTier.key === "none") {
+      return createApiEnvelope(
+        { success: false },
+        request.id,
+        false,
+        "VIP1_REQUIRED: 吹牛/撲克房需 VIP 1 以上資格（持有至少 1 YJC）"
       );
     }
 

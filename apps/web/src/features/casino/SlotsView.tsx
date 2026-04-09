@@ -2,17 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import './Slots.css';
+import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
+import { BetQuickActions } from './BetQuickActions';
 
-const SYMBOLS = ['??', '??', '??', '??', '??', '??', '7儭'];
+const SYMBOLS = ['🍒', '🍋', '🍉', '⭐', '🔔', '💎', '7️⃣'];
 
 export const SlotsView: React.FC = () => {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
   const [isSpinning, setIsSpinning] = useState(false);
-  const [grid, setGrid] = useState<string[]>(['??', '??', '??', '??', '??', '??', '7儭', '??', '??'].slice(0, 9));
-  const [status, setStatus] = useState('? 暺??????嚗?');
+  const [grid, setGrid] = useState<string[]>(['🍒', '🍋', '🍉', '⭐', '🔔', '💎', '7️⃣', '🍒', '🍋'].slice(0, 9));
+  const [status, setStatus] = useState('🎰 拉霸準備就緒，祝你好運！');
   const [winSymbols, setWinSymbols] = useState<number[]>([]);
 
   const spinMutation = useMutation({
@@ -47,10 +49,10 @@ export const SlotsView: React.FC = () => {
       setGrid(newGrid);
 
       if (result.multiplier > 0) {
-        setStatus(`?? ?剖?嚗敺?${result.multiplier}x ?嚗`);
+        setStatus(`🎉 中獎！倍率 ${result.multiplier}x`);
         setWinSymbols([3, 4, 5]);
       } else {
-        setStatus('?? 敺?橘???瘝?銝剔???');
+        setStatus('😢 本局未中，下一把再衝！');
         setWinSymbols([]);
       }
 
@@ -58,14 +60,14 @@ export const SlotsView: React.FC = () => {
     },
     onError: (err: Error) => {
       setIsSpinning(false);
-      setStatus(`???航炊: ${err.message}`);
+      setStatus(`❌ 下注失敗：${err.message}`);
     },
   });
 
   const handleSpin = () => {
     if (isSpinning) return;
     setIsSpinning(true);
-    setStatus('? ?日??銝?..');
+    setStatus('🎲 轉動中...');
     setWinSymbols([]);
     spinMutation.mutate();
   };
@@ -105,12 +107,13 @@ export const SlotsView: React.FC = () => {
           disabled={isSpinning}
           className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-lg text-white"
         />
+        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={isSpinning} />
         <button
           className="btn-spin"
           onClick={handleSpin}
           disabled={isSpinning}
         >
-          {isSpinning ? 'SPINNING...' : '? SPIN'}
+          {isSpinning ? '轉動中…' : '開始旋轉'}
         </button>
       </div>
 

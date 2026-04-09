@@ -44,14 +44,14 @@ export const DuelView: React.FC = () => {
     <div className="duel-container">
       <div className="duel-stage">
         <div className="player-card active">
-          <div className="text-sm text-slate-500 mb-2">YOU</div>
-          <div className="text-xl font-bold">{selection.toUpperCase()}</div>
+          <div className="text-sm text-slate-500 mb-2">你</div>
+          <div className="text-xl font-bold">{selection === 'heads' ? '正面' : '反面'}</div>
           <div className="player-score">{result?.winner === 1 ? 1 : 0}</div>
         </div>
-        <div className="vs-badge">VS</div>
+        <div className="vs-badge">對決</div>
         <div className="player-card active">
-          <div className="text-sm text-slate-500 mb-2">OPPONENT</div>
-          <div className="text-xl font-bold">{opponentSelection.toUpperCase()}</div>
+          <div className="text-sm text-slate-500 mb-2">對手</div>
+          <div className="text-xl font-bold">{opponentSelection === 'heads' ? '正面' : '反面'}</div>
           <div className="player-score">{result?.winner === 2 ? 1 : 0}</div>
         </div>
       </div>
@@ -69,8 +69,8 @@ export const DuelView: React.FC = () => {
       </div>
 
       <div className="choice-buttons grid grid-cols-2 gap-4 mb-6">
-        <button className={`btn-choice ${selection === 'heads' ? 'active' : ''}`} onClick={() => setSelection('heads')}>HEADS</button>
-        <button className={`btn-choice ${selection === 'tails' ? 'active' : ''}`} onClick={() => setSelection('tails')}>TAILS</button>
+        <button className={`btn-choice ${selection === 'heads' ? 'active' : ''}`} onClick={() => setSelection('heads')}>正面</button>
+        <button className={`btn-choice ${selection === 'tails' ? 'active' : ''}`} onClick={() => setSelection('tails')}>反面</button>
       </div>
 
       <button
@@ -78,7 +78,7 @@ export const DuelView: React.FC = () => {
         onClick={() => duelMutation.mutate()}
         disabled={duelMutation.isPending}
       >
-        {duelMutation.isPending ? '?銝?..' : '?? ?撠??'}
+        {duelMutation.isPending ? '配對中...' : '發起對決'}
       </button>
 
       {duelMutation.error && (

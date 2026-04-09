@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import './HorseRacing.css';
+import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
+import { BetQuickActions } from './BetQuickActions';
 
 const HORSES = [
   { id: 1, name: 'Blaze Runner', multiplier: 1.8 },
@@ -27,7 +29,7 @@ export const HorseRacingView: React.FC = () => {
   const { session } = useAuth();
   const [selectedHorseId, setSelectedHorseId] = useState(1);
   const [betAmount, setBetAmount] = useState('10');
-  const [statusMsg, setStatusMsg] = useState('Choose a horse and place a bet.');
+  const [statusMsg, setStatusMsg] = useState('請選擇馬匹並下注。');
   const [statusColor, setStatusColor] = useState('#ffd36a');
   const [result, setResult] = useState<HorseResult | null>(null);
 
@@ -54,19 +56,19 @@ export const HorseRacingView: React.FC = () => {
     },
     onSuccess: (data) => {
       setResult(data);
-      setStatusMsg(`Winner: ${data.winnerName} (${data.multiplier}x)`);
+      setStatusMsg(`冠軍：${data.winnerName}（${data.multiplier}x）`);
       setStatusColor(data.result === 'win' ? '#00ff88' : '#ff4d4d');
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
     onError: (err: Error) => {
-      setStatusMsg(`Bet failed: ${err.message}`);
+      setStatusMsg(`下注失敗：${err.message}`);
       setStatusColor('#ff4d4d');
     },
   });
 
   return (
     <div className="horse-racing-container">
-      <h2>Horse Racing</h2>
+      <h2>賽馬</h2>
 
       <div className="horse-choices">
         {HORSES.map((horse) => (
@@ -87,7 +89,7 @@ export const HorseRacingView: React.FC = () => {
           {statusMsg}
           {result && (
             <div className="mt-2 text-sm text-slate-300">
-              You picked #{result.selectedHorse}, winner #{result.winnerId}, payout {result.payout}
+              你選了 #{result.selectedHorse}，冠軍 #{result.winnerId}，派彩 {result.payout}
             </div>
           )}
         </div>
@@ -100,12 +102,13 @@ export const HorseRacingView: React.FC = () => {
           onChange={(e) => setBetAmount(e.target.value)}
           disabled={betMutation.isPending}
         />
+        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending} />
         <button
           className="btn-bet"
           onClick={() => betMutation.mutate()}
           disabled={betMutation.isPending}
         >
-          {betMutation.isPending ? 'Placing...' : 'Place Bet'}
+          {betMutation.isPending ? '下注中…' : '立即下注'}
         </button>
       </div>
     </div>

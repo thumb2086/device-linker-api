@@ -15,6 +15,8 @@ export const SicboView: React.FC = () => {
   const [status, setStatus] = useState('🎲 請選擇大小並下注');
   const [statusColor, setStatusColor] = useState('#ffd36a');
   const [dicePreview, setDicePreview] = useState([1, 1, 1]);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const [roundNo, setRoundNo] = useState(1);
 
   const betMutation = useMutation({
     mutationFn: async () => {
@@ -38,11 +40,18 @@ export const SicboView: React.FC = () => {
       return unwrapGameEnvelope<any>(payload);
     },
     onSuccess: (data) => {
-      setResult(data);
-      setDicePreview(data.dice || [1, 1, 1]);
-      setStatus(`🎯 開獎總點 ${data.total}（${data.isBig ? '大' : '小'}）`);
-      setStatusColor(data.result === 'win' ? '#00ff88' : '#ff4d4d');
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      setIsRevealing(true);
+      setStatus('🎲 開獎中...');
+      setStatusColor('#ffd36a');
+      window.setTimeout(() => {
+        setResult(data);
+        setDicePreview(data.dice || [1, 1, 1]);
+        setStatus(`🎯 第 ${roundNo} 局開獎總點 ${data.total}（${data.isBig ? '大' : '小'}）`);
+        setStatusColor(data.result === 'win' ? '#00ff88' : '#ff4d4d');
+        setRoundNo((prev) => prev + 1);
+        setIsRevealing(false);
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+      }, 1100);
     },
     onError: (err: Error) => {
       setStatus(`❌ 下注失敗：${err.message}`);
@@ -51,7 +60,7 @@ export const SicboView: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!betMutation.isPending) return;
+    if (!betMutation.isPending && !isRevealing) return;
     const rolling = window.setInterval(() => {
       setDicePreview([
         Math.floor(Math.random() * 6) + 1,
@@ -60,12 +69,12 @@ export const SicboView: React.FC = () => {
       ]);
     }, 120);
     return () => window.clearInterval(rolling);
-  }, [betMutation.isPending]);
+  }, [betMutation.isPending, isRevealing]);
 
   return (
     <div className="sicbo-container">
       <div className="dice-area">
-        {(betMutation.isPending ? dicePreview : result?.dice || dicePreview).map((d: number, i: number) => (
+        {((betMutation.isPending || isRevealing) ? dicePreview : result?.dice || dicePreview).map((d: number, i: number) => (
           <div key={i} className="die">{d}</div>
         ))}
       </div>
@@ -87,15 +96,15 @@ export const SicboView: React.FC = () => {
           value={betAmount}
           onChange={(e) => setBetAmount(e.target.value)}
           className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-lg text-white font-mono"
-          disabled={betMutation.isPending}
+          disabled={betMutation.isPending || isRevealing}
         />
-        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending} />
+        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending || isRevealing} />
         <button
           className="bg-yellow-500 text-black font-bold px-12 rounded-lg hover:bg-yellow-400 disabled:opacity-50"
           onClick={() => betMutation.mutate()}
-          disabled={betMutation.isPending}
+          disabled={betMutation.isPending || isRevealing}
         >
-          {betMutation.isPending ? '搖骰中…' : '立即下注'}
+          {betMutation.isPending || isRevealing ? '開獎中…' : '下注並開獎'}
         </button>
       </div>
 

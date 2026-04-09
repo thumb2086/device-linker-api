@@ -14,6 +14,7 @@ export const CrashView: React.FC = () => {
   const [error, setError] = useState<string>("");
   const [targetCrashPoint, setTargetCrashPoint] = useState<number | null>(null);
   const [roundId, setRoundId] = useState<string | null>(null);
+  const [curve, setCurve] = useState<number[]>([]);
 
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -57,6 +58,7 @@ export const CrashView: React.FC = () => {
     setRoundId(null);
     setStatus("running");
     setMultiplier(1.0);
+    setCurve([1]);
     startTimeRef.current = Date.now();
 
     let nextCrash = 1.5;
@@ -81,6 +83,7 @@ export const CrashView: React.FC = () => {
       const elapsed = (Date.now() - startTimeRef.current) / 1000;
       const current = Math.pow(Math.E, 0.08 * elapsed);
       setMultiplier(current);
+      setCurve((prev) => [...prev.slice(-59), current]);
 
       if (current >= nextCrash) {
         if (timerRef.current) clearInterval(timerRef.current);
@@ -113,6 +116,15 @@ export const CrashView: React.FC = () => {
         <h1 className={status === "crashed" ? "crashed-text" : ""}>{multiplier.toFixed(2)}x</h1>
         {status === "crashed" && <div className="crash-msg">爆線！</div>}
         {status === "cashed_out" && <div className="win-msg">已停利！</div>}
+      </div>
+      <div className="w-full max-w-[420px] rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+        <div className="mb-2 text-xs text-slate-400">倍率上升曲線</div>
+        <div className="flex h-20 items-end gap-[2px]">
+          {(curve.length ? curve : [1]).map((point, idx) => {
+            const h = Math.min(100, Math.max(8, (Math.log(point + 1) / Math.log(6)) * 100));
+            return <div key={`${idx}-${point}`} className="flex-1 rounded-sm bg-blue-400/70" style={{ height: `${h}%` }} />;
+          })}
+        </div>
       </div>
 
       <div className="crash-controls">

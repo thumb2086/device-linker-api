@@ -123,7 +123,7 @@ export const HorseRacingView: React.FC = () => {
             <span className="lane-tag">#{horse.id}</span>
             <span
               className={`horse-avatar ${isRacing ? 'running' : ''} ${result?.winnerId === horse.id && !isRacing ? 'winner' : ''}`}
-              style={{ transform: `translateX(${(progress[horse.id] ?? 0) * 2.4}px)` }}
+              style={{ left: `${16 + (progress[horse.id] ?? 0) * 2.4}px` }}
             >
               🐎
             </span>

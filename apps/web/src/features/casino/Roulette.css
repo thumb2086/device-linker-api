@@ -1,9 +1,9 @@
 .roulette-stage {
     margin: 20px 0;
     padding: 18px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 18px;
-    background: rgba(255, 255, 255, 0.5);
+    background: rgba(15, 23, 42, 0.55);
 }
 
 .wheel-container {

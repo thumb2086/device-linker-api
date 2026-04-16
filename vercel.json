@@ -11,6 +11,10 @@
       "destination": "/api/index.ts"
     },
     {
+      "source": "/app",
+      "destination": "/index.html"
+    },
+    {
       "source": "/app/(.*)",
       "destination": "/index.html"
     }

@@ -42,16 +42,19 @@ export const DuelView: React.FC = () => {
 
   return (
     <div className="duel-container">
+      <div className="mb-6 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-center text-yellow-300">
+        PVP 真人配對開發中（玩法待定）
+      </div>
       <div className="duel-stage">
         <div className="player-card active">
-          <div className="text-sm text-slate-500 mb-2">YOU</div>
-          <div className="text-xl font-bold">{selection.toUpperCase()}</div>
+          <div className="text-sm text-slate-500 mb-2">你</div>
+          <div className="text-xl font-bold">{selection === 'heads' ? '正面' : '反面'}</div>
           <div className="player-score">{result?.winner === 1 ? 1 : 0}</div>
         </div>
-        <div className="vs-badge">VS</div>
+        <div className="vs-badge">對決</div>
         <div className="player-card active">
-          <div className="text-sm text-slate-500 mb-2">OPPONENT</div>
-          <div className="text-xl font-bold">{opponentSelection.toUpperCase()}</div>
+          <div className="text-sm text-slate-500 mb-2">對手</div>
+          <div className="text-xl font-bold">{opponentSelection === 'heads' ? '正面' : '反面'}</div>
           <div className="player-score">{result?.winner === 2 ? 1 : 0}</div>
         </div>
       </div>
@@ -69,16 +72,16 @@ export const DuelView: React.FC = () => {
       </div>
 
       <div className="choice-buttons grid grid-cols-2 gap-4 mb-6">
-        <button className={`btn-choice ${selection === 'heads' ? 'active' : ''}`} onClick={() => setSelection('heads')}>HEADS</button>
-        <button className={`btn-choice ${selection === 'tails' ? 'active' : ''}`} onClick={() => setSelection('tails')}>TAILS</button>
+        <button className={`btn-choice ${selection === 'heads' ? 'active' : ''}`} onClick={() => setSelection('heads')}>正面</button>
+        <button className={`btn-choice ${selection === 'tails' ? 'active' : ''}`} onClick={() => setSelection('tails')}>反面</button>
       </div>
 
       <button
         className="w-full bg-yellow-500 text-black font-bold py-4 rounded-xl text-lg hover:bg-yellow-400 disabled:opacity-50"
-        onClick={() => duelMutation.mutate()}
-        disabled={duelMutation.isPending}
+        onClick={() => {}}
+        disabled
       >
-        {duelMutation.isPending ? '?銝?..' : '?? ?撠??'}
+        開發中
       </button>
 
       {duelMutation.error && (

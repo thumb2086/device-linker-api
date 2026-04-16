@@ -33,15 +33,17 @@ export async function crashRoutes(fastify: FastifyInstance) {
         betAmount: z.number().min(1).max(1_000_000),
         elapsedSeconds: z.number().min(0).default(0),
         cashout: z.boolean().default(false),
+        roundId: z.string().optional(),
         token: z.enum(["zhixi", "yjc"]).optional().default("zhixi"),
       }),
     },
   }, async (request) => {
-    const { betAmount, elapsedSeconds, cashout, token } = request.body as { 
-      sessionId: string; 
-      betAmount: number; 
+    const { betAmount, elapsedSeconds, cashout, token, roundId: incomingRoundId } = request.body as {
+      sessionId: string;
+      betAmount: number;
       elapsedSeconds: number;
       cashout: boolean;
+      roundId?: string;
       token: "zhixi" | "yjc";
     };
     const amountStr = betAmount.toString();
@@ -67,7 +69,7 @@ export async function crashRoutes(fastify: FastifyInstance) {
       );
     }
 
-    const roundId = `crash_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const roundId = incomingRoundId || `crash_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const gameResult = gameManager.resolveCrash(elapsedSeconds, roundId);
     
     // Player wins if they cash out before crash

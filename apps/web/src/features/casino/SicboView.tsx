@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import './Sicbo.css';
+import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
+import { BetQuickActions } from './BetQuickActions';
 
 export const SicboView: React.FC = () => {
   const queryClient = useQueryClient();
@@ -10,12 +12,15 @@ export const SicboView: React.FC = () => {
   const [betAmount, setBetAmount] = useState('10');
   const [selectedBet, setSelectedBet] = useState<'big' | 'small'>('big');
   const [result, setResult] = useState<any>(null);
-  const [status, setStatus] = useState('? ?之撠?暺蝮賢?嚗?');
+  const [status, setStatus] = useState('🎲 請選擇大小並下注');
   const [statusColor, setStatusColor] = useState('#ffd36a');
+  const [dicePreview, setDicePreview] = useState([1, 1, 1]);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const [roundNo, setRoundNo] = useState(1);
 
   const betMutation = useMutation({
     mutationFn: async () => {
-      if (!session) throw new Error('No session');
+      if (!session) throw new Error('未登入');
 
       const res = await fetch('/api/v1/games/sicbo/play', {
         method: 'POST',
@@ -35,32 +40,52 @@ export const SicboView: React.FC = () => {
       return unwrapGameEnvelope<any>(payload);
     },
     onSuccess: (data) => {
-      setResult(data);
-      setStatus(`?? 蝮賢? ${data.total} (${data.isBig ? '憭?' : '撠?'})`);
-      setStatusColor(data.result === 'win' ? '#00ff88' : '#ff4d4d');
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      setIsRevealing(true);
+      setStatus('🎲 開獎中...');
+      setStatusColor('#ffd36a');
+      window.setTimeout(() => {
+        setResult(data);
+        setDicePreview(data.dice || [1, 1, 1]);
+        setStatus(`🎯 第 ${roundNo} 局開獎總點 ${data.total}（${data.isBig ? '大' : '小'}）`);
+        setStatusColor(data.result === 'win' ? '#00ff88' : '#ff4d4d');
+        setRoundNo((prev) => prev + 1);
+        setIsRevealing(false);
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+      }, 1100);
     },
     onError: (err: Error) => {
-      setStatus(`???航炊: ${err.message}`);
+      setStatus(`❌ 下注失敗：${err.message}`);
       setStatusColor('#ff4d4d');
     },
   });
 
+  useEffect(() => {
+    if (!betMutation.isPending && !isRevealing) return;
+    const rolling = window.setInterval(() => {
+      setDicePreview([
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+      ]);
+    }, 120);
+    return () => window.clearInterval(rolling);
+  }, [betMutation.isPending, isRevealing]);
+
   return (
     <div className="sicbo-container">
       <div className="dice-area">
-        {(result?.dice || [1, 1, 1]).map((d: number, i: number) => (
+        {((betMutation.isPending || isRevealing) ? dicePreview : result?.dice || dicePreview).map((d: number, i: number) => (
           <div key={i} className="die">{d}</div>
         ))}
       </div>
 
       <div className="sicbo-betting-grid">
         <div className={`bet-option ${selectedBet === 'small' ? 'active' : ''}`} onClick={() => setSelectedBet('small')}>
-          <span className="bet-label">撠?(4-10)</span>
+          <span className="bet-label">小 (4-10)</span>
           <span className="bet-odds">x2.0</span>
         </div>
         <div className={`bet-option ${selectedBet === 'big' ? 'active' : ''}`} onClick={() => setSelectedBet('big')}>
-          <span className="bet-label">憭?(11-17)</span>
+          <span className="bet-label">大 (11-17)</span>
           <span className="bet-odds">x2.0</span>
         </div>
       </div>
@@ -71,13 +96,15 @@ export const SicboView: React.FC = () => {
           value={betAmount}
           onChange={(e) => setBetAmount(e.target.value)}
           className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-lg text-white font-mono"
+          disabled={betMutation.isPending || isRevealing}
         />
+        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending || isRevealing} />
         <button
           className="bg-yellow-500 text-black font-bold px-12 rounded-lg hover:bg-yellow-400 disabled:opacity-50"
           onClick={() => betMutation.mutate()}
-          disabled={betMutation.isPending}
+          disabled={betMutation.isPending || isRevealing}
         >
-          {betMutation.isPending ? '??銝?..' : '蝣箄?銝釣'}
+          {betMutation.isPending || isRevealing ? '開獎中…' : '下注並開獎'}
         </button>
       </div>
 

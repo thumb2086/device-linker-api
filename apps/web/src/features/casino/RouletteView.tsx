@@ -2,22 +2,24 @@ import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import './Roulette.css';
+import './CasinoCommon.css';
 import { extractGameError, unwrapGameEnvelope } from './gameClient';
+import { BetQuickActions } from './BetQuickActions';
 
 const EUROPEAN_LAYOUT = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 
 const BET_OPTIONS = {
   color: [
-    { value: 'red', label: '蝝' },
-    { value: 'black', label: '暺' },
+    { value: 'red', label: '紅' },
+    { value: 'black', label: '黑' },
   ],
   parity: [
-    { value: 'odd', label: '?格' },
-    { value: 'even', label: '?' },
+    { value: 'odd', label: '單' },
+    { value: 'even', label: '雙' },
   ],
   range: [
-    { value: 'low', label: '撠?1-18' },
-    { value: 'high', label: '憭?19-36' },
+    { value: 'low', label: '小 (1-18)' },
+    { value: 'high', label: '大 (19-36)' },
   ],
   dozen: [
     { value: '1', label: '1-12' },
@@ -113,7 +115,7 @@ export function RouletteView() {
 
   return (
     <div className="roulette-container space-y-6">
-      <h2 className="text-2xl font-bold">ROULETTE</h2>
+      <h2 className="text-2xl font-bold text-slate-100">輪盤</h2>
 
       <div className="roulette-stage">
         <div className="wheel-container">
@@ -130,12 +132,12 @@ export function RouletteView() {
           </div>
         </div>
 
-        <div className="bet-controls bg-white p-6 rounded-lg shadow border space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="bet-controls space-y-4 rounded-lg border border-slate-700 bg-slate-900/80 p-6 shadow">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-bold">Bet Type</label>
+              <label className="text-sm font-bold text-slate-200">下注類型</label>
               <select
-                className="w-full border p-2 rounded"
+                className="w-full rounded border border-slate-600 bg-slate-800 p-2 text-white"
                 value={betType}
                 onChange={(e) => {
                   const nextType = e.target.value as typeof betType;
@@ -144,17 +146,17 @@ export function RouletteView() {
                   else setBetValue(BET_OPTIONS[nextType][0].value);
                 }}
               >
-                <option value="color">Color</option>
-                <option value="parity">Parity</option>
-                <option value="range">Range</option>
-                <option value="dozen">Dozen</option>
-                <option value="number">Number</option>
+                <option value="color">顏色</option>
+                <option value="parity">單雙</option>
+                <option value="range">大小區間</option>
+                <option value="dozen">12區段</option>
+                <option value="number">指定號碼</option>
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold">Selection</label>
+              <label className="text-sm font-bold text-slate-200">選項</label>
               <select
-                className="w-full border p-2 rounded"
+                className="w-full rounded border border-slate-600 bg-slate-800 p-2 text-white"
                 value={betValue}
                 onChange={(e) => setBetValue(e.target.value)}
               >
@@ -173,19 +175,20 @@ export function RouletteView() {
             </div>
           </div>
 
-          <div className="flex space-x-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
               type="number"
-              className="flex-1 border p-2 rounded"
+              className="min-w-0 flex-1 rounded border border-slate-600 bg-slate-800 p-2 text-white"
               value={betAmount}
               onChange={(e) => setBetAmount(e.target.value)}
             />
+            <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending || isSpinning} />
             <button
-              className="bg-gold text-black px-8 py-2 rounded font-bold hover:opacity-90 disabled:opacity-50"
+              className="bg-gold rounded px-8 py-2 font-bold text-black hover:opacity-90 disabled:opacity-50"
               onClick={() => betMutation.mutate()}
               disabled={betMutation.isPending || isSpinning}
             >
-              SPIN
+              旋轉開獎
             </button>
           </div>
         </div>

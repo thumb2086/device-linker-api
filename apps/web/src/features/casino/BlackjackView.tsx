@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { api } from "../../store/api";
 import "./Blackjack.css";
+import "./CasinoCommon.css";
 import { extractGameError, unwrapGameEnvelope } from "./gameClient";
+import { BetQuickActions } from "./BetQuickActions";
 
 interface Card {
   rank: string;
@@ -82,12 +84,12 @@ export const BlackjackView: React.FC = () => {
   return (
     <div className="blackjack-container">
       <div className="dealer-area">
-        <h3>DEALER ({gameState.status === "in_progress" ? "?" : gameState.dealerTotal})</h3>
+        <h3>莊家（{gameState.status === "in_progress" ? "?" : gameState.dealerTotal}）</h3>
         <div className="hand">{gameState.dealerCards.map(renderCard)}</div>
       </div>
 
       <div className="player-area">
-        <h3>YOU ({gameState.playerTotal})</h3>
+        <h3>玩家（{gameState.playerTotal}）</h3>
         <div className="hand">{gameState.playerCards.map(renderCard)}</div>
       </div>
 
@@ -95,12 +97,13 @@ export const BlackjackView: React.FC = () => {
         {gameState.status === "idle" || gameState.status === "settled" ? (
           <>
             <input type="number" value={betAmount} onChange={(e) => setBetAmount(e.target.value)} />
-            <button className="start-btn" onClick={() => handleAction("start")}>DEAL</button>
+            <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={false} />
+            <button className="start-btn" onClick={() => handleAction("start")}>發牌</button>
           </>
         ) : (
           <>
-            <button className="hit-btn" onClick={() => handleAction("hit")}>HIT</button>
-            <button className="stand-btn" onClick={() => handleAction("stand")}>STAND</button>
+            <button className="hit-btn" onClick={() => handleAction("hit")}>要牌</button>
+            <button className="stand-btn" onClick={() => handleAction("stand")}>停牌</button>
           </>
         )}
       </div>
@@ -109,8 +112,8 @@ export const BlackjackView: React.FC = () => {
 
       {gameState.status === "settled" && !error && (
         <div className={`result-overlay ${gameState.isWin ? "win" : gameState.isPush ? "push" : "lose"}`}>
-          <h2>{gameState.isWin ? "YOU WIN!" : gameState.isPush ? "PUSH" : gameState.reason || "YOU LOSE"}</h2>
-          {gameState.isWin && <p>Payout: {parseFloat(betAmount) * gameState.multiplier}</p>}
+          <h2>{gameState.isWin ? "你贏了！" : gameState.isPush ? "和局" : gameState.reason || "本局失利"}</h2>
+          {gameState.isWin && <p>派彩：{parseFloat(betAmount) * gameState.multiplier}</p>}
         </div>
       )}
     </div>

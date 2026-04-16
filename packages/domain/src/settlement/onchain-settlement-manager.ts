@@ -15,8 +15,7 @@ import { OnchainWalletManager, tokenSymbolToOnchainKey } from "../wallet/onchain
 import { VipManager } from "../levels/vip-manager.js";
 import { ChainClient } from "@repo/infrastructure";
 import { WalletRepository } from "@repo/infrastructure";
-import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService } from "@repo/on-chain";
-import { ethers } from "ethers";
+import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService, BetPayoutService } from "@repo/on-chain";
 
 export interface SettlementResult {
   settlement: GameSettlement;
@@ -42,71 +41,16 @@ export interface OnchainSettlementDomain {
 }
 
 export class OnchainSettlementManager implements OnchainSettlementDomain {
-  private readonly BASE_FEE_RATE = 0.02; // 2% base fee
-  private readonly TREASURY_TARGET_BALANCE = "10000000000000";
   private readonly FIXED_TREASURY_ADDRESS = getOnChainConfig().treasuryAddress;
-  private readonly levelFeeService = new VipBetLevelService(this.BASE_FEE_RATE);
+  private readonly levelFeeService = new VipBetLevelService();
 
   constructor(
     private settlementManager: SettlementManager,
     private walletManager: WalletManager,
     private onchainWallet: OnchainWalletManager,
     private vipManager: VipManager,
-    private walletRepo: WalletRepository | null = null,
-    private chainClient: ChainClient | null = null
+    private walletRepo: WalletRepository | null = null
   ) {}
-
-  /**
-   * Initialize chain client from runtime config
-   */
-  private getChainClient(): ChainClient {
-    if (this.chainClient) return this.chainClient;
-    
-    const config = this.onchainWallet.getRuntimeConfig();
-    if (!config.rpcUrl || !config.adminPrivateKey) {
-      throw new Error("Chain not configured: missing RPC_URL or ADMIN_PRIVATE_KEY");
-    }
-    
-    this.chainClient = new ChainClient(config.rpcUrl, config.adminPrivateKey);
-    return this.chainClient;
-  }
-
-  private async ensureTreasuryLiquidity(
-    tokenConfig: { contractAddress: string; lossPoolAddress: string },
-    requiredAmountWei: bigint,
-    decimals: number
-  ): Promise<string> {
-    const client = this.getChainClient();
-    const treasuryAddress = this.FIXED_TREASURY_ADDRESS;
-    if (!treasuryAddress) {
-      throw new Error("TREASURY_ADDRESS_MISSING");
-    }
-
-    const treasuryBalanceBefore = await client.getBalance(treasuryAddress, tokenConfig.contractAddress);
-    if (treasuryBalanceBefore >= requiredAmountWei) {
-      return treasuryAddress;
-    }
-
-    const targetBalanceWei = client.parseUnits(this.TREASURY_TARGET_BALANCE, decimals);
-    const refillTargetWei = targetBalanceWei > requiredAmountWei ? targetBalanceWei : requiredAmountWei;
-    const refillAmountWei = refillTargetWei - treasuryBalanceBefore;
-    if (refillAmountWei <= 0n) {
-      return treasuryAddress;
-    }
-
-    const topupTx = await client.mint(treasuryAddress, refillAmountWei, tokenConfig.contractAddress);
-    const topupReceipt = await client.waitForReceipt(topupTx.hash);
-    if (!topupReceipt || topupReceipt.status !== 1) {
-      throw new Error(`TREASURY_TOPUP_REVERTED: ${topupTx.hash}`);
-    }
-
-    const treasuryBalanceAfter = await client.getBalance(treasuryAddress, tokenConfig.contractAddress);
-    if (treasuryBalanceAfter < requiredAmountWei) {
-      throw new Error("TREASURY_INSUFFICIENT_AFTER_TOPUP");
-    }
-
-    return treasuryAddress;
-  }
 
   /**
    * Unified settlement for all 12 games
@@ -169,11 +113,11 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
 
     try {
       // Execute bet transaction (transfer to house)
-      betTxHash = await this.executeOnchainTransfer(userId, address, betIntent, "bet");
+      betTxHash = await this.executeOnchainTransfer(userId, address, betIntent, "bet", roundId, settlement.id, game);
 
       // Execute payout transaction if there is a win
       if (finalPayout > 0 && payoutIntent) {
-        payoutTxHash = await this.executeOnchainTransfer(userId, address, payoutIntent, "payout");
+        payoutTxHash = await this.executeOnchainTransfer(userId, address, payoutIntent, "payout", roundId, settlement.id, game);
       }
 
       // 6. Resolve settlement
@@ -206,13 +150,16 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
   }
 
   /**
-   * Execute onchain transfer using real blockchain transactions
+   * Execute onchain transfer using @repo/on-chain services
    */
   private async executeOnchainTransfer(
     userId: string,
     userAddress: string,
     intent: TxIntent,
-    type: "bet" | "payout"
+    type: "bet" | "payout",
+    roundId: string,
+    settlementId: string,
+    game: Game
   ): Promise<string> {
     const config = this.onchainWallet.getRuntimeConfig();
     const tokenKey = tokenSymbolToOnchainKey(intent.token);
@@ -226,179 +173,53 @@ export class OnchainSettlementManager implements OnchainSettlementDomain {
       throw new Error(`ONCHAIN_TOKEN_DISABLED: ${intent.token}`);
     }
 
-    const client = this.getChainClient();
-    const settlementService = new SettlementServiceImpl(
-      new ViemRepository(config.rpcUrl, config.adminPrivateKey)
-    );
-    const decimals = await client.getDecimals(tokenConfig.contractAddress);
-    const amount = client.parseUnits(intent.amount, decimals);
-    const treasuryAddress = this.FIXED_TREASURY_ADDRESS;
+    if (!config.rpcUrl || !config.adminPrivateKey) {
+      throw new Error("ONCHAIN_RUNTIME_NOT_CONFIGURED");
+    }
 
-    let txHash: string | null = null;
-    let finalizedStatusWritten = false;
-    
+    // Save broadcasting attempt
+    if (this.walletRepo) {
+      await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "broadcasted"));
+    }
+
+    const repo = new ViemRepository(config.rpcUrl, config.adminPrivateKey);
+    const betPayoutService = new BetPayoutService(repo, this.FIXED_TREASURY_ADDRESS);
+
     try {
-      // Save broadcasting attempt
-      if (this.walletRepo) {
-        await this.walletRepo.saveTxAttempt({
-          id: randomUUID(),
-          txIntentId: intent.id,
-          attemptNumber: 1,
-          status: "broadcasting",
-          txHash: null,
-          error: null,
-          errorCode: null,
-          broadcastAt: new Date(),
-          confirmedAt: null,
-          createdAt: new Date(),
-        });
-      }
-
+      let txResult;
       if (type === "bet") {
-        // Bet: Transfer from player to house (adminTransfer)
-        const tx = await settlementService.adminTransfer({
+        txResult = await betPayoutService.processBet({
           from: userAddress,
-          to: treasuryAddress,
           amount: intent.amount,
           tokenAddress: tokenConfig.contractAddress,
+          roundId,
+          settlementId,
+          gameType: game,
+          tokenSymbol: intent.token,
         });
-        txHash = tx.txHash;
-        
-        // Wait for confirmation
-        const receipt = await client.waitForReceipt(txHash);
-        const reverted = !receipt || receipt.status !== 1;
-        
-        // Save attempt result
-        if (this.walletRepo) {
-          await this.walletRepo.saveTxAttempt({
-            id: randomUUID(),
-            txIntentId: intent.id,
-            attemptNumber: 1,
-            status: reverted ? "reverted" : "confirmed",
-            txHash,
-            error: reverted ? "Transaction reverted" : null,
-            errorCode: reverted ? "TX_REVERTED" : null,
-            broadcastAt: new Date(),
-            confirmedAt: new Date(),
-            createdAt: new Date(),
-          });
-          
-          // Save receipt
-          await this.walletRepo.saveTxReceipt({
-            id: randomUUID(),
-            txIntentId: intent.id,
-            txHash,
-            blockNumber: receipt?.blockNumber ? Number(receipt.blockNumber) : null,
-            status: reverted ? "reverted" : "confirmed",
-            gasUsed: receipt?.gasUsed ? String(receipt.gasUsed) : null,
-            confirmedAt: new Date(),
-          });
-        }
-        
-        if (reverted) {
-          if (this.walletRepo) {
-            await this.walletRepo.saveTxIntent(
-              this.walletManager.processTxIntent(intent, "reverted", txHash, "Transaction reverted")
-            );
-            finalizedStatusWritten = true;
-          }
-          throw new Error(`Bet transaction reverted: ${txHash}`);
-        }
-
-        if (this.walletRepo) {
-          await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "confirmed", txHash));
-          finalizedStatusWritten = true;
-        }
-
-        return txHash;
-        
       } else {
-        // Payout: Transfer from treasury to player using adminTransfer
-        const payoutTreasuryAddress = await this.ensureTreasuryLiquidity(tokenConfig, amount, decimals);
-        const tx = await settlementService.adminTransfer({
-          from: payoutTreasuryAddress,
+        txResult = await betPayoutService.processPayout({
           to: userAddress,
           amount: intent.amount,
           tokenAddress: tokenConfig.contractAddress,
+          roundId,
+          settlementId,
+          gameType: game,
+          tokenSymbol: intent.token,
         });
-        txHash = tx.txHash;
-        
-        // Wait for confirmation
-        const receipt = await client.waitForReceipt(txHash);
-        const reverted = !receipt || receipt.status !== 1;
-        
-        // Save attempt result
-        if (this.walletRepo) {
-          await this.walletRepo.saveTxAttempt({
-            id: randomUUID(),
-            txIntentId: intent.id,
-            attemptNumber: 1,
-            status: reverted ? "reverted" : "confirmed",
-            txHash,
-            error: reverted ? "Transaction reverted" : null,
-            errorCode: reverted ? "TX_REVERTED" : null,
-            broadcastAt: new Date(),
-            confirmedAt: new Date(),
-            createdAt: new Date(),
-          });
-          
-          // Save receipt
-          await this.walletRepo.saveTxReceipt({
-            id: randomUUID(),
-            txIntentId: intent.id,
-            txHash,
-            blockNumber: receipt?.blockNumber ? Number(receipt.blockNumber) : null,
-            status: reverted ? "reverted" : "confirmed",
-            gasUsed: receipt?.gasUsed ? String(receipt.gasUsed) : null,
-            confirmedAt: new Date(),
-          });
-        }
-        
-        if (reverted) {
-          if (this.walletRepo) {
-            await this.walletRepo.saveTxIntent(
-              this.walletManager.processTxIntent(intent, "reverted", txHash, "Transaction reverted")
-            );
-            finalizedStatusWritten = true;
-          }
-          throw new Error(`Payout transaction reverted: ${txHash}`);
-        }
-
-        if (this.walletRepo) {
-          await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "confirmed", txHash));
-          finalizedStatusWritten = true;
-        }
-
-        return txHash;
       }
-    } catch (error: any) {
-      // Save failed attempt
+
       if (this.walletRepo) {
-        await this.walletRepo.saveTxAttempt({
-          id: randomUUID(),
-          txIntentId: intent.id,
-          attemptNumber: 1,
-          status: "failed",
-          txHash,
-          error: error?.message || `${type} failed`,
-          errorCode: "TX_BROADCAST_ERROR",
-          broadcastAt: new Date(),
-          confirmedAt: new Date(),
-          createdAt: new Date(),
-        });
+        await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "confirmed", txResult.txHash));
       }
 
-      if (this.walletRepo && !finalizedStatusWritten) {
+      return txResult.txHash;
+    } catch (error: any) {
+      if (this.walletRepo) {
         await this.walletRepo.saveTxIntent(
-          this.walletManager.processTxIntent(
-            intent,
-            "failed",
-            txHash || undefined,
-            error?.message || `${type} failed`
-          )
+          this.walletManager.processTxIntent(intent, "failed", undefined, error?.message || `${type} failed`)
         );
       }
-
       throw new Error(`Onchain transfer failed (${type}): ${error.message}`);
     }
   }

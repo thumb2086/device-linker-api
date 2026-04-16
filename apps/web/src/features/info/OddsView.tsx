@@ -1,7 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calculator, ChevronLeft, Dice5, HelpCircle, Shield, CheckCircle2 } from 'lucide-react';
+import { Calculator, ChevronLeft, Dice5, HelpCircle, Shield, CheckCircle2, Package } from 'lucide-react';
 import AppBottomNav from '../../components/AppBottomNav';
+
+interface ChestOdds {
+  id: string;
+  name: string;
+  nameEn: string;
+  price: number;
+  pityThreshold: number;
+  dropCount: { min: number; max: number };
+  rarities: {
+    rarity: string;
+    name: string;
+    color: string;
+    chance: number;
+  }[];
+}
 
 interface GameOdds {
   name: string;
@@ -86,6 +101,24 @@ const GAME_ODDS: GameOdds[] = [
 
 export default function OddsView() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
+  const [selectedChest, setSelectedChest] = useState<string | null>(null);
+  const [chests, setChests] = useState<ChestOdds[]>([]);
+
+  useEffect(() => {
+    fetchChests();
+  }, []);
+
+  const fetchChests = async () => {
+    try {
+      const res = await fetch('/api/v1/chests');
+      const data = await res.json();
+      if (data.success) {
+        setChests(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch chests:', err);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
@@ -195,6 +228,79 @@ export default function OddsView() {
           ))}
         </section>
 
+        {/* 寶箱機率說明 */}
+        <section className="mt-8 space-y-3">
+          <h2 className="px-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">
+            寶箱開啟機率
+          </h2>
+          {chests.map((chest) => (
+            <div
+              key={chest.id}
+              className="rounded-xl border border-[#494847]/10 bg-[#1a1919] p-4"
+            >
+              <button
+                onClick={() => setSelectedChest(selectedChest === chest.id ? null : chest.id)}
+                className="flex w-full items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#fcc025]/10">
+                    <Package className="h-5 w-5 text-[#fcc025]" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-bold text-white">{chest.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-[#fcc025]">
+                        {chest.price.toLocaleString()} ZXC
+                      </span>
+                      <span className="text-[10px] font-bold text-[#adaaaa]">
+                        保底 {chest.pityThreshold}次
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <HelpCircle className="h-5 w-5 text-[#494847]" />
+              </button>
+
+              {selectedChest === chest.id && (
+                <div className="mt-4 space-y-3 border-t border-[#494847]/10 pt-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-bold text-[#adaaaa]">掉落數量</span>
+                    <span className="font-black text-white">
+                      {chest.dropCount.min} - {chest.dropCount.max} 個物品
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-[#adaaaa]">稀有度機率</p>
+                    {chest.rarities.map((r) => (
+                      <div key={r.rarity} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: r.color }}
+                          />
+                          <span className="text-sm font-bold text-white">{r.name}</span>
+                        </div>
+                        <span
+                          className="text-sm font-black"
+                          style={{ color: r.color }}
+                        >
+                          {r.chance}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-lg bg-emerald-500/10 p-3">
+                    <p className="text-xs font-bold text-emerald-400">
+                      <span className="mr-2">🛡️</span>
+                      保底機制：連續開啟 {chest.pityThreshold} 次未獲得高稀有度物品後，保底獲得
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </section>
+
         {/* 負責任博彩 */}
         <section className="mt-8 rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6">
           <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">
@@ -203,6 +309,10 @@ export default function OddsView() {
           <p className="mt-3 text-sm font-bold text-[#adaaaa] leading-relaxed">
             請注意：博彩有風險，投注需謹慎。所有遊戲結果均由隨機數決定，
             不存在必勝策略。請設定預算上限，理性娛樂。
+          </p>
+          <p className="mt-2 text-sm font-bold text-[#adaaaa] leading-relaxed">
+            寶箱開啟為隨機機制，保底機制僅保證最低稀有度獲得，不保證特定物品掉落。
+            請理性消費，量力而行。
           </p>
         </section>
       </main>

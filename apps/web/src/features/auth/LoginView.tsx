@@ -15,10 +15,12 @@ export default function LoginView() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [mode, setMode] = useState<'login' | 'register'>('login');
 
   // Load saved username and rememberMe preference
   useEffect(() => {
@@ -103,6 +105,43 @@ export default function LoginView() {
         } else {
           localStorage.removeItem('custody_username');
           localStorage.setItem('custody_remember_me', 'false');
+        }
+        setAuth(payload.address, payload.sessionId, payload.publicKey || '0x');
+      }
+    } catch (err) {
+      setError('NETWORK_ERROR');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCustodyRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      setError(isZh ? '密碼不匹配' : 'PASSWORD_MISMATCH');
+      return;
+    }
+    if (password.length < 6) {
+      setError(isZh ? '密碼至少需要6個字元' : 'PASSWORD_TOO_SHORT');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/v1/auth/custody/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, platform: 'web', clientType: 'web', bonusAmount: '1000' })
+      });
+      const data = await res.json();
+      const payload = data?.data;
+      if (!data.success || !payload?.success || !payload?.sessionId || !payload?.address) {
+        setError(data.error || 'REGISTER_FAILED');
+      } else {
+        // Auto-login after registration
+        if (rememberMe) {
+          localStorage.setItem('custody_username', username);
+          localStorage.setItem('custody_remember_me', 'true');
         }
         setAuth(payload.address, payload.sessionId, payload.publicKey || '0x');
       }
@@ -207,87 +246,126 @@ export default function LoginView() {
               </div>
             </motion.div>
           ) : (
-            <motion.form
+            <motion.div
               key="custody"
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              onSubmit={handleCustodyLogin}
               className="space-y-6"
             >
-              <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-[#fcc025] uppercase ml-1 tracking-widest">{t('auth.username')}</label>
-                  <div className="relative">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#fcc025]/40">
-                      <Monitor size={16} />
-                    </div>
-                    <input
-                        type="text"
-                        value={username}
-                        onChange={e => setUsername(e.target.value)}
-                        placeholder={isZh ? '操作員 ID' : 'Operator ID'}
-                        className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-xl pl-14 pr-5 py-4 text-white text-sm focus:border-[#fcc025]/50 focus:ring-4 focus:ring-[#fcc025]/5 outline-none transition-all placeholder:text-[#494847] font-bold"
-                        required
-                    />
-                  </div>
+              {/* Login/Register Toggle */}
+              <div className="flex bg-[#0e0e0e] p-1 rounded-lg border border-[#494847]/20">
+                <button
+                  onClick={() => setMode('login')}
+                  className={`flex-1 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${mode === 'login' ? 'bg-[#494847] text-white' : 'text-[#adaaaa] hover:text-white'}`}
+                >
+                  {isZh ? '登入' : 'Login'}
+                </button>
+                <button
+                  onClick={() => setMode('register')}
+                  className={`flex-1 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all ${mode === 'register' ? 'bg-[#494847] text-white' : 'text-[#adaaaa] hover:text-white'}`}
+                >
+                  {isZh ? '註冊' : 'Register'}
+                </button>
               </div>
-              <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-[#fcc025] uppercase ml-1 tracking-widest">{t('auth.password')}</label>
-                  <div className="relative">
-                     <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#fcc025]/40">
+
+              <form onSubmit={mode === 'login' ? handleCustodyLogin : handleCustodyRegister} className="space-y-6">
+                <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-[#fcc025] uppercase ml-1 tracking-widest">{t('auth.username')}</label>
+                    <div className="relative">
+                      <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#fcc025]/40">
                         <Monitor size={16} />
                       </div>
                       <input
-                          type="password"
-                          value={password}
-                          onChange={e => setPassword(e.target.value)}
-                          placeholder={isZh ? '通行密碼' : 'Pass-Code'}
+                          type="text"
+                          value={username}
+                          onChange={e => setUsername(e.target.value)}
+                          placeholder={isZh ? '操作員 ID' : 'Operator ID'}
                           className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-xl pl-14 pr-5 py-4 text-white text-sm focus:border-[#fcc025]/50 focus:ring-4 focus:ring-[#fcc025]/5 outline-none transition-all placeholder:text-[#494847] font-bold"
                           required
                       />
-                  </div>
-              </div>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-[#fcc025] uppercase ml-1 tracking-widest">{t('auth.password')}</label>
+                    <div className="relative">
+                       <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#fcc025]/40">
+                          <Monitor size={16} />
+                        </div>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            placeholder={isZh ? '通行密碼' : 'Pass-Code'}
+                            className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-xl pl-14 pr-5 py-4 text-white text-sm focus:border-[#fcc025]/50 focus:ring-4 focus:ring-[#fcc025]/5 outline-none transition-all placeholder:text-[#494847] font-bold"
+                            required
+                        />
+                    </div>
+                </div>
 
-              {/* Remember Me Checkbox */}
-              <div className="flex items-center gap-3 px-1">
-                <button
-                  type="button"
-                  onClick={() => setRememberMe(!rememberMe)}
-                  className={`flex h-5 w-5 items-center justify-center rounded border transition-all ${
-                    rememberMe
-                      ? 'border-[#fcc025] bg-[#fcc025]'
-                      : 'border-[#494847]/50 bg-transparent'
-                  }`}
-                >
-                  {rememberMe && <Check size={14} className="text-black" />}
-                </button>
-                <span className="text-[11px] font-bold text-[#adaaaa]">
-                  {isZh ? '記住我（下次自動登入）' : 'Remember Me (Auto-login next time)'}
-                </span>
-              </div>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="text-[#ff7351] text-[10px] font-bold text-center bg-[#ff7351]/10 py-4 rounded-xl border border-[#ff7351]/20 uppercase tracking-widest"
-                >
-                  {error}
-                </motion.div>
-              )}
-              <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-br from-[#fcc025] to-[#e6ad03] text-black font-black py-4 rounded-xl shadow-[0_4px_20px_rgba(252,192,37,0.2)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 relative overflow-hidden group"
-              >
-                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                  <LogIn size={20} className="relative z-10" />
-                  <span className="relative z-10 text-xs uppercase italic tracking-tighter">
-                    {loading ? t('auth.logging_in') : t('auth.login_btn')}
+                {mode === 'register' && (
+                  <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-[#fcc025] uppercase ml-1 tracking-widest">{isZh ? '確認密碼' : 'Confirm Password'}</label>
+                      <div className="relative">
+                         <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#fcc025]/40">
+                            <Monitor size={16} />
+                          </div>
+                          <input
+                              type="password"
+                              value={confirmPassword}
+                              onChange={e => setConfirmPassword(e.target.value)}
+                              placeholder={isZh ? '再次輸入密碼' : 'Re-enter Pass-Code'}
+                              className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-xl pl-14 pr-5 py-4 text-white text-sm focus:border-[#fcc025]/50 focus:ring-4 focus:ring-[#fcc025]/5 outline-none transition-all placeholder:text-[#494847] font-bold"
+                              required
+                          />
+                      </div>
+                  </div>
+                )}
+
+                {/* Remember Me Checkbox */}
+                <div className="flex items-center gap-3 px-1">
+                  <button
+                    type="button"
+                    onClick={() => setRememberMe(!rememberMe)}
+                    className={`flex h-5 w-5 items-center justify-center rounded border transition-all ${
+                      rememberMe
+                        ? 'border-[#fcc025] bg-[#fcc025]'
+                        : 'border-[#494847]/50 bg-transparent'
+                    }`}
+                  >
+                    {rememberMe && <Check size={14} className="text-black" />}
+                  </button>
+                  <span className="text-[11px] font-bold text-[#adaaaa]">
+                    {isZh ? '記住我（下次自動登入）' : 'Remember Me (Auto-login next time)'}
                   </span>
-              </motion.button>
-            </motion.form>
+                </div>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-[#ff7351] text-[10px] font-bold text-center bg-[#ff7351]/10 py-4 rounded-xl border border-[#ff7351]/20 uppercase tracking-widest"
+                  >
+                    {error}
+                  </motion.div>
+                )}
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-br from-[#fcc025] to-[#e6ad03] text-black font-black py-4 rounded-xl shadow-[0_4px_20px_rgba(252,192,37,0.2)] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 relative overflow-hidden group"
+                >
+                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                    <LogIn size={20} className="relative z-10" />
+                    <span className="relative z-10 text-xs uppercase italic tracking-tighter">
+                      {loading 
+                        ? (mode === 'login' ? t('auth.logging_in') : (isZh ? '註冊中...' : 'Registering...'))
+                        : (mode === 'login' ? t('auth.login_btn') : (isZh ? '建立帳戶' : 'Create Account'))
+                      }
+                    </span>
+                </motion.button>
+              </form>
+            </motion.div>
           )}
         </AnimatePresence>
 

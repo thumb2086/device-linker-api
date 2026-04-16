@@ -2,7 +2,7 @@
 
 ## 專案名稱: device-linker-api
 
-**最後更新**: 2025-04-06
+**最後更新**: 2025-04-16
 
 ---
 
@@ -240,6 +240,32 @@
 
 ---
 
+### Phase 3 Final Cleanup (2025-04-16) ✅
+
+#### 目標
+移除遺留結算邏輯，統一使用 `@repo/on-chain` 作為唯一鏈上入口。
+
+#### 已完成項目
+- ✅ 替換 `game-settlement.ts` 直接結算內部邏輯為 `@repo/on-chain` adapter calls
+- ✅ 移除 `onchain-settlement-manager.ts` 重複的 transfer/fee 程式碼
+- ✅ 移除 `ensureTreasuryLiquidity` 和 `getChainClient` 方法
+- ✅ 新增 `getTxIntentsByRoundId` 方法支援冪等性保護
+- ✅ 新增 `settlementId` 可觀測性欄位到所有結算日誌
+- ✅ 驗證單一 treasury config 來源
+- ✅ 修復賽馬遊戲機率（從 420% 回報修復至 2-4% house edge）
+- ✅ 修復 Vercel `/app` 路由 404 問題
+- ✅ 新增託管帳戶註冊 UI
+- ✅ 所有建置通過，無 TypeScript 錯誤
+
+#### 相關提交
+- `760d104` refactor(domain): delegate settlement to @repo/on-chain services
+- `66a6ba6` feat(infrastructure): add getTxIntentsByRoundId
+- `d4bd55c` refactor(api): use BetPayoutService from @repo/on-chain
+- `6d97afd` fix: correct horse race odds and vercel routing
+- `ffbef60` feat(web): add custody registration UI
+
+---
+
 ## Phase 4: 市場與交易系統
 
 ### 目標
@@ -300,6 +326,41 @@
 
 ---
 
+## Phase 6: 物品與寶箱系統 (荒野亂鬥風格)
+
+### 目標
+實作類似荒野亂鬥的寶箱開啟系統，包含隨機物品掉落、庫存管理、裝備系統。
+
+### 規劃功能
+- 🔄 寶箱類型（普通、稀有、史詩、傳奇）
+- 🔄 隨機物品掉落機率系統
+- 🔄 物品庫存管理（背包）
+- 🔄 頭像/稱號收集系統
+- 🔄 物品交易/贈送
+- 🔄 幸運值保底機制
+
+### 物品類型
+| 類型 | 說明 | 用途 |
+|------|------|------|
+| Avatar | 頭像 | 個人資料顯示 |
+| Title | 稱號 | 排行榜/聊天顯示 |
+| Token | 代幣 | 可直接兌換 |
+| Buff | 增益 | 遊戲內加成 |
+| Collectible | 收藏品 | 純收藏價值 |
+
+### 寶箱設計
+| 寶箱類型 | 價格 | 保底機制 |
+|----------|------|----------|
+| 普通寶箱 | 100 ZXC | 每 10 保底稀有 |
+| 稀有寶箱 | 500 ZXC | 每 10 保底史詩 |
+| 史詩寶箱 | 2000 ZXC | 每 10 保底傳奇 |
+| 傳奇寶箱 | 10000 ZXC | 必出傳奇 |
+
+### 目前狀態
+- 🔄 規劃中 - 需移植 main 分支既有實作
+
+---
+
 ## 下一步優先級
 
 ### 🔴 P0 - 最緊急
@@ -307,8 +368,9 @@
 
 ### 🟡 P1 - 重要
 1. Admin 頁面真實數據 API
-3. Support 客服系統實作
-4. 市場交易 API
+2. Support 客服系統實作
+3. 市場交易 API
+4. **物品/寶箱系統實作**
 
 ### 🟢 P2 - 次要
 5. 優化前端效能
@@ -321,3 +383,4 @@
 
 - `docs/PHASE3_URGENT_GAMERECORD_ISSUE.md` - P0 問題詳細報告
 - `docs/DB_SCHEMA_REFERENCE.md` - 資料庫結構參考
+- `docs/PHASE3_FINAL_CLEANUP_CHECKLIST.md` - Phase 3 清理清單

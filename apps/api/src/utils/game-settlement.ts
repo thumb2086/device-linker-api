@@ -20,7 +20,7 @@ import {
   ChainClient,
   kv,
 } from "@repo/infrastructure";
-import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService } from "@repo/on-chain";
+import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService, BetPayoutService } from "@repo/on-chain";
 import type { Game, TokenSymbol } from "@repo/shared";
 import type { TxIntent } from "@repo/shared";
 
@@ -80,8 +80,7 @@ export class GameSettlementWrapper {
       this.walletManager,
       this.onchainWallet,
       this.vipManager,
-      this.walletRepo,
-      null // ChainClient auto-initializes from config
+      this.walletRepo
     );
   }
 
@@ -220,6 +219,29 @@ export class GameSettlementWrapper {
    * Execute on-chain settlement
    */
   async executeSettlement(ctx: SettlementContext): Promise<SettlementResult> {
+    // Idempotency guard: check if settlement already processed for this roundId
+    const existingIntents = await this.walletRepo.getTxIntentsByRoundId(ctx.roundId);
+    if (existingIntents && existingIntents.length > 0) {
+      // Settlement already exists, return cached result
+      const betIntent = existingIntents.find((i: any) => i.type === "bet");
+      const payoutIntent = existingIntents.find((i: any) => i.type === "payout");
+      const isConfirmed = betIntent?.status === "confirmed";
+      
+      if (isConfirmed) {
+        return {
+          success: true,
+          finalPayout: parseFloat(ctx.payoutAmount),
+          feeAmount: 0,
+          isWin: parseFloat(ctx.payoutAmount) > parseFloat(ctx.betAmount),
+          betTxHash: betIntent?.txHash,
+          payoutTxHash: payoutIntent?.txHash,
+          balanceBefore: "0",
+          balanceAfter: "0",
+          status: payoutIntent?.status === "confirmed" ? "settled" : "pending",
+        };
+      }
+    }
+
     if (this.isAsyncSettlementEnabled()) {
       try {
         const runtime = this.onchainWallet.getRuntimeConfig();
@@ -278,7 +300,7 @@ export class GameSettlementWrapper {
         }
 
         const queuedIntents: TxIntent[] = payoutIntent ? [betIntent, payoutIntent] : [betIntent];
-        void this.processQueuedIntents(queuedIntents, ctx.address.toLowerCase(), ctx.game, ctx.roundId)
+        void this.processQueuedIntents(queuedIntents, ctx.address.toLowerCase(), ctx.game, ctx.roundId, settlement.id, ctx.userId)
           .catch(async (error) => {
             await this.opsRepo.logEvent({
               channel: "game",
@@ -289,6 +311,7 @@ export class GameSettlementWrapper {
               address: ctx.address,
               game: ctx.game,
               roundId: ctx.roundId,
+              settlementId: settlement.id,
               message: `Async queue runtime failed: ${error?.message || "unknown error"}`,
             });
           });
@@ -302,10 +325,10 @@ export class GameSettlementWrapper {
           address: ctx.address,
           game: ctx.game,
           roundId: ctx.roundId,
+          settlementId: settlement.id,
           message: `Queued async settlement for ${ctx.game} round ${ctx.roundId}`,
           meta: {
             requestId: ctx.requestId,
-            settlementId: settlement.id,
             payoutIntentId: payoutIntent?.id,
             betIntentId: betIntent.id,
             feeAmount,
@@ -375,7 +398,9 @@ export class GameSettlementWrapper {
     intents: TxIntent[],
     userAddress: string,
     game: string,
-    roundId: string
+    roundId: string,
+    settlementId: string,
+    userId: string
   ): Promise<void> {
     const runtime = this.onchainWallet.getRuntimeConfig();
     if (!runtime.rpcUrl || !runtime.adminPrivateKey) {
@@ -383,10 +408,9 @@ export class GameSettlementWrapper {
     }
 
     const repo = new ViemRepository(runtime.rpcUrl, runtime.adminPrivateKey);
-    const settlementService = new SettlementServiceImpl(repo);
+    const betPayoutService = new BetPayoutService(repo, this.FIXED_TREASURY_ADDRESS);
 
     for (const intent of intents) {
-      let txHash: string | undefined;
       try {
         await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "broadcasted"));
 
@@ -396,50 +420,61 @@ export class GameSettlementWrapper {
           throw new Error(`ONCHAIN_TOKEN_CONFIG_MISSING: ${intent.token}`);
         }
 
-        const fromAddress = intent.type === "payout"
-          ? this.FIXED_TREASURY_ADDRESS
-          : userAddress;
-        const toAddress = intent.type === "payout"
-          ? userAddress
-          : this.FIXED_TREASURY_ADDRESS;
+        let txResult;
+        if (intent.type === "bet") {
+          txResult = await betPayoutService.processBet({
+            from: userAddress,
+            amount: String(intent.amount || "0"),
+            tokenAddress: tokenRuntime.contractAddress,
+            roundId,
+            settlementId,
+            gameType: game,
+            tokenSymbol: intent.token,
+          });
+        } else if (intent.type === "payout") {
+          txResult = await betPayoutService.processPayout({
+            to: userAddress,
+            amount: String(intent.amount || "0"),
+            tokenAddress: tokenRuntime.contractAddress,
+            roundId,
+            settlementId,
+            gameType: game,
+            tokenSymbol: intent.token,
+          });
+        } else {
+          throw new Error(`Unknown intent type: ${intent.type}`);
+        }
 
-        const txResult = await settlementService.adminTransfer({
-          from: fromAddress,
-          to: toAddress,
-          amount: String(intent.amount || "0"),
-          tokenAddress: tokenRuntime.contractAddress,
-        });
-        txHash = txResult.txHash;
-
-        await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "confirmed", txHash));
+        await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "confirmed", txResult.txHash));
         await this.opsRepo.logEvent({
           channel: "game",
           severity: "info",
           source: game,
           kind: "settlement_tx_confirmed",
-          userId: intent.userId,
+          userId,
           address: userAddress,
           game,
           roundId,
+          settlementId,
           txIntentId: intent.id,
-          txHash,
-          message: `Settlement tx confirmed: ${intent.type} ${txHash}`,
+          txHash: txResult.txHash,
+          message: `Settlement tx confirmed: ${intent.type} ${txResult.txHash}`,
         });
       } catch (error: any) {
         await this.walletRepo.saveTxIntent(
-          this.walletManager.processTxIntent(intent, "failed", txHash, error?.message || "Settlement tx failed")
+          this.walletManager.processTxIntent(intent, "failed", undefined, error?.message || "Settlement tx failed")
         );
         await this.opsRepo.logEvent({
           channel: "game",
           severity: "error",
           source: game,
           kind: "settlement_tx_failed",
-          userId: intent.userId,
+          userId,
           address: userAddress,
           game,
           roundId,
+          settlementId,
           txIntentId: intent.id,
-          txHash,
           errorCode: "TX_BROADCAST_ERROR",
           message: `Settlement tx failed: ${intent.type} ${error?.message || "unknown error"}`,
         });
@@ -500,6 +535,7 @@ export class GameSettlementWrapper {
     betTxHash?: string;
     payoutTxHash?: string;
     roundId: string;
+    settlementId?: string;
   }): Promise<void> {
     await this.opsRepo.logEvent({
       channel: "game",
@@ -513,6 +549,7 @@ export class GameSettlementWrapper {
       payout: params.payout,
       fee: params.fee,
       isWin: params.isWin,
+      settlementId: params.settlementId,
       message: `User played ${params.game}: bet ${params.amount}, payout ${params.payout} (${params.multiplier}x), fee ${params.fee}`,
       meta: {
         roundId: params.roundId,

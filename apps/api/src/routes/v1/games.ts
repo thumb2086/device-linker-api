@@ -104,8 +104,7 @@ export async function gameRoutes(fastify: FastifyInstance) {
     walletManager,
     onchainWallet,
     null as any, // VipManager placeholder - fee calculation will use default tier
-    walletRepo,  // WalletRepository for saving tx attempts and receipts
-    null         // ChainClient - will auto-initialize from config
+    walletRepo   // WalletRepository for saving tx attempts and receipts
   );
   const identityManager = new IdentityManager();
 

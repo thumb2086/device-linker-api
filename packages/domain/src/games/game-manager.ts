@@ -363,7 +363,8 @@ export class GameManager implements GameDomain {
 
   resolveCrash(elapsedSeconds: number, seed: string, bias: number = 0) {
     const hash = this._fnv1a32(seed);
-    const crashPoint = Math.max(1.0, 0.99 / (1 - (hash % 1000000 / 1000000)) ** 0.05);
+    const ratio = (hash % 1000000) / 1000000;
+    const crashPoint = Math.min(100, Math.max(1.08, 0.99 / (1 - ratio) ** 0.35));
     const currentMultiplier = Math.pow(Math.E, 0.08 * elapsedSeconds);
     return {
         multiplier: currentMultiplier,

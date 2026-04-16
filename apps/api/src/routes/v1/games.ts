@@ -343,6 +343,63 @@ export async function gameRoutes(fastify: FastifyInstance) {
 
   // ─── Room Management ──────────────────────────────────────────────────────
 
+
+  typedFastify.post("/rooms/join", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        roomId: z.string(),
+      }),
+    },
+  }, async (request) => {
+    const { roomId } = request.body as { sessionId: string; roomId: string };
+    const ctx = await getContext(request);
+    if (!ctx || !ctx.user || !ctx.session?.address) {
+      return createApiEnvelope({ success: false }, request.id, false, "UNAUTHORIZED: Invalid session");
+    }
+
+    const vipManager = new VipManager();
+    const tier = await vipManager.getYjcVipTierByAddress(ctx.session.address);
+    const vipLevel = tier.key === "vip2" ? 2 : tier.key === "vip1" ? 1 : 0;
+
+    try {
+      const room = await roomManager.joinRoom(roomId, {
+        userId: ctx.user.id,
+        displayName: ctx.user.username || ctx.user.displayName || `玩家${ctx.user.id.slice(0, 4)}`,
+        avatar: "🧑",
+        vipLevel,
+      });
+
+      // 補位機器人：若房間人數偏低，補到 70%
+      await roomManager.fillWithBots(roomId);
+      const hydrated = (await roomManager.getRooms()).find((r) => r.id === roomId) || room;
+
+      return createApiEnvelope({ success: true, room: hydrated }, request.id);
+    } catch (error: any) {
+      return createApiEnvelope({ success: false }, request.id, false, error?.message || "JOIN_ROOM_FAILED");
+    }
+  });
+
+  typedFastify.post("/rooms/leave", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        roomId: z.string(),
+      }),
+    },
+  }, async (request) => {
+    const { roomId } = request.body as { sessionId: string; roomId: string };
+    const ctx = await getContext(request);
+    if (!ctx || !ctx.user) {
+      return createApiEnvelope({ success: false }, request.id, false, "UNAUTHORIZED: Invalid session");
+    }
+
+    await roomManager.leaveRoom(roomId, ctx.user.id);
+    const rooms = await roomManager.getRooms();
+    const room = rooms.find((r) => r.id === roomId) || null;
+    return createApiEnvelope({ success: true, room }, request.id);
+  });
+
   typedFastify.get("/rooms", {
     schema: {
         querystring: z.object({ game: z.string().optional() })

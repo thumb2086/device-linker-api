@@ -125,3 +125,10 @@
 .result-overlay.win { border-color: #22c55e; color: #22c55e; }
 .result-overlay.push { border-color: #94a3b8; color: #94a3b8; }
 .result-overlay.lose { border-color: #ef4444; color: #ef4444; }
+
+
+@media (max-width: 640px) {
+  .controls { flex-direction: column; }
+  .start-btn, .hit-btn, .stand-btn, .controls input { width: 100%; min-height: 46px; }
+  .result-overlay { width: 88%; padding: 1.25rem; }
+}

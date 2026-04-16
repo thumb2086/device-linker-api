@@ -16,8 +16,8 @@ export default function AppBottomNav({ current }: { current: NavKey }) {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 z-50 h-20 w-full border-t border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-2xl">
-      <div className="app-shell flex h-full items-center justify-around">
+    <nav className="fixed inset-x-0 bottom-0 z-[90] h-[calc(5rem+env(safe-area-inset-bottom))] border-t border-[#494847]/15 bg-[#0e0e0e]/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl">
+      <div className="app-shell flex h-20 items-center justify-around">
         {items.map((item) => {
           const Icon = item.icon;
           const active = item.key === current;

@@ -109,6 +109,7 @@ export default function SettingsView() {
     nameLength: '\u986f\u793a\u540d\u7a31\u9577\u5ea6\u9700\u4ecb\u65bc 2 \u5230 20 \u5b57',
     nameUpdateFailed: '\u986f\u793a\u540d\u7a31\u66f4\u65b0\u5931\u6557',
     nameUpdated: '\u986f\u793a\u540d\u7a31\u5df2\u66f4\u65b0',
+    nameHint: '\u53ef\u66f4\u6539\u7684\u662f\u986f\u793a\u540d\u7a31\uff08\u4e0d\u5f71\u97ff\u767b\u5165\u5e33\u865f\uff09',
   };
 
   const walletPreviewBalance = resolvePreferredBalance({
@@ -188,10 +189,16 @@ export default function SettingsView() {
       });
       const payload = await res.json();
       if (payload?.success === false) {
-        setStatusText(isZh ? zh.nameUpdateFailed : 'Failed to update display name');
+        setStatusText(payload?.error || (isZh ? zh.nameUpdateFailed : 'Failed to update display name'));
         return;
       }
-      setUsername(nextName);
+
+      // Reload canonical profile name from server to avoid stale local state
+      const profileRes = await fetch(`/api/v1/profile/prefs?sessionId=${sessionId}`);
+      const profilePayload = await profileRes.json();
+      const syncedName = profilePayload?.data?.displayName || nextName;
+      setUsername(syncedName);
+      setDisplayNameDraft(syncedName);
       setIsEditingName(false);
       setStatusText(isZh ? zh.nameUpdated : 'Display name updated');
     } catch {
@@ -234,7 +241,7 @@ export default function SettingsView() {
       <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 pt-24">
         <section className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
+            <div className="flex min-w-0 items-start gap-4">
               <div className="rounded-2xl bg-[#262626] p-3">
                 <User className="text-[#fcc025]" />
               </div>
@@ -242,6 +249,7 @@ export default function SettingsView() {
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">
                   {isZh ? zh.profile : 'Operator Profile'}
                 </p>
+                <p className="mt-1 text-[10px] font-bold text-[#6f6f6f]">{isZh ? zh.nameHint : 'Display name only (does not change login account)'}</p>
                 {isEditingName ? (
                   <div className="mt-3 flex flex-col gap-3">
                     <input
@@ -279,6 +287,14 @@ export default function SettingsView() {
                     <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.18em] text-[#adaaaa]">
                       {address || (isZh ? zh.noAddress : 'NO ADDRESS')}
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingName(true)}
+                      className="mt-3 inline-flex items-center gap-2 rounded-xl border border-[#fcc025]/40 bg-[#262626] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[#fcc025] hover:bg-[#313131]"
+                    >
+                      <Edit2 size={12} />
+                      {isZh ? '修改名稱' : 'Edit Name'}
+                    </button>
                   </>
                 )}
               </div>
@@ -287,7 +303,7 @@ export default function SettingsView() {
               <button
                 type="button"
                 onClick={() => setIsEditingName(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#262626] text-[#fcc025]"
+                className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#262626] text-[#fcc025] sm:flex"
               >
                 <Edit2 size={16} />
               </button>

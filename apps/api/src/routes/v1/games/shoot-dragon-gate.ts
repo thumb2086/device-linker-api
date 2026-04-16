@@ -5,7 +5,43 @@ import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
 import { GameSessionManager } from "@repo/domain/games/game-session-manager.js";
 import { requireDb } from "@repo/infrastructure/db/index.js";
-import { playShootDragonGateRound } from "./shoot-dragon-gate-shared.js";
+import { playShootDragonGateRound, type DragonGateCard } from "./shoot-dragon-gate-shared.js";
+
+const CARD_FACES = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"] as const;
+const CARD_VALUES: Record<DragonGateCard, number> = {
+  A: 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
+  "8": 8, "9": 9, "10": 10, J: 11, Q: 12, K: 13,
+};
+
+type PendingGate = {
+  userId: string;
+  left: DragonGateCard;
+  right: DragonGateCard;
+  openedAt: number;
+};
+
+const GATE_TTL_MS = 2 * 60 * 1000;
+const pendingGates = new Map<string, PendingGate>();
+
+function drawCard(): DragonGateCard {
+  return CARD_FACES[Math.floor(Math.random() * CARD_FACES.length)];
+}
+
+function cleanupExpiredGates(now = Date.now()) {
+  for (const [gateId, gate] of pendingGates.entries()) {
+    if (now - gate.openedAt > GATE_TTL_MS) {
+      pendingGates.delete(gateId);
+    }
+  }
+}
+
+function clearUserPendingGates(userId: string) {
+  for (const [gateId, gate] of pendingGates.entries()) {
+    if (gate.userId === userId) {
+      pendingGates.delete(gateId);
+    }
+  }
+}
 
 export async function shootDragonGateRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -28,17 +64,71 @@ export async function shootDragonGateRoutes(fastify: FastifyInstance) {
     return { session, user };
   };
 
+  typedFastify.post("/open", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getContext(request);
+    if (!ctx || !ctx.user) {
+      return createApiEnvelope(
+        { success: false },
+        request.id,
+        false,
+        "UNAUTHORIZED: Invalid session"
+      );
+    }
+
+    cleanupExpiredGates();
+    const left = drawCard();
+    const right = drawCard();
+    const lo = Math.min(CARD_VALUES[left], CARD_VALUES[right]);
+    const hi = Math.max(CARD_VALUES[left], CARD_VALUES[right]);
+    const diff = hi - lo;
+    const multiplier = diff === 0 ? 0 : Number((12 / diff).toFixed(2));
+    const gateId = `gate_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    clearUserPendingGates(ctx.user.id);
+    pendingGates.set(gateId, {
+      userId: ctx.user.id,
+      left,
+      right,
+      openedAt: Date.now(),
+    });
+
+    return createApiEnvelope({
+      success: true,
+      data: {
+        gateId,
+        left,
+        right,
+        lo,
+        hi,
+        multiplier,
+        expiresAt: Date.now() + GATE_TTL_MS,
+      },
+    }, request.id);
+  });
+
   // POST /api/v1/games/shoot-dragon-gate/play
   typedFastify.post("/play", {
     schema: {
       body: z.object({
         sessionId: z.string(),
         betAmount: z.number().min(1).max(1_000_000),
+        gateId: z.string().min(1),
         token: z.enum(["zhixi", "yjc"]).optional().default("zhixi"),
       }),
     },
   }, async (request) => {
-    const { betAmount, token } = request.body as { sessionId: string; betAmount: number; token: "zhixi" | "yjc" };
+    const { betAmount, token, gateId } = request.body as {
+      sessionId: string;
+      betAmount: number;
+      gateId: string;
+      token: "zhixi" | "yjc";
+    };
 
     const ctx = await getContext(request);
     if (!ctx || !ctx.user) {
@@ -62,6 +152,19 @@ export async function shootDragonGateRoutes(fastify: FastifyInstance) {
       );
     }
 
+    cleanupExpiredGates();
+    const pendingGate = pendingGates.get(gateId);
+    if (!pendingGate || pendingGate.userId !== userId) {
+      return createApiEnvelope(
+        { success: false },
+        request.id,
+        false,
+        "GATE_INVALID: Please open a new gate."
+      );
+    }
+    const openCards = { left: pendingGate.left, right: pendingGate.right };
+    pendingGates.delete(gateId);
+
     try {
       const result = await playShootDragonGateRound({
         userId,
@@ -69,6 +172,7 @@ export async function shootDragonGateRoutes(fastify: FastifyInstance) {
         betAmount,
         token,
         requestId: request.id,
+        openCards,
       });
 
       if (!result.ok) {

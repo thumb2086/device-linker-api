@@ -126,16 +126,29 @@ export class GameManager implements GameDomain {
 
   resolveHorseRace(horseId: number, seed: string, bias: number = 0): { winnerId: number; winnerName: string; isWin: boolean; multiplier: number } {
     const HORSES = [
-      { id: 1, name: "赤焰", multiplier: 1.8 },
-      { id: 2, name: "雷霆", multiplier: 2.2 },
-      { id: 3, name: "幻影", multiplier: 2.9 },
-      { id: 4, name: "夜刃", multiplier: 4.0 },
-      { id: 5, name: "霜牙", multiplier: 5.8 },
-      { id: 6, name: "流星", multiplier: 8.5 }
+      { id: 1, name: "赤焰", multiplier: 2.0, weight: 500 },   // ~50% chance
+      { id: 2, name: "雷霆", multiplier: 3.0, weight: 333 },   // ~33% chance
+      { id: 3, name: "幻影", multiplier: 5.0, weight: 200 },   // ~20% chance
+      { id: 4, name: "夜刃", multiplier: 8.0, weight: 125 },   // ~12.5% chance
+      { id: 5, name: "霜牙", multiplier: 12.0, weight: 83 },    // ~8.3% chance
+      { id: 6, name: "流星", multiplier: 20.0, weight: 50 }     // ~5% chance
     ];
+    
+    const totalWeight = HORSES.reduce((sum, h) => sum + h.weight, 0);
     let hash = this._fnv1a32(seed);
-    let winnerIndex = hash % HORSES.length;
+    let random = hash % totalWeight;
+    
+    let winnerIndex = 0;
+    let cumulativeWeight = 0;
+    for (let i = 0; i < HORSES.length; i++) {
+      cumulativeWeight += HORSES[i].weight;
+      if (random < cumulativeWeight) {
+        winnerIndex = i;
+        break;
+      }
+    }
 
+    // Apply bias: adjust random value to favor selected horse
     if (bias > 0 && HORSES[winnerIndex].id !== horseId) {
         if ((this._fnv1a32(seed + ':bias') % 100) < bias * 100) {
             winnerIndex = HORSES.findIndex(h => h.id === horseId);

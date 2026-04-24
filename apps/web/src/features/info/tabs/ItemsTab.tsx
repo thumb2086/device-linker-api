@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Crown, Gift, Package, Search, Shield, Sparkles, Zap } from 'lucide-react';
+import { Crown, Gift, Package, Search, Shield, Sparkles, Zap, PlusCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { api } from '../../../store/api';
 
 interface CatalogItem {
@@ -92,6 +93,16 @@ export default function ItemsTab() {
 
   return (
     <div className="space-y-6">
+      <Link
+        to="/app/rewards/submit"
+        className="flex items-center justify-between rounded-xl border border-[#fcc025]/30 bg-gradient-to-r from-[#fcc025]/15 to-[#fcc025]/5 p-4 transition-all hover:from-[#fcc025]/25 hover:to-[#fcc025]/10"
+      >
+        <div>
+          <p className="text-sm font-black text-white">投稿你的稱號 / 頭像</p>
+          <p className="mt-1 text-[10px] text-[#adaaaa]">送出表情符號與名稱，通過管理員審核後就會加入全站清單</p>
+        </div>
+        <PlusCircle className="h-6 w-6 text-[#fcc025]" />
+      </Link>
       <section className="space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#494847]" />

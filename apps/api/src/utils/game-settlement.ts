@@ -20,7 +20,7 @@ import {
   ChainClient,
   kv,
 } from "@repo/infrastructure";
-import { consumePreventLossBuff } from "./inventory.js";
+import { consumePreventLossBuff, restorePreventLossBuff } from "./inventory.js";
 import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService, BetPayoutService } from "@repo/on-chain";
 import type { Game, TokenSymbol } from "@repo/shared";
 import type { TxIntent } from "@repo/shared";
@@ -286,12 +286,44 @@ export class GameSettlementWrapper {
       }
     }
 
+    const rollbackPreventLoss = async (reason: string): Promise<void> => {
+      if (!preventLossApplied || !ctx.userId) return;
+      try {
+        await restorePreventLossBuff(ctx.userId);
+      } catch (err: any) {
+        await this.opsRepo.logEvent({
+          channel: "game",
+          severity: "error",
+          source: ctx.game,
+          kind: "prevent_loss_rollback_failed",
+          userId: ctx.userId,
+          address: ctx.address,
+          game: ctx.game,
+          roundId: ctx.roundId,
+          message: `Failed to restore prevent-loss buff after ${reason}: ${err?.message || "unknown"}`,
+        });
+        return;
+      }
+      await this.opsRepo.logEvent({
+        channel: "game",
+        severity: "info",
+        source: ctx.game,
+        kind: "prevent_loss_rollback",
+        userId: ctx.userId,
+        address: ctx.address,
+        game: ctx.game,
+        roundId: ctx.roundId,
+        message: `Restored prevent-loss buff after ${reason}`,
+      });
+    };
+
     if (this.isAsyncSettlementEnabled()) {
       try {
         const runtime = this.onchainWallet.getRuntimeConfig();
         const tokenKey = ctx.token === "YJC" ? "yjc" : "zhixi";
         const tokenRuntime = runtime.tokens[tokenKey];
         if (!runtime.rpcUrl || !runtime.adminPrivateKey || !tokenRuntime?.enabled || !tokenRuntime.contractAddress) {
+          await rollbackPreventLoss("onchain_config_missing");
           return {
             success: false,
             finalPayout: 0,
@@ -391,6 +423,7 @@ export class GameSettlementWrapper {
           preventLossApplied,
         };
       } catch (error: any) {
+        await rollbackPreventLoss("settlement_queue_error");
         return {
           success: false,
           finalPayout: 0,
@@ -428,6 +461,7 @@ export class GameSettlementWrapper {
         preventLossApplied,
       };
     } catch (error: any) {
+      await rollbackPreventLoss("settlement_error");
       return {
         success: false,
         finalPayout: 0,

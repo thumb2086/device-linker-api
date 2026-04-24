@@ -184,7 +184,8 @@ export async function openChestForUser(
 
   const state = await loadInventoryState(userId);
   const inventory = toChestManagerInventory(state);
-  const result = chestManager.openChest(address, chestType, inventory);
+  void address; // reserved for future chain-bound seeding
+  const result = chestManager.openChest(userId, chestType, inventory);
 
   const nextPity = { ...state.chestPity };
   nextPity[chestType] = result.isPityTrigger ? 0 : state.chestPity[chestType] + 1;
@@ -343,6 +344,32 @@ export async function consumePreventLossBuff(userId: string): Promise<{
 
   await persistInventoryState(userId, { ...state, activeBuffs: nextBuffs });
   return { consumed: true, remaining: nextRemaining };
+}
+
+/**
+ * Reverse the effect of `consumePreventLossBuff`. Used by game-settlement when
+ * the on-chain settlement subsequently fails so the user does not lose a
+ * paid-for buff charge on a transaction that never completed.
+ */
+export async function restorePreventLossBuff(userId: string): Promise<void> {
+  const state = await loadInventoryState(userId);
+  const idx = state.activeBuffs.findIndex((buff) => buff.type === "prevent_loss");
+  const nextBuffs = [...state.activeBuffs];
+  if (idx < 0) {
+    nextBuffs.push({
+      id: `buff_prevent_loss_restored_${Date.now()}`,
+      type: "prevent_loss",
+      value: 1,
+      remaining: 1,
+      expiresAt: null,
+      source: "settlement_rollback",
+    });
+  } else {
+    const current = { ...nextBuffs[idx] };
+    current.remaining = (current.remaining ?? 0) + 1;
+    nextBuffs[idx] = current;
+  }
+  await persistInventoryState(userId, { ...state, activeBuffs: nextBuffs });
 }
 
 export function listAllItems(): ItemDefinition[] {

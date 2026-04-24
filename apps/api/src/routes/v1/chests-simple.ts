@@ -222,7 +222,7 @@ export async function chestRoutes(fastify: FastifyInstance) {
           isPityTrigger: outcome.result.isPityTrigger,
           pityCount: outcome.state.chestPity[chestType],
           totalValue: outcome.result.totalValue,
-          inventoryCount: outcome.state.inventory,
+          inventoryCount: countInventorySlots(outcome.state.inventory),
         },
         request.id,
       );

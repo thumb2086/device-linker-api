@@ -459,7 +459,43 @@ export async function adminRoutes(fastify: FastifyInstance) {
     return createApiEnvelope({ success: true, submissionId }, request.id);
   });
 
-  // ─── User management (inspect / win bias) ────────────────────────────────
+  // ─── User management (list / inspect / VIP / win bias / reset) ──────────
+
+  // List all users with optional search
+  typedFastify.get("/users", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const q = request.query as { search?: string; limit?: string } | undefined;
+    const search = q?.search ? String(q.search) : "";
+    const limit = q?.limit ? Math.min(200, Math.max(1, Number(q.limit) || 50)) : 50;
+    const users = await userRepo.listUsers({ search, limit });
+    const out = await Promise.all(
+      (users || []).map(async (u: any) => {
+        const addr = String(u.address || "").toLowerCase();
+        const [balance, balanceYjc, totalBet, vip, blacklisted] = await Promise.all([
+          kv.get<string>(`balance:${addr}`),
+          kv.get<string>(`balance_yjc:${addr}`),
+          kv.get<string>(`total_bet:${addr}`),
+          kv.get<number>(`vip:${addr}`),
+          kv.get<any>(`blacklist:${addr}`),
+        ]);
+        return {
+          id: u.id,
+          address: u.address,
+          displayName: u.displayName ?? null,
+          accountId: u.accountId ?? null,
+          mode: u.mode ?? null,
+          createdAt: u.createdAt ?? null,
+          balance: balance || "0",
+          balanceYjc: balanceYjc || "0",
+          totalBet: totalBet || "0",
+          vipLevel: typeof vip === "number" ? vip : 0,
+          blacklisted: Boolean(blacklisted),
+        };
+      }),
+    );
+    return createApiEnvelope({ users: out }, request.id);
+  });
 
   // Inspect a user by address - returns profile + balances-like info
   typedFastify.get("/users/:address", async (request) => {
@@ -470,14 +506,30 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const user = await userRepo.getUserByAddress(addrLower);
     if (!user) return createApiEnvelope({ error: { code: "NOT_FOUND", message: "User not found" } }, request.id);
     const profile = await userRepo.getUserProfile(user.id).catch(() => null);
+    const [balance, balanceYjc, totalBet, vipLevel, blacklist] = await Promise.all([
+      kv.get<string>(`balance:${addrLower}`),
+      kv.get<string>(`balance_yjc:${addrLower}`),
+      kv.get<string>(`total_bet:${addrLower}`),
+      kv.get<number>(`vip:${addrLower}`),
+      kv.get<any>(`blacklist:${addrLower}`),
+    ]);
     return createApiEnvelope({
       user: {
         id: user.id,
         address: user.address,
         displayName: (user as any).displayName ?? null,
+        accountId: (user as any).accountId ?? null,
+        mode: (user as any).mode ?? null,
         createdAt: (user as any).createdAt ?? null,
       },
       profile,
+      balances: {
+        zxc: balance || "0",
+        yjc: balanceYjc || "0",
+        totalBet: totalBet || "0",
+      },
+      vipLevel: typeof vipLevel === "number" ? vipLevel : 0,
+      blacklist: blacklist || null,
     }, request.id);
   });
 
@@ -513,6 +565,55 @@ export async function adminRoutes(fastify: FastifyInstance) {
     });
 
     return createApiEnvelope({ success: true, address: addrLower, bias }, request.id);
+  });
+
+  // Set VIP level (0-5) for a user. Ported from main's set_vip action.
+  typedFastify.post("/users/:address/vip", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        level: z.number().int().min(0).max(5),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { address } = request.params as { address: string };
+    const { level } = request.body as any;
+    const addrLower = String(address || "").toLowerCase();
+    await kv.set(`vip:${addrLower}`, level);
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "warn",
+      source: "admin_api",
+      kind: "user_vip_set",
+      userId: ctx.user.id,
+      message: `Set vip=${level} for ${addrLower}`,
+      meta: { targetAddress: addrLower, level },
+    });
+    return createApiEnvelope({ success: true, address: addrLower, level }, request.id);
+  });
+
+  // Reset a user's total_bet counter to 0. Ported from main's reset_total_bets.
+  typedFastify.post("/users/:address/reset-total-bet", {
+    schema: { body: z.object({ sessionId: z.string() }) },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { address } = request.params as { address: string };
+    const addrLower = String(address || "").toLowerCase();
+    const previous = await kv.get<string>(`total_bet:${addrLower}`);
+    await kv.set(`total_bet:${addrLower}`, "0");
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "warn",
+      source: "admin_api",
+      kind: "user_total_bet_reset",
+      userId: ctx.user.id,
+      message: `Reset total_bet for ${addrLower} (was ${previous || "0"})`,
+      meta: { targetAddress: addrLower, previous: previous || "0" },
+    });
+    return createApiEnvelope({ success: true, address: addrLower, previous: previous || "0" }, request.id);
   });
 
   // ─── Campaigns / Events Management ────────────────────────────────────────

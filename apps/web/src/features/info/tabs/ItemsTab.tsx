@@ -7,7 +7,7 @@ interface CatalogItem {
   name?: string;
   label?: string;
   type: 'avatar' | 'title' | 'item' | 'buff';
-  rarity?: 'common' | 'rare' | 'legendary' | 'mythic' | 'vip';
+  rarity?: 'common' | 'rare' | 'legendary' | 'mythic' | 'vip' | 'epic';
   description?: string;
   icon?: string;
   source?: string;
@@ -17,8 +17,9 @@ interface CatalogItem {
 const RARITY_STYLES = {
   common: { bg: 'bg-gray-500/20', text: 'text-gray-300', border: 'border-gray-500/30', label: '普通' },
   rare: { bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/30', label: '稀有' },
+  epic: { bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/30', label: '史詩' },
   legendary: { bg: 'bg-yellow-500/20', text: 'text-yellow-300', border: 'border-yellow-500/30', label: '傳說' },
-  mythic: { bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/30', label: '神話' },
+  mythic: { bg: 'bg-pink-500/20', text: 'text-pink-300', border: 'border-pink-500/30', label: '神話' },
   vip: { bg: 'bg-[#fcc025]/20', text: 'text-[#fcc025]', border: 'border-[#fcc025]/30', label: 'VIP' },
 };
 
@@ -39,14 +40,16 @@ const getHowToGet = (source?: string) => {
 export default function ItemsTab() {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'avatar' | 'title'>('all');
+  const [filter, setFilter] = useState<'all' | 'avatar' | 'title' | 'item' | 'buff'>('all');
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    api
-      .get('/api/v1/rewards/catalog')
-      .then((response) => {
-        const payload = response.data?.data ?? {};
+    Promise.all([
+      api.get('/api/v1/rewards/catalog').catch(() => null),
+      api.get('/api/v1/chests/items').catch(() => null),
+    ])
+      .then(([catalogRes, chestItemsRes]) => {
+        const payload = catalogRes?.data?.data ?? {};
         const avatars = (payload.avatars ?? []).map((item: any) => ({
           ...item,
           type: 'avatar' as const,
@@ -57,9 +60,22 @@ export default function ItemsTab() {
           type: 'title' as const,
           howToGet: getHowToGet(item.source),
         }));
-        setItems([...avatars, ...titles]);
+        const chestItems = (chestItemsRes?.data?.data ?? []).map((item: any) => {
+          const isBuff = (item.type || item.id || '').toString().startsWith('buff_') || item.type === 'buff';
+          return {
+            id: item.id,
+            name: item.name || item.label,
+            label: item.name || item.label,
+            description: item.description,
+            icon: item.icon || '🎁',
+            rarity: item.rarity,
+            source: 'chest',
+            type: isBuff ? ('buff' as const) : ('item' as const),
+            howToGet: '寶箱開啟',
+          };
+        });
+        setItems([...avatars, ...titles, ...chestItems]);
       })
-      .catch(() => setItems([]))
       .finally(() => setLoading(false));
   }, []);
 
@@ -93,6 +109,8 @@ export default function ItemsTab() {
             ['all', '全部'],
             ['avatar', '頭像'],
             ['title', '稱號'],
+            ['item', '道具'],
+            ['buff', '增益'],
           ] as const).map(([value, label]) => (
             <button
               key={value}
@@ -158,7 +176,15 @@ export default function ItemsTab() {
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="flex items-center gap-1 rounded bg-[#0e0e0e] px-2 py-1 text-[9px] font-bold text-[#adaaaa]">
                       <TypeIcon className="h-3 w-3" />
-                      {item.type === 'avatar' ? '頭像' : item.type === 'title' ? '稱號' : item.type}
+                      {item.type === 'avatar'
+                        ? '頭像'
+                        : item.type === 'title'
+                        ? '稱號'
+                        : item.type === 'buff'
+                        ? '增益'
+                        : item.type === 'item'
+                        ? '道具'
+                        : item.type}
                     </span>
                     <span className="rounded bg-[#0e0e0e] px-2 py-1 text-[9px] font-bold text-[#fcc025]">{item.howToGet}</span>
                   </div>

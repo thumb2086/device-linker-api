@@ -5,7 +5,14 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
 import { SupportManager, IdentityManager } from "@repo/domain";
-import { AnnouncementRepository, SessionRepository, UserRepository, kv, OpsRepository } from "@repo/infrastructure";
+import {
+  AnnouncementRepository,
+  SessionRepository,
+  UserRepository,
+  kv,
+  OpsRepository,
+  RewardCatalogRepository,
+} from "@repo/infrastructure";
 
 export async function adminRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -17,6 +24,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   const userRepo = new UserRepository();
   const opsRepo = new OpsRepository();
   const announcementRepo = new AnnouncementRepository();
+  const rewardCatalogRepo = new RewardCatalogRepository();
 
   const ADMIN_ADDRESS = process.env.ADMIN_ADDRESS?.toLowerCase();
 
@@ -169,6 +177,171 @@ export async function adminRoutes(fastify: FastifyInstance) {
     await kv.set("announcements:list", list);
 
     return createApiEnvelope({ success: true, announcement: ann }, request.id);
+  });
+
+  // List all announcements (active + inactive, with pin status)
+  typedFastify.get("/announcements", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const items = await announcementRepo.listAllAnnouncements(100);
+    return createApiEnvelope({ announcements: items }, request.id);
+  });
+
+  // Patch announcement: toggle isActive, isPinned, or edit title/content
+  typedFastify.patch("/announcements/:announcementId", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        title: z.string().optional(),
+        content: z.string().optional(),
+        isPinned: z.boolean().optional(),
+        isActive: z.boolean().optional(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+
+    const { announcementId } = request.params as { announcementId: string };
+    const { title, content, isPinned, isActive } = request.body as any;
+
+    await announcementRepo.updateFields(announcementId, {
+      title,
+      content,
+      isPinned,
+      isActive,
+      updatedBy: ctx.session.address,
+    });
+
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "info",
+      source: "admin_api",
+      kind: "announcement_updated",
+      userId: ctx.user.id,
+      message: `Announcement ${announcementId} updated`,
+      meta: { announcementId, title, isPinned, isActive },
+    });
+
+    return createApiEnvelope({ success: true, announcementId }, request.id);
+  });
+
+  // Delete announcement
+  typedFastify.delete("/announcements/:announcementId", {
+    schema: {
+      body: z.object({ sessionId: z.string() }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+
+    const { announcementId } = request.params as { announcementId: string };
+    await announcementRepo.deleteAnnouncement(announcementId);
+
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "info",
+      source: "admin_api",
+      kind: "announcement_deleted",
+      userId: ctx.user.id,
+      message: `Announcement ${announcementId} deleted`,
+      meta: { announcementId },
+    });
+
+    return createApiEnvelope({ success: true, announcementId }, request.id);
+  });
+
+  // ─── Reward Catalog (custom avatars / titles / other collectibles) ───────
+
+  typedFastify.get("/reward-catalog", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const query = request.query as { type?: string; includeInactive?: string };
+    const items = await rewardCatalogRepo.listItems({
+      type: query?.type,
+      includeInactive: true,
+    });
+    return createApiEnvelope({ items }, request.id);
+  });
+
+  typedFastify.post("/reward-catalog", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        itemId: z.string().min(1),
+        type: z.enum(["avatar", "title", "buff", "chest", "key", "collectible"]),
+        name: z.string().min(1),
+        rarity: z.enum(["common", "rare", "epic", "legendary", "mythic", "vip"]),
+        source: z.string().optional(),
+        description: z.string().optional(),
+        icon: z.string().optional(),
+        price: z.union([z.string(), z.number()]).optional(),
+        isActive: z.boolean().optional(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+
+    const body = request.body as any;
+    const saved = await rewardCatalogRepo.upsertItem({
+      itemId: body.itemId,
+      type: body.type,
+      name: body.name,
+      rarity: body.rarity,
+      source: body.source || "admin",
+      description: body.description,
+      icon: body.icon,
+      price: body.price,
+      isActive: body.isActive,
+    });
+
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "info",
+      source: "admin_api",
+      kind: "reward_catalog_upserted",
+      userId: ctx.user.id,
+      message: `Reward catalog item upserted: ${body.itemId}`,
+      meta: { itemId: body.itemId, type: body.type },
+    });
+
+    return createApiEnvelope({ success: true, item: saved }, request.id);
+  });
+
+  typedFastify.patch("/reward-catalog/:itemId", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        isActive: z.boolean(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { itemId } = request.params as { itemId: string };
+    const { isActive } = request.body as any;
+    const updated = await rewardCatalogRepo.setActive(itemId, isActive);
+    return createApiEnvelope({ success: true, item: updated }, request.id);
+  });
+
+  typedFastify.delete("/reward-catalog/:itemId", {
+    schema: { body: z.object({ sessionId: z.string() }) },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { itemId } = request.params as { itemId: string };
+    await rewardCatalogRepo.deleteItem(itemId);
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "info",
+      source: "admin_api",
+      kind: "reward_catalog_deleted",
+      userId: ctx.user.id,
+      message: `Reward catalog item deleted: ${itemId}`,
+      meta: { itemId },
+    });
+    return createApiEnvelope({ success: true, itemId }, request.id);
   });
 
   // ─── Events & Monitoring ──────────────────────────────────────────────────

@@ -982,4 +982,239 @@ export async function walletRoutes(fastify: FastifyInstance) {
       return createApiEnvelope({ error: { message: error?.message || "Conversion failed" } }, request.id);
     }
   });
+
+  typedFastify.post("/convert/yjc-to-zxc", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        yjcAmount: z.string(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED", message: "Invalid session" } }, request.id);
+
+    const conversionId = randomUUID();
+    let debitIntent: any = null;
+    let mintIntent: any = null;
+
+    try {
+      const yjcAmountText = parseAmountText(request.body.yjcAmount);
+      const conversion = onchainManager.convertYjcToZxc(yjcAmountText);
+      if (conversion.yjcAmount <= 0) {
+        return createApiEnvelope({ error: { message: `At least 1 YJC is required to convert` } }, request.id);
+      }
+
+      const { runtime, client } = getChainClient();
+      const zxcRuntime = runtime.tokens.zhixi;
+      const yjcRuntime = runtime.tokens.yjc;
+      if (!zxcRuntime.enabled || !yjcRuntime.enabled) {
+        return createApiEnvelope({ error: { message: "ZXC/YJC on-chain conversion is not configured" } }, request.id);
+      }
+
+      const [zxcDecimals, yjcDecimals] = await Promise.all([
+        client.getDecimals(zxcRuntime.contractAddress, 18),
+        client.getDecimals(yjcRuntime.contractAddress, 18),
+      ]);
+
+      const yjcAmount = String(conversion.yjcAmount);
+      const zxcAmount = String(conversion.zxcAmount);
+      const yjcAmountWei = client.parseUnits(yjcAmount, yjcDecimals);
+      const zxcAmountWei = client.parseUnits(zxcAmount, zxcDecimals);
+      const address = ctx.session.address;
+
+      const [yjcBalanceWeiBefore, zxcBalanceWeiBefore] = await Promise.all([
+        client.getBalance(address, yjcRuntime.contractAddress),
+        client.getBalance(address, zxcRuntime.contractAddress),
+      ]);
+      if (yjcBalanceWeiBefore < yjcAmountWei) {
+        return createApiEnvelope({ error: { message: "Insufficient YJC balance for conversion" } }, request.id);
+      }
+
+      debitIntent = walletManager.createTxIntent(ctx.user.id, "YJC", "withdrawal", yjcAmount);
+      mintIntent = walletManager.createTxIntent(ctx.user.id, "ZXC", "deposit", zxcAmount);
+      debitIntent.amount = yjcAmount;
+      debitIntent.address = address;
+      debitIntent.contractAddress = yjcRuntime.contractAddress;
+      debitIntent.meta = {
+        conversionId,
+        zxcAmount,
+        treasuryAddress: yjcRuntime.lossPoolAddress,
+        mode: "yjc_to_zxc",
+        decimals: yjcDecimals,
+      };
+
+      mintIntent.amount = zxcAmount;
+      mintIntent.address = address;
+      mintIntent.contractAddress = zxcRuntime.contractAddress;
+      mintIntent.meta = {
+        conversionId,
+        requiredYjc: yjcAmount,
+        mode: "yjc_to_zxc_mint",
+        decimals: zxcDecimals,
+      };
+
+      await walletRepo.saveTxIntent(debitIntent);
+      await walletRepo.saveTxIntent(mintIntent);
+
+      const treasuryAddress = yjcRuntime.lossPoolAddress || client.getWalletAddress();
+      let debitTxHash: string | null = null;
+      let mintTxHash: string | null = null;
+
+      const debitTx = await client.adminTransfer(address, treasuryAddress, yjcAmountWei, yjcRuntime.contractAddress);
+      debitTxHash = debitTx.hash;
+      debitIntent.txHash = debitTxHash;
+      await saveAttempt({
+        txIntentId: debitIntent.id,
+        attemptNumber: 1,
+        status: "broadcasting",
+        txHash: debitTxHash,
+        broadcastAt: new Date(),
+      });
+
+      const debitReceipt = await debitTx.wait();
+      const debitReverted = !debitReceipt || debitReceipt.status !== 1;
+      await saveAttempt({
+        txIntentId: debitIntent.id,
+        attemptNumber: 1,
+        status: debitReverted ? "reverted" : "confirmed",
+        txHash: debitTxHash,
+        confirmedAt: new Date(),
+      });
+      await saveReceipt(debitIntent.id, debitTxHash, debitReceipt, debitReverted ? "reverted" : "confirmed");
+      if (debitReverted) {
+        await walletRepo.saveTxIntent(walletManager.processTxIntent(debitIntent, "reverted", debitTxHash, "Conversion debit reverted"));
+        await walletRepo.saveTxIntent(walletManager.processTxIntent(mintIntent, "failed", undefined, "Conversion debit reverted"));
+        return createApiEnvelope({ error: { message: "Conversion debit reverted on-chain" } }, request.id);
+      }
+      await walletRepo.saveTxIntent(walletManager.processTxIntent(debitIntent, "confirmed", debitTxHash));
+
+      try {
+        const mintTx = await client.mint(address, zxcAmountWei, zxcRuntime.contractAddress);
+        mintTxHash = mintTx.hash;
+        mintIntent.txHash = mintTxHash;
+        await saveAttempt({
+          txIntentId: mintIntent.id,
+          attemptNumber: 1,
+          status: "broadcasting",
+          txHash: mintTxHash,
+          broadcastAt: new Date(),
+        });
+
+        const mintReceipt = await mintTx.wait();
+        const mintReverted = !mintReceipt || mintReceipt.status !== 1;
+        await saveAttempt({
+          txIntentId: mintIntent.id,
+          attemptNumber: 1,
+          status: mintReverted ? "reverted" : "confirmed",
+          txHash: mintTxHash,
+          confirmedAt: new Date(),
+        });
+        await saveReceipt(mintIntent.id, mintTxHash, mintReceipt, mintReverted ? "reverted" : "confirmed");
+
+        if (mintReverted) {
+          await walletRepo.saveTxIntent(walletManager.processTxIntent(mintIntent, "reverted", mintTxHash, "Conversion mint reverted"));
+          return createApiEnvelope({
+            error: {
+              message: "YJC debit succeeded but ZXC mint reverted; reconciliation is required",
+            },
+            partial: {
+              conversionId,
+              debitTxHash,
+              mintTxHash,
+            },
+          }, request.id);
+        }
+
+        await walletRepo.saveTxIntent(walletManager.processTxIntent(mintIntent, "confirmed", mintTxHash));
+
+        const [zxcBalanceWeiAfter, yjcBalanceWeiAfter] = await Promise.all([
+          client.getBalance(address, zxcRuntime.contractAddress),
+          client.getBalance(address, yjcRuntime.contractAddress),
+        ]);
+        const zxcBalanceAfter = client.formatUnits(zxcBalanceWeiAfter, zxcDecimals);
+        const yjcBalanceAfter = client.formatUnits(yjcBalanceWeiAfter, yjcDecimals);
+
+        await Promise.all([
+          syncBalanceIfKnownUser(address, "zhixi", zxcBalanceAfter),
+          syncBalanceIfKnownUser(address, "yjc", yjcBalanceAfter),
+        ]);
+
+        await walletRepo.saveLedgerEntry({
+          id: randomUUID(),
+          userId: ctx.user.id,
+          address,
+          token: "yjc",
+          type: "conversion_out",
+          amount: conversion.yjcAmount,
+          balanceBefore: client.formatUnits(yjcBalanceWeiBefore, yjcDecimals),
+          balanceAfter: yjcBalanceAfter,
+          txIntentId: debitIntent.id,
+          txHash: debitTxHash,
+          meta: { conversionId, zxcAmount, treasuryAddress },
+          createdAt: new Date(),
+        });
+        await walletRepo.saveLedgerEntry({
+          id: randomUUID(),
+          userId: ctx.user.id,
+          address,
+          token: "zhixi",
+          type: "conversion_in",
+          amount: conversion.zxcAmount,
+          balanceBefore: client.formatUnits(zxcBalanceWeiBefore, zxcDecimals),
+          balanceAfter: zxcBalanceAfter,
+          txIntentId: mintIntent.id,
+          txHash: mintTxHash,
+          meta: { conversionId, requiredYjc: yjcAmount },
+          createdAt: new Date(),
+        });
+
+        await opsRepo.logEvent({
+          channel: "wallet",
+          severity: "info",
+          source: "convert",
+          kind: "yjc_to_zxc_confirmed",
+          userId: ctx.user.id,
+          address,
+          txIntentId: mintIntent.id,
+          txHash: mintTxHash,
+          message: `Converted ${yjcAmount} YJC to ${zxcAmount} ZXC`,
+          meta: { conversionId, debitTxHash, mintTxHash, yjcAmount, zxcAmount },
+        });
+
+        return createApiEnvelope({
+          success: true,
+          conversionId,
+          yjcAmount: conversion.yjcAmount,
+          zxcAmount: conversion.zxcAmount,
+          debitTxHash,
+          mintTxHash,
+          balances: {
+            zxc: zxcBalanceAfter,
+            yjc: yjcBalanceAfter,
+          },
+        }, request.id);
+      } catch (error: any) {
+        await saveAttempt({
+          txIntentId: mintIntent.id,
+          attemptNumber: 1,
+          status: "failed",
+          txHash: mintTxHash,
+          error: error?.message || "Conversion mint failed",
+          errorCode: "TX_BROADCAST_ERROR",
+          confirmedAt: new Date(),
+        });
+        await walletRepo.saveTxIntent(walletManager.processTxIntent(mintIntent, "failed", mintTxHash || undefined, error?.message || "Conversion mint failed"));
+        throw error;
+      }
+    } catch (error: any) {
+      if (debitIntent?.id && !debitIntent.txHash) {
+        await walletRepo.saveTxIntent(walletManager.processTxIntent(debitIntent, "failed", undefined, error?.message || "Conversion failed"));
+      }
+      if (mintIntent?.id && !mintIntent.txHash) {
+        await walletRepo.saveTxIntent(walletManager.processTxIntent(mintIntent, "failed", undefined, error?.message || "Conversion failed"));
+      }
+      return createApiEnvelope({ error: { message: error?.message || "Conversion failed" } }, request.id);
+    }
+  });
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import CasinoView from './features/casino/CasinoView';
 import { RouletteView } from './features/casino/RouletteView';
 import WalletView from './features/wallet/WalletView';
+import SwapView from './features/wallet/SwapView';
 import LoginView from './features/auth/LoginView';
 import { useAuthStore } from './store/useAuthStore';
 import MarketView from './features/market/MarketView';
@@ -105,6 +106,7 @@ function AppContent() {
             <Route path="casino/:game" element={<CasinoView />} />
             <Route path="casino/lobby" element={<RoomLobbyView />} />
             <Route path="wallet" element={<WalletView />} />
+            <Route path="swap" element={<SwapView />} />
             <Route path="market" element={<MarketView />} />
             <Route path="rewards" element={<RewardsView />} />
             <Route path="leaderboard" element={<LeaderboardView />} />

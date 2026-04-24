@@ -18,9 +18,7 @@ import {
 import { randomUUID } from "crypto";
 import {
   grantBundleToUser,
-  loadInventoryState,
   rollbackGrantBundle,
-  computeNewlyAdded,
   type ProfileInventoryState,
 } from "../../utils/inventory.js";
 
@@ -322,10 +320,10 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     // so the user can retry. Without this, the user either gets locked out
     // with no reward OR retries succeed and double-dip on items / balance.
     //
-    // Strategy: snapshot inventory BEFORE the grant, track the "newly added"
-    // avatars/titles, track exactly how many ZXC/YJC were credited — then in
-    // catch, restore the snapshot via rollbackGrantBundle, subtract the
-    // credited balances, and deleteLatestClaim.
+    // Strategy: capture the pre-grant snapshot AND the actually-newly-added
+    // avatars/titles from grantBundleToUser's return value (not a separate
+    // pre-load) so rollback targets exactly what the grant modified — no
+    // divergence if something else concurrently touches the inventory.
     const hasBundle = Boolean(
       (rewards.items?.length ?? 0) || (rewards.avatars?.length ?? 0) || (rewards.titles?.length ?? 0),
     );
@@ -337,13 +335,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     let yjcCredited = 0;
     try {
       if (hasBundle) {
-        preState = await loadInventoryState(ctx.user.id);
-        ({ addedAvatars, addedTitles } = computeNewlyAdded(preState, {
-          items: rewards.items,
-          avatars: rewards.avatars,
-          titles: rewards.titles,
-        }));
-        await grantBundleToUser(
+        const result = await grantBundleToUser(
           ctx.user.id,
           {
             items: rewards.items,
@@ -352,6 +344,9 @@ export async function rewardRoutes(fastify: FastifyInstance) {
           },
           address,
         );
+        preState = result.preState;
+        addedAvatars = result.addedAvatars;
+        addedTitles = result.addedTitles;
         bundleGranted = true;
       }
       if (typeof rewards.zxc === "number" && rewards.zxc > 0) {

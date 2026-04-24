@@ -16,13 +16,14 @@ import {
   type ChestType,
   type Rarity,
 } from "@repo/shared";
-import { SessionRepository, OpsRepository } from "@repo/infrastructure";
+import { SessionRepository, OpsRepository, kv } from "@repo/infrastructure";
 import { gameSettlement } from "../../utils/game-settlement.js";
 import {
   isDailyFreeChestReady,
   loadInventoryState,
   markDailyFreeChestClaimed,
   openChestForUser,
+  restoreDailyFreeChestMark,
 } from "../../utils/inventory.js";
 
 const CHEST_TYPE_ENUM = z.enum(["common", "rare", "epic", "legendary"]);
@@ -137,6 +138,14 @@ export async function chestRoutes(fastify: FastifyInstance) {
       const balanceBeforeNum = parseFloat(balanceBefore) || 0;
 
       let charged = 0;
+      // Atomic claim of the daily free chest cooldown. `kv.claimSlot` uses a
+      // single INSERT ... ON CONFLICT DO UPDATE ... WHERE expires_at < NOW()
+      // statement so concurrent requests cannot both succeed. We still mirror
+      // the claim into the existing `chestMeta.lastFreeChestAt` (used by the
+      // status endpoint / UI) after the atomic claim succeeds.
+      let previousFreeChestAt: string | null = null;
+      let freeMarked = false;
+      const freeChestLockKey = `chest:free-lock:${ctx.userId}`;
 
       if (free) {
         if (chestType !== DAILY_FREE_CHEST_TYPE) {
@@ -147,6 +156,7 @@ export async function chestRoutes(fastify: FastifyInstance) {
             `每日免費寶箱僅限 ${DAILY_FREE_CHEST_TYPE} 類型`,
           );
         }
+        // Cheap pre-check to give a nice 冷卻中 error when we can.
         if (!isDailyFreeChestReady(state.lastFreeChestAt)) {
           return createApiEnvelope(
             { success: false },
@@ -155,6 +165,23 @@ export async function chestRoutes(fastify: FastifyInstance) {
             "每日免費寶箱冷卻中",
           );
         }
+        const cooldownSeconds = DAILY_FREE_CHEST_COOLDOWN_HOURS * 60 * 60;
+        const claimed = await kv.claimSlot(
+          freeChestLockKey,
+          cooldownSeconds,
+          new Date().toISOString(),
+        );
+        if (!claimed) {
+          return createApiEnvelope(
+            { success: false },
+            request.id,
+            false,
+            "每日免費寶箱冷卻中",
+          );
+        }
+        previousFreeChestAt = state.lastFreeChestAt;
+        await markDailyFreeChestClaimed(ctx.userId);
+        freeMarked = true;
       } else {
         if (balanceBeforeNum < config.price) {
           return createApiEnvelope(
@@ -175,16 +202,28 @@ export async function chestRoutes(fastify: FastifyInstance) {
         if (charged > 0) {
           await gameSettlement.setBalance(ctx.address, "zhixi", balanceBeforeNum.toString());
         }
+        if (freeMarked) {
+          try {
+            await restoreDailyFreeChestMark(ctx.userId, previousFreeChestAt);
+            await kv.del(freeChestLockKey);
+          } catch (restoreErr: any) {
+            await opsRepo.logEvent({
+              channel: "rewards",
+              severity: "error",
+              source: "chests",
+              kind: "free_chest_rollback_failed",
+              userId: ctx.userId,
+              address: ctx.address,
+              message: `Failed to restore free-chest cooldown: ${restoreErr?.message || "unknown"}`,
+            });
+          }
+        }
         return createApiEnvelope(
           { success: false },
           request.id,
           false,
           error?.message || "CHEST_OPEN_FAILED",
         );
-      }
-
-      if (free) {
-        await markDailyFreeChestClaimed(ctx.userId);
       }
 
       const balanceAfter = await gameSettlement.getBalance(ctx.address, "zhixi");

@@ -227,6 +227,20 @@ export async function markDailyFreeChestClaimed(userId: string): Promise<void> {
   await saveChestMeta(userId, meta);
 }
 
+/**
+ * Restore the `lastFreeChestAt` cooldown timestamp to a previous value. Used to
+ * roll back an early `markDailyFreeChestClaimed` if the actual chest open
+ * fails downstream, so the user isn't locked out of today's free chest.
+ */
+export async function restoreDailyFreeChestMark(
+  userId: string,
+  previous: string | null
+): Promise<void> {
+  const meta = await loadChestMeta(userId);
+  meta.lastFreeChestAt = previous;
+  await saveChestMeta(userId, meta);
+}
+
 export interface UseItemOutcome {
   item: ItemDefinition;
   state: ProfileInventoryState;

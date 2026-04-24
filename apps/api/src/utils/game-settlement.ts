@@ -512,6 +512,8 @@ export class GameSettlementWrapper {
     const repo = new ViemRepository(runtime.rpcUrl, runtime.adminPrivateKey);
     const betPayoutService = new BetPayoutService(repo, this.FIXED_TREASURY_ADDRESS);
 
+    const failures: Array<{ intent: TxIntent; error: string }> = [];
+
     for (const intent of intents) {
       try {
         await this.walletRepo.saveTxIntent(this.walletManager.processTxIntent(intent, "broadcasted"));
@@ -580,7 +582,20 @@ export class GameSettlementWrapper {
           errorCode: "TX_BROADCAST_ERROR",
           message: `Settlement tx failed: ${intent.type} ${error?.message || "unknown error"}`,
         });
+        failures.push({ intent, error: error?.message || "Settlement tx failed" });
       }
+    }
+
+    // Surface any per-intent failure so the caller's `.catch()` runs — in
+    // particular so the prevent-loss buff rollback fires when a payout never
+    // lands on-chain. Without this re-throw, individual tx failures would be
+    // swallowed here (each intent is caught) and the async queue would appear
+    // to have completed successfully.
+    if (failures.length > 0) {
+      const summary = failures.map((f) => `${f.intent.type}:${f.error}`).join("; ");
+      const err = new Error(`Settlement intent failures: ${summary}`);
+      (err as any).intentFailures = failures;
+      throw err;
     }
   }
 

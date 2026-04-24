@@ -628,11 +628,15 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
     // Grant items / avatars / titles
     if ((body.items?.length ?? 0) || (body.avatars?.length ?? 0) || (body.titles?.length ?? 0)) {
-      await grantBundleToUser(user.id, {
-        items: body.items,
-        avatars: body.avatars,
-        titles: body.titles,
-      });
+      await grantBundleToUser(
+        user.id,
+        {
+          items: body.items,
+          avatars: body.avatars,
+          titles: body.titles,
+        },
+        normalized,
+      );
     }
 
     await campaignRepo.logGrant({

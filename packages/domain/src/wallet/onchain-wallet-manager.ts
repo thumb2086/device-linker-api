@@ -115,4 +115,12 @@ export class OnchainWalletManager {
     const requiredZxc = yjcAmount * ZXC_PER_YJC;
     return { requestedZxc, requiredZxc, yjcAmount };
   }
+
+  convertYjcToZxc(rawAmount: string | number): { requestedYjc: number; yjcAmount: number; zxcAmount: number } {
+    const numeric = typeof rawAmount === "number" ? rawAmount : Number(String(rawAmount || "").replace(/,/g, "").trim());
+    const requestedYjc = Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
+    const yjcAmount = requestedYjc;
+    const zxcAmount = yjcAmount * ZXC_PER_YJC;
+    return { requestedYjc, yjcAmount, zxcAmount };
+  }
 }

@@ -108,9 +108,14 @@ export default function WalletView() {
             <WalletIcon className="text-[#fcc025]" />
             <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">{t('vault.title')}</h1>
           </div>
-          <Link to="/app/transactions" className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
-            Public Feed
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/app/swap" className="text-[10px] font-black uppercase tracking-[0.18em] text-[#fcc025]">
+              Swap
+            </Link>
+            <Link to="/app/transactions" className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
+              Public Feed
+            </Link>
+          </div>
         </div>
       </header>
 

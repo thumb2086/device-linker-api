@@ -23,6 +23,7 @@ import {
   CalendarClock,
   Gift as GiftIcon,
   Send,
+  MessageCircle,
 } from 'lucide-react';
 import AppBottomNav from '../../components/AppBottomNav';
 import { api } from '../../store/api';
@@ -69,7 +70,7 @@ interface CatalogItem {
   isActive?: boolean;
 }
 
-type TabId = 'dashboard' | 'maintenance' | 'blacklist' | 'balance' | 'users' | 'announcement' | 'catalog' | 'submissions' | 'campaigns' | 'grant' | 'events';
+type TabId = 'dashboard' | 'maintenance' | 'blacklist' | 'balance' | 'users' | 'announcement' | 'catalog' | 'submissions' | 'campaigns' | 'grant' | 'tickets' | 'events';
 
 const TABS: { id: TabId; label: string; icon: typeof ShieldAlert }[] = [
   { id: 'dashboard', label: '儀表板', icon: Activity },
@@ -82,6 +83,7 @@ const TABS: { id: TabId; label: string; icon: typeof ShieldAlert }[] = [
   { id: 'submissions', label: '投稿審核', icon: Inbox },
   { id: 'campaigns', label: '活動', icon: CalendarClock },
   { id: 'grant', label: '贈送', icon: GiftIcon },
+  { id: 'tickets', label: '工單', icon: MessageCircle },
   { id: 'events', label: '事件紀錄', icon: ScrollText },
 ];
 
@@ -163,6 +165,16 @@ export default function AdminView() {
   const [grantTitleId, setGrantTitleId] = useState('');
   const [grantNote, setGrantNote] = useState('');
 
+  // Tickets (support)
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [ticketStatusFilter, setTicketStatusFilter] = useState<string>('');
+  const [ticketKeyword, setTicketKeyword] = useState('');
+  const [ticketReplyDraft, setTicketReplyDraft] = useState<Record<string, string>>({});
+
+  // Blacklist list + win-bias quick view
+  const [blacklist, setBlacklist] = useState<any[]>([]);
+  const [winBiasView, setWinBiasView] = useState<number | null | undefined>(undefined);
+
   const [actionResult, setActionResult] = useState<string | null>(null);
 
   async function refresh() {
@@ -206,6 +218,35 @@ export default function AdminView() {
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  async function refreshTickets() {
+    if (!sessionId) return;
+    const params: Record<string, string> = { sessionId };
+    if (ticketStatusFilter) params.status = ticketStatusFilter;
+    if (ticketKeyword.trim()) params.keyword = ticketKeyword.trim();
+    try {
+      const res = await api.get('/api/v1/admin/tickets', { params });
+      if (res?.data?.data?.tickets) setTickets(res.data.data.tickets);
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
+  async function refreshBlacklist() {
+    if (!sessionId) return;
+    try {
+      const res = await api.get('/api/v1/admin/blacklist', { params: { sessionId } });
+      if (res?.data?.data?.blacklist) setBlacklist(res.data.data.blacklist);
+    } catch {
+      // swallow — UI shows empty list
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'tickets') refreshTickets();
+    if (activeTab === 'blacklist') refreshBlacklist();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   function show(msg: string) {
     setActionResult(msg);
@@ -440,6 +481,21 @@ export default function AdminView() {
         { sessionId, bias },
       );
       show(bias === null ? '已清除勝率偏置' : `已設定勝率偏置 ${bias}`);
+      handleUserInspect();
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
+  async function handleClearWinBias() {
+    if (!userInspect?.user?.address) return;
+    try {
+      await api.delete(
+        `/api/v1/admin/users/${encodeURIComponent(userInspect.user.address)}/win-bias`,
+        { data: { sessionId } },
+      );
+      setUserBiasInput('');
+      show('已清除勝率偏置');
       handleUserInspect();
     } catch (err: any) {
       show(errMsg(err));
@@ -754,6 +810,57 @@ export default function AdminView() {
                 加入黑名單
               </button>
             </form>
+
+            <div className="mt-6 pt-4 border-t border-[#494847]/30">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-black tracking-wide text-white">目前黑名單（{blacklist.length}）</h4>
+                <button
+                  type="button"
+                  onClick={refreshBlacklist}
+                  className="text-[10px] text-[#fcc025] hover:underline"
+                >
+                  重新整理
+                </button>
+              </div>
+              {blacklist.length === 0 ? (
+                <p className="text-xs text-[#adaaaa]">尚無黑名單紀錄。</p>
+              ) : (
+                <ul className="space-y-2 max-h-64 overflow-y-auto">
+                  {blacklist.map((b: any, i: number) => (
+                    <li
+                      key={b.address || b.key || i}
+                      className="flex items-center justify-between bg-[#0e0e0e] rounded-lg px-3 py-2 text-xs"
+                    >
+                      <div>
+                        <div className="text-white font-mono">
+                          {String(b.address || b.key || '').slice(0, 10)}…
+                        </div>
+                        {b.reason && <div className="text-[#adaaaa] text-[10px] mt-1">{b.reason}</div>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await api.post('/api/v1/admin/blacklist', {
+                              sessionId,
+                              action: 'remove',
+                              address: b.address,
+                            });
+                            show('已移除黑名單');
+                            refreshBlacklist();
+                          } catch (err: any) {
+                            show(errMsg(err));
+                          }
+                        }}
+                        className="text-[10px] text-red-400 hover:text-red-300"
+                      >
+                        移除
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </section>
         )}
 
@@ -875,6 +982,13 @@ export default function AdminView() {
                     className="flex items-center gap-1 rounded-lg bg-[#fcc025] px-3 text-xs font-black text-black hover:brightness-110"
                   >
                     <Sliders size={12} /> 套用
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearWinBias}
+                    className="rounded-lg border border-[#494847]/40 bg-[#1a1919] px-3 text-[10px] font-black text-[#adaaaa] hover:border-red-400/60 hover:text-red-300"
+                  >
+                    清除
                   </button>
                 </div>
 
@@ -1429,6 +1543,125 @@ export default function AdminView() {
             >
               <Send size={12} /> 送出獎勵
             </button>
+          </section>
+        )}
+
+        {activeTab === 'tickets' && (
+          <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20 space-y-4">
+            <div className="flex items-center gap-2">
+              <MessageCircle size={18} className="text-[#fcc025]" />
+              <h3 className="text-sm font-black tracking-wide text-white">客服工單（{tickets.length}）</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={ticketStatusFilter}
+                onChange={(e) => setTicketStatusFilter(e.target.value)}
+                className="bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-xs text-white"
+              >
+                <option value="">所有狀態</option>
+                <option value="open">待處理</option>
+                <option value="in_progress">處理中</option>
+                <option value="resolved">已解決</option>
+                <option value="closed">已關閉</option>
+              </select>
+              <input
+                type="text"
+                value={ticketKeyword}
+                onChange={(e) => setTicketKeyword(e.target.value)}
+                placeholder="關鍵字搜尋..."
+                className="flex-1 min-w-[160px] bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-xs text-white"
+              />
+              <button
+                type="button"
+                onClick={refreshTickets}
+                className="rounded-lg bg-[#fcc025] px-4 text-xs font-black text-black hover:brightness-110"
+              >
+                查詢
+              </button>
+            </div>
+            {tickets.length === 0 ? (
+              <p className="text-xs text-[#adaaaa]">目前沒有符合條件的工單。</p>
+            ) : (
+              <ul className="space-y-3 max-h-[60vh] overflow-y-auto">
+                {tickets.map((t: any) => (
+                  <li key={t.reportId} className="rounded-lg border border-[#494847]/30 bg-[#0e0e0e] p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <div>
+                        <p className="text-sm font-black text-white">{t.title || '（無標題）'}</p>
+                        <p className="text-[10px] text-[#adaaaa]">
+                          {t.category || '其他'} · {t.address ? `${String(t.address).slice(0, 10)}…` : '匿名'}
+                          {t.createdAt && ` · ${new Date(t.createdAt).toLocaleString()}`}
+                        </p>
+                      </div>
+                      <span
+                        className={`text-[10px] font-black uppercase tracking-wide px-2 py-1 rounded ${
+                          t.status === 'open'
+                            ? 'bg-red-500/20 text-red-300'
+                            : t.status === 'in_progress'
+                            ? 'bg-[#fcc025]/20 text-[#fcc025]'
+                            : t.status === 'resolved'
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : 'bg-[#494847]/20 text-[#adaaaa]'
+                        }`}
+                      >
+                        {t.status === 'open'
+                          ? '待處理'
+                          : t.status === 'in_progress'
+                          ? '處理中'
+                          : t.status === 'resolved'
+                          ? '已解決'
+                          : t.status === 'closed'
+                          ? '已關閉'
+                          : t.status}
+                      </span>
+                    </div>
+                    {t.message && <p className="text-xs text-white whitespace-pre-wrap break-words">{t.message}</p>}
+                    {t.adminUpdate && (
+                      <div className="rounded bg-[#fcc025]/10 border border-[#fcc025]/30 p-2">
+                        <p className="text-[10px] font-black text-[#fcc025] mb-1">管理員回覆</p>
+                        <p className="text-xs text-white whitespace-pre-wrap break-words">{t.adminUpdate}</p>
+                      </div>
+                    )}
+                    <textarea
+                      value={ticketReplyDraft[t.reportId] ?? ''}
+                      onChange={(e) => setTicketReplyDraft((prev) => ({ ...prev, [t.reportId]: e.target.value }))}
+                      placeholder="輸入回覆內容..."
+                      className="w-full bg-[#1a1919] border border-[#494847]/30 rounded-lg px-3 py-2 text-xs text-white resize-y"
+                      rows={2}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {(['open', 'in_progress', 'resolved', 'closed'] as const).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await api.patch(`/api/v1/admin/tickets/${encodeURIComponent(t.reportId)}`, {
+                                sessionId,
+                                status: s,
+                                adminUpdate: ticketReplyDraft[t.reportId] || t.adminUpdate || undefined,
+                              });
+                              show('工單已更新');
+                              setTicketReplyDraft((prev) => ({ ...prev, [t.reportId]: '' }));
+                              refreshTickets();
+                            } catch (err: any) {
+                              show(errMsg(err));
+                            }
+                          }}
+                          className={`text-[10px] font-black px-2 py-1 rounded border ${
+                            t.status === s
+                              ? 'border-[#fcc025] bg-[#fcc025]/10 text-[#fcc025]'
+                              : 'border-[#494847]/40 text-[#adaaaa] hover:border-[#fcc025]/60 hover:text-[#fcc025]'
+                          }`}
+                        >
+                          {s === 'open' ? '待處理' : s === 'in_progress' ? '處理中' : s === 'resolved' ? '已解決' : '已關閉'}
+                        </button>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         )}
 

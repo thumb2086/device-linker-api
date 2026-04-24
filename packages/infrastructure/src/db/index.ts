@@ -483,6 +483,47 @@ const ensureCoreSchema = async () => {
         `;
         await sql`CREATE INDEX IF NOT EXISTS reward_submissions_status_idx ON reward_submissions (status, created_at DESC)`;
         await sql`CREATE INDEX IF NOT EXISTS reward_submissions_user_idx ON reward_submissions (user_id, created_at DESC)`;
+        await sql`
+          CREATE TABLE IF NOT EXISTS reward_campaigns (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            campaign_id TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            description TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            start_at TIMESTAMP,
+            end_at TIMESTAMP,
+            required_level TEXT,
+            max_claims_total INTEGER,
+            max_claims_per_user INTEGER DEFAULT 1,
+            rewards JSONB NOT NULL DEFAULT '{}',
+            created_by TEXT,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS reward_campaigns_active_idx ON reward_campaigns (is_active, created_at DESC)`;
+        await sql`
+          CREATE TABLE IF NOT EXISTS reward_campaign_claims (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            campaign_id TEXT NOT NULL,
+            user_id UUID NOT NULL,
+            address TEXT NOT NULL,
+            claimed_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS reward_campaign_claims_user_idx ON reward_campaign_claims (campaign_id, user_id)`;
+        await sql`
+          CREATE TABLE IF NOT EXISTS reward_grant_logs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            target_address TEXT NOT NULL,
+            operator_address TEXT,
+            source TEXT NOT NULL,
+            note TEXT,
+            bundle JSONB NOT NULL DEFAULT '{}',
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS reward_grant_logs_target_idx ON reward_grant_logs (target_address, created_at DESC)`;
         await normalizeLegacyIdentityData(sql);
       } finally {
         await sql.end();
@@ -1109,6 +1150,133 @@ export class RewardSubmissionRepository {
         updatedAt: new Date(),
       })
       .where(eq(schema.rewardSubmissions.submissionId, submissionId));
+  }
+}
+
+export class RewardCampaignRepository {
+  async listAll(limit = 200) {
+    const conn = await requireDb();
+    return await conn.query.rewardCampaigns.findMany({
+      orderBy: (c: any, { desc }: any) => [desc(c.createdAt)],
+      limit,
+    });
+  }
+
+  async listActive(limit = 50) {
+    const conn = await requireDb();
+    return await conn.query.rewardCampaigns.findMany({
+      where: (c: any, { eq }: any) => eq(c.isActive, true),
+      orderBy: (c: any, { desc }: any) => [desc(c.createdAt)],
+      limit,
+    });
+  }
+
+  async getById(campaignId: string) {
+    const conn = await requireDb();
+    return await conn.query.rewardCampaigns.findFirst({
+      where: (c: any, { eq }: any) => eq(c.campaignId, campaignId),
+    });
+  }
+
+  async upsert(record: {
+    campaignId: string;
+    title: string;
+    description?: string | null;
+    isActive?: boolean;
+    startAt?: Date | null;
+    endAt?: Date | null;
+    claimLimitPerUser?: number;
+    minLevel?: string | null;
+    rewards: any;
+    createdBy?: string | null;
+  }) {
+    const conn = await requireDb();
+    const existing = await this.getById(record.campaignId);
+    if (existing) {
+      await conn
+        .update(schema.rewardCampaigns)
+        .set({
+          title: record.title,
+          description: record.description ?? null,
+          isActive: record.isActive ?? true,
+          startAt: record.startAt ?? null,
+          endAt: record.endAt ?? null,
+          maxClaimsPerUser: record.claimLimitPerUser ?? 1,
+          requiredLevel: record.minLevel ?? null,
+          rewards: record.rewards,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.rewardCampaigns.campaignId, record.campaignId));
+      return await this.getById(record.campaignId);
+    }
+    await conn.insert(schema.rewardCampaigns).values({
+      id: randomUUID(),
+      campaignId: record.campaignId,
+      title: record.title,
+      description: record.description ?? null,
+      isActive: record.isActive ?? true,
+      startAt: record.startAt ?? null,
+      endAt: record.endAt ?? null,
+      maxClaimsPerUser: record.claimLimitPerUser ?? 1,
+      requiredLevel: record.minLevel ?? null,
+      rewards: record.rewards,
+      createdBy: record.createdBy ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    return await this.getById(record.campaignId);
+  }
+
+  async delete(campaignId: string) {
+    const conn = await requireDb();
+    await conn.delete(schema.rewardCampaigns).where(eq(schema.rewardCampaigns.campaignId, campaignId));
+  }
+
+  async countClaims(campaignId: string, userId: string): Promise<number> {
+    const conn = await requireDb();
+    const rows = await conn.query.rewardCampaignClaims.findMany({
+      where: (c: any, { and, eq }: any) => and(eq(c.campaignId, campaignId), eq(c.userId, userId)),
+      limit: 100,
+    });
+    return rows?.length ?? 0;
+  }
+
+  async recordClaim(record: { campaignId: string; userId: string; address: string }) {
+    const conn = await requireDb();
+    await conn.insert(schema.rewardCampaignClaims).values({
+      id: randomUUID(),
+      campaignId: record.campaignId,
+      userId: record.userId,
+      address: record.address,
+      claimedAt: new Date(),
+    });
+  }
+
+  async logGrant(record: {
+    targetAddress: string;
+    operatorAddress?: string | null;
+    source: string;
+    note?: string | null;
+    bundle: any;
+  }) {
+    const conn = await requireDb();
+    await conn.insert(schema.rewardGrantLogs).values({
+      id: randomUUID(),
+      targetAddress: record.targetAddress,
+      operatorAddress: record.operatorAddress ?? null,
+      source: record.source,
+      note: record.note ?? null,
+      bundle: record.bundle,
+      createdAt: new Date(),
+    });
+  }
+
+  async listGrantLogs(limit = 100) {
+    const conn = await requireDb();
+    return await conn.query.rewardGrantLogs.findMany({
+      orderBy: (g: any, { desc }: any) => [desc(g.createdAt)],
+      limit,
+    });
   }
 }
 

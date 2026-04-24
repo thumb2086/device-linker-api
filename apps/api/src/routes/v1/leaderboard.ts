@@ -23,7 +23,6 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
   // Attach each leaderboard entry's equipped avatar + title (emoji + label)
   const enrichEntriesWithCosmetics = async (entries: Array<any>) => {
     if (!entries?.length) return;
-    const addresses = entries.map((e) => String(e.address || "").toLowerCase()).filter(Boolean);
     const customItems = await rewardCatalogRepo.listItems({}).catch(() => [] as any[]);
     const avatarMap = new Map<string, { id: string; icon?: string; label?: string }>();
     const titleMap = new Map<string, { id: string; label?: string }>();
@@ -34,8 +33,11 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
       if (row.type === "title") titleMap.set(row.itemId, { id: row.itemId, label: row.name });
     }
 
-    await Promise.all(addresses.map(async (addr, idx) => {
-      const entry = entries[idx];
+    // Iterate over entries directly so indices always stay aligned even when
+    // some entries have empty addresses.
+    await Promise.all(entries.map(async (entry) => {
+      const addr = String(entry?.address || "").toLowerCase();
+      if (!addr) return;
       const [avId, tiId] = await Promise.all([
         kv.get<string>(`active_avatar:${addr}`).catch(() => null),
         kv.get<string>(`active_title:${addr}`).catch(() => null),

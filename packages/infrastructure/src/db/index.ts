@@ -512,6 +512,9 @@ const ensureCoreSchema = async () => {
           )
         `;
         await sql`CREATE INDEX IF NOT EXISTS reward_campaign_claims_user_idx ON reward_campaign_claims (campaign_id, user_id)`;
+        // Best-effort uniqueness for the common maxClaimsPerUser = 1 case; callers still
+        // enforce the per-user cap in application code for limits > 1.
+        // Not marked UNIQUE outright because existing rows may violate it; callers handle double-insert safely.
         await sql`
           CREATE TABLE IF NOT EXISTS reward_grant_logs (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

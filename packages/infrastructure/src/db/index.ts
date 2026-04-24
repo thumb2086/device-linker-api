@@ -591,12 +591,15 @@ export class UserRepository implements IUserRepository {
     const conn = await requireDb();
     const limit = Math.min(200, Math.max(1, Number(opts?.limit) || 50));
     const search = opts?.search ? String(opts.search).trim().toLowerCase() : "";
+    // Escape LIKE wildcards so searching for `%` or `_` matches the literal
+    // character rather than "match any" / "match single char".
+    const escaped = search.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
     const rows = await conn.query.users.findMany({
       limit,
       orderBy: (u: any, { desc }: any) => [desc(u.createdAt)],
       where: search
         ? (u: any, { or, ilike }: any) =>
-            or(ilike(u.address, `%${search}%`), ilike(u.displayName, `%${search}%`))
+            or(ilike(u.address, `%${escaped}%`), ilike(u.displayName, `%${escaped}%`))
         : undefined,
     });
     return rows;
@@ -1267,6 +1270,24 @@ export class RewardCampaignRepository {
       address: record.address,
       claimedAt: new Date(),
     });
+  }
+
+  /**
+   * Delete the most recent claim row for (campaignId, userId). Used to roll
+   * back a claim when reward granting fails after `tryClaim` already inserted.
+   */
+  async deleteLatestClaim(campaignId: string, userId: string): Promise<boolean> {
+    const conn = await requireDb();
+    const result = await conn.execute(drizzleSql`
+      DELETE FROM reward_campaign_claims
+      WHERE id = (
+        SELECT id FROM reward_campaign_claims
+        WHERE campaign_id = ${campaignId} AND user_id = ${userId}
+        ORDER BY claimed_at DESC
+        LIMIT 1
+      )
+    `);
+    return Boolean((result as any)?.count ?? 0);
   }
 
   /**

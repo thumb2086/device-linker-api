@@ -390,6 +390,10 @@ export class GameSettlementWrapper {
               settlementId: settlement.id,
               message: `Async queue runtime failed: ${error?.message || "unknown error"}`,
             });
+            // If the background chain processing fails after we've already
+            // credited the prevent-loss refund, restore the buff charge so the
+            // user is not charged for a refund that never landed on-chain.
+            await rollbackPreventLoss("async_queue_runtime_error");
           });
 
         await this.opsRepo.logEvent({

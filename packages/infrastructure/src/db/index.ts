@@ -587,6 +587,20 @@ export class UserRepository implements IUserRepository {
     const conn = await requireDb();
     return await conn.query.users.findFirst({ where: (users: any, { eq }: any) => eq(users.id, id) });
   }
+  async listUsers(opts?: { limit?: number; search?: string; mode?: string | null }) {
+    const conn = await requireDb();
+    const limit = Math.min(200, Math.max(1, Number(opts?.limit) || 50));
+    const search = opts?.search ? String(opts.search).trim().toLowerCase() : "";
+    const rows = await conn.query.users.findMany({
+      limit,
+      orderBy: (u: any, { desc }: any) => [desc(u.createdAt)],
+      where: search
+        ? (u: any, { or, ilike }: any) =>
+            or(ilike(u.address, `%${search}%`), ilike(u.displayName, `%${search}%`))
+        : undefined,
+    });
+    return rows;
+  }
   async getUserByAddress(address: string) {
     const conn = await requireDb();
     return await conn.query.users.findFirst({ where: (users: any, { eq }: any) => eq(users.address, address.toLowerCase()) });
@@ -1252,6 +1266,38 @@ export class RewardCampaignRepository {
       userId: record.userId,
       address: record.address,
       claimedAt: new Date(),
+    });
+  }
+
+  /**
+   * Atomically check the per-user claim limit and insert the claim row inside a
+   * transaction guarded by `pg_advisory_xact_lock(campaignId + userId)`. Concurrent
+   * requests serialize on the lock, so at most `limit` claims survive.
+   * Returns `true` when this call successfully recorded the claim and the caller
+   * should grant rewards; `false` when the limit was already reached.
+   */
+  async tryClaim(record: {
+    campaignId: string;
+    userId: string;
+    address: string;
+    limit: number;
+  }): Promise<boolean> {
+    const conn = await requireDb();
+    const key = `${record.campaignId}:${record.userId}`;
+    return await conn.transaction(async (tx: any) => {
+      // Use hashtextextended to derive a stable int8 from the composite key.
+      await tx.execute(drizzleSql`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+      const existing = await tx.execute(drizzleSql`
+        SELECT COUNT(*)::int AS n FROM reward_campaign_claims
+        WHERE campaign_id = ${record.campaignId} AND user_id = ${record.userId}
+      `);
+      const currentCount = Number((existing as any)?.[0]?.n ?? 0);
+      if (currentCount >= record.limit) return false;
+      await tx.execute(drizzleSql`
+        INSERT INTO reward_campaign_claims (id, campaign_id, user_id, address, claimed_at)
+        VALUES (gen_random_uuid(), ${record.campaignId}, ${record.userId}, ${record.address}, NOW())
+      `);
+      return true;
     });
   }
 

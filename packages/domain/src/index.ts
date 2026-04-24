@@ -17,6 +17,7 @@ export * from "./levels/level-manager.js";
 export * from "./levels/vip-manager.js";
 export * from "./leaderboard/leaderboard-manager.js";
 export * from "./rewards/reward-manager.js";
+export * from "./rewards/chest-manager.js";
 export * from "./settlement/settlement-manager.js";
 export * from "./settlement/onchain-settlement-manager.js";
 export * from "./support/support-manager.js";

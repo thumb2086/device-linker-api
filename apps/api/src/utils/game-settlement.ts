@@ -20,6 +20,7 @@ import {
   ChainClient,
   kv,
 } from "@repo/infrastructure";
+import { consumePreventLossBuff } from "./inventory.js";
 import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService, BetPayoutService } from "@repo/on-chain";
 import type { Game, TokenSymbol } from "@repo/shared";
 import type { TxIntent } from "@repo/shared";
@@ -45,6 +46,8 @@ export interface SettlementResult {
   balanceBefore: string;
   balanceAfter: string;
   status?: "pending" | "settled";
+  /** True when a "prevent_loss" buff converted a losing round into a refund. */
+  preventLossApplied?: boolean;
   error?: { code: string; message: string };
 }
 
@@ -242,6 +245,47 @@ export class GameSettlementWrapper {
       }
     }
 
+    // Prevent-loss buff: refund losing bets if the user has an active buff.
+    // Only runs on first settlement attempt (after idempotency check) so buff
+    // is not consumed twice for the same round.
+    let preventLossApplied = false;
+    const betValue = parseFloat(ctx.betAmount);
+    const payoutValue = parseFloat(ctx.payoutAmount);
+    if (Number.isFinite(betValue) && Number.isFinite(payoutValue) && payoutValue < betValue && ctx.userId) {
+      try {
+        const buff = await consumePreventLossBuff(ctx.userId);
+        if (buff.consumed) {
+          ctx = { ...ctx, payoutAmount: ctx.betAmount };
+          preventLossApplied = true;
+          await this.opsRepo.logEvent({
+            channel: "game",
+            severity: "info",
+            source: ctx.game,
+            kind: "prevent_loss_applied",
+            userId: ctx.userId,
+            address: ctx.address,
+            game: ctx.game,
+            roundId: ctx.roundId,
+            message: `Prevent-loss buff refunded losing bet`,
+            meta: { remaining: buff.remaining, originalPayout: payoutValue, refundedTo: betValue },
+          });
+        }
+      } catch (error: any) {
+        // Fail-open: if buff lookup fails, proceed with normal settlement.
+        await this.opsRepo.logEvent({
+          channel: "game",
+          severity: "warn",
+          source: ctx.game,
+          kind: "prevent_loss_lookup_failed",
+          userId: ctx.userId,
+          address: ctx.address,
+          game: ctx.game,
+          roundId: ctx.roundId,
+          message: `Prevent-loss buff lookup failed: ${error?.message || "unknown"}`,
+        });
+      }
+    }
+
     if (this.isAsyncSettlementEnabled()) {
       try {
         const runtime = this.onchainWallet.getRuntimeConfig();
@@ -344,6 +388,7 @@ export class GameSettlementWrapper {
           balanceBefore: "0",
           balanceAfter: "0",
           status: "pending",
+          preventLossApplied,
         };
       } catch (error: any) {
         return {
@@ -380,6 +425,7 @@ export class GameSettlementWrapper {
         balanceBefore: "0", // Will be set by caller
         balanceAfter: "0",  // Will be set by caller
         status: "settled",
+        preventLossApplied,
       };
     } catch (error: any) {
       return {

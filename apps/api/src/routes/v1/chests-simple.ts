@@ -1,25 +1,62 @@
-// Chest Routes - Simplified Version
+// apps/api/src/routes/v1/chests-simple.ts
+// Chest endpoints: opens Brawl-Stars-style chests, persists drops to the
+// user's inventory, and tracks pity progression. Non-mock implementation.
 
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { createApiEnvelope, CHEST_CONFIGS, RARITY_NAMES, ITEM_DROP_TABLES } from "@repo/shared";
+import {
+  createApiEnvelope,
+  CHEST_CONFIGS,
+  RARITY_NAMES,
+  ITEM_DROP_TABLES,
+  DAILY_FREE_CHEST_TYPE,
+  DAILY_FREE_CHEST_COOLDOWN_HOURS,
+  MAX_INVENTORY_SLOTS,
+  type ChestType,
+  type Rarity,
+} from "@repo/shared";
+import { SessionRepository, OpsRepository } from "@repo/infrastructure";
+import { gameSettlement } from "../../utils/game-settlement.js";
+import {
+  isDailyFreeChestReady,
+  loadInventoryState,
+  markDailyFreeChestClaimed,
+  openChestForUser,
+} from "../../utils/inventory.js";
+
+const CHEST_TYPE_ENUM = z.enum(["common", "rare", "epic", "legendary"]);
+
+function countInventorySlots(inventory: Record<string, number>): number {
+  return Object.keys(inventory).length;
+}
 
 export async function chestRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
+  const sessionRepo = new SessionRepository();
+  const opsRepo = new OpsRepository();
 
-  // Get available chests
-  typedFastify.get("/chests", async (request: any) => {
-    const chests = Object.values(CHEST_CONFIGS).map((config: any) => {
-      const weights = config.weights as Record<string, number>;
+  const getContext = async (req: any) => {
+    const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
+    if (!sessionId) return null;
+    const session = await sessionRepo.getSessionById(String(sessionId));
+    if (!session || session.status !== "authorized") return null;
+    if (!session.userId || !session.address) return null;
+    return { sessionId: String(sessionId), userId: String(session.userId), address: String(session.address).toLowerCase() };
+  };
+
+  // Catalog of chest types with drop-rate breakdown and pity rules
+  typedFastify.get("/", async (request: any) => {
+    const chests = Object.values(CHEST_CONFIGS).map((config) => {
+      const weights = config.weights;
       const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
-      const rarities = ["common", "rare", "epic", "legendary", "mythic"]
+      const rarities = (Object.keys(weights) as Rarity[])
         .filter((r) => weights[r] > 0)
         .map((rarity) => ({
           rarity,
-          name: (RARITY_NAMES as any)[rarity].name,
-          color: (RARITY_NAMES as any)[rarity].color,
-          chance: Math.round((weights[rarity] / totalWeight) * 100 * 100) / 100,
+          name: RARITY_NAMES[rarity].name,
+          color: RARITY_NAMES[rarity].color,
+          chance: Math.round((weights[rarity] / totalWeight) * 10000) / 100,
         }));
 
       return {
@@ -36,78 +73,159 @@ export async function chestRoutes(fastify: FastifyInstance) {
     return createApiEnvelope(chests, request.id);
   });
 
-  // Get all possible items
-  typedFastify.get("/chests/items", async (request) => {
-    const allItems = Object.entries(ITEM_DROP_TABLES).flatMap(([rarity, items]: [string, any]) =>
-      items.map((item: any) => ({
-        ...item,
-        rarity,
-        rarityColor: (RARITY_NAMES as any)[rarity as any].color,
-        rarityName: (RARITY_NAMES as any)[rarity as any].name,
-      }))
+  // Full item catalog (flattened drop table)
+  typedFastify.get("/items", async (request) => {
+    const allItems = (Object.entries(ITEM_DROP_TABLES) as [Rarity, typeof ITEM_DROP_TABLES[Rarity]][]).flatMap(
+      ([rarity, items]) =>
+        items.map((item) => ({
+          ...item,
+          rarity,
+          rarityColor: RARITY_NAMES[rarity].color,
+          rarityName: RARITY_NAMES[rarity].name,
+        })),
     );
 
-    return createApiEnvelope(allItems, (request as any).id);
+    return createApiEnvelope(allItems, request.id);
   });
 
-  // Mock open chest endpoint (returns simulated drops)
-  typedFastify.post("/chests/open", {
-    schema: {
-      body: z.object({
-        chestType: z.enum(["common", "rare", "epic", "legendary"]),
-      }),
+  // Status: pity progress, daily free chest, balance
+  typedFastify.get("/status", async (request) => {
+    const ctx = await getContext(request);
+    if (!ctx) return createApiEnvelope({ success: false }, request.id, false, "UNAUTHORIZED");
+
+    const [state, balance] = await Promise.all([
+      loadInventoryState(ctx.userId),
+      gameSettlement.getBalance(ctx.address, "zhixi"),
+    ]);
+
+    return createApiEnvelope(
+      {
+        chestPity: state.chestPity,
+        lastFreeChestAt: state.lastFreeChestAt,
+        nextFreeChestAvailable: isDailyFreeChestReady(state.lastFreeChestAt),
+        dailyFreeChestType: DAILY_FREE_CHEST_TYPE,
+        dailyFreeCooldownHours: DAILY_FREE_CHEST_COOLDOWN_HOURS,
+        inventorySlotsUsed: countInventorySlots(state.inventory),
+        inventorySlotsMax: MAX_INVENTORY_SLOTS,
+        balance,
+      },
+      request.id,
+    );
+  });
+
+  // Open a chest. For the daily free chest the user must use action="claim_free".
+  typedFastify.post(
+    "/open",
+    {
+      schema: {
+        body: z.object({
+          sessionId: z.string().optional(),
+          chestType: CHEST_TYPE_ENUM,
+          free: z.boolean().optional().default(false),
+        }),
+      },
     },
-  }, async (request: any) => {
-    const { chestType } = request.body;
-    const config = (CHEST_CONFIGS as any)[chestType];
-    
-    // Simulate drops
-    const dropCount = config.dropCount.min + Math.floor(Math.random() * (config.dropCount.max - config.dropCount.min + 1));
-    const items = [];
-    
-    for (let i = 0; i < dropCount; i++) {
-      // Simple random rarity selection based on weights
-      const chestWeights = config.weights as Record<string, number>;
-      const totalWeight = Object.values(chestWeights).reduce((a, b) => a + b, 0);
-      let random = Math.random() * totalWeight;
-      let selectedRarity = "common";
-      
-      for (const rarity of ["common", "rare", "epic", "legendary", "mythic"]) {
-        random -= config.weights[rarity];
-        if (random <= 0) {
-          selectedRarity = rarity;
-          break;
-        }
-      }
-      
-      const rarityItems = (ITEM_DROP_TABLES as any)[selectedRarity];
-      const item = rarityItems[Math.floor(Math.random() * rarityItems.length)];
-      
-      items.push({
-        item: {
-          id: item.id,
-          name: item.name,
-          nameEn: item.nameEn,
-          type: item.type,
-          rarity: selectedRarity,
-          description: item.description,
-          icon: item.icon,
-        },
-        isNew: Math.random() > 0.5,
-        quantity: 1,
-      });
-    }
+    async (request: any) => {
+      const ctx = await getContext(request);
+      if (!ctx) return createApiEnvelope({ success: false }, request.id, false, "UNAUTHORIZED");
 
-    return createApiEnvelope({
-      items,
-      isPityTrigger: false,
-      pityCount: Math.floor(Math.random() * config.pityThreshold),
-      totalValue: items.reduce((sum: number, i: any) => {
-        if (i.item.effect?.type === "currency") {
-          return sum + (i.item.effect.value || 0);
+      const { chestType, free } = request.body as { chestType: ChestType; free?: boolean };
+      const config = CHEST_CONFIGS[chestType];
+
+      const state = await loadInventoryState(ctx.userId);
+      const balanceBefore = await gameSettlement.getBalance(ctx.address, "zhixi");
+      const balanceBeforeNum = parseFloat(balanceBefore) || 0;
+
+      let charged = 0;
+
+      if (free) {
+        if (chestType !== DAILY_FREE_CHEST_TYPE) {
+          return createApiEnvelope(
+            { success: false },
+            request.id,
+            false,
+            `每日免費寶箱僅限 ${DAILY_FREE_CHEST_TYPE} 類型`,
+          );
         }
-        return sum;
-      }, 0),
-    }, request.id);
-  });
+        if (!isDailyFreeChestReady(state.lastFreeChestAt)) {
+          return createApiEnvelope(
+            { success: false },
+            request.id,
+            false,
+            "每日免費寶箱冷卻中",
+          );
+        }
+      } else {
+        if (balanceBeforeNum < config.price) {
+          return createApiEnvelope(
+            { success: false },
+            request.id,
+            false,
+            `餘額不足，開啟 ${config.name} 需 ${config.price} ZXC`,
+          );
+        }
+        charged = config.price;
+        await gameSettlement.setBalance(ctx.address, "zhixi", (balanceBeforeNum - charged).toString());
+      }
+
+      let outcome;
+      try {
+        outcome = await openChestForUser(ctx.userId, ctx.address, chestType);
+      } catch (error: any) {
+        if (charged > 0) {
+          await gameSettlement.setBalance(ctx.address, "zhixi", balanceBeforeNum.toString());
+        }
+        return createApiEnvelope(
+          { success: false },
+          request.id,
+          false,
+          error?.message || "CHEST_OPEN_FAILED",
+        );
+      }
+
+      if (free) {
+        await markDailyFreeChestClaimed(ctx.userId);
+      }
+
+      const balanceAfter = await gameSettlement.getBalance(ctx.address, "zhixi");
+
+      await opsRepo.logEvent({
+        channel: "rewards",
+        severity: "info",
+        source: "chests",
+        kind: "chest_opened",
+        userId: ctx.userId,
+        address: ctx.address,
+        message: `Opened ${chestType} chest`,
+        meta: {
+          chestType,
+          free: Boolean(free),
+          charged,
+          drops: outcome.result.items.map((i) => i.item.id),
+          isPityTrigger: outcome.result.isPityTrigger,
+        },
+      });
+
+      return createApiEnvelope(
+        {
+          success: true,
+          chestType,
+          price: config.price,
+          charged,
+          balanceBefore,
+          balanceAfter,
+          items: outcome.result.items.map((drop) => ({
+            item: drop.item,
+            isNew: drop.isNew,
+            quantity: drop.quantity,
+          })),
+          isPityTrigger: outcome.result.isPityTrigger,
+          pityCount: outcome.state.chestPity[chestType],
+          totalValue: outcome.result.totalValue,
+          inventoryCount: outcome.state.inventory,
+        },
+        request.id,
+      );
+    },
+  );
 }

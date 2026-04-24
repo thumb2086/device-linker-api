@@ -7,8 +7,11 @@ var adminBusyState = {
     txHealth: false,
     blacklist: false,
     winBias: false,
-    maintenance: false
+    maintenance: false,
+    yjcOps: false
 };
+var yjcOpsExpanded = false;
+var yjcOpsLoaded = false;
 var custodyUsers = [];
 var issueReports = [];
 var announcements = [];
@@ -1848,7 +1851,140 @@ function toggleOpsSection() {
     btn.innerText = opsExpanded ? '收合帳號重製' : '展開帳號重製';
 }
 
+function setYjcOpsStatus(text, isError) {
+    var el = document.getElementById('yjc-ops-status-msg');
+    if (!el) return;
+    el.innerText = text || '';
+    el.classList.toggle('error', !!isError);
+}
+
+function renderYjcOpsSummary(data) {
+    var contractEl = document.getElementById('yjc-ops-contract-address');
+    var totalSupplyEl = document.getElementById('yjc-ops-total-supply');
+    var adminBalanceEl = document.getElementById('yjc-ops-admin-balance');
+    var targetResultEl = document.getElementById('yjc-ops-target-result');
+
+    if (contractEl) contractEl.innerText = (data && data.contractAddress) || '-';
+    if (totalSupplyEl) totalSupplyEl.innerText = (data && data.totalSupply) || '-';
+
+    if (adminBalanceEl) {
+        var admin = data && data.admin || null;
+        if (admin && admin.balance !== undefined && admin.balance !== null) {
+            adminBalanceEl.innerText = String(admin.balance);
+        } else {
+            adminBalanceEl.innerText = '-';
+        }
+    }
+
+    if (targetResultEl) {
+        var target = data && data.target;
+        if (!target) {
+            targetResultEl.innerHTML = '';
+            return;
+        }
+        var tierLabel = (target.tier && target.tier.label) || target.tier || '-';
+        var balance = target.balance !== undefined && target.balance !== null ? String(target.balance) : '-';
+        targetResultEl.innerHTML =
+            '<div class="custody-user-card">' +
+            '<div><strong>目標地址</strong>：' + escapeHtml(target.address || '-') + '</div>' +
+            '<div><strong>YJC 餘額</strong>：' + escapeHtml(balance) + '</div>' +
+            '<div><strong>VIP 等級</strong>：' + escapeHtml(String(tierLabel)) + '</div>' +
+            '</div>';
+    }
+}
+
+function refreshYjcOpsStatus() {
+    var addressEl = document.getElementById('yjc-ops-address');
+    var address = String(addressEl && addressEl.value || '').trim();
+
+    setYjcOpsStatus('正在查詢 YJC 狀態...', false);
+    return withAdminBusy('yjcOps', function () {
+        return callAdminApi('get_yjc_ops_status', { address: address || undefined })
+            .then(function (data) {
+                if (!data || !data.success) throw new Error((data && data.error) || '查詢 YJC 狀態失敗');
+                if (!data.available) {
+                    setYjcOpsStatus('YJC 合約尚未設定：' + (data.reason || ''), true);
+                    renderYjcOpsSummary({});
+                    return;
+                }
+                renderYjcOpsSummary(data);
+                setYjcOpsStatus('已更新 YJC 管理狀態', false);
+                yjcOpsLoaded = true;
+            });
+    }).catch(function (error) {
+        setYjcOpsStatus('錯誤：' + error.message, true);
+        showAdminToast(error.message, true);
+    });
+}
+
+function toggleYjcOpsSection() {
+    var body = document.getElementById('yjc-ops-section-body');
+    var btn = document.getElementById('yjc-ops-toggle-btn');
+    if (!body || !btn) return;
+
+    yjcOpsExpanded = !yjcOpsExpanded;
+    body.classList.toggle('hidden', !yjcOpsExpanded);
+    btn.innerText = yjcOpsExpanded ? '收合 YJC 管理' : '展開 YJC 管理';
+
+    if (yjcOpsExpanded && !yjcOpsLoaded) {
+        refreshYjcOpsStatus();
+    }
+}
+
+function readYjcOpsForm() {
+    var addressEl = document.getElementById('yjc-ops-address');
+    var amountEl = document.getElementById('yjc-ops-amount');
+    var reasonEl = document.getElementById('yjc-ops-reason');
+    var address = String(addressEl && addressEl.value || '').trim();
+    var amount = Number(amountEl && amountEl.value || 0);
+    var reason = String(reasonEl && reasonEl.value || '').trim();
+    return { address: address, amount: amount, reason: reason };
+}
+
+function submitYjcAction(actionName, confirmMessage) {
+    var form = readYjcOpsForm();
+    if (!form.address) {
+        showAdminToast('請輸入目標地址', true);
+        return;
+    }
+    if (!Number.isFinite(form.amount) || form.amount <= 0) {
+        showAdminToast('請輸入有效的 YJC 數量', true);
+        return;
+    }
+    if (confirmMessage && !confirm(confirmMessage.replace('{address}', form.address).replace('{amount}', String(form.amount)))) {
+        return;
+    }
+
+    var btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+    var restoreBtn = setActionBusy(btn);
+    setYjcOpsStatus('正在提交 ' + actionName + '...', false);
+
+    withAdminBusy('yjcOps', function () {
+        return callAdminApi(actionName, {
+            address: form.address,
+            amount: form.amount,
+            reason: form.reason
+        }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || 'YJC 操作失敗');
+            setYjcOpsStatus(actionName + ' 已送出，TxHash：' + (data.txHash || '-'), false);
+            showAdminToast(actionName + ' 已送出', false);
+            return refreshYjcOpsStatus();
+        });
+    }).catch(function (error) {
+        setYjcOpsStatus('錯誤：' + error.message, true);
+        showAdminToast(error.message, true);
+    }).finally(restoreBtn);
+}
+
+function submitYjcMint() {
+    submitYjcAction('admin_mint_yjc', null);
+}
+
+function submitYjcBurn() {
+    submitYjcAction('admin_burn_yjc', '確定要銷毀 {amount} YJC 於 {address} 嗎？此動作無法還原。');
+}
+
 function initAdminToolsPage() {
-    setAdminStatus('目前管理頁已啟用公告、稱號活動發放、交易失敗率看板、意見回饋、託管帳號與帳號重製', false);
+    setAdminStatus('目前管理頁已啟用公告、稱號活動發放、交易失敗率看板、意見回饋、託管帳號、YJC 管理與帳號重製', false);
     onAdminAnnouncementSelected('');
 }

@@ -2,10 +2,14 @@ import { randomBytes, scryptSync } from "crypto";
 import { kv } from "@vercel/kv";
 import { ethers } from "ethers";
 import { getSession } from "../lib/session-store.js";
-import { ADMIN_WALLET_ADDRESS } from "../lib/config.js";
+import { ADMIN_WALLET_ADDRESS, YJC_CONTRACT_ADDRESS } from "../lib/config.js";
 import { DEFAULT_RESET_THRESHOLD, collectHighTotalBetTargets } from "../lib/ops/reset-high-total-bets.js";
 import { buildChainTxDashboard, logApiErrorEvent } from "../lib/tx-monitor.js";
 import { settlementService } from "../lib/settlement-service.js";
+import { yjcSettlementService } from "../lib/yjc-settlement.js";
+import { buildVipStatus } from "../lib/level.js";
+import { getDisplayName } from "../lib/user-profile.js";
+import { resolveYjcVipStatus } from "../lib/yjc-vip.js";
 import {
     createAnnouncement,
     deleteAnnouncement,
@@ -133,6 +137,26 @@ function normalizeMaintenancePayload(body) {
 
 async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function loadUserMetrics(address) {
+    const contract = settlementService.contract;
+    const [balanceRaw, decimals, totalBetRaw, displayName, yjcVip] = await Promise.all([
+        contract.balanceOf(address),
+        settlementService.getDecimals(),
+        kv.get(`total_bet:${String(address).toLowerCase()}`),
+        getDisplayName(address),
+        resolveYjcVipStatus(address)
+    ]);
+    const totalBet = Number(totalBetRaw || 0);
+    return {
+        address,
+        balance: ethers.formatUnits(balanceRaw, decimals),
+        totalBet,
+        vipStatus: buildVipStatus(totalBet),
+        displayName: displayName || "",
+        yjcVip: yjcVip || null
+    };
 }
 
 async function listCustodyUsers(limit) {
@@ -609,32 +633,126 @@ export default async function handler(req, res) {
             });
         }
 
-        if (action !== "reset_total_bets") {
-            return res.status(400).json({
-                success: false,
-                error: `Unsupported action: ${action}`,
-                supportedActions: [
-                    "reset_total_bets",
-                    "list_custody_users",
-                    "inspect_custody_user",
-                    "reset_custody_password",
-                    "list_issue_reports",
-                    "update_issue_report",
-                    "list_announcements",
-                    "publish_announcement",
-                    "update_announcement",
-                    "delete_announcement",
-                    "get_tx_health_dashboard",
-                    "add_to_blacklist",
-                    "remove_from_blacklist",
-                    "list_blacklist",
-                    "set_user_win_bias",
-                    "get_user_win_bias",
-                    "get_maintenance",
-                    "set_maintenance"
-                ]
+        if (action === "admin_mint_yjc") {
+            if (!YJC_CONTRACT_ADDRESS) {
+                return res.status(400).json({ success: false, error: "YJC_CONTRACT_ADDRESS is not configured" });
+            }
+            const targetAddress = tryNormalizeAddress(body.address || body.targetAddress);
+            if (!targetAddress) return res.status(400).json({ success: false, error: "Invalid target address" });
+            const amountInput = normalizeNumberInput(body.amount);
+            if (!Number.isFinite(amountInput) || amountInput <= 0) {
+                return res.status(400).json({ success: false, error: "amount must be greater than 0" });
+            }
+            const amount = Math.floor(amountInput);
+            if (amount <= 0) return res.status(400).json({ success: false, error: "amount must be a positive integer" });
+            if (dryRun) {
+                return res.status(200).json({ success: true, dryRun: true, address: targetAddress, amount });
+            }
+            const tx = await yjcSettlementService.mintTo(targetAddress, amount, {
+                source: "admin_mint_yjc",
+                meta: { operator: sessionAddress, reason: sanitizeAdminUpdate(body.reason || "") }
+            });
+            return res.status(200).json({
+                success: true,
+                action: "admin_mint_yjc",
+                address: targetAddress,
+                amount,
+                txHash: tx.hash,
+                operator: sessionAddress
             });
         }
+
+        if (action === "admin_burn_yjc") {
+            if (!YJC_CONTRACT_ADDRESS) {
+                return res.status(400).json({ success: false, error: "YJC_CONTRACT_ADDRESS is not configured" });
+            }
+            const targetAddress = tryNormalizeAddress(body.address || body.targetAddress);
+            if (!targetAddress) return res.status(400).json({ success: false, error: "Invalid target address" });
+            const amountInput = normalizeNumberInput(body.amount);
+            if (!Number.isFinite(amountInput) || amountInput <= 0) {
+                return res.status(400).json({ success: false, error: "amount must be greater than 0" });
+            }
+            const amount = Math.floor(amountInput);
+            if (amount <= 0) return res.status(400).json({ success: false, error: "amount must be a positive integer" });
+            if (dryRun) {
+                return res.status(200).json({ success: true, dryRun: true, address: targetAddress, amount });
+            }
+            const tx = await yjcSettlementService.burnFrom(targetAddress, amount, {
+                source: "admin_burn_yjc",
+                meta: { operator: sessionAddress, reason: sanitizeAdminUpdate(body.reason || "") }
+            });
+            return res.status(200).json({
+                success: true,
+                action: "admin_burn_yjc",
+                address: targetAddress,
+                amount,
+                txHash: tx.hash,
+                operator: sessionAddress
+            });
+        }
+
+        if (action === "get_yjc_ops_status") {
+            if (!YJC_CONTRACT_ADDRESS) {
+                return res.status(200).json({
+                    success: true,
+                    available: false,
+                    contractAddress: "",
+                    reason: "YJC_CONTRACT_ADDRESS is not configured"
+                });
+            }
+            const targetAddress = tryNormalizeAddress(body.address);
+            try {
+                const [adminStatus, targetStatus, totalSupply] = await Promise.all([
+                    resolveYjcVipStatus(sessionAddress),
+                    targetAddress ? resolveYjcVipStatus(targetAddress) : Promise.resolve(null),
+                    yjcSettlementService.getTotalSupplyFormatted().catch(() => null)
+                ]);
+                return res.status(200).json({
+                    success: true,
+                    available: true,
+                    contractAddress: YJC_CONTRACT_ADDRESS,
+                    totalSupply,
+                    admin: { address: sessionAddress, ...(adminStatus || {}) },
+                    target: targetAddress ? { address: targetAddress, ...(targetStatus || {}) } : null
+                });
+            } catch (error) {
+                return res.status(200).json({
+                    success: true,
+                    available: false,
+                    contractAddress: YJC_CONTRACT_ADDRESS,
+                    reason: error.message || "resolve_yjc_ops_status_failed"
+                });
+            }
+        }
+
+        return res.status(400).json({
+            success: false,
+            error: `Unsupported action: ${action}`,
+            supportedActions: [
+                "reset_total_bets",
+                "list_custody_users",
+                "inspect_custody_user",
+                "reset_custody_password",
+                "list_issue_reports",
+                "update_issue_report",
+                "list_announcements",
+                "publish_announcement",
+                "update_announcement",
+                "delete_announcement",
+                "get_tx_health_dashboard",
+                "add_to_blacklist",
+                "remove_from_blacklist",
+                "list_blacklist",
+                "set_user_win_bias",
+                "get_user_win_bias",
+                "get_maintenance",
+                "set_maintenance",
+                "get_status",
+                "admin_mint_yjc",
+                "admin_burn_yjc",
+                "get_yjc_ops_status"
+            ]
+        });
     } catch (error) {
         console.error("Admin API Error:", error);
         await logApiErrorEvent({

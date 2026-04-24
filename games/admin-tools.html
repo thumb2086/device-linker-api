@@ -199,6 +199,58 @@
             </div>
         </div>
 
+        <div id="yjc-ops-section" class="section-block section-block-ops">
+            <div class="section-heading-row">
+                <div>
+                    <h2>YJC 代幣管理</h2>
+                    <p class="tool-note">管理員可增發 (mint) 或銷毀 (burn) 佑戩幣 YJC。銷毀主要用於出金結算時的風控。</p>
+                </div>
+                <button id="yjc-ops-toggle-btn" class="btn-secondary compact-btn" onclick="toggleYjcOpsSection()">展開 YJC 管理</button>
+            </div>
+
+            <div id="yjc-ops-section-body" class="collapsible-body hidden">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <span>合約地址</span>
+                        <strong id="yjc-ops-contract-address">-</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>總供給</span>
+                        <strong id="yjc-ops-total-supply">-</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span>管理員 YJC</span>
+                        <strong id="yjc-ops-admin-balance">-</strong>
+                    </div>
+                </div>
+
+                <div class="announcement-editor-card">
+                    <h3>增發 / 銷毀</h3>
+                    <div class="announcement-form-grid">
+                        <label>
+                            目標地址
+                            <input id="yjc-ops-address" class="text-input" type="text" placeholder="0x...">
+                        </label>
+                        <label>
+                            YJC 數量
+                            <input id="yjc-ops-amount" class="text-input" type="number" min="1" step="1" placeholder="整數">
+                        </label>
+                        <label class="full-span">
+                            備註 / 原因
+                            <input id="yjc-ops-reason" class="text-input" type="text" placeholder="例如：出金結算 burn、手動補發">
+                        </label>
+                    </div>
+                    <div class="form-row single-row">
+                        <button class="btn-primary" onclick="submitYjcMint()">增發 YJC</button>
+                        <button class="btn-danger" onclick="submitYjcBurn()">銷毀 YJC</button>
+                        <button class="btn-secondary compact-btn" onclick="refreshYjcOpsStatus()">重新整理</button>
+                    </div>
+                </div>
+                <p id="yjc-ops-status-msg">尚未載入 YJC 管理狀態</p>
+                <div id="yjc-ops-target-result" class="custody-user-list"></div>
+            </div>
+        </div>
+
         <div id="reward-titles-section" class="section-block reward-admin-section">
             <div class="section-heading-row">
                 <div>

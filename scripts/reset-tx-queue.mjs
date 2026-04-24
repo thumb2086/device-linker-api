@@ -18,20 +18,17 @@ async function resetQueue() {
     CHAIN_TX_QUEUE_SERVE_KEY,
   ];
 
-  console.log('
-The following keys will be deleted:');
+  console.log('\nThe following keys will be deleted:');
   keysToDelete.forEach(key => console.log(`- ${key}`));
 
   try {
     const result = await kv.del(...keysToDelete);
-    console.log(`
-Successfully deleted ${result} key(s).`);
+    console.log(`\nSuccessfully deleted ${result} key(s).`);
     console.log('The transaction queue and lock have been reset.');
     console.log('After deploying the latest changes, you can run this script to clear the stuck queue.');
     console.log('Make sure your Vercel KV environment variables are available when you run it.');
   } catch (error) {
-    console.error('
-An error occurred while trying to delete keys:', error);
+    console.error('\nAn error occurred while trying to delete keys:', error);
     console.error('Please ensure your Vercel KV environment variables (KV_URL, KV_REST_API_URL, KV_REST_API_TOKEN, KV_REST_API_READ_ONLY_TOKEN) are correctly set in your environment.');
   }
 }

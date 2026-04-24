@@ -642,7 +642,8 @@ export default async function handler(req, res) {
             if (blacklisted) return res.status(403).json({ success: false, error: `帳號已被禁止進入：${blacklisted.reason || "未註明原因"}` });
             if (!sessionId || !address || !publicKey) return res.status(400).json({ success: false, error: "Missing required fields" });
             let normalizedAddress;
-            try { normalizedAddress = ethers.getAddress(address).toLowerCase(); } catch { return res.status(400).json({ success: false, error: "Invalid address" }); }            const existingSession = await getSession(sessionId);
+            try { normalizedAddress = ethers.getAddress(address).toLowerCase(); } catch { return res.status(400).json({ success: false, error: "Invalid address" }); }
+            const existingSession = await getSession(sessionId);
             const ttlSeconds = parseSessionTTL(body.ttlSeconds);
             const platform = normalizePlatform(body.platform || (existingSession && existingSession.platform));
             const clientType = normalizeClientType(body.clientType || (existingSession && existingSession.clientType));

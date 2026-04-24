@@ -12,6 +12,7 @@ import {
   kv,
   OpsRepository,
   RewardCatalogRepository,
+  RewardSubmissionRepository,
 } from "@repo/infrastructure";
 
 export async function adminRoutes(fastify: FastifyInstance) {
@@ -25,6 +26,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   const opsRepo = new OpsRepository();
   const announcementRepo = new AnnouncementRepository();
   const rewardCatalogRepo = new RewardCatalogRepository();
+  const submissionRepo = new RewardSubmissionRepository();
 
   const ADMIN_ADDRESS = process.env.ADMIN_ADDRESS?.toLowerCase();
 
@@ -213,6 +215,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
       updatedBy: ctx.session.address,
     });
 
+    // Rebuild KV cache from fresh DB state so public GET /support/announcements
+    // fallback does not serve stale data.
+    const activeAfter = await announcementRepo.listActiveAnnouncements();
+    await kv.set("announcements:list", activeAfter);
+
     await opsRepo.logEvent({
       channel: "admin",
       severity: "info",
@@ -237,6 +244,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
     const { announcementId } = request.params as { announcementId: string };
     await announcementRepo.deleteAnnouncement(announcementId);
+
+    // Rebuild KV cache after deletion so removed items don't resurface via
+    // the KV fallback path in /support/announcements.
+    const activeAfter = await announcementRepo.listActiveAnnouncements();
+    await kv.set("announcements:list", activeAfter);
 
     await opsRepo.logEvent({
       channel: "admin",
@@ -344,6 +356,106 @@ export async function adminRoutes(fastify: FastifyInstance) {
     return createApiEnvelope({ success: true, itemId }, request.id);
   });
 
+  // ─── Reward Submissions Review (admin approve / reject user submissions) ─
+
+  typedFastify.get("/submissions", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const q = request.query as { status?: string };
+    const items = await submissionRepo.listByStatus(q?.status ?? null, 100);
+    return createApiEnvelope({ submissions: items }, request.id);
+  });
+
+  typedFastify.post("/submissions/:submissionId/approve", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        reviewNote: z.string().optional(),
+        rarityOverride: z.string().optional(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+
+    const { submissionId } = request.params as { submissionId: string };
+    const { reviewNote, rarityOverride } = request.body as any;
+
+    const sub = await submissionRepo.getById(submissionId);
+    if (!sub) return createApiEnvelope({ error: { code: "NOT_FOUND" } }, request.id);
+    if (sub.status !== "pending") return createApiEnvelope({ error: { code: "ALREADY_REVIEWED" } }, request.id);
+
+    // Promote to reward_catalog
+    const itemId = `user_${sub.type}_${submissionId.slice(0, 8)}`;
+    await rewardCatalogRepo.upsertItem({
+      itemId,
+      type: sub.type,
+      name: sub.name,
+      rarity: rarityOverride ?? sub.rarity ?? "common",
+      source: "user",
+      description: sub.description ?? undefined,
+      icon: sub.icon ?? undefined,
+      isActive: true,
+      meta: { submissionId, submittedBy: sub.address },
+    });
+
+    await submissionRepo.updateStatus(submissionId, {
+      status: "approved",
+      reviewedBy: ctx.session.address,
+      reviewNote,
+      approvedItemId: itemId,
+    });
+
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "info",
+      source: "admin_api",
+      kind: "submission_approved",
+      userId: ctx.user.id,
+      message: `Submission ${submissionId} approved as ${itemId}`,
+      meta: { submissionId, itemId, type: sub.type },
+    });
+
+    return createApiEnvelope({ success: true, submissionId, itemId }, request.id);
+  });
+
+  typedFastify.post("/submissions/:submissionId/reject", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        reviewNote: z.string().optional(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+
+    const { submissionId } = request.params as { submissionId: string };
+    const { reviewNote } = request.body as any;
+
+    const sub = await submissionRepo.getById(submissionId);
+    if (!sub) return createApiEnvelope({ error: { code: "NOT_FOUND" } }, request.id);
+    if (sub.status !== "pending") return createApiEnvelope({ error: { code: "ALREADY_REVIEWED" } }, request.id);
+
+    await submissionRepo.updateStatus(submissionId, {
+      status: "rejected",
+      reviewedBy: ctx.session.address,
+      reviewNote,
+    });
+
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "info",
+      source: "admin_api",
+      kind: "submission_rejected",
+      userId: ctx.user.id,
+      message: `Submission ${submissionId} rejected`,
+      meta: { submissionId },
+    });
+
+    return createApiEnvelope({ success: true, submissionId }, request.id);
+  });
+
   // ─── Events & Monitoring ──────────────────────────────────────────────────
 
   typedFastify.get("/ops/events", async (request) => {
@@ -354,3 +466,5 @@ export async function adminRoutes(fastify: FastifyInstance) {
     return createApiEnvelope({ events }, request.id);
   });
 }
+
+

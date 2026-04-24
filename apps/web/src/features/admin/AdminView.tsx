@@ -15,6 +15,9 @@ import {
   Eye,
   EyeOff,
   ScrollText,
+  Inbox,
+  Check,
+  X,
 } from 'lucide-react';
 import AppBottomNav from '../../components/AppBottomNav';
 import { api } from '../../store/api';
@@ -61,7 +64,7 @@ interface CatalogItem {
   isActive?: boolean;
 }
 
-type TabId = 'dashboard' | 'maintenance' | 'blacklist' | 'balance' | 'announcement' | 'catalog' | 'events';
+type TabId = 'dashboard' | 'maintenance' | 'blacklist' | 'balance' | 'announcement' | 'catalog' | 'submissions' | 'events';
 
 const TABS: { id: TabId; label: string; icon: typeof ShieldAlert }[] = [
   { id: 'dashboard', label: '儀表板', icon: Activity },
@@ -70,6 +73,7 @@ const TABS: { id: TabId; label: string; icon: typeof ShieldAlert }[] = [
   { id: 'balance', label: '餘額', icon: Coins },
   { id: 'announcement', label: '公告', icon: Megaphone },
   { id: 'catalog', label: '稱號頭像', icon: Package },
+  { id: 'submissions', label: '投稿審核', icon: Inbox },
   { id: 'events', label: '事件紀錄', icon: ScrollText },
 ];
 
@@ -99,6 +103,7 @@ export default function AdminView() {
   const [events, setEvents] = useState<OpsEvent[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
@@ -134,7 +139,7 @@ export default function AdminView() {
     }
     setLoading(true);
     try {
-      const [healthRes, eventsRes, annRes, catRes] = await Promise.all([
+      const [healthRes, eventsRes, annRes, catRes, subsRes] = await Promise.all([
         api.get('/api/v1/admin/ops/health').catch((err) => {
           if (err?.response?.status === 401 || err?.response?.status === 403) {
             setAuthErr('你不是管理員或未登入');
@@ -144,6 +149,7 @@ export default function AdminView() {
         api.get('/api/v1/admin/ops/events?limit=50').catch(() => null),
         api.get('/api/v1/admin/announcements').catch(() => null),
         api.get('/api/v1/admin/reward-catalog').catch(() => null),
+        api.get('/api/v1/admin/submissions').catch(() => null),
       ]);
       if (healthRes?.data?.data) {
         const h = healthRes.data.data;
@@ -153,6 +159,7 @@ export default function AdminView() {
       if (eventsRes?.data?.data?.events) setEvents(eventsRes.data.data.events);
       if (annRes?.data?.data?.announcements) setAnnouncements(annRes.data.data.announcements);
       if (catRes?.data?.data?.items) setCatalog(catRes.data.data.items);
+      if (subsRes?.data?.data?.submissions) setSubmissions(subsRes.data.data.submissions);
     } finally {
       setLoading(false);
     }
@@ -323,6 +330,32 @@ export default function AdminView() {
     try {
       await api.delete(`/api/v1/admin/reward-catalog/${encodeURIComponent(item.itemId)}`, { data: { sessionId } });
       show('已刪除');
+      refresh();
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
+  async function handleSubmissionApprove(sub: any) {
+    if (!window.confirm(`確定通過「${sub.name}」？通過後會加入到稱號頭像清單`)) return;
+    try {
+      await api.post(`/api/v1/admin/submissions/${encodeURIComponent(sub.submissionId)}/approve`, { sessionId });
+      show('已通過');
+      refresh();
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
+  async function handleSubmissionReject(sub: any) {
+    const reason = window.prompt('拒絕原因（可留空）：') ?? '';
+    if (!window.confirm(`確定拒絕「${sub.name}」？`)) return;
+    try {
+      await api.post(`/api/v1/admin/submissions/${encodeURIComponent(sub.submissionId)}/reject`, {
+        sessionId,
+        reviewNote: reason,
+      });
+      show('已拒絕');
       refresh();
     } catch (err: any) {
       show(errMsg(err));
@@ -757,6 +790,81 @@ export default function AdminView() {
                 </ul>
               )}
             </div>
+          </section>
+        )}
+
+        {activeTab === 'submissions' && (
+          <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20">
+            <h3 className="text-sm font-black tracking-wide text-white mb-4">使用者投稿（{submissions.length}）</h3>
+            {submissions.length === 0 ? (
+              <p className="text-xs text-[#adaaaa]">目前沒有投稿</p>
+            ) : (
+              <ul className="space-y-3">
+                {submissions.map((sub) => (
+                  <li
+                    key={sub.submissionId}
+                    className="rounded-lg border border-[#494847]/20 bg-[#262626] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#1a1919] text-2xl">
+                          {sub.icon || (sub.type === 'avatar' ? '👤' : '🏷')}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-black text-white">{sub.name}</span>
+                            <span className="text-[9px] font-bold uppercase text-[#fcc025]">
+                              {sub.type === 'avatar' ? '頭像' : '稱號'}
+                            </span>
+                            <span className={`text-[9px] font-bold uppercase ${
+                              sub.status === 'pending'
+                                ? 'text-[#fcc025]'
+                                : sub.status === 'approved'
+                                ? 'text-emerald-400'
+                                : 'text-red-400'
+                            }`}>
+                              {sub.status === 'pending' ? '待審核' : sub.status === 'approved' ? '已通過' : '已拒絕'}
+                            </span>
+                            <span className="text-[9px] font-bold uppercase text-[#adaaaa]">
+                              {RARITY_LABEL[sub.rarity] || sub.rarity}
+                            </span>
+                          </div>
+                          {sub.description && (
+                            <p className="mt-1 text-xs text-[#adaaaa] break-words">{sub.description}</p>
+                          )}
+                          <p className="mt-1 text-[10px] text-[#494847] break-all">
+                            投稿者：{sub.address?.slice(0, 10)}...{sub.address?.slice(-6)}
+                          </p>
+                          {sub.reviewNote && (
+                            <p className="mt-1 text-[10px] text-[#adaaaa]">審核備註：{sub.reviewNote}</p>
+                          )}
+                        </div>
+                      </div>
+                      {sub.status === 'pending' && (
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSubmissionApprove(sub)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20"
+                            title="通過"
+                          >
+                            <Check size={14} className="text-emerald-400" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSubmissionReject(sub)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500/20"
+                            title="拒絕"
+                          >
+                            <X size={14} className="text-red-400" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         )}
 

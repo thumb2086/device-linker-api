@@ -12,7 +12,9 @@ import {
   OpsRepository,
   MetaRepository,
   RewardCatalogRepository,
+  RewardSubmissionRepository,
 } from "@repo/infrastructure";
+import { randomUUID } from "crypto";
 
 export async function rewardRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -23,6 +25,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
   const opsRepo = new OpsRepository();
   const metaRepo = new MetaRepository();
   const rewardCatalogRepo = new RewardCatalogRepository();
+  const submissionRepo = new RewardSubmissionRepository();
 
   const getContext = async (req: any) => {
     const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
@@ -85,9 +88,9 @@ export async function rewardRoutes(fastify: FastifyInstance) {
 
     const address = ctx.session.address;
     const ownedTitles = await kv.get<string[]>(`owned_titles:${address}`) || ["newbie"];
-    const ownedAvatars = await kv.get<string[]>(`owned_avatars:${address}`) || ["std_1"];
+    const ownedAvatars = await kv.get<string[]>(`owned_avatars:${address}`) || ["classic_chip"];
     const activeTitle = await kv.get<string>(`active_title:${address}`) || "newbie";
-    const activeAvatar = await kv.get<string>(`active_avatar:${address}`) || "std_1";
+    const activeAvatar = await kv.get<string>(`active_avatar:${address}`) || "classic_chip";
 
     return createApiEnvelope({ 
       ownedTitles, 
@@ -95,6 +98,70 @@ export async function rewardRoutes(fastify: FastifyInstance) {
       activeTitle,
       activeAvatar
     }, request.id);
+  });
+
+  // ─── User Submissions (propose custom avatars / titles) ──────────────────
+
+  // Submit a new proposal (emoji + name + description, no file uploads)
+  typedFastify.post("/submissions", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        type: z.enum(["avatar", "title"]),
+        name: z.string().min(1).max(32),
+        icon: z.string().max(16).optional(), // emoji for avatars
+        description: z.string().max(240).optional(),
+        rarity: z.enum(["common", "rare", "epic", "legendary", "mythic"]).optional(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+
+    const { type, name, icon, description, rarity } = request.body;
+
+    // Basic rate-limit: max 3 pending per user
+    const mine = await submissionRepo.listByUser(ctx.user.id, 50);
+    const pending = mine.filter((s: any) => s.status === "pending");
+    if (pending.length >= 3) {
+      return createApiEnvelope(
+        { error: { code: "TOO_MANY_PENDING", message: "您目前已有 3 份待審核的投稿，請等審核後再提交" } },
+        request.id,
+      );
+    }
+
+    const submissionId = randomUUID();
+    await submissionRepo.create({
+      submissionId,
+      userId: ctx.user.id,
+      address: ctx.session.address,
+      type,
+      name,
+      icon: icon ?? null,
+      description: description ?? null,
+      rarity: rarity ?? "common",
+    });
+
+    await opsRepo.logEvent({
+      channel: "rewards",
+      severity: "info",
+      source: "user_submission",
+      kind: "submission_created",
+      userId: ctx.user.id,
+      address: ctx.session.address,
+      message: `User submitted ${type}: ${name}`,
+      meta: { submissionId, type, name, icon, rarity },
+    });
+
+    return createApiEnvelope({ success: true, submissionId }, request.id);
+  });
+
+  // List my own submissions
+  typedFastify.get("/submissions/me", async (request) => {
+    const ctx = await getContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const items = await submissionRepo.listByUser(ctx.user.id, 50);
+    return createApiEnvelope({ submissions: items }, request.id);
   });
 
   // ─── Chest Opening ────────────────────────────────────────────────────────
@@ -164,7 +231,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     const ownedKey = type === "title" ? `owned_titles:${address}` : `owned_avatars:${address}`;
     const owned = await kv.get<string[]>(ownedKey) || [];
     
-    if (!owned.includes(id) && id !== "newbie" && id !== "std_1") {
+    if (!owned.includes(id) && id !== "newbie" && id !== "classic_chip") {
       return createApiEnvelope({ error: { message: "Not owned" } }, request.id);
     }
 

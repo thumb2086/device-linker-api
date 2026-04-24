@@ -83,17 +83,19 @@ export default function LeaderboardView() {
 
   const { topThree, otherPlayers, selfEntry } = useMemo(() => {
     const entries = data?.entries ?? [];
-    const normalized = entries.map((entry) => ({
+    const normalized = entries.map((entry: any) => ({
       rank: entry.rank,
       name: getDisplayName(entry),
       amount: Number(entry.amount ?? 0),
       avatar: getAvatarUrl(entry.displayName || entry.address),
+      avatarIcon: entry.activeAvatarIcon ?? null,
+      titleLabel: entry.activeTitleLabel ?? null,
       isSelf: entry.address.toLowerCase() === address?.toLowerCase(),
     }));
 
     const top = normalized.slice(0, 3);
     const others = normalized.slice(3);
-    const rawSelf = data?.selfRank ?? entries.find((entry) => entry.address.toLowerCase() === address?.toLowerCase());
+    const rawSelf = (data?.selfRank as any) ?? entries.find((entry: any) => entry.address.toLowerCase() === address?.toLowerCase());
 
     return {
       topThree: top,
@@ -103,6 +105,8 @@ export default function LeaderboardView() {
             rank: rawSelf.rank,
             name: getDisplayName(rawSelf),
             amount: Number(rawSelf.amount ?? 0),
+            avatarIcon: (rawSelf as any).activeAvatarIcon ?? null,
+            titleLabel: (rawSelf as any).activeTitleLabel ?? null,
           }
         : null,
     };
@@ -182,15 +186,18 @@ export default function LeaderboardView() {
               {orderedTopThree[0] && (
                 <div className="flex flex-col items-center space-y-4">
                   <div className="relative">
-                    <div className="h-16 w-16 overflow-hidden rounded-2xl border-2 border-slate-400">
-                      <img src={orderedTopThree[0].avatar} alt={orderedTopThree[0].name} />
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border-2 border-slate-400 bg-[#262626] text-3xl">
+                      {orderedTopThree[0].avatarIcon || <img src={orderedTopThree[0].avatar} alt={orderedTopThree[0].name} />}
                     </div>
                     <div className="absolute -left-3 -top-3 flex h-6 w-6 items-center justify-center rounded-lg bg-slate-400 text-xs font-black text-black">
                       {orderedTopThree[0].rank}
                     </div>
                   </div>
                   <div className="flex h-24 w-20 flex-col items-center justify-center rounded-t-xl border-t border-slate-400/30 bg-gradient-to-t from-[#1a1919] to-slate-400/20 p-2 text-center">
-                    <p className="w-full truncate text-[9px] font-black uppercase text-white">{orderedTopThree[0].name}</p>
+                    <p className="w-full truncate text-[9px] font-black text-white">{orderedTopThree[0].name}</p>
+                    {orderedTopThree[0].titleLabel && (
+                      <p className="mt-0.5 w-full truncate text-[8px] font-bold text-[#fcc025]">{orderedTopThree[0].titleLabel}</p>
+                    )}
                     <p className="mt-1 text-[10px] font-black text-slate-400">
                       {formatNumber(orderedTopThree[0].amount, 'short')} ZXC
                     </p>
@@ -204,15 +211,18 @@ export default function LeaderboardView() {
                     <div className="absolute left-1/2 top-[-2.5rem] -translate-x-1/2 text-[#fcc025]">
                       <Crown size={32} fill="currentColor" />
                     </div>
-                    <div className="h-24 w-24 overflow-hidden rounded-3xl border-4 border-[#fcc025] shadow-[0_0_40px_rgba(252,192,37,0.3)]">
-                      <img src={orderedTopThree[1].avatar} alt={orderedTopThree[1].name} />
+                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border-4 border-[#fcc025] bg-[#262626] text-5xl shadow-[0_0_40px_rgba(252,192,37,0.3)]">
+                      {orderedTopThree[1].avatarIcon || <img src={orderedTopThree[1].avatar} alt={orderedTopThree[1].name} />}
                     </div>
                     <div className="absolute -left-3 -top-3 flex h-8 w-8 items-center justify-center rounded-xl bg-[#fcc025] text-sm font-black text-black">
                       1
                     </div>
                   </div>
                   <div className="flex h-32 w-28 flex-col items-center justify-center rounded-t-2xl border-t border-[#fcc025]/30 bg-gradient-to-t from-[#1a1919] to-[#fcc025]/20 p-4 text-center">
-                    <p className="w-full truncate text-[11px] font-black uppercase text-white">{orderedTopThree[1].name}</p>
+                    <p className="w-full truncate text-[11px] font-black text-white">{orderedTopThree[1].name}</p>
+                    {orderedTopThree[1].titleLabel && (
+                      <p className="mt-0.5 w-full truncate text-[8px] font-bold text-[#fcc025]">{orderedTopThree[1].titleLabel}</p>
+                    )}
                     <p className="mt-1 text-sm font-black text-[#fcc025]">
                       {formatNumber(orderedTopThree[1].amount, 'short')} ZXC
                     </p>
@@ -223,15 +233,18 @@ export default function LeaderboardView() {
               {orderedTopThree[2] && (
                 <div className="flex flex-col items-center space-y-4">
                   <div className="relative">
-                    <div className="h-16 w-16 overflow-hidden rounded-2xl border-2 border-amber-700">
-                      <img src={orderedTopThree[2].avatar} alt={orderedTopThree[2].name} />
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border-2 border-amber-700 bg-[#262626] text-3xl">
+                      {orderedTopThree[2].avatarIcon || <img src={orderedTopThree[2].avatar} alt={orderedTopThree[2].name} />}
                     </div>
                     <div className="absolute -left-3 -top-3 flex h-6 w-6 items-center justify-center rounded-lg bg-amber-700 text-xs font-black text-white">
                       {orderedTopThree[2].rank}
                     </div>
                   </div>
                   <div className="flex h-20 w-20 flex-col items-center justify-center rounded-t-xl border-t border-amber-700/30 bg-gradient-to-t from-[#1a1919] to-amber-700/20 p-2 text-center">
-                    <p className="w-full truncate text-[9px] font-black uppercase text-white">{orderedTopThree[2].name}</p>
+                    <p className="w-full truncate text-[9px] font-black text-white">{orderedTopThree[2].name}</p>
+                    {orderedTopThree[2].titleLabel && (
+                      <p className="mt-0.5 w-full truncate text-[8px] font-bold text-amber-500">{orderedTopThree[2].titleLabel}</p>
+                    )}
                     <p className="mt-1 text-[10px] font-black text-amber-500">
                       {formatNumber(orderedTopThree[2].amount, 'short')} ZXC
                     </p>
@@ -272,20 +285,25 @@ export default function LeaderboardView() {
                       {player.rank}
                     </span>
                     <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-lg text-xs font-bold uppercase ${
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg text-xl font-bold uppercase ${
                         player.isSelf
                           ? 'border border-[#fcc025]/30 bg-[#262626] text-[#fcc025]'
                           : 'bg-[#262626] text-white'
                       }`}
                     >
-                      {player.name.charAt(0)}
+                      {player.avatarIcon || player.name.charAt(0)}
                     </div>
                     <div>
-                      <p className={`text-[11px] font-black uppercase ${player.isSelf ? 'text-[#fcc025]' : 'text-white'}`}>
+                      <p className={`text-[11px] font-black ${player.isSelf ? 'text-[#fcc025]' : 'text-white'}`}>
                         {player.name}
                       </p>
+                      {player.titleLabel && (
+                        <p className="mt-0.5 inline-block rounded bg-[#262626] px-1.5 py-0.5 text-[9px] font-bold text-[#fcc025]">
+                          {player.titleLabel}
+                        </p>
+                      )}
                       {player.isSelf && (
-                        <p className="text-[9px] font-bold uppercase tracking-tighter text-[#adaaaa]">{t('leaderboard.you')}</p>
+                        <p className="text-[9px] font-bold tracking-tighter text-[#adaaaa]">{t('leaderboard.you')}</p>
                       )}
                     </div>
                   </div>

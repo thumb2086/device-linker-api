@@ -445,6 +445,44 @@ const ensureCoreSchema = async () => {
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
           )
         `;
+        await sql`
+          CREATE TABLE IF NOT EXISTS reward_catalog (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            item_id TEXT NOT NULL UNIQUE,
+            type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            rarity TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'admin',
+            description TEXT,
+            icon TEXT,
+            price NUMERIC,
+            is_active BOOLEAN DEFAULT TRUE,
+            meta JSONB,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`
+          CREATE TABLE IF NOT EXISTS reward_submissions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            submission_id TEXT NOT NULL UNIQUE,
+            user_id UUID NOT NULL REFERENCES users(id),
+            address TEXT NOT NULL,
+            type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            icon TEXT,
+            description TEXT,
+            rarity TEXT NOT NULL DEFAULT 'common',
+            status TEXT NOT NULL DEFAULT 'pending',
+            reviewed_by TEXT,
+            review_note TEXT,
+            approved_item_id TEXT,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS reward_submissions_status_idx ON reward_submissions (status, created_at DESC)`;
+        await sql`CREATE INDEX IF NOT EXISTS reward_submissions_user_idx ON reward_submissions (user_id, created_at DESC)`;
         await normalizeLegacyIdentityData(sql);
       } finally {
         await sql.end();
@@ -1003,6 +1041,77 @@ export class RewardCatalogRepository {
   }
 }
 
+export class RewardSubmissionRepository {
+  async create(submission: {
+    submissionId: string;
+    userId: string;
+    address: string;
+    type: string; // avatar | title
+    name: string;
+    icon?: string | null;
+    description?: string | null;
+    rarity?: string;
+  }) {
+    const conn = await requireDb();
+    await conn.insert(schema.rewardSubmissions).values({
+      id: randomUUID(),
+      submissionId: submission.submissionId,
+      userId: submission.userId,
+      address: submission.address,
+      type: submission.type,
+      name: submission.name,
+      icon: submission.icon ?? null,
+      description: submission.description ?? null,
+      rarity: submission.rarity ?? "common",
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  async listByStatus(status: string | null, limit = 100) {
+    const conn = await requireDb();
+    return await conn.query.rewardSubmissions.findMany({
+      where: (s: any, { eq }: any) => (status ? eq(s.status, status) : undefined),
+      orderBy: (s: any, { desc }: any) => [desc(s.createdAt)],
+      limit,
+    });
+  }
+
+  async listByUser(userId: string, limit = 50) {
+    const conn = await requireDb();
+    return await conn.query.rewardSubmissions.findMany({
+      where: (s: any, { eq }: any) => eq(s.userId, userId),
+      orderBy: (s: any, { desc }: any) => [desc(s.createdAt)],
+      limit,
+    });
+  }
+
+  async getById(submissionId: string) {
+    const conn = await requireDb();
+    return await conn.query.rewardSubmissions.findFirst({
+      where: (s: any, { eq }: any) => eq(s.submissionId, submissionId),
+    });
+  }
+
+  async updateStatus(
+    submissionId: string,
+    fields: { status: string; reviewedBy?: string; reviewNote?: string; approvedItemId?: string }
+  ) {
+    const conn = await requireDb();
+    await conn
+      .update(schema.rewardSubmissions)
+      .set({
+        status: fields.status,
+        reviewedBy: fields.reviewedBy ?? null,
+        reviewNote: fields.reviewNote ?? null,
+        approvedItemId: fields.approvedItemId ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.rewardSubmissions.submissionId, submissionId));
+  }
+}
+
 export class AnnouncementRepository {
   private async getAnnouncementColumns(conn: any): Promise<Set<string>> {
     const rows = await conn.execute(
@@ -1207,7 +1316,8 @@ export class AnnouncementRepository {
   ) {
     const conn = await requireDb();
     const columns = await this.getAnnouncementColumns(conn);
-    const set: Record<string, any> = { updatedAt: new Date() };
+    const set: Record<string, any> = {};
+    if (columns.has("updated_at")) set.updatedAt = new Date();
     if (fields.title !== undefined) set.title = fields.title;
     if (fields.content !== undefined) set.content = fields.content;
     if (fields.isPinned !== undefined && columns.has("is_pinned")) set.isPinned = fields.isPinned;

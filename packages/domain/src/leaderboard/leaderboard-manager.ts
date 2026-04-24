@@ -13,6 +13,11 @@ export interface LeaderboardEntry {
   amount: number;
   // Asset leaderboard extra field
   balance?: number;
+  // Cosmetic fields populated by leaderboard route after query
+  activeTitleId?: string | null;
+  activeTitleLabel?: string | null;
+  activeAvatarId?: string | null;
+  activeAvatarIcon?: string | null;
 }
 
 export interface LeaderboardResult {

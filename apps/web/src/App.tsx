@@ -9,6 +9,7 @@ import LoginView from './features/auth/LoginView';
 import { useAuthStore } from './store/useAuthStore';
 import MarketView from './features/market/MarketView';
 import RewardsView from './features/rewards/RewardsView';
+import SubmitRewardView from './features/rewards/SubmitRewardView';
 import AdminView from './features/admin/AdminView';
 import InventoryView from './features/profile/InventoryView';
 import LeaderboardView from './features/stats/LeaderboardView';
@@ -109,6 +110,7 @@ function AppContent() {
             <Route path="swap" element={<SwapView />} />
             <Route path="market" element={<MarketView />} />
             <Route path="rewards" element={<RewardsView />} />
+            <Route path="rewards/submit" element={<SubmitRewardView />} />
             <Route path="leaderboard" element={<LeaderboardView />} />
             <Route path="announcement" element={<AnnouncementCenter />} />
             <Route path="support" element={<SupportView />} />

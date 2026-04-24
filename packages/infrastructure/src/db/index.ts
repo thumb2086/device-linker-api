@@ -1249,6 +1249,11 @@ export class RewardCampaignRepository {
 
   async delete(campaignId: string) {
     const conn = await requireDb();
+    // Clear associated claim rows first — there's no ON DELETE CASCADE on
+    // reward_campaign_claims, so if an admin later re-creates a campaign with
+    // the same campaignId, `tryClaim` / `countClaims` would otherwise keep
+    // seeing the stale claims and permanently block users from re-claiming.
+    await conn.delete(schema.rewardCampaignClaims).where(eq(schema.rewardCampaignClaims.campaignId, campaignId));
     await conn.delete(schema.rewardCampaigns).where(eq(schema.rewardCampaigns.campaignId, campaignId));
   }
 

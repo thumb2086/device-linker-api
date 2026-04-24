@@ -7,7 +7,7 @@ import { z } from "zod";
 import { createApiEnvelope, ITEM_DROP_TABLES, RARITY_NAMES, type ItemDefinition, type Rarity } from "@repo/shared";
 import { SessionRepository, OpsRepository } from "@repo/infrastructure";
 import { gameSettlement } from "../../utils/game-settlement.js";
-import { loadInventoryState, useItem } from "../../utils/inventory.js";
+import { loadInventoryState, useItem, rollbackUseItem } from "../../utils/inventory.js";
 
 function buildItemIndex(): Record<string, ItemDefinition & { rarity: Rarity }> {
   const out: Record<string, ItemDefinition & { rarity: Rarity }> = {};
@@ -99,10 +99,50 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
 
       let newBalance: string | null = null;
       if (outcome.currencyGranted && outcome.currencyGranted > 0) {
-        const current = parseFloat(await gameSettlement.getBalance(ctx.address, "zhixi")) || 0;
-        const updated = (current + outcome.currencyGranted).toString();
-        await gameSettlement.setBalance(ctx.address, "zhixi", updated);
-        newBalance = updated;
+        try {
+          const current = parseFloat(await gameSettlement.getBalance(ctx.address, "zhixi")) || 0;
+          const updated = (current + outcome.currencyGranted).toString();
+          await gameSettlement.setBalance(ctx.address, "zhixi", updated);
+          newBalance = updated;
+        } catch (err: any) {
+          // Crediting the wallet failed after the item was already consumed.
+          // Restore the pre-use snapshot so the user does not permanently lose
+          // the item for a credit that never landed.
+          try {
+            await rollbackUseItem(ctx.userId, outcome.preUseState);
+          } catch (rollbackErr: any) {
+            await opsRepo.logEvent({
+              channel: "rewards",
+              severity: "error",
+              source: "inventory",
+              kind: "item_use_rollback_failed",
+              userId: ctx.userId,
+              address: ctx.address,
+              message: `Failed to restore item ${itemId} after credit failure: ${rollbackErr?.message || "unknown"}`,
+              meta: { itemId, creditError: err?.message || String(err) },
+            });
+          }
+          await opsRepo.logEvent({
+            channel: "rewards",
+            severity: "error",
+            source: "inventory",
+            kind: "item_use_credit_failed",
+            userId: ctx.userId,
+            address: ctx.address,
+            message: `Credit for item ${itemId} failed; inventory restored`,
+            meta: {
+              itemId,
+              amount: outcome.currencyGranted,
+              error: err?.message || String(err),
+            },
+          });
+          return createApiEnvelope(
+            { success: false },
+            request.id,
+            false,
+            "CREDIT_FAILED",
+          );
+        }
       }
 
       await opsRepo.logEvent({

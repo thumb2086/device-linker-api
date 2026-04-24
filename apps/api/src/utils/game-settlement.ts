@@ -336,7 +336,12 @@ export class GameSettlementWrapper {
         }
 
         const levelDiscountRate = await this.vipManager.getMarketFeeDiscount(ctx.address);
-        const feeAmount = this.levelFeeService.calculateFee(ctx.betAmount, levelDiscountRate);
+        // The prevent-loss buff promises a full refund ("下注將全額退回"). If
+        // the buff fired, bypass the per-round fee entirely so the user
+        // actually receives `betAmount`, not `betAmount - fee`.
+        const feeAmount = preventLossApplied
+          ? 0
+          : this.levelFeeService.calculateFee(ctx.betAmount, levelDiscountRate);
         const requestedPayout = parseFloat(ctx.payoutAmount);
         const finalPayout = Math.max(0, requestedPayout - feeAmount);
 
@@ -441,13 +446,26 @@ export class GameSettlementWrapper {
     }
 
     try {
+      // Sync path delegates fee handling to onchainSettlement, which deducts
+      // feeAmount from payoutAmount. When prevent-loss is applied we want the
+      // user to actually receive `betAmount` as a full refund, so gross up
+      // payoutAmount by the expected fee. onchainSettlement then subtracts the
+      // same fee and the user ends up with exactly betAmount.
+      let syncPayoutAmount = ctx.payoutAmount;
+      if (preventLossApplied) {
+        const levelDiscountRate = await this.vipManager.getMarketFeeDiscount(ctx.address);
+        const expectedFee = this.levelFeeService.calculateFee(ctx.betAmount, levelDiscountRate);
+        const betValueNumeric = parseFloat(ctx.betAmount) || 0;
+        syncPayoutAmount = (betValueNumeric + expectedFee).toString();
+      }
+
       const result = await this.onchainSettlement.settleGame({
         userId: ctx.userId,
         address: ctx.address,
         game: ctx.game,
         token: ctx.token,
         betAmount: ctx.betAmount,
-        payoutAmount: ctx.payoutAmount,
+        payoutAmount: syncPayoutAmount,
         roundId: ctx.roundId,
         requestId: ctx.requestId,
       });

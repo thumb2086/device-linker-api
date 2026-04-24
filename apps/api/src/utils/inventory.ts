@@ -418,15 +418,26 @@ export interface RewardBundle {
   titles?: string[];
 }
 
+export interface GrantBundleResult {
+  /** Post-grant inventory state (same shape as return value from loadInventoryState). */
+  nextState: ProfileInventoryState;
+  /** Snapshot of inventory state BEFORE the grant — feed into `rollbackGrantBundle` if a later step fails. */
+  preState: ProfileInventoryState;
+  /** Avatar IDs that were actually newly-added by this grant (ignoring duplicates already owned). */
+  addedAvatars: string[];
+  /** Title IDs that were actually newly-added by this grant (ignoring duplicates already owned). */
+  addedTitles: string[];
+}
+
 export async function grantBundleToUser(
   userId: string,
   bundle: RewardBundle,
   address?: string,
-): Promise<ProfileInventoryState> {
-  const state = await loadInventoryState(userId);
-  const nextInventory = { ...state.inventory };
-  const nextAvatars = [...state.ownedAvatars];
-  const nextTitles = [...state.ownedTitles];
+): Promise<GrantBundleResult> {
+  const preState = await loadInventoryState(userId);
+  const nextInventory = { ...preState.inventory };
+  const nextAvatars = [...preState.ownedAvatars];
+  const nextTitles = [...preState.ownedTitles];
 
   for (const it of bundle.items ?? []) {
     const id = String(it?.id || "").trim();
@@ -452,7 +463,7 @@ export async function grantBundleToUser(
   }
 
   const nextState: ProfileInventoryState = {
-    ...state,
+    ...preState,
     inventory: nextInventory,
     ownedAvatars: nextAvatars,
     ownedTitles: nextTitles,
@@ -486,7 +497,7 @@ export async function grantBundleToUser(
     }
   }
 
-  return nextState;
+  return { nextState, preState, addedAvatars, addedTitles };
 }
 
 /**
@@ -530,28 +541,6 @@ export async function rollbackGrantBundle(
     const next = existing.filter((id) => !addedTitles.includes(id));
     await kv.set(key, next);
   }
-}
-
-/** Compute which avatar/title IDs in `bundle` are NEW (not already owned). */
-export function computeNewlyAdded(
-  preState: ProfileInventoryState,
-  bundle: RewardBundle,
-): { addedAvatars: string[]; addedTitles: string[] } {
-  const addedAvatars: string[] = [];
-  const addedTitles: string[] = [];
-  for (const avId of bundle.avatars ?? []) {
-    const id = String(avId || "").trim();
-    if (id && !preState.ownedAvatars.includes(id) && !addedAvatars.includes(id)) {
-      addedAvatars.push(id);
-    }
-  }
-  for (const ttId of bundle.titles ?? []) {
-    const id = String(ttId || "").trim();
-    if (id && !preState.ownedTitles.includes(id) && !addedTitles.includes(id)) {
-      addedTitles.push(id);
-    }
-  }
-  return { addedAvatars, addedTitles };
 }
 
 export function listAllItems(): ItemDefinition[] {

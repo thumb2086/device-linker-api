@@ -347,6 +347,26 @@ export const rewardGrants = pgTable("reward_grants", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ─── Reward Campaigns claim tracking + grant logs ────────────────────────────
+
+export const rewardCampaignClaims = pgTable("reward_campaign_claims", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: text("campaign_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  address: text("address").notNull(),
+  claimedAt: timestamp("claimed_at").notNull().defaultNow(),
+});
+
+export const rewardGrantLogs = pgTable("reward_grant_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  targetAddress: text("target_address").notNull(),
+  operatorAddress: text("operator_address"),
+  source: text("source").notNull(), // admin | campaign | system
+  note: text("note"),
+  bundle: jsonb("bundle").notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // ─── Reward Submissions (user-proposed avatars / titles awaiting review) ──────
 
 export const rewardSubmissions = pgTable("reward_submissions", {

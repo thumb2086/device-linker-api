@@ -13,8 +13,10 @@ import {
   MetaRepository,
   RewardCatalogRepository,
   RewardSubmissionRepository,
+  RewardCampaignRepository,
 } from "@repo/infrastructure";
 import { randomUUID } from "crypto";
+import { grantBundleToUser } from "../../utils/inventory.js";
 
 export async function rewardRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -26,6 +28,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
   const metaRepo = new MetaRepository();
   const rewardCatalogRepo = new RewardCatalogRepository();
   const submissionRepo = new RewardSubmissionRepository();
+  const campaignRepo = new RewardCampaignRepository();
 
   const getContext = async (req: any) => {
     const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
@@ -239,5 +242,100 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     await kv.set(activeKey, id);
 
     return createApiEnvelope({ success: true, activeId: id }, request.id);
+  });
+
+  // ─── Public Campaigns (events) ───────────────────────────────────────────
+
+  typedFastify.get("/campaigns", async (request) => {
+    const ctx = await getContext(request);
+    const now = Date.now();
+    const all = await campaignRepo.listActive(50);
+    const campaigns = (all || []).filter((c: any) => {
+      if (c.startAt && new Date(c.startAt).getTime() > now) return false;
+      if (c.endAt && new Date(c.endAt).getTime() < now) return false;
+      return true;
+    });
+
+    let claimedSet = new Set<string>();
+    if (ctx?.user?.id) {
+      for (const c of campaigns) {
+        const n = await campaignRepo.countClaims(c.campaignId, ctx.user.id);
+        if (n >= ((c as any).maxClaimsPerUser ?? 1)) claimedSet.add(c.campaignId);
+      }
+    }
+    const enriched = campaigns.map((c: any) => ({
+      ...c,
+      claimed: claimedSet.has(c.campaignId),
+    }));
+    return createApiEnvelope({ campaigns: enriched }, request.id);
+  });
+
+  typedFastify.post("/campaigns/:campaignId/claim", async (request) => {
+    const ctx = await getContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { campaignId } = request.params as { campaignId: string };
+    const campaign = await campaignRepo.getById(campaignId);
+    if (!campaign) return createApiEnvelope({ error: { code: "NOT_FOUND", message: "活動不存在" } }, request.id);
+    if (!campaign.isActive) return createApiEnvelope({ error: { code: "INACTIVE", message: "活動已停用" } }, request.id);
+    const now = Date.now();
+    if (campaign.startAt && new Date(campaign.startAt).getTime() > now) {
+      return createApiEnvelope({ error: { code: "NOT_STARTED", message: "活動尚未開始" } }, request.id);
+    }
+    if (campaign.endAt && new Date(campaign.endAt).getTime() < now) {
+      return createApiEnvelope({ error: { code: "ENDED", message: "活動已結束" } }, request.id);
+    }
+    const prev = await campaignRepo.countClaims(campaignId, ctx.user.id);
+    if (prev >= ((campaign as any).maxClaimsPerUser ?? 1)) {
+      return createApiEnvelope({ error: { code: "LIMIT_REACHED", message: "已達領取上限" } }, request.id);
+    }
+
+    const rewards = (campaign.rewards as any) || {};
+    const address = String(ctx.user.address || "").toLowerCase();
+
+    const bundleSummary: any = {
+      items: rewards.items || [],
+      avatars: rewards.avatars || [],
+      titles: rewards.titles || [],
+    };
+
+    if (typeof rewards.zxc === "number" && rewards.zxc > 0) {
+      const key = `balance:${address}`;
+      const current = parseFloat((await kv.get<string>(key)) || "0");
+      await kv.set(key, (current + rewards.zxc).toString());
+      bundleSummary.zxc = rewards.zxc;
+    }
+    if (typeof rewards.yjc === "number" && rewards.yjc > 0) {
+      const key = `balance_yjc:${address}`;
+      const current = parseFloat((await kv.get<string>(key)) || "0");
+      await kv.set(key, (current + rewards.yjc).toString());
+      bundleSummary.yjc = rewards.yjc;
+    }
+    if ((rewards.items?.length ?? 0) || (rewards.avatars?.length ?? 0) || (rewards.titles?.length ?? 0)) {
+      await grantBundleToUser(ctx.user.id, {
+        items: rewards.items,
+        avatars: rewards.avatars,
+        titles: rewards.titles,
+      });
+    }
+
+    await campaignRepo.recordClaim({ campaignId, userId: ctx.user.id, address });
+    await campaignRepo.logGrant({
+      targetAddress: address,
+      operatorAddress: null,
+      source: "campaign",
+      note: campaign.title,
+      bundle: { campaignId, ...bundleSummary },
+    });
+    await opsRepo.logEvent({
+      channel: "rewards",
+      severity: "info",
+      source: "campaign_claim",
+      kind: "campaign_claim",
+      userId: ctx.user.id,
+      address,
+      message: `Claimed campaign ${campaignId}`,
+      meta: { campaignId, bundle: bundleSummary },
+    });
+    return createApiEnvelope({ success: true, bundle: bundleSummary }, request.id);
   });
 }

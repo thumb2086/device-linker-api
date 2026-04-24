@@ -13,7 +13,9 @@ import {
   OpsRepository,
   RewardCatalogRepository,
   RewardSubmissionRepository,
+  RewardCampaignRepository,
 } from "@repo/infrastructure";
+import { grantBundleToUser } from "../../utils/inventory.js";
 
 export async function adminRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -27,6 +29,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   const announcementRepo = new AnnouncementRepository();
   const rewardCatalogRepo = new RewardCatalogRepository();
   const submissionRepo = new RewardSubmissionRepository();
+  const campaignRepo = new RewardCampaignRepository();
 
   const ADMIN_ADDRESS = process.env.ADMIN_ADDRESS?.toLowerCase();
 
@@ -454,6 +457,210 @@ export async function adminRoutes(fastify: FastifyInstance) {
     });
 
     return createApiEnvelope({ success: true, submissionId }, request.id);
+  });
+
+  // ─── User management (inspect / win bias) ────────────────────────────────
+
+  // Inspect a user by address - returns profile + balances-like info
+  typedFastify.get("/users/:address", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { address } = request.params as { address: string };
+    const addrLower = String(address || "").toLowerCase();
+    const user = await userRepo.getUserByAddress(addrLower);
+    if (!user) return createApiEnvelope({ error: { code: "NOT_FOUND", message: "User not found" } }, request.id);
+    const profile = await userRepo.getUserProfile(user.id).catch(() => null);
+    return createApiEnvelope({
+      user: {
+        id: user.id,
+        address: user.address,
+        displayName: (user as any).displayName ?? null,
+        createdAt: (user as any).createdAt ?? null,
+      },
+      profile,
+    }, request.id);
+  });
+
+  // Set user win bias (0-1). Body bias=null clears it.
+  typedFastify.post("/users/:address/win-bias", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        bias: z.number().min(0).max(1).nullable(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { address } = request.params as { address: string };
+    const { bias } = request.body as any;
+    const addrLower = String(address || "").toLowerCase();
+    const user = await userRepo.getUserByAddress(addrLower);
+    if (!user) return createApiEnvelope({ error: { code: "NOT_FOUND", message: "User not found" } }, request.id);
+
+    await userRepo.saveUserProfile(user.id, {
+      winBias: bias === null ? null : String(bias),
+    } as any);
+
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "warn",
+      source: "admin_api",
+      kind: "user_win_bias_set",
+      userId: ctx.user.id,
+      message: `Set win_bias=${bias} for ${addrLower}`,
+      meta: { targetAddress: addrLower, bias },
+    });
+
+    return createApiEnvelope({ success: true, address: addrLower, bias }, request.id);
+  });
+
+  // ─── Campaigns / Events Management ────────────────────────────────────────
+
+  typedFastify.get("/campaigns", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const campaigns = await campaignRepo.listAll(200);
+    return createApiEnvelope({ campaigns }, request.id);
+  });
+
+  typedFastify.post("/campaigns", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        campaignId: z.string().optional(),
+        title: z.string().min(1).max(120),
+        description: z.string().max(600).optional(),
+        isActive: z.boolean().optional(),
+        startAt: z.string().nullable().optional(),
+        endAt: z.string().nullable().optional(),
+        claimLimitPerUser: z.number().int().min(1).max(100).optional(),
+        minLevel: z.string().optional(),
+        rewards: z
+          .object({
+            zxc: z.number().optional(),
+            yjc: z.number().optional(),
+            items: z.array(z.object({ id: z.string(), qty: z.number().optional() })).optional(),
+            avatars: z.array(z.string()).optional(),
+            titles: z.array(z.string()).optional(),
+          })
+          .default({}),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const body = request.body as any;
+    const campaignId = String(body.campaignId || "").trim() || `cmp_${Date.now().toString(36)}`;
+    const toDate = (v: any) => (v ? new Date(v) : null);
+    const record = await campaignRepo.upsert({
+      campaignId,
+      title: body.title,
+      description: body.description ?? null,
+      isActive: body.isActive !== undefined ? body.isActive : true,
+      startAt: toDate(body.startAt),
+      endAt: toDate(body.endAt),
+      claimLimitPerUser: body.claimLimitPerUser ?? 1,
+      minLevel: body.minLevel ?? null,
+      rewards: body.rewards || {},
+      createdBy: ctx.session.address,
+    });
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "info",
+      source: "admin_api",
+      kind: "campaign_upsert",
+      userId: ctx.user.id,
+      message: `Campaign ${campaignId} saved`,
+      meta: { campaignId, title: body.title, isActive: record?.isActive },
+    });
+    return createApiEnvelope({ campaign: record }, request.id);
+  });
+
+  typedFastify.delete("/campaigns/:campaignId", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { campaignId } = request.params as { campaignId: string };
+    await campaignRepo.delete(campaignId);
+    return createApiEnvelope({ success: true }, request.id);
+  });
+
+  // Admin grant bundle directly to a user
+  typedFastify.post("/grant", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        address: z.string(),
+        zxc: z.number().optional(),
+        yjc: z.number().optional(),
+        items: z.array(z.object({ id: z.string(), qty: z.number().optional() })).optional(),
+        avatars: z.array(z.string()).optional(),
+        titles: z.array(z.string()).optional(),
+        note: z.string().max(240).optional(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const body = request.body as any;
+    const normalized = identityManager.tryNormalizeAddress(body.address);
+    if (!normalized) return createApiEnvelope({ error: { message: "Invalid address" } }, request.id);
+
+    const user = await userRepo.getUserByAddress(normalized);
+    if (!user) return createApiEnvelope({ error: { code: "NOT_FOUND", message: "User not found" } }, request.id);
+
+    // Adjust balances (if provided)
+    const bundleSummary: any = { items: body.items || [], avatars: body.avatars || [], titles: body.titles || [] };
+    if (typeof body.zxc === "number" && body.zxc !== 0) {
+      const key = `balance:${normalized}`;
+      const current = parseFloat((await kv.get<string>(key)) || "0");
+      const next = Math.max(0, current + body.zxc).toString();
+      await kv.set(key, next);
+      bundleSummary.zxc = body.zxc;
+    }
+    if (typeof body.yjc === "number" && body.yjc !== 0) {
+      const key = `balance_yjc:${normalized}`;
+      const current = parseFloat((await kv.get<string>(key)) || "0");
+      const next = Math.max(0, current + body.yjc).toString();
+      await kv.set(key, next);
+      bundleSummary.yjc = body.yjc;
+    }
+
+    // Grant items / avatars / titles
+    if ((body.items?.length ?? 0) || (body.avatars?.length ?? 0) || (body.titles?.length ?? 0)) {
+      await grantBundleToUser(user.id, {
+        items: body.items,
+        avatars: body.avatars,
+        titles: body.titles,
+      });
+    }
+
+    await campaignRepo.logGrant({
+      targetAddress: normalized,
+      operatorAddress: ctx.session.address,
+      source: "admin",
+      note: body.note ?? null,
+      bundle: bundleSummary,
+    });
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "important",
+      source: "admin_grant",
+      kind: "admin_grant",
+      userId: ctx.user.id,
+      address: normalized,
+      message: `Admin granted rewards to ${normalized}`,
+      meta: { ...bundleSummary, note: body.note ?? null },
+    });
+
+    return createApiEnvelope({ success: true, bundle: bundleSummary }, request.id);
+  });
+
+  typedFastify.get("/grant-logs", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const logs = await campaignRepo.listGrantLogs(100);
+    return createApiEnvelope({ logs }, request.id);
   });
 
   // ─── Events & Monitoring ──────────────────────────────────────────────────

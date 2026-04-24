@@ -72,7 +72,7 @@ export default function SubmitRewardView() {
     setSubmitting(true);
     setResultMsg(null);
     try {
-      await api.post('/api/v1/rewards/submissions', {
+      const res = await api.post('/api/v1/rewards/submissions', {
         sessionId,
         type,
         name: name.trim(),
@@ -80,6 +80,11 @@ export default function SubmitRewardView() {
         description: description.trim() || undefined,
         rarity,
       });
+      const payload = res?.data?.data;
+      if (payload?.error) {
+        setResultMsg(payload.error.message || payload.error.code || '送出失敗');
+        return;
+      }
       setResultMsg('已送出，請等待管理員審核');
       setName('');
       setIcon('');
@@ -87,7 +92,12 @@ export default function SubmitRewardView() {
       setRarity('common');
       refresh();
     } catch (err: any) {
-      setResultMsg(err?.response?.data?.error?.message || err?.message || '送出失敗');
+      setResultMsg(
+        err?.response?.data?.data?.error?.message ||
+          err?.response?.data?.error?.message ||
+          err?.message ||
+          '送出失敗',
+      );
     } finally {
       setSubmitting(false);
     }

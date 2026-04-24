@@ -311,22 +311,16 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     };
 
     // tryClaim already committed the claim row. If any reward-granting step
-    // below throws we MUST roll that claim back, otherwise the user is
-    // permanently blocked with no reward. We roll back exactly once and then
-    // re-throw so the caller sees the underlying failure.
+    // below throws we MUST roll back the claim AND reverse any balance credits
+    // that were already applied, otherwise the user either gets permanently
+    // locked out with no reward OR can retry and double-dip on balance.
+    //
+    // Order: run the fallible-but-mostly-atomic step (grantBundleToUser) FIRST
+    // so that KV balance credits happen only after items/cosmetics are safely
+    // persisted. Track what we credited so rollback can reverse it.
+    let zxcCredited = 0;
+    let yjcCredited = 0;
     try {
-      if (typeof rewards.zxc === "number" && rewards.zxc > 0) {
-        const key = `balance:${address}`;
-        const current = parseFloat((await kv.get<string>(key)) || "0");
-        await kv.set(key, (current + rewards.zxc).toString());
-        bundleSummary.zxc = rewards.zxc;
-      }
-      if (typeof rewards.yjc === "number" && rewards.yjc > 0) {
-        const key = `balance_yjc:${address}`;
-        const current = parseFloat((await kv.get<string>(key)) || "0");
-        await kv.set(key, (current + rewards.yjc).toString());
-        bundleSummary.yjc = rewards.yjc;
-      }
       if ((rewards.items?.length ?? 0) || (rewards.avatars?.length ?? 0) || (rewards.titles?.length ?? 0)) {
         await grantBundleToUser(
           ctx.user.id,
@@ -338,6 +332,20 @@ export async function rewardRoutes(fastify: FastifyInstance) {
           address,
         );
       }
+      if (typeof rewards.zxc === "number" && rewards.zxc > 0) {
+        const key = `balance:${address}`;
+        const current = parseFloat((await kv.get<string>(key)) || "0");
+        await kv.set(key, (current + rewards.zxc).toString());
+        zxcCredited = rewards.zxc;
+        bundleSummary.zxc = rewards.zxc;
+      }
+      if (typeof rewards.yjc === "number" && rewards.yjc > 0) {
+        const key = `balance_yjc:${address}`;
+        const current = parseFloat((await kv.get<string>(key)) || "0");
+        await kv.set(key, (current + rewards.yjc).toString());
+        yjcCredited = rewards.yjc;
+        bundleSummary.yjc = rewards.yjc;
+      }
       await campaignRepo.logGrant({
         targetAddress: address,
         operatorAddress: null,
@@ -346,11 +354,29 @@ export async function rewardRoutes(fastify: FastifyInstance) {
         bundle: { campaignId, ...bundleSummary },
       });
     } catch (err) {
+      // Reverse any balance credits that were already applied before the error.
+      if (zxcCredited > 0) {
+        try {
+          const key = `balance:${address}`;
+          const current = parseFloat((await kv.get<string>(key)) || "0");
+          await kv.set(key, Math.max(0, current - zxcCredited).toString());
+        } catch {
+          // swallow - captured below via ops log
+        }
+      }
+      if (yjcCredited > 0) {
+        try {
+          const key = `balance_yjc:${address}`;
+          const current = parseFloat((await kv.get<string>(key)) || "0");
+          await kv.set(key, Math.max(0, current - yjcCredited).toString());
+        } catch {
+          // swallow - captured below via ops log
+        }
+      }
       // Roll back the claim row so the user can retry.
       try {
         await campaignRepo.deleteLatestClaim(campaignId, ctx.user.id);
       } catch (rollbackErr) {
-        // Swallow — we still want to surface the original error.
         await opsRepo.logEvent({
           channel: "rewards",
           severity: "error",
@@ -370,7 +396,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
         userId: ctx.user.id,
         address,
         message: `Grant failed for campaign ${campaignId} — claim rolled back`,
-        meta: { campaignId, err: String(err) },
+        meta: { campaignId, err: String(err), zxcCredited, yjcCredited },
       }).catch(() => {});
       throw err;
     }

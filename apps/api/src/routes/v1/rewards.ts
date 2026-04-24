@@ -368,13 +368,6 @@ export async function rewardRoutes(fastify: FastifyInstance) {
         yjcCredited = rewards.yjc;
         bundleSummary.yjc = rewards.yjc;
       }
-      await campaignRepo.logGrant({
-        targetAddress: address,
-        operatorAddress: null,
-        source: "campaign",
-        note: campaign.title,
-        bundle: { campaignId, ...bundleSummary },
-      });
     } catch (err) {
       // 1. Reverse the items / avatars / titles grant.
       if (bundleGranted && preState) {
@@ -438,9 +431,19 @@ export async function rewardRoutes(fastify: FastifyInstance) {
       }).catch(() => {});
       throw err;
     }
-    // Claim + rewards already committed at this point. Swallow logging failures
-    // so a transient DB error doesn't surface as a 500 and permanently lock the
-    // user out (tryClaim would reject the retry).
+    // Claim + rewards already committed at this point. Audit logs (logGrant +
+    // logEvent) are best-effort — swallow their failures so a transient DB
+    // error doesn't surface as a 500 and permanently lock the user out
+    // (tryClaim would reject the retry).
+    await campaignRepo
+      .logGrant({
+        targetAddress: address,
+        operatorAddress: null,
+        source: "campaign",
+        note: campaign.title,
+        bundle: { campaignId, ...bundleSummary },
+      })
+      .catch(() => {});
     await opsRepo
       .logEvent({
         channel: "rewards",

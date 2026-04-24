@@ -222,14 +222,16 @@ export function isDailyFreeChestReady(lastFreeChestAt: string | null): boolean {
 }
 
 export async function markDailyFreeChestClaimed(userId: string): Promise<void> {
-  const state = await loadInventoryState(userId);
-  state.lastFreeChestAt = new Date().toISOString();
-  await persistInventoryState(userId, state);
+  const meta = await loadChestMeta(userId);
+  meta.lastFreeChestAt = new Date().toISOString();
+  await saveChestMeta(userId, meta);
 }
 
 export interface UseItemOutcome {
   item: ItemDefinition;
   state: ProfileInventoryState;
+  /** Pre-use snapshot; pass to `rollbackUseItem` if a downstream step (e.g. crediting ZXC) fails. */
+  preUseState: ProfileInventoryState;
   effectSummary: string;
   currencyGranted?: number;
   buffActivated?: ActiveBuff;
@@ -316,7 +318,27 @@ export async function useItem(
   }
 
   await persistInventoryState(userId, nextState);
-  return { item: def, state: nextState, effectSummary, currencyGranted, buffActivated };
+  return {
+    item: def,
+    state: nextState,
+    preUseState: state,
+    effectSummary,
+    currencyGranted,
+    buffActivated,
+  };
+}
+
+/**
+ * Reverse a `useItem` call by re-persisting the pre-use snapshot captured in
+ * `UseItemOutcome.preUseState`. Use this in the route handler when a
+ * post-useItem step (e.g. crediting the wallet for a token item) fails, so the
+ * user does not permanently lose the consumed item.
+ */
+export async function rollbackUseItem(
+  userId: string,
+  preUseState: ProfileInventoryState
+): Promise<void> {
+  await persistInventoryState(userId, preUseState);
 }
 
 /**

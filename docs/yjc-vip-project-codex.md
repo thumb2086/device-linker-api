@@ -79,4 +79,7 @@
 2. Config：寫入後端合約地址與參數。
 3. Mapping：先手動做 8,000 億 ZXC -> 8,000 YJC。
 4. Live：開啟二號桌 VIP2 檢查。
-5. Ops：開啟管理端 burn 流程與風控告警。
+5. Ops：管理端 burn/mint 流程與風控告警
+   - `api/admin.js` 已提供 `admin_mint_yjc`、`admin_burn_yjc`、`get_yjc_ops_status`
+   - `lib/yjc-settlement.js` 已支援 `burnFrom` 與 `getTotalSupplyFormatted`
+   - 管理中心 UI（`games/admin-tools.html`）已加入 YJC 管理面板

@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "../db/schema.js";
-import { eq, lte } from "drizzle-orm";
+import { eq, lte, sql } from "drizzle-orm";
 
 const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 let db: any = null;
@@ -62,6 +62,34 @@ class PostgresKV {
     } catch(e) {}
   }
 
+  /**
+   * Atomically claim a time-gated slot. Succeeds iff the key is absent or
+   * its expiry has passed. Returns true on successful claim. Implemented as a
+   * single INSERT ... ON CONFLICT DO UPDATE with a WHERE filter so concurrent
+   * callers cannot both observe the slot as free.
+   *
+   * Used for TOCTOU-sensitive cases like daily free chest claims where
+   * separate get+set is not safe.
+   */
+  async claimSlot(key: string, ttlSeconds: number, value: any = 1): Promise<boolean> {
+    if (!db) return true;
+    try {
+      const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+      const rows = await db
+        .insert(schema.kvStore)
+        .values({ key, value, expiresAt, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: schema.kvStore.key,
+          set: { value, expiresAt, updatedAt: new Date() },
+          where: sql`${schema.kvStore.expiresAt} IS NULL OR ${schema.kvStore.expiresAt} < NOW()`,
+        })
+        .returning({ key: schema.kvStore.key });
+      return rows.length > 0;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   async sadd(key: string, ...members: string[]) {
     const current = await this.get<string[]>(key) || [];
     const updated = Array.from(new Set([...current, ...members]));
@@ -98,6 +126,7 @@ export interface KVClient {
   get<T>(key: string): Promise<T | null>;
   set(key: string, value: any, options?: { ex?: number }): Promise<string>;
   del(key: string): Promise<number>;
+  claimSlot(key: string, ttlSeconds: number, value?: any): Promise<boolean>;
   sadd(key: string, ...members: string[]): Promise<number>;
   srem(key: string, ...members: string[]): Promise<number>;
   smembers(key: string): Promise<string[]>;

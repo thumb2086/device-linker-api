@@ -38,12 +38,12 @@ export async function meRoutes(fastify: FastifyInstance) {
     const vip = await vipManager.getVipStatus(address);
     
     const activeTitleId = await kv.get<string>(`active_title:${address}`) || "newbie";
-    const activeAvatarId = await kv.get<string>(`active_avatar:${address}`) || "std_1";
-    
+    const activeAvatarId = await kv.get<string>(`active_avatar:${address}`) || "classic_chip";
+
     const title = rewardManager.getAvailableTitles().find(t => t.id === activeTitleId);
     const avatar = rewardManager.getAvailableAvatars().find(a => a.id === activeAvatarId);
 
-    return createApiEnvelope({ 
+    return createApiEnvelope({
        profile: {
          id: ctx.user.id,
          address,
@@ -52,7 +52,10 @@ export async function meRoutes(fastify: FastifyInstance) {
          vipLevel: vip?.level?.label || "普通會員",
          maxBet: Number(vip?.level?.maxBet || 1000),
          title: title?.label || "新手",
-         avatar: avatar?.url || "/assets/avatars/1.png",
+         // Avatars are emoji-first now; fall back to url if provided for legacy entries.
+         avatar: (avatar as any)?.icon || avatar?.url || "🪙",
+         avatarId: activeAvatarId,
+         titleId: activeTitleId,
          mode: ctx.session.mode,
          createdAt: ctx.user.createdAt
        }

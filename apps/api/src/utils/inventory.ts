@@ -418,7 +418,11 @@ export interface RewardBundle {
   titles?: string[];
 }
 
-export async function grantBundleToUser(userId: string, bundle: RewardBundle): Promise<ProfileInventoryState> {
+export async function grantBundleToUser(
+  userId: string,
+  bundle: RewardBundle,
+  address?: string,
+): Promise<ProfileInventoryState> {
   const state = await loadInventoryState(userId);
   const nextInventory = { ...state.inventory };
   const nextAvatars = [...state.ownedAvatars];
@@ -430,13 +434,21 @@ export async function grantBundleToUser(userId: string, bundle: RewardBundle): P
     const qty = Math.max(1, Math.floor(Number(it?.qty || 1)));
     nextInventory[id] = (nextInventory[id] || 0) + qty;
   }
+  const addedAvatars: string[] = [];
   for (const avId of bundle.avatars ?? []) {
     const id = String(avId || "").trim();
-    if (id && !nextAvatars.includes(id)) nextAvatars.push(id);
+    if (id && !nextAvatars.includes(id)) {
+      nextAvatars.push(id);
+      addedAvatars.push(id);
+    }
   }
+  const addedTitles: string[] = [];
   for (const ttId of bundle.titles ?? []) {
     const id = String(ttId || "").trim();
-    if (id && !nextTitles.includes(id)) nextTitles.push(id);
+    if (id && !nextTitles.includes(id)) {
+      nextTitles.push(id);
+      addedTitles.push(id);
+    }
   }
 
   const nextState: ProfileInventoryState = {
@@ -446,6 +458,34 @@ export async function grantBundleToUser(userId: string, bundle: RewardBundle): P
     ownedTitles: nextTitles,
   };
   await persistInventoryState(userId, nextState);
+
+  // Sync KV-backed owned lists so /rewards/me + /rewards/equip can see new cosmetics.
+  let targetAddress = address;
+  if (!targetAddress) {
+    try {
+      const user = await userRepo.getUserById(userId);
+      targetAddress = user?.address ? String(user.address).toLowerCase() : undefined;
+    } catch {
+      targetAddress = undefined;
+    }
+  } else {
+    targetAddress = String(targetAddress).toLowerCase();
+  }
+  if (targetAddress && (addedAvatars.length || addedTitles.length)) {
+    if (addedAvatars.length) {
+      const key = `owned_avatars:${targetAddress}`;
+      const existing = (await kv.get<string[]>(key)) || [];
+      const merged = Array.from(new Set([...existing, ...addedAvatars]));
+      await kv.set(key, merged);
+    }
+    if (addedTitles.length) {
+      const key = `owned_titles:${targetAddress}`;
+      const existing = (await kv.get<string[]>(key)) || [];
+      const merged = Array.from(new Set([...existing, ...addedTitles]));
+      await kv.set(key, merged);
+    }
+  }
+
   return nextState;
 }
 

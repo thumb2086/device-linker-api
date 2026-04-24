@@ -777,6 +777,137 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const events = await opsRepo.listEvents({ limit: 100 });
     return createApiEnvelope({ events }, request.id);
   });
+
+  // ─── Win-bias (read + unset) ──────────────────────────────────────────────
+  // Ported from main's get_user_win_bias — complements existing POST setter.
+
+  typedFastify.get("/users/:address/win-bias", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { address } = request.params as { address: string };
+    const addrLower = String(address || "").toLowerCase();
+    const user = await userRepo.getUserByAddress(addrLower);
+    if (!user) return createApiEnvelope({ error: { code: "NOT_FOUND", message: "User not found" } }, request.id);
+    const profile = await userRepo.getUserProfile(user.id).catch(() => null);
+    const raw = (profile as any)?.winBias ?? null;
+    const bias = raw === null || raw === undefined ? null : Number(raw);
+    return createApiEnvelope({ address: addrLower, bias: Number.isFinite(bias) ? bias : null }, request.id);
+  });
+
+  typedFastify.delete("/users/:address/win-bias", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { address } = request.params as { address: string };
+    const addrLower = String(address || "").toLowerCase();
+    const user = await userRepo.getUserByAddress(addrLower);
+    if (!user) return createApiEnvelope({ error: { code: "NOT_FOUND", message: "User not found" } }, request.id);
+    await userRepo.saveUserProfile(user.id, { winBias: null } as any);
+    await opsRepo.logEvent({
+      channel: "admin",
+      severity: "warn",
+      source: "admin_api",
+      kind: "user_win_bias_unset",
+      userId: ctx.user.id,
+      message: `Unset win_bias for ${addrLower}`,
+      meta: { targetAddress: addrLower },
+    });
+    return createApiEnvelope({ success: true, address: addrLower }, request.id);
+  });
+
+  // ─── Blacklist list ───────────────────────────────────────────────────────
+  // Ported from main's list_blacklist — KV scan for all blacklist:* keys.
+
+  typedFastify.get("/blacklist", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const entries: any[] = [];
+    const scanStartedAt = Date.now();
+    try {
+      for await (const key of (kv as any).scanIterator({ match: "blacklist:*", count: 500 })) {
+        const record = await kv.get(key);
+        if (record) entries.push({ key, ...(record as any) });
+        if (entries.length >= 500 || Date.now() - scanStartedAt > 2000) break;
+      }
+    } catch {
+      // scanIterator may not be available in some KV impls — fall back to empty list
+    }
+    entries.sort(
+      (a, b) => new Date(b.blacklistedAt || b.createdAt || 0).getTime() - new Date(a.blacklistedAt || a.createdAt || 0).getTime(),
+    );
+    return createApiEnvelope({ blacklist: entries }, request.id);
+  });
+
+  // ─── Support Tickets (admin view) ─────────────────────────────────────────
+  // Ported from main's list_issue_reports / update_issue_report.
+
+  typedFastify.get("/tickets", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const q = (request.query as any) || {};
+    const limit = Math.min(200, Math.max(1, Number(q.limit) || 50));
+    const status = typeof q.status === "string" && q.status ? String(q.status).toLowerCase() : null;
+    const keyword = typeof q.keyword === "string" && q.keyword ? String(q.keyword).toLowerCase() : null;
+
+    const tickets: any[] = [];
+    const scanStartedAt = Date.now();
+    try {
+      for await (const key of (kv as any).scanIterator({ match: "support:ticket:*", count: 200 })) {
+        const record = await kv.get(key);
+        if (record) tickets.push(record);
+        if (tickets.length >= 500 || Date.now() - scanStartedAt > 3000) break;
+      }
+    } catch {
+      // ignore — fall through to empty list
+    }
+    const filtered = tickets.filter((t: any) => {
+      if (status && String(t?.status || "").toLowerCase() !== status) return false;
+      if (keyword) {
+        const hay = `${t?.title || ""} ${t?.message || ""} ${t?.address || ""}`.toLowerCase();
+        if (!hay.includes(keyword)) return false;
+      }
+      return true;
+    });
+    filtered.sort(
+      (a: any, b: any) =>
+        new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime(),
+    );
+    return createApiEnvelope(
+      { tickets: filtered.slice(0, limit), total: filtered.length, returned: Math.min(filtered.length, limit) },
+      request.id,
+    );
+  });
+
+  typedFastify.patch("/tickets/:reportId", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        status: z.enum(["open", "in_progress", "resolved", "closed"]).optional(),
+        adminUpdate: z.string().max(2000).optional(),
+      }),
+    },
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    const { reportId } = request.params as { reportId: string };
+    const body = request.body as any;
+    const existing = await kv.get<any>(`support:ticket:${reportId}`);
+    if (!existing) return createApiEnvelope({ error: { code: "NOT_FOUND", message: "工單不存在" } }, request.id);
+    const updated = supportManager.updateTicket(existing, {
+      status: body.status,
+      adminUpdate: body.adminUpdate,
+    });
+    await kv.set(`support:ticket:${reportId}`, updated);
+    await opsRepo.logEvent({
+      channel: "support",
+      severity: "info",
+      source: "admin_api",
+      kind: "ticket_updated",
+      userId: ctx.user.id,
+      message: `Admin updated ticket ${reportId}`,
+      meta: { reportId, status: updated.status },
+    });
+    return createApiEnvelope({ ticket: updated }, request.id);
+  });
 }
 
 

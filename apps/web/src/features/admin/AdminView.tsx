@@ -18,6 +18,11 @@ import {
   Inbox,
   Check,
   X,
+  UserSearch,
+  Sliders,
+  CalendarClock,
+  Gift as GiftIcon,
+  Send,
 } from 'lucide-react';
 import AppBottomNav from '../../components/AppBottomNav';
 import { api } from '../../store/api';
@@ -64,16 +69,19 @@ interface CatalogItem {
   isActive?: boolean;
 }
 
-type TabId = 'dashboard' | 'maintenance' | 'blacklist' | 'balance' | 'announcement' | 'catalog' | 'submissions' | 'events';
+type TabId = 'dashboard' | 'maintenance' | 'blacklist' | 'balance' | 'users' | 'announcement' | 'catalog' | 'submissions' | 'campaigns' | 'grant' | 'events';
 
 const TABS: { id: TabId; label: string; icon: typeof ShieldAlert }[] = [
   { id: 'dashboard', label: '儀表板', icon: Activity },
   { id: 'maintenance', label: '維護', icon: AlertOctagon },
   { id: 'blacklist', label: '黑名單', icon: Ban },
   { id: 'balance', label: '餘額', icon: Coins },
+  { id: 'users', label: '使用者', icon: UserSearch },
   { id: 'announcement', label: '公告', icon: Megaphone },
   { id: 'catalog', label: '稱號頭像', icon: Package },
   { id: 'submissions', label: '投稿審核', icon: Inbox },
+  { id: 'campaigns', label: '活動', icon: CalendarClock },
+  { id: 'grant', label: '贈送', icon: GiftIcon },
   { id: 'events', label: '事件紀錄', icon: ScrollText },
 ];
 
@@ -130,6 +138,31 @@ export default function AdminView() {
   const [catalogIcon, setCatalogIcon] = useState('');
   const [catalogDescription, setCatalogDescription] = useState('');
 
+  const [userQueryAddress, setUserQueryAddress] = useState('');
+  const [userInspect, setUserInspect] = useState<any>(null);
+  const [userInspectErr, setUserInspectErr] = useState<string | null>(null);
+  const [userBiasInput, setUserBiasInput] = useState('');
+
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaignDraftId, setCampaignDraftId] = useState('');
+  const [campaignTitle, setCampaignTitle] = useState('');
+  const [campaignDescription, setCampaignDescription] = useState('');
+  const [campaignIsActive, setCampaignIsActive] = useState(true);
+  const [campaignStartAt, setCampaignStartAt] = useState('');
+  const [campaignEndAt, setCampaignEndAt] = useState('');
+  const [campaignClaimLimit, setCampaignClaimLimit] = useState('1');
+  const [campaignRewardZxc, setCampaignRewardZxc] = useState('');
+  const [campaignRewardYjc, setCampaignRewardYjc] = useState('');
+
+  const [grantAddress, setGrantAddress] = useState('');
+  const [grantZxc, setGrantZxc] = useState('');
+  const [grantYjc, setGrantYjc] = useState('');
+  const [grantItemId, setGrantItemId] = useState('');
+  const [grantItemQty, setGrantItemQty] = useState('1');
+  const [grantAvatarId, setGrantAvatarId] = useState('');
+  const [grantTitleId, setGrantTitleId] = useState('');
+  const [grantNote, setGrantNote] = useState('');
+
   const [actionResult, setActionResult] = useState<string | null>(null);
 
   async function refresh() {
@@ -139,7 +172,7 @@ export default function AdminView() {
     }
     setLoading(true);
     try {
-      const [healthRes, eventsRes, annRes, catRes, subsRes] = await Promise.all([
+      const [healthRes, eventsRes, annRes, catRes, subsRes, campRes] = await Promise.all([
         api.get('/api/v1/admin/ops/health').catch((err) => {
           if (err?.response?.status === 401 || err?.response?.status === 403) {
             setAuthErr('你不是管理員或未登入');
@@ -150,6 +183,7 @@ export default function AdminView() {
         api.get('/api/v1/admin/announcements').catch(() => null),
         api.get('/api/v1/admin/reward-catalog').catch(() => null),
         api.get('/api/v1/admin/submissions').catch(() => null),
+        api.get('/api/v1/admin/campaigns').catch(() => null),
       ]);
       if (healthRes?.data?.data) {
         const h = healthRes.data.data;
@@ -160,6 +194,7 @@ export default function AdminView() {
       if (annRes?.data?.data?.announcements) setAnnouncements(annRes.data.data.announcements);
       if (catRes?.data?.data?.items) setCatalog(catRes.data.data.items);
       if (subsRes?.data?.data?.submissions) setSubmissions(subsRes.data.data.submissions);
+      if (campRes?.data?.data?.campaigns) setCampaigns(campRes.data.data.campaigns);
     } finally {
       setLoading(false);
     }
@@ -357,6 +392,166 @@ export default function AdminView() {
       });
       show('已拒絕');
       refresh();
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
+  async function handleUserInspect() {
+    setUserInspectErr(null);
+    setUserInspect(null);
+    const addr = userQueryAddress.trim();
+    if (!addr) {
+      setUserInspectErr('請輸入地址');
+      return;
+    }
+    try {
+      const res = await api.get(`/api/v1/admin/users/${encodeURIComponent(addr)}`);
+      const data = res.data?.data;
+      if (!data || !data.user) {
+        setUserInspectErr('查無使用者');
+        return;
+      }
+      setUserInspect(data);
+      setUserBiasInput(
+        data.profile?.winBias != null ? String(data.profile.winBias) : '',
+      );
+    } catch (err: any) {
+      setUserInspectErr(errMsg(err));
+    }
+  }
+
+  async function handleSetWinBias() {
+    if (!userInspect?.user?.address) return;
+    const raw = userBiasInput.trim();
+    let bias: number | null;
+    if (raw === '') {
+      bias = null;
+    } else {
+      bias = Number(raw);
+      if (!Number.isFinite(bias) || bias < 0 || bias > 1) {
+        show('勝率偏置必須介於 0 到 1 之間，留空則清除');
+        return;
+      }
+    }
+    try {
+      await api.post(
+        `/api/v1/admin/users/${encodeURIComponent(userInspect.user.address)}/win-bias`,
+        { sessionId, bias },
+      );
+      show(bias === null ? '已清除勝率偏置' : `已設定勝率偏置 ${bias}`);
+      handleUserInspect();
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
+  async function handleCampaignSave() {
+    const title = campaignTitle.trim();
+    if (!title) {
+      show('請輸入活動名稱');
+      return;
+    }
+    const rewards: any = {};
+    if (campaignRewardZxc.trim()) {
+      const n = Number(campaignRewardZxc);
+      if (Number.isFinite(n) && n > 0) rewards.zxc = n;
+    }
+    if (campaignRewardYjc.trim()) {
+      const n = Number(campaignRewardYjc);
+      if (Number.isFinite(n) && n > 0) rewards.yjc = n;
+    }
+    try {
+      await api.post('/api/v1/admin/campaigns', {
+        sessionId,
+        campaignId: campaignDraftId.trim() || undefined,
+        title,
+        description: campaignDescription.trim() || undefined,
+        isActive: campaignIsActive,
+        startAt: campaignStartAt || null,
+        endAt: campaignEndAt || null,
+        claimLimitPerUser: Number(campaignClaimLimit || '1'),
+        rewards,
+      });
+      show('活動已儲存');
+      setCampaignDraftId('');
+      setCampaignTitle('');
+      setCampaignDescription('');
+      setCampaignStartAt('');
+      setCampaignEndAt('');
+      setCampaignRewardZxc('');
+      setCampaignRewardYjc('');
+      refresh();
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
+  async function handleCampaignToggle(c: any) {
+    try {
+      await api.post('/api/v1/admin/campaigns', {
+        sessionId,
+        campaignId: c.campaignId,
+        title: c.title,
+        description: c.description ?? undefined,
+        isActive: !c.isActive,
+        claimLimitPerUser: c.maxClaimsPerUser ?? 1,
+        rewards: c.rewards ?? {},
+      });
+      refresh();
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
+  async function handleCampaignDelete(campaignId: string) {
+    if (!confirm('確定刪除這個活動嗎？')) return;
+    try {
+      await api.delete(`/api/v1/admin/campaigns/${encodeURIComponent(campaignId)}`);
+      show('已刪除');
+      refresh();
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
+  async function handleGrantSubmit() {
+    const addr = grantAddress.trim();
+    if (!addr) {
+      show('請輸入使用者地址');
+      return;
+    }
+    const body: any = { sessionId, address: addr, note: grantNote.trim() || undefined };
+    if (grantZxc.trim()) {
+      const n = Number(grantZxc);
+      if (Number.isFinite(n)) body.zxc = n;
+    }
+    if (grantYjc.trim()) {
+      const n = Number(grantYjc);
+      if (Number.isFinite(n)) body.yjc = n;
+    }
+    const items: any[] = [];
+    if (grantItemId.trim()) {
+      items.push({ id: grantItemId.trim(), qty: Math.max(1, Number(grantItemQty || '1')) });
+    }
+    if (items.length) body.items = items;
+    if (grantAvatarId.trim()) body.avatars = [grantAvatarId.trim()];
+    if (grantTitleId.trim()) body.titles = [grantTitleId.trim()];
+
+    if (!body.zxc && !body.yjc && !body.items && !body.avatars && !body.titles) {
+      show('請至少填一個獎勵欄位');
+      return;
+    }
+    try {
+      await api.post('/api/v1/admin/grant', body);
+      show(`已送出獎勵給 ${addr}`);
+      setGrantZxc('');
+      setGrantYjc('');
+      setGrantItemId('');
+      setGrantItemQty('1');
+      setGrantAvatarId('');
+      setGrantTitleId('');
+      setGrantNote('');
     } catch (err: any) {
       show(errMsg(err));
     }
@@ -572,6 +767,68 @@ export default function AdminView() {
                 調整餘額
               </button>
             </form>
+          </section>
+        )}
+
+        {activeTab === 'users' && (
+          <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20 space-y-4">
+            <h3 className="text-sm font-black tracking-wide text-white">使用者查詢與勝率偏置</h3>
+            <p className="text-[10px] text-[#adaaaa]">
+              查詢使用者資料並可調整勝率偏置（0 到 1 之間，越高代表越容易贏；留空送出則清除）
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={userQueryAddress}
+                onChange={(e) => setUserQueryAddress(e.target.value)}
+                placeholder="輸入使用者地址 0x..."
+                className="flex-1 rounded-lg border border-[#494847]/30 bg-[#262626] px-3 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleUserInspect}
+                className="rounded-lg bg-[#fcc025] px-4 text-xs font-black text-black hover:brightness-110"
+              >
+                查詢
+              </button>
+            </div>
+            {userInspectErr && <p className="text-xs text-red-400">{userInspectErr}</p>}
+            {userInspect && (
+              <div className="space-y-3 rounded-lg border border-[#494847]/20 bg-[#262626] p-4">
+                <div className="text-xs text-[#adaaaa]">
+                  <span className="text-[#494847]">地址：</span>
+                  <span className="font-mono text-white break-all">{userInspect.user.address}</span>
+                </div>
+                {userInspect.user.displayName && (
+                  <div className="text-xs text-[#adaaaa]">
+                    <span className="text-[#494847]">顯示名稱：</span>
+                    <span className="text-white">{userInspect.user.displayName}</span>
+                  </div>
+                )}
+                <div className="text-xs text-[#adaaaa]">
+                  <span className="text-[#494847]">目前勝率偏置：</span>
+                  <span className="text-[#fcc025] font-black">
+                    {userInspect.profile?.winBias != null ? userInspect.profile.winBias : '未設定（採系統預設）'}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={userBiasInput}
+                    onChange={(e) => setUserBiasInput(e.target.value)}
+                    placeholder="0.0 - 1.0（留空清除）"
+                    className="flex-1 rounded-lg border border-[#494847]/30 bg-[#1a1919] px-3 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSetWinBias}
+                    className="flex items-center gap-1 rounded-lg bg-[#fcc025] px-3 text-xs font-black text-black hover:brightness-110"
+                  >
+                    <Sliders size={12} /> 套用
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
@@ -865,6 +1122,232 @@ export default function AdminView() {
                 ))}
               </ul>
             )}
+          </section>
+        )}
+
+        {activeTab === 'campaigns' && (
+          <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20 space-y-6">
+            <div>
+              <h3 className="text-sm font-black tracking-wide text-white mb-1">活動管理</h3>
+              <p className="text-[10px] text-[#adaaaa]">
+                建立活動讓使用者到獎勵頁領取（ZXC / YJC / 稱號 / 頭像 / 道具）
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-[#494847]/20 bg-[#262626] p-4 space-y-3">
+              <div className="text-xs font-black text-[#fcc025]">新增／編輯活動</div>
+              <input
+                type="text"
+                value={campaignDraftId}
+                onChange={(e) => setCampaignDraftId(e.target.value)}
+                placeholder="活動 ID（留空自動產生）"
+                className="w-full rounded-lg border border-[#494847]/30 bg-[#1a1919] px-3 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+              />
+              <input
+                type="text"
+                value={campaignTitle}
+                onChange={(e) => setCampaignTitle(e.target.value)}
+                placeholder="活動名稱"
+                className="w-full rounded-lg border border-[#494847]/30 bg-[#1a1919] px-3 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+              />
+              <textarea
+                value={campaignDescription}
+                onChange={(e) => setCampaignDescription(e.target.value)}
+                placeholder="活動說明"
+                rows={2}
+                className="w-full rounded-lg border border-[#494847]/30 bg-[#1a1919] px-3 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="datetime-local"
+                  value={campaignStartAt}
+                  onChange={(e) => setCampaignStartAt(e.target.value)}
+                  className="rounded-lg border border-[#494847]/30 bg-[#1a1919] px-2 py-2 text-[10px] text-white focus:border-[#fcc025] focus:outline-none"
+                />
+                <input
+                  type="datetime-local"
+                  value={campaignEndAt}
+                  onChange={(e) => setCampaignEndAt(e.target.value)}
+                  className="rounded-lg border border-[#494847]/30 bg-[#1a1919] px-2 py-2 text-[10px] text-white focus:border-[#fcc025] focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  value={campaignClaimLimit}
+                  onChange={(e) => setCampaignClaimLimit(e.target.value)}
+                  placeholder="每人次數"
+                  className="rounded-lg border border-[#494847]/30 bg-[#1a1919] px-2 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+                />
+                <input
+                  type="number"
+                  value={campaignRewardZxc}
+                  onChange={(e) => setCampaignRewardZxc(e.target.value)}
+                  placeholder="ZXC 獎勵"
+                  className="rounded-lg border border-[#494847]/30 bg-[#1a1919] px-2 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+                />
+                <input
+                  type="number"
+                  value={campaignRewardYjc}
+                  onChange={(e) => setCampaignRewardYjc(e.target.value)}
+                  placeholder="YJC 獎勵"
+                  className="rounded-lg border border-[#494847]/30 bg-[#1a1919] px-2 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-[10px] text-[#adaaaa]">
+                <input
+                  type="checkbox"
+                  checked={campaignIsActive}
+                  onChange={(e) => setCampaignIsActive(e.target.checked)}
+                />
+                建立後即啟用
+              </label>
+              <button
+                type="button"
+                onClick={handleCampaignSave}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#fcc025] px-3 py-2 text-xs font-black text-black hover:brightness-110"
+              >
+                <CalendarClock size={12} /> 儲存活動
+              </button>
+            </div>
+
+            <div>
+              <h4 className="mb-2 text-xs font-black text-white">目前活動（{campaigns.length}）</h4>
+              {campaigns.length === 0 ? (
+                <p className="text-[10px] text-[#adaaaa]">尚未建立任何活動</p>
+              ) : (
+                <ul className="space-y-2">
+                  {campaigns.map((c) => (
+                    <li
+                      key={c.campaignId}
+                      className="rounded-lg border border-[#494847]/20 bg-[#262626] p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-black text-white">{c.title}</span>
+                            <span
+                              className={`text-[9px] font-bold px-2 py-0.5 rounded ${
+                                c.isActive
+                                  ? 'bg-emerald-500/20 text-emerald-300'
+                                  : 'bg-[#494847]/30 text-[#adaaaa]'
+                              }`}
+                            >
+                              {c.isActive ? '啟用' : '停用'}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[10px] text-[#adaaaa] break-words">
+                            ID: {c.campaignId}
+                          </p>
+                          {c.description && (
+                            <p className="mt-1 text-[10px] text-[#adaaaa] break-words">
+                              {c.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleCampaignToggle(c)}
+                            className="rounded-lg bg-[#1a1919] p-2 hover:bg-[#fcc025]/10"
+                            title={c.isActive ? '停用' : '啟用'}
+                          >
+                            {c.isActive ? <EyeOff size={12} /> : <Eye size={12} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCampaignDelete(c.campaignId)}
+                            className="rounded-lg bg-[#1a1919] p-2 hover:bg-red-500/10"
+                          >
+                            <Trash2 size={12} className="text-red-400" />
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'grant' && (
+          <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20 space-y-4">
+            <div>
+              <h3 className="text-sm font-black tracking-wide text-white mb-1">贈送獎勵</h3>
+              <p className="text-[10px] text-[#adaaaa]">
+                直接送 ZXC / YJC / 道具 / 稱號 / 頭像給指定使用者
+              </p>
+            </div>
+            <input
+              type="text"
+              value={grantAddress}
+              onChange={(e) => setGrantAddress(e.target.value)}
+              placeholder="使用者地址 0x..."
+              className="w-full rounded-lg border border-[#494847]/30 bg-[#262626] px-3 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                value={grantZxc}
+                onChange={(e) => setGrantZxc(e.target.value)}
+                placeholder="ZXC 數量（可負）"
+                className="rounded-lg border border-[#494847]/30 bg-[#262626] px-2 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+              />
+              <input
+                type="number"
+                value={grantYjc}
+                onChange={(e) => setGrantYjc(e.target.value)}
+                placeholder="YJC 數量（可負）"
+                className="rounded-lg border border-[#494847]/30 bg-[#262626] px-2 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                type="text"
+                value={grantItemId}
+                onChange={(e) => setGrantItemId(e.target.value)}
+                placeholder="道具 ID"
+                className="col-span-2 rounded-lg border border-[#494847]/30 bg-[#262626] px-2 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+              />
+              <input
+                type="number"
+                min="1"
+                value={grantItemQty}
+                onChange={(e) => setGrantItemQty(e.target.value)}
+                placeholder="數量"
+                className="rounded-lg border border-[#494847]/30 bg-[#262626] px-2 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+              />
+            </div>
+            <input
+              type="text"
+              value={grantAvatarId}
+              onChange={(e) => setGrantAvatarId(e.target.value)}
+              placeholder="頭像 ID（例如 classic_chip）"
+              className="w-full rounded-lg border border-[#494847]/30 bg-[#262626] px-3 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+            />
+            <input
+              type="text"
+              value={grantTitleId}
+              onChange={(e) => setGrantTitleId(e.target.value)}
+              placeholder="稱號 ID（例如 newbie）"
+              className="w-full rounded-lg border border-[#494847]/30 bg-[#262626] px-3 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+            />
+            <input
+              type="text"
+              value={grantNote}
+              onChange={(e) => setGrantNote(e.target.value)}
+              placeholder="備註（選填）"
+              className="w-full rounded-lg border border-[#494847]/30 bg-[#262626] px-3 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleGrantSubmit}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#fcc025] px-4 py-3 text-xs font-black text-black hover:brightness-110"
+            >
+              <Send size={12} /> 送出獎勵
+            </button>
           </section>
         )}
 

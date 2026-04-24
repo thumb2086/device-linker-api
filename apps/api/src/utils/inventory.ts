@@ -408,6 +408,47 @@ export async function restorePreventLossBuff(userId: string): Promise<void> {
   await persistInventoryState(userId, { ...state, activeBuffs: nextBuffs });
 }
 
+/**
+ * Grant a bundle of rewards (items / avatars / titles) to a user's profile.
+ * Token adjustments (ZXC/YJC) must be handled by the caller via the wallet layer.
+ */
+export interface RewardBundle {
+  items?: Array<{ id: string; qty?: number }>;
+  avatars?: string[];
+  titles?: string[];
+}
+
+export async function grantBundleToUser(userId: string, bundle: RewardBundle): Promise<ProfileInventoryState> {
+  const state = await loadInventoryState(userId);
+  const nextInventory = { ...state.inventory };
+  const nextAvatars = [...state.ownedAvatars];
+  const nextTitles = [...state.ownedTitles];
+
+  for (const it of bundle.items ?? []) {
+    const id = String(it?.id || "").trim();
+    if (!id) continue;
+    const qty = Math.max(1, Math.floor(Number(it?.qty || 1)));
+    nextInventory[id] = (nextInventory[id] || 0) + qty;
+  }
+  for (const avId of bundle.avatars ?? []) {
+    const id = String(avId || "").trim();
+    if (id && !nextAvatars.includes(id)) nextAvatars.push(id);
+  }
+  for (const ttId of bundle.titles ?? []) {
+    const id = String(ttId || "").trim();
+    if (id && !nextTitles.includes(id)) nextTitles.push(id);
+  }
+
+  const nextState: ProfileInventoryState = {
+    ...state,
+    inventory: nextInventory,
+    ownedAvatars: nextAvatars,
+    ownedTitles: nextTitles,
+  };
+  await persistInventoryState(userId, nextState);
+  return nextState;
+}
+
 export function listAllItems(): ItemDefinition[] {
   return Object.values(ALL_ITEMS);
 }

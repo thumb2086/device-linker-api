@@ -310,36 +310,70 @@ export async function rewardRoutes(fastify: FastifyInstance) {
       titles: rewards.titles || [],
     };
 
-    if (typeof rewards.zxc === "number" && rewards.zxc > 0) {
-      const key = `balance:${address}`;
-      const current = parseFloat((await kv.get<string>(key)) || "0");
-      await kv.set(key, (current + rewards.zxc).toString());
-      bundleSummary.zxc = rewards.zxc;
-    }
-    if (typeof rewards.yjc === "number" && rewards.yjc > 0) {
-      const key = `balance_yjc:${address}`;
-      const current = parseFloat((await kv.get<string>(key)) || "0");
-      await kv.set(key, (current + rewards.yjc).toString());
-      bundleSummary.yjc = rewards.yjc;
-    }
-    if ((rewards.items?.length ?? 0) || (rewards.avatars?.length ?? 0) || (rewards.titles?.length ?? 0)) {
-      await grantBundleToUser(
-        ctx.user.id,
-        {
-          items: rewards.items,
-          avatars: rewards.avatars,
-          titles: rewards.titles,
-        },
+    // tryClaim already committed the claim row. If any reward-granting step
+    // below throws we MUST roll that claim back, otherwise the user is
+    // permanently blocked with no reward. We roll back exactly once and then
+    // re-throw so the caller sees the underlying failure.
+    try {
+      if (typeof rewards.zxc === "number" && rewards.zxc > 0) {
+        const key = `balance:${address}`;
+        const current = parseFloat((await kv.get<string>(key)) || "0");
+        await kv.set(key, (current + rewards.zxc).toString());
+        bundleSummary.zxc = rewards.zxc;
+      }
+      if (typeof rewards.yjc === "number" && rewards.yjc > 0) {
+        const key = `balance_yjc:${address}`;
+        const current = parseFloat((await kv.get<string>(key)) || "0");
+        await kv.set(key, (current + rewards.yjc).toString());
+        bundleSummary.yjc = rewards.yjc;
+      }
+      if ((rewards.items?.length ?? 0) || (rewards.avatars?.length ?? 0) || (rewards.titles?.length ?? 0)) {
+        await grantBundleToUser(
+          ctx.user.id,
+          {
+            items: rewards.items,
+            avatars: rewards.avatars,
+            titles: rewards.titles,
+          },
+          address,
+        );
+      }
+      await campaignRepo.logGrant({
+        targetAddress: address,
+        operatorAddress: null,
+        source: "campaign",
+        note: campaign.title,
+        bundle: { campaignId, ...bundleSummary },
+      });
+    } catch (err) {
+      // Roll back the claim row so the user can retry.
+      try {
+        await campaignRepo.deleteLatestClaim(campaignId, ctx.user.id);
+      } catch (rollbackErr) {
+        // Swallow — we still want to surface the original error.
+        await opsRepo.logEvent({
+          channel: "rewards",
+          severity: "error",
+          source: "campaign_claim",
+          kind: "campaign_claim_rollback_failed",
+          userId: ctx.user.id,
+          address,
+          message: `Failed to roll back claim for ${campaignId}`,
+          meta: { campaignId, err: String(rollbackErr) },
+        }).catch(() => {});
+      }
+      await opsRepo.logEvent({
+        channel: "rewards",
+        severity: "error",
+        source: "campaign_claim",
+        kind: "campaign_claim_grant_failed",
+        userId: ctx.user.id,
         address,
-      );
+        message: `Grant failed for campaign ${campaignId} — claim rolled back`,
+        meta: { campaignId, err: String(err) },
+      }).catch(() => {});
+      throw err;
     }
-    await campaignRepo.logGrant({
-      targetAddress: address,
-      operatorAddress: null,
-      source: "campaign",
-      note: campaign.title,
-      bundle: { campaignId, ...bundleSummary },
-    });
     await opsRepo.logEvent({
       channel: "rewards",
       severity: "info",

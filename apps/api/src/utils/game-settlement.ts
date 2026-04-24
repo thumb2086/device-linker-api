@@ -20,6 +20,7 @@ import {
   ChainClient,
   kv,
 } from "@repo/infrastructure";
+import { consumePreventLossBuff, restorePreventLossBuff } from "./inventory.js";
 import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService, BetPayoutService } from "@repo/on-chain";
 import type { Game, TokenSymbol } from "@repo/shared";
 import type { TxIntent } from "@repo/shared";
@@ -45,6 +46,8 @@ export interface SettlementResult {
   balanceBefore: string;
   balanceAfter: string;
   status?: "pending" | "settled";
+  /** True when a "prevent_loss" buff converted a losing round into a refund. */
+  preventLossApplied?: boolean;
   error?: { code: string; message: string };
 }
 
@@ -242,12 +245,85 @@ export class GameSettlementWrapper {
       }
     }
 
+    // Prevent-loss buff: refund losing bets if the user has an active buff.
+    // Only runs on first settlement attempt (after idempotency check) so buff
+    // is not consumed twice for the same round.
+    let preventLossApplied = false;
+    const betValue = parseFloat(ctx.betAmount);
+    const payoutValue = parseFloat(ctx.payoutAmount);
+    if (Number.isFinite(betValue) && Number.isFinite(payoutValue) && payoutValue < betValue && ctx.userId) {
+      try {
+        const buff = await consumePreventLossBuff(ctx.userId);
+        if (buff.consumed) {
+          ctx = { ...ctx, payoutAmount: ctx.betAmount };
+          preventLossApplied = true;
+          await this.opsRepo.logEvent({
+            channel: "game",
+            severity: "info",
+            source: ctx.game,
+            kind: "prevent_loss_applied",
+            userId: ctx.userId,
+            address: ctx.address,
+            game: ctx.game,
+            roundId: ctx.roundId,
+            message: `Prevent-loss buff refunded losing bet`,
+            meta: { remaining: buff.remaining, originalPayout: payoutValue, refundedTo: betValue },
+          });
+        }
+      } catch (error: any) {
+        // Fail-open: if buff lookup fails, proceed with normal settlement.
+        await this.opsRepo.logEvent({
+          channel: "game",
+          severity: "warn",
+          source: ctx.game,
+          kind: "prevent_loss_lookup_failed",
+          userId: ctx.userId,
+          address: ctx.address,
+          game: ctx.game,
+          roundId: ctx.roundId,
+          message: `Prevent-loss buff lookup failed: ${error?.message || "unknown"}`,
+        });
+      }
+    }
+
+    const rollbackPreventLoss = async (reason: string): Promise<void> => {
+      if (!preventLossApplied || !ctx.userId) return;
+      try {
+        await restorePreventLossBuff(ctx.userId);
+      } catch (err: any) {
+        await this.opsRepo.logEvent({
+          channel: "game",
+          severity: "error",
+          source: ctx.game,
+          kind: "prevent_loss_rollback_failed",
+          userId: ctx.userId,
+          address: ctx.address,
+          game: ctx.game,
+          roundId: ctx.roundId,
+          message: `Failed to restore prevent-loss buff after ${reason}: ${err?.message || "unknown"}`,
+        });
+        return;
+      }
+      await this.opsRepo.logEvent({
+        channel: "game",
+        severity: "info",
+        source: ctx.game,
+        kind: "prevent_loss_rollback",
+        userId: ctx.userId,
+        address: ctx.address,
+        game: ctx.game,
+        roundId: ctx.roundId,
+        message: `Restored prevent-loss buff after ${reason}`,
+      });
+    };
+
     if (this.isAsyncSettlementEnabled()) {
       try {
         const runtime = this.onchainWallet.getRuntimeConfig();
         const tokenKey = ctx.token === "YJC" ? "yjc" : "zhixi";
         const tokenRuntime = runtime.tokens[tokenKey];
         if (!runtime.rpcUrl || !runtime.adminPrivateKey || !tokenRuntime?.enabled || !tokenRuntime.contractAddress) {
+          await rollbackPreventLoss("onchain_config_missing");
           return {
             success: false,
             finalPayout: 0,
@@ -260,7 +336,12 @@ export class GameSettlementWrapper {
         }
 
         const levelDiscountRate = await this.vipManager.getMarketFeeDiscount(ctx.address);
-        const feeAmount = this.levelFeeService.calculateFee(ctx.betAmount, levelDiscountRate);
+        // The prevent-loss buff promises a full refund ("下注將全額退回"). If
+        // the buff fired, bypass the per-round fee entirely so the user
+        // actually receives `betAmount`, not `betAmount - fee`.
+        const feeAmount = preventLossApplied
+          ? 0
+          : this.levelFeeService.calculateFee(ctx.betAmount, levelDiscountRate);
         const requestedPayout = parseFloat(ctx.payoutAmount);
         const finalPayout = Math.max(0, requestedPayout - feeAmount);
 
@@ -314,6 +395,10 @@ export class GameSettlementWrapper {
               settlementId: settlement.id,
               message: `Async queue runtime failed: ${error?.message || "unknown error"}`,
             });
+            // If the background chain processing fails after we've already
+            // credited the prevent-loss refund, restore the buff charge so the
+            // user is not charged for a refund that never landed on-chain.
+            await rollbackPreventLoss("async_queue_runtime_error");
           });
 
         await this.opsRepo.logEvent({
@@ -344,8 +429,10 @@ export class GameSettlementWrapper {
           balanceBefore: "0",
           balanceAfter: "0",
           status: "pending",
+          preventLossApplied,
         };
       } catch (error: any) {
+        await rollbackPreventLoss("settlement_queue_error");
         return {
           success: false,
           finalPayout: 0,
@@ -359,13 +446,26 @@ export class GameSettlementWrapper {
     }
 
     try {
+      // Sync path delegates fee handling to onchainSettlement, which deducts
+      // feeAmount from payoutAmount. When prevent-loss is applied we want the
+      // user to actually receive `betAmount` as a full refund, so gross up
+      // payoutAmount by the expected fee. onchainSettlement then subtracts the
+      // same fee and the user ends up with exactly betAmount.
+      let syncPayoutAmount = ctx.payoutAmount;
+      if (preventLossApplied) {
+        const levelDiscountRate = await this.vipManager.getMarketFeeDiscount(ctx.address);
+        const expectedFee = this.levelFeeService.calculateFee(ctx.betAmount, levelDiscountRate);
+        const betValueNumeric = parseFloat(ctx.betAmount) || 0;
+        syncPayoutAmount = (betValueNumeric + expectedFee).toString();
+      }
+
       const result = await this.onchainSettlement.settleGame({
         userId: ctx.userId,
         address: ctx.address,
         game: ctx.game,
         token: ctx.token,
         betAmount: ctx.betAmount,
-        payoutAmount: ctx.payoutAmount,
+        payoutAmount: syncPayoutAmount,
         roundId: ctx.roundId,
         requestId: ctx.requestId,
       });
@@ -380,8 +480,10 @@ export class GameSettlementWrapper {
         balanceBefore: "0", // Will be set by caller
         balanceAfter: "0",  // Will be set by caller
         status: "settled",
+        preventLossApplied,
       };
     } catch (error: any) {
+      await rollbackPreventLoss("settlement_error");
       return {
         success: false,
         finalPayout: 0,
@@ -409,6 +511,8 @@ export class GameSettlementWrapper {
 
     const repo = new ViemRepository(runtime.rpcUrl, runtime.adminPrivateKey);
     const betPayoutService = new BetPayoutService(repo, this.FIXED_TREASURY_ADDRESS);
+
+    const failures: Array<{ intent: TxIntent; error: string }> = [];
 
     for (const intent of intents) {
       try {
@@ -478,7 +582,20 @@ export class GameSettlementWrapper {
           errorCode: "TX_BROADCAST_ERROR",
           message: `Settlement tx failed: ${intent.type} ${error?.message || "unknown error"}`,
         });
+        failures.push({ intent, error: error?.message || "Settlement tx failed" });
       }
+    }
+
+    // Surface any per-intent failure so the caller's `.catch()` runs — in
+    // particular so the prevent-loss buff rollback fires when a payout never
+    // lands on-chain. Without this re-throw, individual tx failures would be
+    // swallowed here (each intent is caught) and the async queue would appear
+    // to have completed successfully.
+    if (failures.length > 0) {
+      const summary = failures.map((f) => `${f.intent.type}:${f.error}`).join("; ");
+      const err = new Error(`Settlement intent failures: ${summary}`);
+      (err as any).intentFailures = failures;
+      throw err;
     }
   }
 

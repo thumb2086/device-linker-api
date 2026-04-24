@@ -1,159 +1,372 @@
-import {
-  ShieldAlert,
-  Activity,
-  Users,
-  Cpu,
-  Database,
-  Zap,
-  ChevronRight,
-  Terminal,
-  AlertOctagon,
-  RefreshCw,
-  Power,
-  Construction,
-  Info
-} from 'lucide-react';
+import { useEffect, useState, FormEvent } from 'react';
+import { ShieldAlert, Activity, AlertOctagon, Ban, Coins, Megaphone, Loader2, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AppBottomNav from '../../components/AppBottomNav';
+import { api } from '../../store/api';
+import { useAuthStore } from '../../store/useAuthStore';
+
+interface OpsEvent {
+  id?: string;
+  channel?: string;
+  severity?: string;
+  kind?: string;
+  message?: string;
+  createdAt?: string;
+  source?: string;
+}
+
+interface HealthData {
+  queuedTxIntents?: number;
+  pendingSettlements?: number;
+  openTickets?: number;
+  maintenance?: boolean;
+}
 
 export default function AdminView() {
   const { t } = useTranslation();
+  const { sessionId, isAuthorized } = useAuthStore();
 
-  const systemHealth = [
-    { label: 'CPU LOAD', value: '82%', color: 'text-[#fcc025]', icon: Cpu },
-    { label: 'MEMORY', value: '64%', color: 'text-[#fcc025]', icon: Database },
-    { label: 'LATENCY', value: '12ms', color: 'text-emerald-500', icon: Activity },
-  ];
+  const [authErr, setAuthErr] = useState<string | null>(null);
+  const [health, setHealth] = useState<HealthData | null>(null);
+  const [events, setEvents] = useState<OpsEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [maintenanceOn, setMaintenanceOn] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState('');
+
+  const [blacklistAddress, setBlacklistAddress] = useState('');
+  const [blacklistReason, setBlacklistReason] = useState('');
+
+  const [adjustAddress, setAdjustAddress] = useState('');
+  const [adjustAmount, setAdjustAmount] = useState('');
+  const [adjustToken, setAdjustToken] = useState<'zhixi' | 'yjc'>('zhixi');
+  const [adjustReason, setAdjustReason] = useState('');
+
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementContent, setAnnouncementContent] = useState('');
+  const [announcementPinned, setAnnouncementPinned] = useState(false);
+
+  const [actionResult, setActionResult] = useState<string | null>(null);
+
+  async function refresh() {
+    if (!sessionId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const [healthRes, eventsRes] = await Promise.all([
+        api.get('/api/v1/admin/ops/health').catch((err) => {
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            setAuthErr('你不是管理員或未登入');
+          }
+          return null;
+        }),
+        api.get('/api/v1/admin/ops/events?limit=20').catch(() => null),
+      ]);
+      if (healthRes?.data?.data) {
+        const h = healthRes.data.data;
+        setHealth(h);
+        setMaintenanceOn(Boolean(h.maintenance));
+      }
+      if (eventsRes?.data?.data?.events) {
+        setEvents(eventsRes.data.data.events);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, 30000);
+    return () => clearInterval(id);
+  }, [sessionId]);
+
+  async function handleMaintenance(e: FormEvent) {
+    e.preventDefault();
+    setActionResult(null);
+    try {
+      await api.post('/api/v1/admin/maintenance', {
+        sessionId,
+        enabled: !maintenanceOn,
+        message: maintenanceMessage || undefined,
+      });
+      setMaintenanceOn(!maintenanceOn);
+      setActionResult(!maintenanceOn ? '維護模式已啟用' : '維護模式已停用');
+      refresh();
+    } catch (err: any) {
+      setActionResult(err?.response?.data?.data?.error?.message || err?.message || '操作失敗');
+    }
+  }
+
+  async function handleBlacklist(e: FormEvent) {
+    e.preventDefault();
+    if (!blacklistAddress.trim()) return;
+    setActionResult(null);
+    try {
+      await api.post('/api/v1/admin/blacklist', {
+        sessionId,
+        address: blacklistAddress.trim(),
+        reason: blacklistReason.trim() || undefined,
+      });
+      setActionResult(`已加入黑名單：${blacklistAddress}`);
+      setBlacklistAddress('');
+      setBlacklistReason('');
+      refresh();
+    } catch (err: any) {
+      setActionResult(err?.response?.data?.data?.error?.message || err?.message || '操作失敗');
+    }
+  }
+
+  async function handleAdjust(e: FormEvent) {
+    e.preventDefault();
+    if (!adjustAddress.trim() || !adjustAmount.trim()) return;
+    setActionResult(null);
+    try {
+      const res = await api.post('/api/v1/admin/adjust-balance', {
+        sessionId,
+        address: adjustAddress.trim(),
+        amount: adjustAmount.trim(),
+        token: adjustToken,
+        reason: adjustReason.trim() || 'admin_adjust',
+      });
+      const data = res.data?.data;
+      setActionResult(`餘額已調整：${data?.balanceBefore ?? '?'} → ${data?.balanceAfter ?? '?'}`);
+      setAdjustAmount('');
+      setAdjustReason('');
+      refresh();
+    } catch (err: any) {
+      setActionResult(err?.response?.data?.data?.error?.message || err?.message || '操作失敗');
+    }
+  }
+
+  async function handleAnnouncement(e: FormEvent) {
+    e.preventDefault();
+    if (!announcementTitle.trim() || !announcementContent.trim()) return;
+    setActionResult(null);
+    try {
+      await api.post('/api/v1/admin/announcements', {
+        sessionId,
+        title: announcementTitle.trim(),
+        content: announcementContent.trim(),
+        pinned: announcementPinned,
+      });
+      setActionResult(`公告已發布：${announcementTitle}`);
+      setAnnouncementTitle('');
+      setAnnouncementContent('');
+      setAnnouncementPinned(false);
+    } catch (err: any) {
+      setActionResult(err?.response?.data?.data?.error?.message || err?.message || '操作失敗');
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">
-      {/* Top Bar */}
       <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
         <div className="app-shell flex items-center justify-between py-4">
           <div className="flex items-center gap-4">
-             <ShieldAlert className="text-[#fcc025]" />
-             <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">{t('nav.admin')}</h1>
+            <ShieldAlert className="text-[#fcc025]" />
+            <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">{t('nav.admin')}</h1>
           </div>
+          <button onClick={refresh} className="p-2 rounded-lg border border-[#494847]/30 hover:bg-[#262626]">
+            <RefreshCw size={16} className={loading ? 'animate-spin text-[#fcc025]' : 'text-[#adaaaa]'} />
+          </button>
         </div>
       </header>
 
-      <main className="app-shell space-y-10 pt-24">
-        {/* 開發中提示 */}
-        <section className="rounded-2xl border border-[#fcc025]/20 bg-[#1a1919] p-6 shadow-2xl">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#fcc025]/30 bg-[#262626]">
-              <Construction className="text-[#fcc025]" size={24} />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-lg font-black uppercase italic tracking-tight text-white">
-                管理中心開發中
-              </h2>
-              <p className="mt-2 text-sm font-bold text-[#adaaaa]">
-                系統管理功能正在開發中，以下數據為模擬展示
-              </p>
-            </div>
-            <Info className="text-[#fcc025]" size={20} />
-          </div>
-        </section>
+      <main className="app-shell space-y-8 pt-24">
+        {!isAuthorized && (
+          <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#fcc025]/20">
+            <p className="text-sm text-[#adaaaa]">請先登入以使用管理功能。</p>
+          </section>
+        )}
+
+        {authErr && (
+          <section className="bg-[#1a1919] rounded-2xl p-6 border border-red-500/20">
+            <p className="text-sm text-red-400">{authErr}</p>
+          </section>
+        )}
+
+        {actionResult && (
+          <section className="bg-[#1a1919] rounded-2xl p-4 border border-[#fcc025]/30">
+            <p className="text-xs text-[#fcc025]">{actionResult}</p>
+          </section>
+        )}
 
         {/* System Health */}
         <section className="space-y-4">
-           <div className="flex items-center gap-2 px-2">
-              <Terminal size={16} className="text-[#adaaaa]" />
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">SYSTEM HEALTH / 系統狀態 (DEMO)</h3>
-           </div>
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {systemHealth.map(s => (
-                <div key={s.label} className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/10 flex items-center justify-between group opacity-60">
-                   <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-[#0e0e0e] flex items-center justify-center border border-[#494847]/20 group-hover:border-[#fcc025]/50 transition-colors">
-                         <s.icon size={20} className={s.color} />
-                      </div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-[#494847]">{s.label}</span>
-                   </div>
-                   <span className={`text-2xl font-black italic tracking-tighter ${s.color}`}>{s.value}</span>
-                </div>
-              ))}
-           </div>
-        </section>
-
-        {/* User Management */}
-        <section className="space-y-4">
-           <div className="flex items-center gap-2 px-2">
-              <Users size={16} className="text-[#adaaaa]" />
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">USER MANAGEMENT / 用戶管理 (DEMO)</h3>
-           </div>
-           <div className="bg-[#1a1919] rounded-2xl border border-[#494847]/10 overflow-hidden opacity-60">
-              <table className="w-full text-left">
-                 <thead>
-                    <tr className="border-b border-[#494847]/10">
-                       <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-[#494847]">Operator ID</th>
-                       <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-[#494847]">Clearance</th>
-                       <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-[#494847]">Status</th>
-                    </tr>
-                 </thead>
-                 <tbody className="divide-y divide-[#494847]/5">
-                    {[
-                      { id: 'OPERATOR_04', rank: 'ELITE', status: 'ONLINE' },
-                      { id: 'VIP_X', rank: 'PLATINUM', status: 'IDLE' },
-                      { id: 'GUEST_92', rank: 'COMMON', status: 'ONLINE' },
-                    ].map(s => (
-                      <tr key={s.id} className="group hover:bg-[#201f1f] transition-colors">
-                         <td className="px-6 py-4 text-[11px] font-bold uppercase text-white">{s.id}</td>
-                         <td className="px-6 py-4 text-[9px] font-black uppercase text-[#fcc025]">{s.rank}</td>
-                         <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                               <div className={`w-1 h-1 rounded-full ${s.status === 'ONLINE' ? 'bg-emerald-500 shadow-[0_0_5px_#10b981]' : 'bg-[#494847]'}`} />
-                               <span className={`text-[9px] font-black uppercase ${s.status === 'ONLINE' ? 'text-emerald-500' : 'text-[#494847]'}`}>{s.status}</span>
-                            </div>
-                         </td>
-                      </tr>
-                    ))}
-                 </tbody>
-              </table>
-           </div>
-        </section>
-
-        {/* System Override */}
-        <section className="space-y-4">
-           <div className="flex items-center gap-2 px-2">
-              <Zap size={16} className="text-[#adaaaa]" />
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">SYSTEM OVERRIDE / 系統覆蓋 (DEMO)</h3>
-           </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-60">
-              <div className="space-y-4">
-                 <button className="w-full bg-[#1a1919] border border-[#494847]/20 rounded-xl p-5 flex items-center justify-between" disabled>
-                    <div className="flex items-center gap-4">
-                       <RefreshCw size={20} className="text-[#494847]" />
-                       <span className="text-[10px] font-black uppercase tracking-widest text-[#494847]">FLUSH CACHE / 清除快取</span>
-                    </div>
-                    <ChevronRight size={16} className="text-[#494847]" />
-                 </button>
-                 <button className="w-full bg-[#1a1919] border border-[#494847]/20 rounded-xl p-5 flex items-center justify-between" disabled>
-                    <div className="flex items-center gap-4">
-                       <AlertOctagon size={20} className="text-[#494847]" />
-                       <span className="text-[10px] font-black uppercase tracking-widest text-[#494847]">MAINTENANCE MODE / 維護模式</span>
-                    </div>
-                    <div className="w-10 h-5 bg-[#0e0e0e] rounded-full p-1 border border-[#494847]/30">
-                       <div className="w-3 h-3 bg-[#494847] rounded-full" />
-                    </div>
-                 </button>
+          <div className="flex items-center gap-2 px-2">
+            <Activity size={16} className="text-[#adaaaa]" />
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#adaaaa]">SYSTEM HEALTH / 系統狀態</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'QUEUED TX', value: health?.queuedTxIntents ?? '-' },
+              { label: 'PENDING SETTLEMENT', value: health?.pendingSettlements ?? '-' },
+              { label: 'OPEN TICKETS', value: health?.openTickets ?? '-' },
+              { label: 'MAINTENANCE', value: maintenanceOn ? 'ON' : 'OFF' },
+            ].map((s) => (
+              <div key={s.label} className="bg-[#1a1919] rounded-2xl p-4 border border-[#494847]/20">
+                <p className="text-[9px] font-black uppercase tracking-widest text-[#adaaaa]">{s.label}</p>
+                <p className="text-2xl font-black italic tracking-tighter text-[#fcc025] mt-2">{s.value}</p>
               </div>
+            ))}
+          </div>
+        </section>
 
-              <button className="bg-gradient-to-br from-[#494847] to-[#1a1919] rounded-2xl p-8 border border-[#494847]/30 flex flex-col items-center justify-center gap-4 opacity-50" disabled>
-                 <div className="w-16 h-16 rounded-full bg-black/20 flex items-center justify-center border-4 border-white/10">
-                    <Power size={32} className="text-[#494847]" />
-                 </div>
-                 <div className="text-center">
-                    <h3 className="text-xl font-black italic tracking-tighter uppercase text-[#494847]">EMERGENCY STOP</h3>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#494847]/60">緊急停止所有模擬</p>
-                 </div>
-              </button>
-           </div>
+        {/* Maintenance */}
+        <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertOctagon size={18} className="text-[#fcc025]" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-white">維護模式</h3>
+          </div>
+          <form onSubmit={handleMaintenance} className="space-y-3">
+            <input
+              type="text"
+              value={maintenanceMessage}
+              onChange={(e) => setMaintenanceMessage(e.target.value)}
+              className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-sm"
+              placeholder="維護訊息（可選）"
+              maxLength={200}
+            />
+            <button type="submit" className={`w-full py-2 rounded-lg text-xs font-black uppercase tracking-widest ${maintenanceOn ? 'bg-[#494847] text-white' : 'bg-[#fcc025] text-[#0e0e0e]'}`}>
+              {maintenanceOn ? '停用維護模式' : '啟用維護模式'}
+            </button>
+          </form>
+        </section>
+
+        {/* Blacklist */}
+        <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20">
+          <div className="flex items-center gap-2 mb-4">
+            <Ban size={18} className="text-[#fcc025]" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-white">黑名單</h3>
+          </div>
+          <form onSubmit={handleBlacklist} className="space-y-3">
+            <input
+              type="text"
+              value={blacklistAddress}
+              onChange={(e) => setBlacklistAddress(e.target.value)}
+              className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-sm"
+              placeholder="錢包地址 0x..."
+            />
+            <input
+              type="text"
+              value={blacklistReason}
+              onChange={(e) => setBlacklistReason(e.target.value)}
+              className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-sm"
+              placeholder="原因"
+              maxLength={200}
+            />
+            <button type="submit" className="w-full py-2 bg-red-600 text-white rounded-lg text-xs font-black uppercase tracking-widest">
+              加入黑名單
+            </button>
+          </form>
+        </section>
+
+        {/* Adjust Balance */}
+        <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20">
+          <div className="flex items-center gap-2 mb-4">
+            <Coins size={18} className="text-[#fcc025]" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-white">調整餘額</h3>
+          </div>
+          <form onSubmit={handleAdjust} className="space-y-3">
+            <input
+              type="text"
+              value={adjustAddress}
+              onChange={(e) => setAdjustAddress(e.target.value)}
+              className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-sm"
+              placeholder="錢包地址 0x..."
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={adjustAmount}
+                onChange={(e) => setAdjustAmount(e.target.value)}
+                className="bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-sm"
+                placeholder="金額 (+/-)"
+              />
+              <select
+                value={adjustToken}
+                onChange={(e) => setAdjustToken(e.target.value as 'zhixi' | 'yjc')}
+                className="bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="zhixi">ZXC</option>
+                <option value="yjc">YJC</option>
+              </select>
+            </div>
+            <input
+              type="text"
+              value={adjustReason}
+              onChange={(e) => setAdjustReason(e.target.value)}
+              className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-sm"
+              placeholder="原因"
+              maxLength={200}
+            />
+            <button type="submit" className="w-full py-2 bg-[#fcc025] text-[#0e0e0e] rounded-lg text-xs font-black uppercase tracking-widest">
+              調整餘額
+            </button>
+          </form>
+        </section>
+
+        {/* Announcement */}
+        <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20">
+          <div className="flex items-center gap-2 mb-4">
+            <Megaphone size={18} className="text-[#fcc025]" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-white">發佈公告</h3>
+          </div>
+          <form onSubmit={handleAnnouncement} className="space-y-3">
+            <input
+              type="text"
+              value={announcementTitle}
+              onChange={(e) => setAnnouncementTitle(e.target.value)}
+              className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-sm"
+              placeholder="標題"
+              maxLength={100}
+            />
+            <textarea
+              value={announcementContent}
+              onChange={(e) => setAnnouncementContent(e.target.value)}
+              className="w-full bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-sm min-h-20"
+              placeholder="內容"
+              maxLength={2000}
+            />
+            <label className="flex items-center gap-2 text-xs text-[#adaaaa]">
+              <input type="checkbox" checked={announcementPinned} onChange={(e) => setAnnouncementPinned(e.target.checked)} />
+              釘選於公告最上方
+            </label>
+            <button type="submit" className="w-full py-2 bg-[#fcc025] text-[#0e0e0e] rounded-lg text-xs font-black uppercase tracking-widest">
+              發佈公告
+            </button>
+          </form>
+        </section>
+
+        {/* Ops Events */}
+        <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20">
+          <h3 className="text-sm font-black uppercase tracking-widest text-white mb-4">最近事件</h3>
+          {loading && events.length === 0 ? (
+            <div className="flex items-center gap-2 text-[#adaaaa] text-xs"><Loader2 size={12} className="animate-spin" /> 載入中...</div>
+          ) : events.length === 0 ? (
+            <p className="text-xs text-[#adaaaa]">沒有事件</p>
+          ) : (
+            <ul className="space-y-2 text-xs">
+              {events.map((evt, i) => (
+                <li key={evt.id || i} className="border-l-2 border-[#fcc025]/40 pl-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[9px] font-black uppercase ${evt.severity === 'error' ? 'text-red-400' : evt.severity === 'warn' ? 'text-[#fcc025]' : 'text-emerald-400'}`}>
+                      {evt.severity || 'info'}
+                    </span>
+                    <span className="text-[9px] font-bold uppercase text-[#adaaaa]">{evt.channel}/{evt.kind}</span>
+                  </div>
+                  <p className="text-white mt-1">{evt.message}</p>
+                  {evt.createdAt && <p className="text-[9px] text-[#494847] mt-1">{new Date(evt.createdAt).toLocaleString()}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </main>
 
-      {/* Bottom Nav Bar */}
       <AppBottomNav current="none" />
     </div>
   );

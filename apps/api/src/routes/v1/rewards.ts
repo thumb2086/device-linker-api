@@ -438,16 +438,21 @@ export async function rewardRoutes(fastify: FastifyInstance) {
       }).catch(() => {});
       throw err;
     }
-    await opsRepo.logEvent({
-      channel: "rewards",
-      severity: "info",
-      source: "campaign_claim",
-      kind: "campaign_claim",
-      userId: ctx.user.id,
-      address,
-      message: `Claimed campaign ${campaignId}`,
-      meta: { campaignId, bundle: bundleSummary },
-    });
+    // Claim + rewards already committed at this point. Swallow logging failures
+    // so a transient DB error doesn't surface as a 500 and permanently lock the
+    // user out (tryClaim would reject the retry).
+    await opsRepo
+      .logEvent({
+        channel: "rewards",
+        severity: "info",
+        source: "campaign_claim",
+        kind: "campaign_claim",
+        userId: ctx.user.id,
+        address,
+        message: `Claimed campaign ${campaignId}`,
+        meta: { campaignId, bundle: bundleSummary },
+      })
+      .catch(() => {});
     return createApiEnvelope({ success: true, bundle: bundleSummary }, request.id);
   });
 }

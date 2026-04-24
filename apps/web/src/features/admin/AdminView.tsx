@@ -446,6 +446,35 @@ export default function AdminView() {
     }
   }
 
+  async function handleSetVipLevel(level: number) {
+    if (!userInspect?.user?.address) return;
+    try {
+      await api.post(
+        `/api/v1/admin/users/${encodeURIComponent(userInspect.user.address)}/vip`,
+        { sessionId, level },
+      );
+      show(`已設定 VIP 等級為 ${level}`);
+      handleUserInspect();
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
+  async function handleResetTotalBet() {
+    if (!userInspect?.user?.address) return;
+    if (!window.confirm('確定要把這位使用者的累積下注歸零嗎？')) return;
+    try {
+      await api.post(
+        `/api/v1/admin/users/${encodeURIComponent(userInspect.user.address)}/reset-total-bet`,
+        { sessionId },
+      );
+      show('累積下注已歸零');
+      handleUserInspect();
+    } catch (err: any) {
+      show(errMsg(err));
+    }
+  }
+
   async function handleCampaignSave() {
     const title = campaignTitle.trim();
     if (!title) {
@@ -805,6 +834,22 @@ export default function AdminView() {
                     <span className="text-white">{userInspect.user.displayName}</span>
                   </div>
                 )}
+                {userInspect.balances && (
+                  <div className="grid grid-cols-3 gap-2 rounded-lg bg-[#1a1919] p-3">
+                    <div>
+                      <p className="text-[9px] text-[#494847]">ZXC 餘額</p>
+                      <p className="mt-1 font-mono text-xs text-white">{userInspect.balances.zxc}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-[#494847]">YJC 餘額</p>
+                      <p className="mt-1 font-mono text-xs text-white">{userInspect.balances.yjc}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-[#494847]">累積下注</p>
+                      <p className="mt-1 font-mono text-xs text-white">{userInspect.balances.totalBet}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="text-xs text-[#adaaaa]">
                   <span className="text-[#494847]">目前勝率偏置：</span>
                   <span className="text-[#fcc025] font-black">
@@ -825,6 +870,37 @@ export default function AdminView() {
                     className="flex items-center gap-1 rounded-lg bg-[#fcc025] px-3 text-xs font-black text-black hover:brightness-110"
                   >
                     <Sliders size={12} /> 套用
+                  </button>
+                </div>
+
+                <div className="space-y-2 border-t border-[#494847]/20 pt-3">
+                  <p className="text-[10px] text-[#adaaaa]">
+                    VIP 等級：
+                    <span className="ml-1 font-black text-[#fcc025]">
+                      {typeof userInspect.vipLevel === 'number' ? userInspect.vipLevel : 0}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {[0, 1, 2, 3, 4, 5].map((lv) => (
+                      <button
+                        key={lv}
+                        type="button"
+                        onClick={() => handleSetVipLevel(lv)}
+                        className="rounded-lg border border-[#494847]/30 bg-[#1a1919] px-3 py-1.5 text-[10px] font-black text-white hover:border-[#fcc025]/60 hover:text-[#fcc025]"
+                      >
+                        VIP {lv}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-[#494847]/20 pt-3">
+                  <button
+                    type="button"
+                    onClick={handleResetTotalBet}
+                    className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[10px] font-black text-red-300 hover:bg-red-500/20"
+                  >
+                    歸零累積下注
                   </button>
                 </div>
               </div>

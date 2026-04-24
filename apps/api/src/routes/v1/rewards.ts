@@ -287,19 +287,18 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     const limit = (campaign as any).maxClaimsPerUser ?? 1;
     const address = String(ctx.user.address || "").toLowerCase();
 
-    // Record claim FIRST (and re-check limit atomically via countClaims after insert).
-    // This narrows the race window for concurrent claim attempts from the same user.
-    const prev = await campaignRepo.countClaims(campaignId, ctx.user.id);
-    if (prev >= limit) {
-      return createApiEnvelope({ error: { code: "LIMIT_REACHED", message: "已達領取上限" } }, request.id);
-    }
-    await campaignRepo.recordClaim({ campaignId, userId: ctx.user.id, address });
-
-    // Re-read the count after insert — if another concurrent request also inserted,
-    // we detect it here and refuse to double-grant. We leave the extra claim row so
-    // the count stays accurate, but skip the reward payout.
-    const after = await campaignRepo.countClaims(campaignId, ctx.user.id);
-    if (after > limit) {
+    // Atomically check the claim limit and record the claim inside a transaction
+    // guarded by a pg_advisory_xact_lock on (campaignId, userId). Concurrent
+    // requests from the same user serialize on the lock and only the first
+    // `limit` successful inserts return true — the rest return false without
+    // any reward being granted.
+    const ok = await campaignRepo.tryClaim({
+      campaignId,
+      userId: ctx.user.id,
+      address,
+      limit,
+    });
+    if (!ok) {
       return createApiEnvelope({ error: { code: "LIMIT_REACHED", message: "已達領取上限" } }, request.id);
     }
 

@@ -489,6 +489,71 @@ export async function grantBundleToUser(
   return nextState;
 }
 
+/**
+ * Undo a `grantBundleToUser` call. Pass the pre-grant state (captured before
+ * the grant) and the lists of NEWLY-added avatar/title IDs so we can both
+ * restore the DB-side profile inventory AND remove the synced KV entries.
+ *
+ * This is used by the campaign-claim flow to revert an item/cosmetic grant
+ * when a later step (balance credit, logGrant) fails. Without this, retries
+ * would double-accumulate item quantities.
+ */
+export async function rollbackGrantBundle(
+  userId: string,
+  preState: ProfileInventoryState,
+  address: string | undefined,
+  addedAvatars: string[],
+  addedTitles: string[],
+): Promise<void> {
+  await persistInventoryState(userId, preState);
+
+  let targetAddress = address ? String(address).toLowerCase() : undefined;
+  if (!targetAddress) {
+    try {
+      const user = await userRepo.getUserById(userId);
+      targetAddress = user?.address ? String(user.address).toLowerCase() : undefined;
+    } catch {
+      targetAddress = undefined;
+    }
+  }
+  if (!targetAddress) return;
+
+  if (addedAvatars.length) {
+    const key = `owned_avatars:${targetAddress}`;
+    const existing = (await kv.get<string[]>(key)) || [];
+    const next = existing.filter((id) => !addedAvatars.includes(id));
+    await kv.set(key, next);
+  }
+  if (addedTitles.length) {
+    const key = `owned_titles:${targetAddress}`;
+    const existing = (await kv.get<string[]>(key)) || [];
+    const next = existing.filter((id) => !addedTitles.includes(id));
+    await kv.set(key, next);
+  }
+}
+
+/** Compute which avatar/title IDs in `bundle` are NEW (not already owned). */
+export function computeNewlyAdded(
+  preState: ProfileInventoryState,
+  bundle: RewardBundle,
+): { addedAvatars: string[]; addedTitles: string[] } {
+  const addedAvatars: string[] = [];
+  const addedTitles: string[] = [];
+  for (const avId of bundle.avatars ?? []) {
+    const id = String(avId || "").trim();
+    if (id && !preState.ownedAvatars.includes(id) && !addedAvatars.includes(id)) {
+      addedAvatars.push(id);
+    }
+  }
+  for (const ttId of bundle.titles ?? []) {
+    const id = String(ttId || "").trim();
+    if (id && !preState.ownedTitles.includes(id) && !addedTitles.includes(id)) {
+      addedTitles.push(id);
+    }
+  }
+  return { addedAvatars, addedTitles };
+}
+
 export function listAllItems(): ItemDefinition[] {
   return Object.values(ALL_ITEMS);
 }

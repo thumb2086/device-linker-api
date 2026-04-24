@@ -16,7 +16,13 @@ import {
   RewardCampaignRepository,
 } from "@repo/infrastructure";
 import { randomUUID } from "crypto";
-import { grantBundleToUser } from "../../utils/inventory.js";
+import {
+  grantBundleToUser,
+  loadInventoryState,
+  rollbackGrantBundle,
+  computeNewlyAdded,
+  type ProfileInventoryState,
+} from "../../utils/inventory.js";
 
 export async function rewardRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -311,17 +317,32 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     };
 
     // tryClaim already committed the claim row. If any reward-granting step
-    // below throws we MUST roll back the claim AND reverse any balance credits
-    // that were already applied, otherwise the user either gets permanently
-    // locked out with no reward OR can retry and double-dip on balance.
+    // below throws we MUST fully unwind the partial grant (DB inventory,
+    // KV-synced owned lists, ZXC/YJC balance credits) AND delete the claim row
+    // so the user can retry. Without this, the user either gets locked out
+    // with no reward OR retries succeed and double-dip on items / balance.
     //
-    // Order: run the fallible-but-mostly-atomic step (grantBundleToUser) FIRST
-    // so that KV balance credits happen only after items/cosmetics are safely
-    // persisted. Track what we credited so rollback can reverse it.
+    // Strategy: snapshot inventory BEFORE the grant, track the "newly added"
+    // avatars/titles, track exactly how many ZXC/YJC were credited — then in
+    // catch, restore the snapshot via rollbackGrantBundle, subtract the
+    // credited balances, and deleteLatestClaim.
+    const hasBundle = Boolean(
+      (rewards.items?.length ?? 0) || (rewards.avatars?.length ?? 0) || (rewards.titles?.length ?? 0),
+    );
+    let preState: ProfileInventoryState | null = null;
+    let addedAvatars: string[] = [];
+    let addedTitles: string[] = [];
+    let bundleGranted = false;
     let zxcCredited = 0;
     let yjcCredited = 0;
     try {
-      if ((rewards.items?.length ?? 0) || (rewards.avatars?.length ?? 0) || (rewards.titles?.length ?? 0)) {
+      if (hasBundle) {
+        preState = await loadInventoryState(ctx.user.id);
+        ({ addedAvatars, addedTitles } = computeNewlyAdded(preState, {
+          items: rewards.items,
+          avatars: rewards.avatars,
+          titles: rewards.titles,
+        }));
         await grantBundleToUser(
           ctx.user.id,
           {
@@ -331,6 +352,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
           },
           address,
         );
+        bundleGranted = true;
       }
       if (typeof rewards.zxc === "number" && rewards.zxc > 0) {
         const key = `balance:${address}`;
@@ -354,7 +376,15 @@ export async function rewardRoutes(fastify: FastifyInstance) {
         bundle: { campaignId, ...bundleSummary },
       });
     } catch (err) {
-      // Reverse any balance credits that were already applied before the error.
+      // 1. Reverse the items / avatars / titles grant.
+      if (bundleGranted && preState) {
+        try {
+          await rollbackGrantBundle(ctx.user.id, preState, address, addedAvatars, addedTitles);
+        } catch {
+          // swallow - captured below via ops log
+        }
+      }
+      // 2. Reverse any balance credits that were already applied.
       if (zxcCredited > 0) {
         try {
           const key = `balance:${address}`;
@@ -373,7 +403,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
           // swallow - captured below via ops log
         }
       }
-      // Roll back the claim row so the user can retry.
+      // 3. Delete the claim row so the user can retry.
       try {
         await campaignRepo.deleteLatestClaim(campaignId, ctx.user.id);
       } catch (rollbackErr) {
@@ -395,8 +425,16 @@ export async function rewardRoutes(fastify: FastifyInstance) {
         kind: "campaign_claim_grant_failed",
         userId: ctx.user.id,
         address,
-        message: `Grant failed for campaign ${campaignId} — claim rolled back`,
-        meta: { campaignId, err: String(err), zxcCredited, yjcCredited },
+        message: `Grant failed for campaign ${campaignId} — rolled back`,
+        meta: {
+          campaignId,
+          err: String(err),
+          bundleGranted,
+          addedAvatars,
+          addedTitles,
+          zxcCredited,
+          yjcCredited,
+        },
       }).catch(() => {});
       throw err;
     }

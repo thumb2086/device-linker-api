@@ -920,6 +920,89 @@ export class CustodyRepository implements ICustodyRepository {
   }
 }
 
+export class RewardCatalogRepository {
+  async listItems(options: { type?: string; includeInactive?: boolean } = {}) {
+    const conn = await requireDb();
+    try {
+      const rows = await conn.query.rewardCatalog.findMany({
+        where: (rc: any, { eq, and }: any) => {
+          const preds: any[] = [];
+          if (options.type) preds.push(eq(rc.type, options.type));
+          if (!options.includeInactive) preds.push(eq(rc.isActive, true));
+          if (!preds.length) return undefined;
+          return preds.length === 1 ? preds[0] : and(...preds);
+        },
+        orderBy: (rc: any, { asc, desc }: any) => [asc(rc.type), desc(rc.createdAt)],
+      });
+      return rows || [];
+    } catch (_e) {
+      return [];
+    }
+  }
+
+  async getByItemId(itemId: string) {
+    const conn = await requireDb();
+    try {
+      return await conn.query.rewardCatalog.findFirst({
+        where: (rc: any, { eq }: any) => eq(rc.itemId, itemId),
+      });
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  async upsertItem(item: {
+    itemId: string;
+    type: string;
+    name: string;
+    rarity: string;
+    source?: string;
+    description?: string | null;
+    icon?: string | null;
+    price?: string | number | null;
+    isActive?: boolean;
+    meta?: any;
+  }) {
+    const conn = await requireDb();
+    const values: any = {
+      itemId: item.itemId,
+      type: item.type,
+      name: item.name,
+      rarity: item.rarity,
+      source: item.source || "admin",
+      description: item.description ?? null,
+      icon: item.icon ?? null,
+      price: item.price == null ? null : String(item.price),
+      isActive: item.isActive ?? true,
+      meta: item.meta ?? null,
+      updatedAt: new Date(),
+    };
+    await conn
+      .insert(schema.rewardCatalog)
+      .values({ ...values, id: randomUUID(), createdAt: new Date() })
+      .onConflictDoUpdate({
+        target: schema.rewardCatalog.itemId,
+        set: values,
+      });
+    return await this.getByItemId(item.itemId);
+  }
+
+  async setActive(itemId: string, isActive: boolean) {
+    const conn = await requireDb();
+    await conn
+      .update(schema.rewardCatalog)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(schema.rewardCatalog.itemId, itemId));
+    return await this.getByItemId(itemId);
+  }
+
+  async deleteItem(itemId: string) {
+    const conn = await requireDb();
+    await conn.delete(schema.rewardCatalog).where(eq(schema.rewardCatalog.itemId, itemId));
+    return true;
+  }
+}
+
 export class AnnouncementRepository {
   private async getAnnouncementColumns(conn: any): Promise<Set<string>> {
     const rows = await conn.execute(
@@ -1110,5 +1193,39 @@ export class AnnouncementRepository {
         updatedAt: announcement.updatedAt ? new Date(announcement.updatedAt) : new Date(),
       }
     });
+  }
+
+  async updateFields(
+    announcementId: string,
+    fields: {
+      title?: string;
+      content?: string;
+      isPinned?: boolean;
+      isActive?: boolean;
+      updatedBy?: string | null;
+    }
+  ) {
+    const conn = await requireDb();
+    const columns = await this.getAnnouncementColumns(conn);
+    const set: Record<string, any> = { updatedAt: new Date() };
+    if (fields.title !== undefined) set.title = fields.title;
+    if (fields.content !== undefined) set.content = fields.content;
+    if (fields.isPinned !== undefined && columns.has("is_pinned")) set.isPinned = fields.isPinned;
+    if (fields.isActive !== undefined && columns.has("is_active")) set.isActive = fields.isActive;
+    if (fields.updatedBy !== undefined && columns.has("updated_by")) set.updatedBy = fields.updatedBy;
+    const whereKey = columns.has("announcement_id") ? "announcementId" : "id";
+    await conn
+      .update(schema.announcements)
+      .set(set)
+      .where(eq((schema.announcements as any)[whereKey], announcementId));
+  }
+
+  async deleteAnnouncement(announcementId: string) {
+    const conn = await requireDb();
+    const columns = await this.getAnnouncementColumns(conn);
+    const whereKey = columns.has("announcement_id") ? "announcementId" : "id";
+    await conn
+      .delete(schema.announcements)
+      .where(eq((schema.announcements as any)[whereKey], announcementId));
   }
 }

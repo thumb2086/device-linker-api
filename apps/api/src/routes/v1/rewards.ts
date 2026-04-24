@@ -5,7 +5,14 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
 import { RewardManager, TITLES, AVATARS } from "@repo/domain";
-import { SessionRepository, UserRepository, kv, OpsRepository, MetaRepository } from "@repo/infrastructure";
+import {
+  SessionRepository,
+  UserRepository,
+  kv,
+  OpsRepository,
+  MetaRepository,
+  RewardCatalogRepository,
+} from "@repo/infrastructure";
 
 export async function rewardRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -15,6 +22,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
   const userRepo = new UserRepository();
   const opsRepo = new OpsRepository();
   const metaRepo = new MetaRepository();
+  const rewardCatalogRepo = new RewardCatalogRepository();
 
   const getContext = async (req: any) => {
     const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
@@ -28,9 +36,39 @@ export async function rewardRoutes(fastify: FastifyInstance) {
   // ─── Rewards Catalog ──────────────────────────────────────────────────────
 
   typedFastify.get("/catalog", async (request) => {
-    return createApiEnvelope({ 
-      titles: TITLES,
-      avatars: AVATARS,
+    // Merge code-defined TITLES/AVATARS with admin-managed reward_catalog rows
+    // so custom avatars/titles stored via the admin panel show up in the
+    // client's ItemsTab alongside the built-in ones.
+    const customRows = await rewardCatalogRepo.listItems({});
+    const customAvatars = customRows
+      .filter((r: any) => r.type === "avatar")
+      .map((r: any) => ({
+        id: r.itemId,
+        name: r.name,
+        label: r.name,
+        description: r.description,
+        icon: r.icon,
+        rarity: r.rarity,
+        source: r.source || "admin",
+      }));
+    const customTitles = customRows
+      .filter((r: any) => r.type === "title")
+      .map((r: any) => ({
+        id: r.itemId,
+        name: r.name,
+        label: r.name,
+        description: r.description,
+        icon: r.icon,
+        rarity: r.rarity,
+        source: r.source || "admin",
+      }));
+
+    return createApiEnvelope({
+      titles: [...TITLES, ...customTitles],
+      avatars: [...AVATARS, ...customAvatars],
+      customItems: customRows.filter(
+        (r: any) => r.type !== "avatar" && r.type !== "title"
+      ),
       chests: [
         { id: "bronze", label: "青銅寶箱", price: "1000", rarity: "common" },
         { id: "silver", label: "白銀寶箱", price: "5000", rarity: "rare" },

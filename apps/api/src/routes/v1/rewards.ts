@@ -233,8 +233,9 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     
     const ownedKey = type === "title" ? `owned_titles:${address}` : `owned_avatars:${address}`;
     const owned = await kv.get<string[]>(ownedKey) || [];
-    
-    if (!owned.includes(id) && id !== "newbie" && id !== "classic_chip") {
+
+    const defaultId = type === "title" ? "newbie" : "classic_chip";
+    if (!owned.includes(id) && id !== defaultId) {
       return createApiEnvelope({ error: { message: "Not owned" } }, request.id);
     }
 

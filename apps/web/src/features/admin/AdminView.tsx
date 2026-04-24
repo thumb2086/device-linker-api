@@ -518,6 +518,8 @@ export default function AdminView() {
 
   async function handleCampaignToggle(c: any) {
     try {
+      // Preserve startAt / endAt / requiredLevel when toggling isActive — without
+      // these the backend upsert stores null and wipes the time window.
       await api.post('/api/v1/admin/campaigns', {
         sessionId,
         campaignId: c.campaignId,
@@ -526,6 +528,9 @@ export default function AdminView() {
         isActive: !c.isActive,
         claimLimitPerUser: c.maxClaimsPerUser ?? 1,
         rewards: c.rewards ?? {},
+        startAt: c.startAt ?? null,
+        endAt: c.endAt ?? null,
+        minLevel: c.requiredLevel ?? undefined,
       });
       refresh();
     } catch (err: any) {

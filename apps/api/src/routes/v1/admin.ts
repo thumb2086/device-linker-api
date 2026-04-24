@@ -97,7 +97,12 @@ export async function adminRoutes(fastify: FastifyInstance) {
     if (!normalized) return createApiEnvelope({ error: { message: "Invalid address" } }, request.id);
 
     if (action === "add") {
-      await kv.set(`blacklist:${normalized}`, { reason, blacklistedAt: new Date(), by: ctx.session.address });
+      await kv.set(`blacklist:${normalized}`, {
+        address: normalized,
+        reason,
+        blacklistedAt: new Date(),
+        by: ctx.session.address,
+      });
     } else {
       await kv.del(`blacklist:${normalized}`);
     }
@@ -825,7 +830,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
     try {
       for await (const key of (kv as any).scanIterator({ match: "blacklist:*", count: 500 })) {
         const record = await kv.get(key);
-        if (record) entries.push({ key, ...(record as any) });
+        if (record) {
+          // Legacy entries stored before the address was written into the record —
+          // recover the wallet address from the KV key so the UI / removal call
+          // can still operate on the entry.
+          const derivedAddress = String(key).replace(/^blacklist:/, "");
+          entries.push({ key, address: derivedAddress, ...(record as any) });
+        }
         if (entries.length >= 500 || Date.now() - scanStartedAt > 2000) break;
       }
     } catch {

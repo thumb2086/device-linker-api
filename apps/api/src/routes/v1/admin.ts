@@ -180,36 +180,16 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const input = supportManager.sanitizeAnnouncementInput(request.body);
     const ann = supportManager.createAnnouncement({ ...input, publishedBy: ctx.session.address });
 
-    // Persist to DB; if the DB layer is unavailable we still want the
-    // announcement to land in KV so both admin and public views see it.
-    await announcementRepo.saveAnnouncement(ann).catch(() => {});
-
-    const list = await kv.get<any[]>("announcements:list") || [];
-    list.unshift(ann);
-    await kv.set("announcements:list", list);
+    await announcementRepo.saveAnnouncement(ann);
 
     return createApiEnvelope({ success: true, announcement: ann }, request.id);
   });
 
-  // List all announcements (active + inactive, with pin status). Falls back to
-  // KV when the DB is empty or unavailable so admin UI mirrors the public view.
+  // List all announcements (active + inactive, with pin status).
   typedFastify.get("/announcements", async (request) => {
     const ctx = await getAdminContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
-    let items: any[] = [];
-    try {
-      items = (await announcementRepo.listAllAnnouncements(100)) || [];
-    } catch {
-      items = [];
-    }
-    if (!items.length) {
-      const cached = (await kv.get<any[]>("announcements:list")) || [];
-      items = cached.slice().sort((a: any, b: any) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return new Date(b.publishedAt || b.createdAt || 0).getTime() - new Date(a.publishedAt || a.createdAt || 0).getTime();
-      });
-    }
+    const items = (await announcementRepo.listAllAnnouncements(100)) || [];
     return createApiEnvelope({ announcements: items }, request.id);
   });
 
@@ -239,11 +219,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
       updatedBy: ctx.session.address,
     });
 
-    // Rebuild KV cache from fresh DB state so public GET /support/announcements
-    // fallback does not serve stale data.
-    const activeAfter = await announcementRepo.listActiveAnnouncements();
-    await kv.set("announcements:list", activeAfter);
-
     await opsRepo.logEvent({
       channel: "admin",
       severity: "info",
@@ -269,11 +244,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const { announcementId } = request.params as { announcementId: string };
     await announcementRepo.deleteAnnouncement(announcementId);
 
-    // Rebuild KV cache after deletion so removed items don't resurface via
-    // the KV fallback path in /support/announcements.
-    const activeAfter = await announcementRepo.listActiveAnnouncements();
-    await kv.set("announcements:list", activeAfter);
-
     await opsRepo.logEvent({
       channel: "admin",
       severity: "info",
@@ -289,34 +259,14 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   // ─── Reward Catalog (custom avatars / titles / other collectibles) ───────
 
-  // Helper: rebuild the KV mirror of admin-managed reward catalog so the GET
-  // handler can serve admin-defined items even when the DB layer fails.
-  async function refreshRewardCatalogKv() {
-    try {
-      const all = await rewardCatalogRepo.listItems({ includeInactive: true });
-      await kv.set("reward_catalog:list", all || []);
-    } catch {
-      // ignore — KV mirror best-effort
-    }
-  }
-
   typedFastify.get("/reward-catalog", async (request) => {
     const ctx = await getAdminContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
     const query = request.query as { type?: string; includeInactive?: string };
-    let items: any[] = [];
-    try {
-      items = (await rewardCatalogRepo.listItems({
-        type: query?.type,
-        includeInactive: true,
-      })) || [];
-    } catch {
-      items = [];
-    }
-    if (!items.length) {
-      const cached = (await kv.get<any[]>("reward_catalog:list")) || [];
-      items = query?.type ? cached.filter((it: any) => it?.type === query.type) : cached;
-    }
+    const items = (await rewardCatalogRepo.listItems({
+      type: query?.type,
+      includeInactive: true,
+    })) || [];
     return createApiEnvelope({ items }, request.id);
   });
 
@@ -362,8 +312,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
       meta: { itemId: body.itemId, type: body.type },
     });
 
-    await refreshRewardCatalogKv();
-
     return createApiEnvelope({ success: true, item: saved }, request.id);
   });
 
@@ -380,7 +328,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const { itemId } = request.params as { itemId: string };
     const { isActive } = request.body as any;
     const updated = await rewardCatalogRepo.setActive(itemId, isActive);
-    await refreshRewardCatalogKv();
     return createApiEnvelope({ success: true, item: updated }, request.id);
   });
 
@@ -391,7 +338,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
     const { itemId } = request.params as { itemId: string };
     await rewardCatalogRepo.deleteItem(itemId);
-    await refreshRewardCatalogKv();
     await opsRepo.logEvent({
       channel: "admin",
       severity: "info",
@@ -663,28 +609,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   // ─── Campaigns / Events Management ────────────────────────────────────────
 
-  // Helper: rebuild the KV mirror of campaigns for the GET fallback below.
-  async function refreshCampaignsKv() {
-    try {
-      const all = await campaignRepo.listAll(200);
-      await kv.set("reward_campaigns:list", all || []);
-    } catch {
-      // ignore — KV mirror best-effort
-    }
-  }
-
   typedFastify.get("/campaigns", async (request) => {
     const ctx = await getAdminContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
-    let campaigns: any[] = [];
-    try {
-      campaigns = (await campaignRepo.listAll(200)) || [];
-    } catch {
-      campaigns = [];
-    }
-    if (!campaigns.length) {
-      campaigns = (await kv.get<any[]>("reward_campaigns:list")) || [];
-    }
+    const campaigns = (await campaignRepo.listAll(200)) || [];
     return createApiEnvelope({ campaigns }, request.id);
   });
 
@@ -738,7 +666,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
       message: `Campaign ${campaignId} saved`,
       meta: { campaignId, title: body.title, isActive: record?.isActive },
     });
-    await refreshCampaignsKv();
     return createApiEnvelope({ campaign: record }, request.id);
   });
 
@@ -747,7 +674,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
     const { campaignId } = request.params as { campaignId: string };
     await campaignRepo.delete(campaignId);
-    await refreshCampaignsKv();
     return createApiEnvelope({ success: true }, request.id);
   });
 

@@ -9,6 +9,8 @@ import LoginView from './features/auth/LoginView';
 import { useAuthStore } from './store/useAuthStore';
 import MarketView from './features/market/MarketView';
 import RewardsView from './features/rewards/RewardsView';
+import SubmitRewardView from './features/rewards/SubmitRewardView';
+import EventsView from './features/rewards/EventsView';
 import AdminView from './features/admin/AdminView';
 import InventoryView from './features/profile/InventoryView';
 import LeaderboardView from './features/stats/LeaderboardView';
@@ -26,7 +28,7 @@ import { useSyncUser } from './hooks/useSyncUser';
 import Layout from './components/Layout';
 import VIPLevelsView from './features/info/VIPLevelsView';
 import OddsView from './features/info/OddsView';
-import UnifiedInfoView from './components/UnifiedInfoView';
+import InfoView from './features/info/InfoView';
 import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -109,6 +111,8 @@ function AppContent() {
             <Route path="swap" element={<SwapView />} />
             <Route path="market" element={<MarketView />} />
             <Route path="rewards" element={<RewardsView />} />
+            <Route path="rewards/submit" element={<SubmitRewardView />} />
+            <Route path="events" element={<EventsView />} />
             <Route path="leaderboard" element={<LeaderboardView />} />
             <Route path="announcement" element={<AnnouncementCenter />} />
             <Route path="support" element={<SupportView />} />
@@ -120,7 +124,7 @@ function AppContent() {
             <Route path="health" element={<HealthView />} />
             <Route path="info/vip-levels" element={<VIPLevelsView />} />
             <Route path="info/odds" element={<OddsView />} />
-            <Route path="info" element={<UnifiedInfoView />} />
+            <Route path="info" element={<InfoView />} />
           </Route>
         )}
         {isAuthorized && !needsProfileSetup && (

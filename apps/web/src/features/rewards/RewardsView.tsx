@@ -1,5 +1,6 @@
 import {
   Calendar,
+  CalendarClock,
   CheckCircle2,
   Gift,
   Star,
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import AppBottomNav from '../../components/AppBottomNav';
 
 const DAILY_REWARDS = [
@@ -63,6 +65,17 @@ export default function RewardsView() {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-10 px-6 pt-24">
+        <Link
+          to="/app/events"
+          className="flex items-center justify-between rounded-xl border border-[#fcc025]/30 bg-gradient-to-r from-[#fcc025]/15 to-[#fcc025]/5 p-4 transition-all hover:from-[#fcc025]/25 hover:to-[#fcc025]/10"
+        >
+          <div>
+            <p className="text-sm font-black text-white">活動中心</p>
+            <p className="mt-1 text-[10px] text-[#adaaaa]">查看進行中的活動並領取獎勵</p>
+          </div>
+          <CalendarClock className="h-6 w-6 text-[#fcc025]" />
+        </Link>
+
         <section className="flex flex-col items-center justify-center pt-4">
           <div className="flex h-32 w-32 items-center justify-center rounded-full border-4 border-[#fcc025] bg-[#1a1919] shadow-[0_0_50px_rgba(252,192,37,0.2)]">
             <Star size={64} fill="#fcc025" className="text-[#fcc025]" />

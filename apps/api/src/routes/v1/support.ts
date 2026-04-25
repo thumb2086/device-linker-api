@@ -31,25 +31,19 @@ export async function supportRoutes(fastify: FastifyInstance) {
 
   typedFastify.get("/announcements", async (request) => {
     const dbAnnouncements = await announcementRepo.listActiveAnnouncements();
-    const active = dbAnnouncements.length > 0
-      ? dbAnnouncements.map((item: any) => ({
-          id: item.id,
-          announcementId: item.announcementId,
-          title: item.title,
-          content: item.content,
-          isPinned: item.isPinned ?? false,
-          isActive: item.isActive ?? true,
-          publishedBy: item.publishedBy || undefined,
-          updatedBy: item.updatedBy || undefined,
-          publishedAt: new Date(item.publishedAt || item.createdAt).toISOString(),
-          createdAt: new Date(item.createdAt).toISOString(),
-          updatedAt: new Date(item.updatedAt || item.createdAt).toISOString(),
-        }))
-      : (await kv.get<any[]>("announcements:list") || []).filter(a => a.isActive).sort((a, b) => {
-          if (a.isPinned && !b.isPinned) return -1;
-          if (!a.isPinned && b.isPinned) return 1;
-          return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-        });
+    const active = dbAnnouncements.map((item: any) => ({
+      id: item.id,
+      announcementId: item.announcementId,
+      title: item.title,
+      content: item.content,
+      isPinned: item.isPinned ?? false,
+      isActive: item.isActive ?? true,
+      publishedBy: item.publishedBy || undefined,
+      updatedBy: item.updatedBy || undefined,
+      publishedAt: new Date(item.publishedAt || item.createdAt).toISOString(),
+      createdAt: new Date(item.createdAt).toISOString(),
+      updatedAt: new Date(item.updatedAt || item.createdAt).toISOString(),
+    }));
     return createApiEnvelope({ announcements: active }, request.id);
   });
 

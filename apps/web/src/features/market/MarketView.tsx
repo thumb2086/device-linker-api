@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BarChart3,
@@ -22,6 +22,11 @@ type Quote = {
   sector: string;
   changePct: number;
 };
+
+
+type MarketActionParams =
+  | { type: 'stock_buy' | 'stock_sell'; symbol: string; quantity: string }
+  | { type: 'bank_deposit' | 'bank_withdraw'; amount: string };
 
 function Sparkline({ values, color }: { values: number[]; color: string }) {
   const path = useMemo(() => {
@@ -58,6 +63,7 @@ export default function MarketView() {
   const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
   const [tradeQuantity, setTradeQuantity] = useState('1');
   const [cashMoveAmount, setCashMoveAmount] = useState('1000');
+  const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const zh = {
     publicFeed: '\u516c\u958b\u52d5\u614b',
@@ -94,6 +100,16 @@ export default function MarketView() {
   const selectedQuote = marketSnapshot?.symbols?.[selectedSymbol] as Quote | undefined;
   const historyBySymbol = marketSnapshot?.history || {};
 
+  const runAction = (params: MarketActionParams, successMessage: string) => {
+    execute.mutate(params, {
+      onSuccess: () => setActionNotice({ type: 'success', message: successMessage }),
+      onError: (error: unknown) => {
+        const message = error instanceof Error ? error.message : (isZh ? '交易失敗' : 'Action failed');
+        setActionNotice({ type: 'error', message });
+      },
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
@@ -109,6 +125,17 @@ export default function MarketView() {
       </header>
 
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 pt-24">
+        {actionNotice && (
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm font-bold ${
+              actionNotice.type === 'success'
+                ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300'
+                : 'border-[#ff7351]/40 bg-[#ff7351]/10 text-[#ffc8ba]'
+            }`}
+          >
+            {actionNotice.message}
+          </div>
+        )}
         <section className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl lg:col-span-2">
             <div className="flex items-center gap-3">
@@ -218,7 +245,7 @@ export default function MarketView() {
                 <button
                   type="button"
                   disabled={execute.isPending}
-                  onClick={() => execute.mutate({ type: 'stock_buy', symbol: selectedSymbol, quantity: tradeQuantity })}
+                  onClick={() => runAction({ type: 'stock_buy', symbol: selectedSymbol, quantity: tradeQuantity }, isZh ? '買入成功' : 'Buy order completed')}
                   className="rounded-2xl bg-[#fcc025] px-5 py-4 text-sm font-black uppercase tracking-[0.15em] text-black disabled:opacity-50"
                 >
                   {isZh ? zh.buy : 'Buy'} {selectedQuote?.symbol || selectedSymbol}
@@ -226,7 +253,7 @@ export default function MarketView() {
                 <button
                   type="button"
                   disabled={execute.isPending}
-                  onClick={() => execute.mutate({ type: 'stock_sell', symbol: selectedSymbol, quantity: tradeQuantity })}
+                  onClick={() => runAction({ type: 'stock_sell', symbol: selectedSymbol, quantity: tradeQuantity }, isZh ? '賣出成功' : 'Sell order completed')}
                   className="rounded-2xl bg-[#ff7351] px-5 py-4 text-sm font-black uppercase tracking-[0.15em] text-white disabled:opacity-50"
                 >
                   {isZh ? zh.sell : 'Sell'} {selectedQuote?.symbol || selectedSymbol}
@@ -243,7 +270,7 @@ export default function MarketView() {
                 <button
                   type="button"
                   disabled={execute.isPending}
-                  onClick={() => execute.mutate({ type: 'bank_deposit', amount: cashMoveAmount })}
+                  onClick={() => runAction({ type: 'bank_deposit', amount: cashMoveAmount }, isZh ? '存入成功' : 'Deposit completed')}
                   className="rounded-2xl border border-[#494847]/20 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-black disabled:opacity-50"
                 >
                   {isZh ? zh.bankDeposit : 'Deposit to Bank'}
@@ -251,7 +278,7 @@ export default function MarketView() {
                 <button
                   type="button"
                   disabled={execute.isPending}
-                  onClick={() => execute.mutate({ type: 'bank_withdraw', amount: cashMoveAmount })}
+                  onClick={() => runAction({ type: 'bank_withdraw', amount: cashMoveAmount }, isZh ? '提領成功' : 'Withdraw completed')}
                   className="rounded-2xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-white disabled:opacity-50"
                 >
                   {isZh ? zh.bankWithdraw : 'Withdraw from Bank'}

@@ -80,3 +80,10 @@
   font-weight: bold;
   min-height: 1.5em;
 }
+
+
+@media (max-width: 640px) {
+  .sicbo-betting-grid { grid-template-columns: 1fr 1fr; }
+  .sicbo-controls { flex-direction: column; }
+  .sicbo-controls button { width: 100%; min-height: 48px; }
+}

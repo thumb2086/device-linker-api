@@ -4,18 +4,20 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { IdentityManager, RewardManager, buildVipStatus } from "@repo/domain";
-import { SessionRepository, UserRepository, kv, OpsRepository } from "@repo/infrastructure";
+import { IdentityManager, RewardManager, VipManager } from "@repo/domain";
+import { SessionRepository, UserRepository, kv, OpsRepository, RewardCatalogRepository } from "@repo/infrastructure";
 
 export async function meRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   
   const identityManager = new IdentityManager();
   const rewardManager = new RewardManager();
+  const vipManager = new VipManager();
   
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
   const opsRepo = new OpsRepository();
+  const rewardCatalogRepo = new RewardCatalogRepository();
 
   const getContext = async (req: any) => {
     const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
@@ -34,24 +36,51 @@ export async function meRoutes(fastify: FastifyInstance) {
 
     const address = ctx.session.address;
     const totalBet = await kv.get<string>(`total_bet:${address}`) || "0";
-    const vip = buildVipStatus(totalBet);
+    const vip = await vipManager.getVipStatus(address);
     
     const activeTitleId = await kv.get<string>(`active_title:${address}`) || "newbie";
-    const activeAvatarId = await kv.get<string>(`active_avatar:${address}`) || "std_1";
-    
-    const title = rewardManager.getAvailableTitles().find(t => t.id === activeTitleId);
-    const avatar = rewardManager.getAvailableAvatars().find(a => a.id === activeAvatarId);
+    const activeAvatarId = await kv.get<string>(`active_avatar:${address}`) || "classic_chip";
 
-    return createApiEnvelope({ 
+    // Merge built-in catalog with admin-defined custom items from reward_catalog
+    // so custom avatars/titles equipped by users display correctly in the profile.
+    const [customItems] = await Promise.all([
+      rewardCatalogRepo.listItems({}).catch(() => [] as any[]),
+    ]);
+    const customById = new Map<string, any>();
+    for (const it of customItems || []) {
+      if (it?.itemId) customById.set(it.itemId, it);
+    }
+
+    let titleLabel: string | undefined;
+    const builtinTitle = rewardManager.getAvailableTitles().find(t => t.id === activeTitleId);
+    if (builtinTitle) {
+      titleLabel = (builtinTitle as any).label || (builtinTitle as any).name;
+    } else {
+      const custom = customById.get(activeTitleId);
+      if (custom?.type === "title") titleLabel = custom.name;
+    }
+
+    let avatarIcon: string | undefined;
+    const builtinAvatar = rewardManager.getAvailableAvatars().find(a => a.id === activeAvatarId);
+    if (builtinAvatar) {
+      avatarIcon = (builtinAvatar as any).icon || builtinAvatar.url;
+    } else {
+      const custom = customById.get(activeAvatarId);
+      if (custom?.type === "avatar") avatarIcon = custom.icon;
+    }
+
+    return createApiEnvelope({
        profile: {
          id: ctx.user.id,
          address,
          displayName: ctx.user.displayName || (ctx.session.accountId ? `@${ctx.session.accountId}` : address.slice(0, 6) + "..." + address.slice(-4)),
          totalBet,
-         vipLevel: vip.vipLevel,
-         maxBet: vip.maxBet,
-         title: title?.label || "新手",
-         avatar: avatar?.url || "/assets/avatars/1.png",
+         vipLevel: vip?.level?.label || "普通會員",
+         maxBet: Number(vip?.level?.maxBet || 1000),
+         title: titleLabel || "新手",
+         avatar: avatarIcon || "🪙",
+         avatarId: activeAvatarId,
+         titleId: activeTitleId,
          mode: ctx.session.mode,
          createdAt: ctx.user.createdAt
        }

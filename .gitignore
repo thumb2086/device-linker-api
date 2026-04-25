@@ -10,3 +10,5 @@ dist
 .pnpm-debug.log
 .turbo
 .env*.local
+.states/
+remix.config.json

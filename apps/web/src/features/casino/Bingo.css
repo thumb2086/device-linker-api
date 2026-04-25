@@ -95,3 +95,9 @@
     grid-template-columns: repeat(5, 1fr);
   }
 }
+
+
+@media (max-width: 640px) {
+  .bingo-controls { flex-direction: column; }
+  .bingo-controls button, .bingo-controls input { width: 100%; min-height: 44px; }
+}

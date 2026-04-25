@@ -16,8 +16,8 @@ export interface GameDomain {
   resolveBlackjack(action: 'start' | 'hit' | 'stand', state: any, seed: string, bias?: number): any;
   resolveDragonTiger(action: 'gate' | 'shoot', state: any, seed: string, bias?: number): any;
   resolveCrash(elapsedSeconds: number, seed: string, bias?: number): { multiplier: number; crashed: boolean; crashPoint: number };
-  resolvePoker(action: string, state: any, seed: string): any;
-  resolveBluffdice(action: string, state: any, seed: string): any;
+  resolvePoker(action: 'deal' | 'hold', state: any, seed: string, betAmount?: number): { hand: string; handRank: number; isWin: boolean; multiplier: number; payout: number; cards: any[] };
+  resolveBluffdice(action: 'bet' | 'call', state: any, seed: string, betAmount?: number): { dice: number[]; total: number; isWin: boolean; multiplier: number; payout: number };
 }
 
 export class GameManager implements GameDomain {
@@ -126,16 +126,29 @@ export class GameManager implements GameDomain {
 
   resolveHorseRace(horseId: number, seed: string, bias: number = 0): { winnerId: number; winnerName: string; isWin: boolean; multiplier: number } {
     const HORSES = [
-      { id: 1, name: "赤焰", multiplier: 1.8 },
-      { id: 2, name: "雷霆", multiplier: 2.2 },
-      { id: 3, name: "幻影", multiplier: 2.9 },
-      { id: 4, name: "夜刃", multiplier: 4.0 },
-      { id: 5, name: "霜牙", multiplier: 5.8 },
-      { id: 6, name: "流星", multiplier: 8.5 }
+      { id: 1, name: "赤焰", multiplier: 2.0, weight: 500 },   // ~50% chance
+      { id: 2, name: "雷霆", multiplier: 3.0, weight: 333 },   // ~33% chance
+      { id: 3, name: "幻影", multiplier: 5.0, weight: 200 },   // ~20% chance
+      { id: 4, name: "夜刃", multiplier: 8.0, weight: 125 },   // ~12.5% chance
+      { id: 5, name: "霜牙", multiplier: 12.0, weight: 83 },    // ~8.3% chance
+      { id: 6, name: "流星", multiplier: 20.0, weight: 50 }     // ~5% chance
     ];
+    
+    const totalWeight = HORSES.reduce((sum, h) => sum + h.weight, 0);
     let hash = this._fnv1a32(seed);
-    let winnerIndex = hash % HORSES.length;
+    let random = hash % totalWeight;
+    
+    let winnerIndex = 0;
+    let cumulativeWeight = 0;
+    for (let i = 0; i < HORSES.length; i++) {
+      cumulativeWeight += HORSES[i].weight;
+      if (random < cumulativeWeight) {
+        winnerIndex = i;
+        break;
+      }
+    }
 
+    // Apply bias: adjust random value to favor selected horse
     if (bias > 0 && HORSES[winnerIndex].id !== horseId) {
         if ((this._fnv1a32(seed + ':bias') % 100) < bias * 100) {
             winnerIndex = HORSES.findIndex(h => h.id === horseId);
@@ -363,7 +376,8 @@ export class GameManager implements GameDomain {
 
   resolveCrash(elapsedSeconds: number, seed: string, bias: number = 0) {
     const hash = this._fnv1a32(seed);
-    const crashPoint = Math.max(1.0, 0.99 / (1 - (hash % 1000000 / 1000000)) ** 0.05);
+    const ratio = (hash % 1000000) / 1000000;
+    const crashPoint = Math.min(100, Math.max(1.08, 0.99 / (1 - ratio) ** 0.35));
     const currentMultiplier = Math.pow(Math.E, 0.08 * elapsedSeconds);
     return {
         multiplier: currentMultiplier,
@@ -372,20 +386,83 @@ export class GameManager implements GameDomain {
     };
   }
 
-  resolvePoker(action: string, state: any, seed: string): any {
-    // Simplified Poker Hand Evaluation based on seed
-    const hash = this._fnv1a32(seed + action);
-    const winChance = hash % 100;
-    const isWin = winChance > 55; // 45% win chance for simplicity
+  resolvePoker(action: 'deal' | 'hold', state: any, seed: string, betAmount: number = 100): { hand: string; handRank: number; isWin: boolean; multiplier: number; payout: number; cards: any[] } {
+    const suits = ['♠', '♥', '♦', '♣'];
+    const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    
+    const drawCard = (index: number) => {
+        const hash = this._fnv1a32(`${seed}:${index}`);
+        return {
+            rank: ranks[hash % ranks.length],
+            suit: suits[Math.floor(hash / ranks.length) % suits.length]
+        };
+    };
+    
+    // Deal 5 cards for simplified poker
+    const cards = Array.from({ length: 5 }, (_, i) => drawCard(i));
+    
+    // Evaluate hand
+    const rankCounts: Record<string, number> = {};
+    const suitCounts: Record<string, number> = {};
+    cards.forEach(c => {
+        rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1;
+        suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
+    });
+    
+    const counts = Object.values(rankCounts);
+    const isFlush = Object.values(suitCounts).some(c => c >= 5);
+    const isStraight = this._checkStraight(Object.keys(rankCounts).map(r => ranks.indexOf(r)));
+    
+    let hand = 'High Card';
+    let handRank = 1;
+    let multiplier = 0;
+    
+    if (isFlush && isStraight && cards.some(c => c.rank === 'A')) {
+        hand = 'Royal Flush'; handRank = 10; multiplier = 100;
+    } else if (isFlush && isStraight) {
+        hand = 'Straight Flush'; handRank = 9; multiplier = 50;
+    } else if (counts.includes(4)) {
+        hand = 'Four of a Kind'; handRank = 8; multiplier = 20;
+    } else if (counts.includes(3) && counts.includes(2)) {
+        hand = 'Full House'; handRank = 7; multiplier = 10;
+    } else if (isFlush) {
+        hand = 'Flush'; handRank = 6; multiplier = 6;
+    } else if (isStraight) {
+        hand = 'Straight'; handRank = 5; multiplier = 4;
+    } else if (counts.includes(3)) {
+        hand = 'Three of a Kind'; handRank = 4; multiplier = 3;
+    } else if (counts.filter(c => c === 2).length === 2) {
+        hand = 'Two Pair'; handRank = 3; multiplier = 2;
+    } else if (counts.includes(2)) {
+        hand = 'One Pair'; handRank = 2; multiplier = 1;
+    }
+    
     return {
-        action,
-        isWin,
-        multiplier: isWin ? 2.0 : 0,
-        hand: isWin ? "Full House" : "High Card"
+        hand,
+        handRank,
+        isWin: multiplier > 0,
+        multiplier,
+        payout: betAmount * multiplier,
+        cards
     };
   }
 
-  resolveBluffdice(action: string, state: any, seed: string): any {
+  private _checkStraight(rankIndices: number[]): boolean {
+    if (rankIndices.length < 5) return false;
+    const sorted = [...new Set(rankIndices)].sort((a, b) => a - b);
+    if (sorted.length < 5) return false;
+    // Check for 5 consecutive
+    for (let i = 0; i <= sorted.length - 5; i++) {
+        if (sorted[i + 4] - sorted[i] === 4) return true;
+    }
+    // Check for A-2-3-4-5 straight (A=12, so check 0,1,2,3,12)
+    if (sorted.includes(12) && sorted.includes(0) && sorted.includes(1) && sorted.includes(2) && sorted.includes(3)) {
+        return true;
+    }
+    return false;
+  }
+
+  resolveBluffdice(action: 'bet' | 'call', state: any, seed: string, betAmount: number = 100): { dice: number[]; total: number; isWin: boolean; multiplier: number; payout: number } {
     const hash = this._fnv1a32(seed + action);
     const dice = [
         (hash % 6) + 1,
@@ -394,10 +471,23 @@ export class GameManager implements GameDomain {
         (Math.floor(hash / 216) % 6) + 1,
         (Math.floor(hash / 1296) % 6) + 1,
     ];
+    const total = dice.reduce((a, b) => a + b, 0);
+    
+    // Bluffdice payout: exact match = 5x, within 2 = 2x, within 4 = 1x, else 0
+    let multiplier = 0;
+    if (action === 'bet' && state?.predictedTotal) {
+        const diff = Math.abs(total - state.predictedTotal);
+        if (diff === 0) multiplier = 5;
+        else if (diff <= 2) multiplier = 2;
+        else if (diff <= 4) multiplier = 1;
+    }
+    
     return {
-        action,
         dice,
-        total: dice.reduce((a, b) => a + b, 0)
+        total,
+        isWin: multiplier > 0,
+        multiplier,
+        payout: betAmount * multiplier
     };
   }
 

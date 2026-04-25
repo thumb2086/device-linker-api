@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -101,16 +101,21 @@ export default function WalletView() {
   }, [canClaimAirdrop, nextAirdropAt, isZh]);
 
   return (
-    <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
+    <div className="min-h-screen bg-[#0e0e0e] pb-40 font-['Manrope'] text-white">
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
         <div className="app-shell flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
             <WalletIcon className="text-[#fcc025]" />
             <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">{t('vault.title')}</h1>
           </div>
-          <Link to="/app/transactions" className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
-            Public Feed
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/app/swap" className="text-[10px] font-black uppercase tracking-[0.18em] text-[#fcc025]">
+              Swap
+            </Link>
+            <Link to="/app/transactions" className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
+              Public Feed
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -236,7 +241,7 @@ export default function WalletView() {
                   {isZh ? zh.noTransactions : 'No transactions yet'}
                 </div>
               )}
-              {walletSummary?.recentTransactions?.map((tx) => {
+              {walletSummary?.recentTransactions?.map((tx: any) => {
                 const positive = tx.type === 'airdrop' || tx.type === 'transfer_in';
                 return (
                   <div key={tx.id} className="rounded-xl border border-[#494847]/10 bg-[#0e0e0e] p-4">

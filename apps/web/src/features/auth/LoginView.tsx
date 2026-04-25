@@ -188,7 +188,7 @@ export default function LoginView() {
             >
                 <Fingerprint size={42} className="text-[#fcc025]" />
             </motion.div>
-            <h1 className="text-4xl font-extrabold text-[#fcc025] tracking-tighter uppercase italic">{isZh ? '知悉身分認證' : 'ZiXi Identity'}</h1>
+            <h1 className="text-4xl font-extrabold text-[#fcc025] tracking-tighter uppercase italic">{isZh ? '子熙身分認證' : 'ZiXi Identity'}</h1>
             <p className="text-[#adaaaa] text-[10px] font-bold uppercase tracking-[0.4em] leading-relaxed">{isZh ? '安全模擬存取協定' : 'Secured Simulation Access Protocol'}</p>
         </header>
 

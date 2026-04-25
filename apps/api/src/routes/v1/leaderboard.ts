@@ -8,7 +8,8 @@ import { LeaderboardManager } from "@repo/domain/leaderboard/leaderboard-manager
 import { OnchainWalletManager } from "@repo/domain";
 import * as schema from "@repo/infrastructure/db/schema.js";
 import { requireDb, WalletRepository } from "@repo/infrastructure/db/index.js";
-import { ChainClient, kv } from "@repo/infrastructure";
+import { ChainClient, kv, RewardCatalogRepository } from "@repo/infrastructure";
+import { TITLES, AVATARS } from "@repo/domain";
 
 const ASSET_LB_SYNC_KEY = "leaderboard:asset:last_onchain_sync_at";
 const ASSET_LB_SYNC_INTERVAL_MS = 60 * 60 * 1000;
@@ -17,6 +18,38 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   const walletRepo = new WalletRepository();
   const onchainWallet = new OnchainWalletManager();
+  const rewardCatalogRepo = new RewardCatalogRepository();
+
+  // Attach each leaderboard entry's equipped avatar + title (emoji + label)
+  const enrichEntriesWithCosmetics = async (entries: Array<any>) => {
+    if (!entries?.length) return;
+    const customItems = await rewardCatalogRepo.listItems({}).catch(() => [] as any[]);
+    const avatarMap = new Map<string, { id: string; icon?: string; label?: string }>();
+    const titleMap = new Map<string, { id: string; label?: string }>();
+    for (const a of AVATARS) avatarMap.set(a.id, { id: a.id, icon: a.icon, label: a.label });
+    for (const t of TITLES) titleMap.set(t.id, { id: t.id, label: t.label });
+    for (const row of customItems as any[]) {
+      if (row.type === "avatar") avatarMap.set(row.itemId, { id: row.itemId, icon: row.icon, label: row.name });
+      if (row.type === "title") titleMap.set(row.itemId, { id: row.itemId, label: row.name });
+    }
+
+    // Iterate over entries directly so indices always stay aligned even when
+    // some entries have empty addresses.
+    await Promise.all(entries.map(async (entry) => {
+      const addr = String(entry?.address || "").toLowerCase();
+      if (!addr) return;
+      const [avId, tiId] = await Promise.all([
+        kv.get<string>(`active_avatar:${addr}`).catch(() => null),
+        kv.get<string>(`active_title:${addr}`).catch(() => null),
+      ]);
+      const av = avatarMap.get(avId || "classic_chip") || avatarMap.get("classic_chip");
+      const ti = titleMap.get(tiId || "newbie") || titleMap.get("newbie");
+      entry.activeAvatarId = av?.id ?? null;
+      entry.activeAvatarIcon = av?.icon ?? null;
+      entry.activeTitleId = ti?.id ?? null;
+      entry.activeTitleLabel = ti?.label ?? null;
+    }));
+  };
 
   // Helper to get context and address
   const getAddressFromRequest = async (req: any) => {
@@ -122,6 +155,8 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
 
         const includeMarketAssets = process.env.ASSET_LEADERBOARD_INCLUDE_MARKET === "true";
         const result = await manager.getAssetLeaderboard(selfAddress, limit, includeMarketAssets);
+        await enrichEntriesWithCosmetics(result.entries);
+        if (result.selfRank) await enrichEntriesWithCosmetics([result.selfRank]);
         return createApiEnvelope({ success: true, data: result }, request.id);
       }
 
@@ -135,6 +170,8 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
           entries: assetResult.entries,
           selfRank: assetResult.selfRank,
         };
+        await enrichEntriesWithCosmetics(result.entries);
+        if (result.selfRank) await enrichEntriesWithCosmetics([result.selfRank]);
         return createApiEnvelope({ success: true, data: result }, request.id);
       }
 
@@ -144,6 +181,8 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
         limit,
         periodId
       );
+      await enrichEntriesWithCosmetics(result.entries);
+      if (result.selfRank) await enrichEntriesWithCosmetics([result.selfRank]);
       return createApiEnvelope({ success: true, data: result }, request.id);
     } catch (err: any) {
       console.error("[leaderboard] error:", err);

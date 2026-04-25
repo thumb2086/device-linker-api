@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { LayoutGrid, ChevronLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -14,8 +13,6 @@ import { DragonTigerView } from './DragonTigerView';
 import { PokerView } from './PokerView';
 import { BluffDiceView } from './BluffDiceView';
 import { CrashView } from './CrashView';
-
-const VIP_LOCKED_GAMES = new Set(['poker', 'bluffdice']);
 
 const GAME_LABELS: Record<string, { zh: string; en: string }> = {
   roulette: { zh: '\u8f2a\u76e4', en: 'Roulette' },
@@ -39,30 +36,6 @@ export default function CasinoView() {
   const currentGameLabel = game ? (isZh ? GAME_LABELS[game]?.zh : GAME_LABELS[game]?.en) : '';
 
   const renderGame = () => {
-    if (game && VIP_LOCKED_GAMES.has(game)) {
-      return (
-        <div className="space-y-4 rounded-2xl border border-[#fcc025]/15 bg-[#1a1919] p-20 text-center">
-          <div className="inline-flex rounded-full border border-[#fcc025]/25 bg-[#fcc025]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#fcc025]">
-            VIP
-          </div>
-          <h2 className="text-2xl font-black uppercase italic tracking-tighter text-[#fcc025]">
-            {isZh ? 'VIP \u904a\u6232\u5c1a\u672a\u958b\u653e' : 'VIP Game Not Available Yet'}
-          </h2>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
-            {isZh
-              ? '\u64b2\u514b\u8207\u5439\u725b\u6703\u5728 VIP \u7cfb\u7d71\u5b8c\u6210\u5f8c\u958b\u653e\u3002'
-              : 'Poker and Bluff Dice will unlock after the VIP system is ready.'}
-          </p>
-          <Link
-            to="/app/casino/lobby"
-            className="mt-8 inline-block rounded-xl bg-[#fcc025] px-8 py-3 font-black uppercase italic tracking-tighter text-black transition-colors hover:bg-white"
-          >
-            {isZh ? '\u8fd4\u56de\u5927\u5ef3' : 'Return to Floor'}
-          </Link>
-        </div>
-      );
-    }
-
     switch (game) {
       case 'roulette':
         return <RouletteView />;

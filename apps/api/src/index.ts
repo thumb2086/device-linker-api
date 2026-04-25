@@ -12,7 +12,28 @@ import { supportRoutes } from "./routes/v1/support.js";
 import { profileRoutes } from "./routes/v1/profile.js";
 import { announcementRoutes } from "./routes/v1/announcements.js";
 import { transactionRoutes } from "./routes/v1/transactions.js";
+import { dashboardRoutes } from "./routes/v1/dashboard/index.js";
 import { legacyRoutes } from "./routes/legacy/index.js";
+// Phase 3: New routes
+import { leaderboardRoutes } from "./routes/v1/leaderboard.js";
+import { vipRoutes } from "./routes/v1/vip.js";
+import { danmakuRoutes } from "./routes/v1/danmaku.js";
+// Phase 3: 12 Game routes
+import { slotsRoutes } from "./routes/v1/games/slots.js";
+import { coinflipRoutes } from "./routes/v1/games/coinflip.js";
+import { rouletteRoutes } from "./routes/v1/games/roulette.js";
+import { horseRoutes } from "./routes/v1/games/horse.js";
+import { sicboRoutes } from "./routes/v1/games/sicbo.js";
+import { bingoRoutes } from "./routes/v1/games/bingo.js";
+import { duelRoutes } from "./routes/v1/games/duel.js";
+import { blackjackRoutes } from "./routes/v1/games/blackjack.js";
+import { crashRoutes } from "./routes/v1/games/crash.js";
+import { pokerRoutes } from "./routes/v1/games/poker.js";
+import { bluffdiceRoutes } from "./routes/v1/games/bluffdice.js";
+import { shootDragonGateRoutes } from "./routes/v1/games/shoot-dragon-gate.js";
+// Phase 6: Chest / inventory routes
+import { chestRoutes } from "./routes/v1/chests-simple.js";
+import { inventoryRoutes } from "./routes/v1/inventory.js";
 import postgres from "postgres";
 
 const fastify = Fastify({
@@ -24,7 +45,12 @@ fastify.setSerializerCompiler(serializerCompiler);
 
 // Global Error Handler
 fastify.setErrorHandler((error, request, reply) => {
-  console.error("Global Error Handler:", error);
+  console.error("Global Error Handler:", {
+    message: error?.message,
+    stack: error?.stack,
+    name: error?.name,
+    cause: error?.cause ? String(error.cause) : undefined,
+  });
   if (error.validation) {
     reply.status(400).send({
         success: false,
@@ -180,6 +206,27 @@ fastify.register(supportRoutes, { prefix: "/api/v1/support" });
 fastify.register(profileRoutes, { prefix: "/api/v1/profile" });
 fastify.register(announcementRoutes, { prefix: "/api/v1/announcements" });
 fastify.register(transactionRoutes, { prefix: "/api/v1/transactions" });
+fastify.register(dashboardRoutes, { prefix: "/api/v1/dashboard" });
+// Phase 3: New routes
+fastify.register(leaderboardRoutes, { prefix: "/api/v1/leaderboard" });
+fastify.register(vipRoutes, { prefix: "/api/v1/vip" });
+fastify.register(danmakuRoutes, { prefix: "/api/v1/danmaku" });
+// Phase 3: 12 Individual Game routes - now with on-chain settlement
+fastify.register(slotsRoutes, { prefix: "/api/v1/games/slots" });
+fastify.register(coinflipRoutes, { prefix: "/api/v1/games/coinflip" });
+fastify.register(rouletteRoutes, { prefix: "/api/v1/games/roulette" });
+fastify.register(horseRoutes, { prefix: "/api/v1/games/horse" });
+fastify.register(sicboRoutes, { prefix: "/api/v1/games/sicbo" });
+fastify.register(bingoRoutes, { prefix: "/api/v1/games/bingo" });
+fastify.register(duelRoutes, { prefix: "/api/v1/games/duel" });
+fastify.register(blackjackRoutes, { prefix: "/api/v1/games/blackjack" });
+fastify.register(crashRoutes, { prefix: "/api/v1/games/crash" });
+fastify.register(pokerRoutes, { prefix: "/api/v1/games/poker" });
+fastify.register(bluffdiceRoutes, { prefix: "/api/v1/games/bluffdice" });
+fastify.register(shootDragonGateRoutes, { prefix: "/api/v1/games/shoot-dragon-gate" });
+// Phase 6: Chest / inventory
+fastify.register(chestRoutes, { prefix: "/api/v1/chests" });
+fastify.register(inventoryRoutes, { prefix: "/api/v1/inventory" });
 
 fastify.get("/health", async () => {
   return { status: "ok", env: process.env.NODE_ENV };

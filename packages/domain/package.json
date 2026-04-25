@@ -5,13 +5,45 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./games/game-manager.js": {
+      "import": "./dist/games/game-manager.js",
+      "types": "./dist/games/game-manager.d.ts"
+    },
+    "./games/game-session-manager.js": {
+      "import": "./dist/games/game-session-manager.js",
+      "types": "./dist/games/game-session-manager.d.ts"
+    },
+    "./games/auto-round.js": {
+      "import": "./dist/games/auto-round.js",
+      "types": "./dist/games/auto-round.d.ts"
+    },
+    "./leaderboard/leaderboard-manager.js": {
+      "import": "./dist/leaderboard/leaderboard-manager.js",
+      "types": "./dist/leaderboard/leaderboard-manager.d.ts"
+    },
+    "./danmaku/danmaku-manager.js": {
+      "import": "./dist/danmaku/danmaku-manager.js",
+      "types": "./dist/danmaku/danmaku-manager.d.ts"
+    },
+    "./levels/vip-manager.js": {
+      "import": "./dist/levels/vip-manager.js",
+      "types": "./dist/levels/vip-manager.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest run"
   },
   "dependencies": {
     "@repo/infrastructure": "workspace:*",
+    "@repo/on-chain": "workspace:*",
     "@repo/shared": "workspace:*",
+    "drizzle-orm": "^0.30.0",
     "ethers": "^6.10.0"
   },
   "devDependencies": {

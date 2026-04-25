@@ -182,10 +182,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
     await announcementRepo.saveAnnouncement(ann);
 
-    const list = await kv.get<any[]>("announcements:list") || [];
-    list.unshift(ann);
-    await kv.set("announcements:list", list);
-
     return createApiEnvelope({ success: true, announcement: ann }, request.id);
   });
 
@@ -223,11 +219,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
       updatedBy: ctx.session.address,
     });
 
-    // Rebuild KV cache from fresh DB state so public GET /support/announcements
-    // fallback does not serve stale data.
-    const activeAfter = await announcementRepo.listActiveAnnouncements();
-    await kv.set("announcements:list", activeAfter);
-
     await opsRepo.logEvent({
       channel: "admin",
       severity: "info",
@@ -252,11 +243,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
     const { announcementId } = request.params as { announcementId: string };
     await announcementRepo.deleteAnnouncement(announcementId);
-
-    // Rebuild KV cache after deletion so removed items don't resurface via
-    // the KV fallback path in /support/announcements.
-    const activeAfter = await announcementRepo.listActiveAnnouncements();
-    await kv.set("announcements:list", activeAfter);
 
     await opsRepo.logEvent({
       channel: "admin",

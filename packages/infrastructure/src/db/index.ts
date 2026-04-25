@@ -445,6 +445,88 @@ const ensureCoreSchema = async () => {
             updated_at TIMESTAMP NOT NULL DEFAULT NOW()
           )
         `;
+        await sql`
+          CREATE TABLE IF NOT EXISTS reward_catalog (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            item_id TEXT NOT NULL UNIQUE,
+            type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            rarity TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'admin',
+            description TEXT,
+            icon TEXT,
+            price NUMERIC,
+            is_active BOOLEAN DEFAULT TRUE,
+            meta JSONB,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`
+          CREATE TABLE IF NOT EXISTS reward_submissions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            submission_id TEXT NOT NULL UNIQUE,
+            user_id UUID NOT NULL REFERENCES users(id),
+            address TEXT NOT NULL,
+            type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            icon TEXT,
+            description TEXT,
+            rarity TEXT NOT NULL DEFAULT 'common',
+            status TEXT NOT NULL DEFAULT 'pending',
+            reviewed_by TEXT,
+            review_note TEXT,
+            approved_item_id TEXT,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS reward_submissions_status_idx ON reward_submissions (status, created_at DESC)`;
+        await sql`CREATE INDEX IF NOT EXISTS reward_submissions_user_idx ON reward_submissions (user_id, created_at DESC)`;
+        await sql`
+          CREATE TABLE IF NOT EXISTS reward_campaigns (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            campaign_id TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            description TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            start_at TIMESTAMP,
+            end_at TIMESTAMP,
+            required_level TEXT,
+            max_claims_total INTEGER,
+            max_claims_per_user INTEGER DEFAULT 1,
+            rewards JSONB NOT NULL DEFAULT '{}',
+            created_by TEXT,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS reward_campaigns_active_idx ON reward_campaigns (is_active, created_at DESC)`;
+        await sql`
+          CREATE TABLE IF NOT EXISTS reward_campaign_claims (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            campaign_id TEXT NOT NULL,
+            user_id UUID NOT NULL,
+            address TEXT NOT NULL,
+            claimed_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS reward_campaign_claims_user_idx ON reward_campaign_claims (campaign_id, user_id)`;
+        // Best-effort uniqueness for the common maxClaimsPerUser = 1 case; callers still
+        // enforce the per-user cap in application code for limits > 1.
+        // Not marked UNIQUE outright because existing rows may violate it; callers handle double-insert safely.
+        await sql`
+          CREATE TABLE IF NOT EXISTS reward_grant_logs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            target_address TEXT NOT NULL,
+            operator_address TEXT,
+            source TEXT NOT NULL,
+            note TEXT,
+            bundle JSONB NOT NULL DEFAULT '{}',
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `;
+        await sql`CREATE INDEX IF NOT EXISTS reward_grant_logs_target_idx ON reward_grant_logs (target_address, created_at DESC)`;
         await normalizeLegacyIdentityData(sql);
       } finally {
         await sql.end();
@@ -504,6 +586,23 @@ export class UserRepository implements IUserRepository {
   async getUserById(id: string) {
     const conn = await requireDb();
     return await conn.query.users.findFirst({ where: (users: any, { eq }: any) => eq(users.id, id) });
+  }
+  async listUsers(opts?: { limit?: number; search?: string; mode?: string | null }) {
+    const conn = await requireDb();
+    const limit = Math.min(200, Math.max(1, Number(opts?.limit) || 50));
+    const search = opts?.search ? String(opts.search).trim().toLowerCase() : "";
+    // Escape LIKE wildcards so searching for `%` or `_` matches the literal
+    // character rather than "match any" / "match single char".
+    const escaped = search.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+    const rows = await conn.query.users.findMany({
+      limit,
+      orderBy: (u: any, { desc }: any) => [desc(u.createdAt)],
+      where: search
+        ? (u: any, { or, ilike }: any) =>
+            or(ilike(u.address, `%${escaped}%`), ilike(u.displayName, `%${escaped}%`))
+        : undefined,
+    });
+    return rows;
   }
   async getUserByAddress(address: string) {
     const conn = await requireDb();
@@ -920,6 +1019,342 @@ export class CustodyRepository implements ICustodyRepository {
   }
 }
 
+export class RewardCatalogRepository {
+  async listItems(options: { type?: string; includeInactive?: boolean } = {}) {
+    const conn = await requireDb();
+    try {
+      const rows = await conn.query.rewardCatalog.findMany({
+        where: (rc: any, { eq, and }: any) => {
+          const preds: any[] = [];
+          if (options.type) preds.push(eq(rc.type, options.type));
+          if (!options.includeInactive) preds.push(eq(rc.isActive, true));
+          if (!preds.length) return undefined;
+          return preds.length === 1 ? preds[0] : and(...preds);
+        },
+        orderBy: (rc: any, { asc, desc }: any) => [asc(rc.type), desc(rc.createdAt)],
+      });
+      return rows || [];
+    } catch (_e) {
+      return [];
+    }
+  }
+
+  async getByItemId(itemId: string) {
+    const conn = await requireDb();
+    try {
+      return await conn.query.rewardCatalog.findFirst({
+        where: (rc: any, { eq }: any) => eq(rc.itemId, itemId),
+      });
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  async upsertItem(item: {
+    itemId: string;
+    type: string;
+    name: string;
+    rarity: string;
+    source?: string;
+    description?: string | null;
+    icon?: string | null;
+    price?: string | number | null;
+    isActive?: boolean;
+    meta?: any;
+  }) {
+    const conn = await requireDb();
+    const values: any = {
+      itemId: item.itemId,
+      type: item.type,
+      name: item.name,
+      rarity: item.rarity,
+      source: item.source || "admin",
+      description: item.description ?? null,
+      icon: item.icon ?? null,
+      price: item.price == null ? null : String(item.price),
+      isActive: item.isActive ?? true,
+      meta: item.meta ?? null,
+      updatedAt: new Date(),
+    };
+    await conn
+      .insert(schema.rewardCatalog)
+      .values({ ...values, id: randomUUID(), createdAt: new Date() })
+      .onConflictDoUpdate({
+        target: schema.rewardCatalog.itemId,
+        set: values,
+      });
+    return await this.getByItemId(item.itemId);
+  }
+
+  async setActive(itemId: string, isActive: boolean) {
+    const conn = await requireDb();
+    await conn
+      .update(schema.rewardCatalog)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(schema.rewardCatalog.itemId, itemId));
+    return await this.getByItemId(itemId);
+  }
+
+  async deleteItem(itemId: string) {
+    const conn = await requireDb();
+    await conn.delete(schema.rewardCatalog).where(eq(schema.rewardCatalog.itemId, itemId));
+    return true;
+  }
+}
+
+export class RewardSubmissionRepository {
+  async create(submission: {
+    submissionId: string;
+    userId: string;
+    address: string;
+    type: string; // avatar | title
+    name: string;
+    icon?: string | null;
+    description?: string | null;
+    rarity?: string;
+  }) {
+    const conn = await requireDb();
+    await conn.insert(schema.rewardSubmissions).values({
+      id: randomUUID(),
+      submissionId: submission.submissionId,
+      userId: submission.userId,
+      address: submission.address,
+      type: submission.type,
+      name: submission.name,
+      icon: submission.icon ?? null,
+      description: submission.description ?? null,
+      rarity: submission.rarity ?? "common",
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  async listByStatus(status: string | null, limit = 100) {
+    const conn = await requireDb();
+    return await conn.query.rewardSubmissions.findMany({
+      where: (s: any, { eq }: any) => (status ? eq(s.status, status) : undefined),
+      orderBy: (s: any, { desc }: any) => [desc(s.createdAt)],
+      limit,
+    });
+  }
+
+  async listByUser(userId: string, limit = 50) {
+    const conn = await requireDb();
+    return await conn.query.rewardSubmissions.findMany({
+      where: (s: any, { eq }: any) => eq(s.userId, userId),
+      orderBy: (s: any, { desc }: any) => [desc(s.createdAt)],
+      limit,
+    });
+  }
+
+  async getById(submissionId: string) {
+    const conn = await requireDb();
+    return await conn.query.rewardSubmissions.findFirst({
+      where: (s: any, { eq }: any) => eq(s.submissionId, submissionId),
+    });
+  }
+
+  async updateStatus(
+    submissionId: string,
+    fields: { status: string; reviewedBy?: string; reviewNote?: string; approvedItemId?: string }
+  ) {
+    const conn = await requireDb();
+    await conn
+      .update(schema.rewardSubmissions)
+      .set({
+        status: fields.status,
+        reviewedBy: fields.reviewedBy ?? null,
+        reviewNote: fields.reviewNote ?? null,
+        approvedItemId: fields.approvedItemId ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.rewardSubmissions.submissionId, submissionId));
+  }
+}
+
+export class RewardCampaignRepository {
+  async listAll(limit = 200) {
+    const conn = await requireDb();
+    return await conn.query.rewardCampaigns.findMany({
+      orderBy: (c: any, { desc }: any) => [desc(c.createdAt)],
+      limit,
+    });
+  }
+
+  async listActive(limit = 50) {
+    const conn = await requireDb();
+    return await conn.query.rewardCampaigns.findMany({
+      where: (c: any, { eq }: any) => eq(c.isActive, true),
+      orderBy: (c: any, { desc }: any) => [desc(c.createdAt)],
+      limit,
+    });
+  }
+
+  async getById(campaignId: string) {
+    const conn = await requireDb();
+    return await conn.query.rewardCampaigns.findFirst({
+      where: (c: any, { eq }: any) => eq(c.campaignId, campaignId),
+    });
+  }
+
+  async upsert(record: {
+    campaignId: string;
+    title: string;
+    description?: string | null;
+    isActive?: boolean;
+    startAt?: Date | null;
+    endAt?: Date | null;
+    claimLimitPerUser?: number;
+    minLevel?: string | null;
+    rewards: any;
+    createdBy?: string | null;
+  }) {
+    const conn = await requireDb();
+    const existing = await this.getById(record.campaignId);
+    if (existing) {
+      await conn
+        .update(schema.rewardCampaigns)
+        .set({
+          title: record.title,
+          description: record.description ?? null,
+          isActive: record.isActive ?? true,
+          startAt: record.startAt ?? null,
+          endAt: record.endAt ?? null,
+          maxClaimsPerUser: record.claimLimitPerUser ?? 1,
+          requiredLevel: record.minLevel ?? null,
+          rewards: record.rewards,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.rewardCampaigns.campaignId, record.campaignId));
+      return await this.getById(record.campaignId);
+    }
+    await conn.insert(schema.rewardCampaigns).values({
+      id: randomUUID(),
+      campaignId: record.campaignId,
+      title: record.title,
+      description: record.description ?? null,
+      isActive: record.isActive ?? true,
+      startAt: record.startAt ?? null,
+      endAt: record.endAt ?? null,
+      maxClaimsPerUser: record.claimLimitPerUser ?? 1,
+      requiredLevel: record.minLevel ?? null,
+      rewards: record.rewards,
+      createdBy: record.createdBy ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    return await this.getById(record.campaignId);
+  }
+
+  async delete(campaignId: string) {
+    const conn = await requireDb();
+    // Clear associated claim rows first — there's no ON DELETE CASCADE on
+    // reward_campaign_claims, so if an admin later re-creates a campaign with
+    // the same campaignId, `tryClaim` / `countClaims` would otherwise keep
+    // seeing the stale claims and permanently block users from re-claiming.
+    await conn.delete(schema.rewardCampaignClaims).where(eq(schema.rewardCampaignClaims.campaignId, campaignId));
+    await conn.delete(schema.rewardCampaigns).where(eq(schema.rewardCampaigns.campaignId, campaignId));
+  }
+
+  async countClaims(campaignId: string, userId: string): Promise<number> {
+    const conn = await requireDb();
+    const rows = await conn.query.rewardCampaignClaims.findMany({
+      where: (c: any, { and, eq }: any) => and(eq(c.campaignId, campaignId), eq(c.userId, userId)),
+      limit: 100,
+    });
+    return rows?.length ?? 0;
+  }
+
+  async recordClaim(record: { campaignId: string; userId: string; address: string }) {
+    const conn = await requireDb();
+    await conn.insert(schema.rewardCampaignClaims).values({
+      id: randomUUID(),
+      campaignId: record.campaignId,
+      userId: record.userId,
+      address: record.address,
+      claimedAt: new Date(),
+    });
+  }
+
+  /**
+   * Delete the most recent claim row for (campaignId, userId). Used to roll
+   * back a claim when reward granting fails after `tryClaim` already inserted.
+   */
+  async deleteLatestClaim(campaignId: string, userId: string): Promise<boolean> {
+    const conn = await requireDb();
+    const result = await conn.execute(drizzleSql`
+      DELETE FROM reward_campaign_claims
+      WHERE id = (
+        SELECT id FROM reward_campaign_claims
+        WHERE campaign_id = ${campaignId} AND user_id = ${userId}
+        ORDER BY claimed_at DESC
+        LIMIT 1
+      )
+    `);
+    return Boolean((result as any)?.count ?? 0);
+  }
+
+  /**
+   * Atomically check the per-user claim limit and insert the claim row inside a
+   * transaction guarded by `pg_advisory_xact_lock(campaignId + userId)`. Concurrent
+   * requests serialize on the lock, so at most `limit` claims survive.
+   * Returns `true` when this call successfully recorded the claim and the caller
+   * should grant rewards; `false` when the limit was already reached.
+   */
+  async tryClaim(record: {
+    campaignId: string;
+    userId: string;
+    address: string;
+    limit: number;
+  }): Promise<boolean> {
+    const conn = await requireDb();
+    const key = `${record.campaignId}:${record.userId}`;
+    return await conn.transaction(async (tx: any) => {
+      // Use hashtextextended to derive a stable int8 from the composite key.
+      await tx.execute(drizzleSql`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+      const existing = await tx.execute(drizzleSql`
+        SELECT COUNT(*)::int AS n FROM reward_campaign_claims
+        WHERE campaign_id = ${record.campaignId} AND user_id = ${record.userId}
+      `);
+      const currentCount = Number((existing as any)?.[0]?.n ?? 0);
+      if (currentCount >= record.limit) return false;
+      await tx.execute(drizzleSql`
+        INSERT INTO reward_campaign_claims (id, campaign_id, user_id, address, claimed_at)
+        VALUES (gen_random_uuid(), ${record.campaignId}, ${record.userId}, ${record.address}, NOW())
+      `);
+      return true;
+    });
+  }
+
+  async logGrant(record: {
+    targetAddress: string;
+    operatorAddress?: string | null;
+    source: string;
+    note?: string | null;
+    bundle: any;
+  }) {
+    const conn = await requireDb();
+    await conn.insert(schema.rewardGrantLogs).values({
+      id: randomUUID(),
+      targetAddress: record.targetAddress,
+      operatorAddress: record.operatorAddress ?? null,
+      source: record.source,
+      note: record.note ?? null,
+      bundle: record.bundle,
+      createdAt: new Date(),
+    });
+  }
+
+  async listGrantLogs(limit = 100) {
+    const conn = await requireDb();
+    return await conn.query.rewardGrantLogs.findMany({
+      orderBy: (g: any, { desc }: any) => [desc(g.createdAt)],
+      limit,
+    });
+  }
+}
+
 export class AnnouncementRepository {
   private async getAnnouncementColumns(conn: any): Promise<Set<string>> {
     const rows = await conn.execute(
@@ -1110,5 +1545,40 @@ export class AnnouncementRepository {
         updatedAt: announcement.updatedAt ? new Date(announcement.updatedAt) : new Date(),
       }
     });
+  }
+
+  async updateFields(
+    announcementId: string,
+    fields: {
+      title?: string;
+      content?: string;
+      isPinned?: boolean;
+      isActive?: boolean;
+      updatedBy?: string | null;
+    }
+  ) {
+    const conn = await requireDb();
+    const columns = await this.getAnnouncementColumns(conn);
+    const set: Record<string, any> = {};
+    if (columns.has("updated_at")) set.updatedAt = new Date();
+    if (fields.title !== undefined) set.title = fields.title;
+    if (fields.content !== undefined) set.content = fields.content;
+    if (fields.isPinned !== undefined && columns.has("is_pinned")) set.isPinned = fields.isPinned;
+    if (fields.isActive !== undefined && columns.has("is_active")) set.isActive = fields.isActive;
+    if (fields.updatedBy !== undefined && columns.has("updated_by")) set.updatedBy = fields.updatedBy;
+    const whereKey = columns.has("announcement_id") ? "announcementId" : "id";
+    await conn
+      .update(schema.announcements)
+      .set(set)
+      .where(eq((schema.announcements as any)[whereKey], announcementId));
+  }
+
+  async deleteAnnouncement(announcementId: string) {
+    const conn = await requireDb();
+    const columns = await this.getAnnouncementColumns(conn);
+    const whereKey = columns.has("announcement_id") ? "announcementId" : "id";
+    await conn
+      .delete(schema.announcements)
+      .where(eq((schema.announcements as any)[whereKey], announcementId));
   }
 }

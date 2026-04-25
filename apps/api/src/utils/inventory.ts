@@ -408,6 +408,141 @@ export async function restorePreventLossBuff(userId: string): Promise<void> {
   await persistInventoryState(userId, { ...state, activeBuffs: nextBuffs });
 }
 
+/**
+ * Grant a bundle of rewards (items / avatars / titles) to a user's profile.
+ * Token adjustments (ZXC/YJC) must be handled by the caller via the wallet layer.
+ */
+export interface RewardBundle {
+  items?: Array<{ id: string; qty?: number }>;
+  avatars?: string[];
+  titles?: string[];
+}
+
+export interface GrantBundleResult {
+  /** Post-grant inventory state (same shape as return value from loadInventoryState). */
+  nextState: ProfileInventoryState;
+  /** Snapshot of inventory state BEFORE the grant — feed into `rollbackGrantBundle` if a later step fails. */
+  preState: ProfileInventoryState;
+  /** Avatar IDs that were actually newly-added by this grant (ignoring duplicates already owned). */
+  addedAvatars: string[];
+  /** Title IDs that were actually newly-added by this grant (ignoring duplicates already owned). */
+  addedTitles: string[];
+}
+
+export async function grantBundleToUser(
+  userId: string,
+  bundle: RewardBundle,
+  address?: string,
+): Promise<GrantBundleResult> {
+  const preState = await loadInventoryState(userId);
+  const nextInventory = { ...preState.inventory };
+  const nextAvatars = [...preState.ownedAvatars];
+  const nextTitles = [...preState.ownedTitles];
+
+  for (const it of bundle.items ?? []) {
+    const id = String(it?.id || "").trim();
+    if (!id) continue;
+    const qty = Math.max(1, Math.floor(Number(it?.qty || 1)));
+    nextInventory[id] = (nextInventory[id] || 0) + qty;
+  }
+  const addedAvatars: string[] = [];
+  for (const avId of bundle.avatars ?? []) {
+    const id = String(avId || "").trim();
+    if (id && !nextAvatars.includes(id)) {
+      nextAvatars.push(id);
+      addedAvatars.push(id);
+    }
+  }
+  const addedTitles: string[] = [];
+  for (const ttId of bundle.titles ?? []) {
+    const id = String(ttId || "").trim();
+    if (id && !nextTitles.includes(id)) {
+      nextTitles.push(id);
+      addedTitles.push(id);
+    }
+  }
+
+  const nextState: ProfileInventoryState = {
+    ...preState,
+    inventory: nextInventory,
+    ownedAvatars: nextAvatars,
+    ownedTitles: nextTitles,
+  };
+  await persistInventoryState(userId, nextState);
+
+  // Sync KV-backed owned lists so /rewards/me + /rewards/equip can see new cosmetics.
+  let targetAddress = address;
+  if (!targetAddress) {
+    try {
+      const user = await userRepo.getUserById(userId);
+      targetAddress = user?.address ? String(user.address).toLowerCase() : undefined;
+    } catch {
+      targetAddress = undefined;
+    }
+  } else {
+    targetAddress = String(targetAddress).toLowerCase();
+  }
+  if (targetAddress && (addedAvatars.length || addedTitles.length)) {
+    if (addedAvatars.length) {
+      const key = `owned_avatars:${targetAddress}`;
+      const existing = (await kv.get<string[]>(key)) || [];
+      const merged = Array.from(new Set([...existing, ...addedAvatars]));
+      await kv.set(key, merged);
+    }
+    if (addedTitles.length) {
+      const key = `owned_titles:${targetAddress}`;
+      const existing = (await kv.get<string[]>(key)) || [];
+      const merged = Array.from(new Set([...existing, ...addedTitles]));
+      await kv.set(key, merged);
+    }
+  }
+
+  return { nextState, preState, addedAvatars, addedTitles };
+}
+
+/**
+ * Undo a `grantBundleToUser` call. Pass the pre-grant state (captured before
+ * the grant) and the lists of NEWLY-added avatar/title IDs so we can both
+ * restore the DB-side profile inventory AND remove the synced KV entries.
+ *
+ * This is used by the campaign-claim flow to revert an item/cosmetic grant
+ * when a later step (balance credit, logGrant) fails. Without this, retries
+ * would double-accumulate item quantities.
+ */
+export async function rollbackGrantBundle(
+  userId: string,
+  preState: ProfileInventoryState,
+  address: string | undefined,
+  addedAvatars: string[],
+  addedTitles: string[],
+): Promise<void> {
+  await persistInventoryState(userId, preState);
+
+  let targetAddress = address ? String(address).toLowerCase() : undefined;
+  if (!targetAddress) {
+    try {
+      const user = await userRepo.getUserById(userId);
+      targetAddress = user?.address ? String(user.address).toLowerCase() : undefined;
+    } catch {
+      targetAddress = undefined;
+    }
+  }
+  if (!targetAddress) return;
+
+  if (addedAvatars.length) {
+    const key = `owned_avatars:${targetAddress}`;
+    const existing = (await kv.get<string[]>(key)) || [];
+    const next = existing.filter((id) => !addedAvatars.includes(id));
+    await kv.set(key, next);
+  }
+  if (addedTitles.length) {
+    const key = `owned_titles:${targetAddress}`;
+    const existing = (await kv.get<string[]>(key)) || [];
+    const next = existing.filter((id) => !addedTitles.includes(id));
+    await kv.set(key, next);
+  }
+}
+
 export function listAllItems(): ItemDefinition[] {
   return Object.values(ALL_ITEMS);
 }

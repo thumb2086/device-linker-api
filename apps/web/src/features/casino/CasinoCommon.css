@@ -1,0 +1,55 @@
+.quick-bet-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.quick-bet-btn {
+  min-height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(252, 192, 37, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8e7b0;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.quick-bet-btn.active {
+  background: rgba(252, 192, 37, 0.22);
+  color: #ffdc63;
+  box-shadow: 0 0 0 1px rgba(252, 192, 37, 0.3) inset;
+}
+
+.quick-bet-btn.allin {
+  border-color: rgba(255, 99, 71, 0.45);
+  color: #ffd1c8;
+}
+
+.quick-bet-btn:disabled {
+  opacity: 0.5;
+}
+
+@media (max-width: 640px) {
+  .quick-bet-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* Keep primary action rows readable when quick bet buttons are present */
+.slot-controls,
+.sicbo-controls,
+.bingo-controls,
+.betting-controls,
+.controls {
+  flex-wrap: wrap;
+}
+
+.slot-controls .quick-bet-row,
+.sicbo-controls .quick-bet-row,
+.bingo-controls .quick-bet-row,
+.betting-controls .quick-bet-row,
+.controls .quick-bet-row {
+  width: 100%;
+}

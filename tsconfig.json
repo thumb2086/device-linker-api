@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@repo/shared": ["packages/shared/src"],
+      "@repo/domain/*": ["packages/domain/src/*"],
+      "@repo/infrastructure/*": ["packages/infrastructure/src/*"]
+    },
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "exclude": ["node_modules"]
+}

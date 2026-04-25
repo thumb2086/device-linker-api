@@ -14,6 +14,7 @@ const DEFAULT_ROOMS: RoomState[] = [
     { id: "poker_01", game: "poker", vipLevel: 0, players: [], maxPlayers: 8 },
     { id: "poker_vip", game: "poker", vipLevel: 1, players: [], maxPlayers: 8 },
     { id: "dice_01", game: "dice", vipLevel: 0, players: [], maxPlayers: 6 },
+    { id: "bluffdice_vip", game: "bluffdice", vipLevel: 1, players: [], maxPlayers: 6 },
 ];
 
 export class RoomManager {

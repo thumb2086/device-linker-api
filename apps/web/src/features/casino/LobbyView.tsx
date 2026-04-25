@@ -3,11 +3,14 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Bell,
+  ChevronRight,
+  Crown,
+  Dice5,
   History,
   LayoutGrid,
   Megaphone,
+  Package,
   Settings as SettingsIcon,
-  ShieldCheck,
   Trophy,
   TrendingUp,
   Wallet as WalletIcon,
@@ -18,6 +21,7 @@ import { useUserStore } from '../../store/useUserStore';
 import AppBottomNav from '../../components/AppBottomNav';
 import { useWallet } from '../wallet/useWallet';
 import { resolvePreferredBalance } from '../../utils/balance';
+import { useLeaderboard } from '../../hooks/useLeaderboard';
 
 function GlassCard({
   to,
@@ -61,6 +65,8 @@ export default function LobbyView() {
   const { i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
   const { summary } = useWallet();
+  const { data: leaderboardData } = useLeaderboard('all', 50);
+  const selfRank = leaderboardData?.selfRank?.rank;
   const liveBalance = resolvePreferredBalance({
     onchainBalance: summary.data?.onchain?.zxc?.balance,
     onchainAvailable: summary.data?.onchain?.zxc?.available,
@@ -69,35 +75,41 @@ export default function LobbyView() {
   });
 
   const zh = {
-    title: '\u5b50\u7199\u6a21\u64ec\u5668',
-    operatorIdentified: '\u64cd\u4f5c\u54e1\u5df2\u8b58\u5225',
-    anonymous: '\u533f\u540d\u64cd\u4f5c\u54e1',
-    encryptionActive: '\u52a0\u5bc6\u5df2\u555f\u7528\uff1aAES-256',
-    totalAssets: '\u7e3d\u8cc7\u7522',
-    casinoFloor: '\u5a1b\u6a02\u5927\u5ef3',
-    activeSimulation: '\u6d3b\u8e8d\u6a21\u64ec',
-    marketTerminal: '\u5e02\u5834\u7d42\u7aef',
-    liveFeed: '\u5373\u6642\u8d70\u52e2',
-    announcements: '\u516c\u544a\u4e2d\u5fc3',
-    newAlerts: '3 \u5247\u65b0\u901a\u77e5',
-    rankings: '\u6392\u884c\u699c',
-    globalSector: '\u5168\u57df\u6392\u540d',
-    wallet: '\u9322\u5305',
-    secured: '\u5df2\u4fdd\u8b77',
-    activity: '\u6700\u65b0\u52d5\u614b',
-    recentTraces: '\u6700\u65b0\u8ffd\u8e64',
-    withdrawalSuccess: '\u63d0\u9818\u5df2\u6210\u529f',
-    loginDetected: '\u5075\u6e2c\u5230\u65b0\u767b\u5165\uff1a192.168.1.1',
-    inventory: '\u80cc\u5305',
-    items: '14 \u9805\u7269\u54c1',
-    vipProtocol: 'VIP \u6a5f\u5236',
-    eliteRank: '\u83c1\u82f1\u7b49\u7d1a',
-    tierActive: '\u7b49\u968e 4 \u555f\u7528\u4e2d',
-    multiplier: '1.5x \u500d\u7387\u52a0\u6210\u751f\u6548\u4e2d',
-    adminOverride: '\u7ba1\u7406\u4e2d\u5fc3',
-    authorizedOnly: '\u9650\u6388\u6b0a\u64cd\u4f5c',
-    adminSummary: '\u7cfb\u7d71\u8a2d\u5b9a\u8207\u7ba1\u7406\u5de5\u5177',
-    systemSecure: '\u7cfb\u7d71\u5b89\u5168',
+    title: '子熙模擬器',
+    operatorIdentified: '操作者已識別',
+    anonymous: '匿名操作者',
+    encryptionActive: '加密已啟用：AES-256',
+    totalAssets: '總資產',
+    casinoFloor: '娛樂大廳',
+    activeSimulation: '活躍模擬',
+    marketTerminal: '市場終端',
+    liveFeed: '即時走勢',
+    announcements: '公告中心',
+    newAlerts: '3 則新通知',
+    rankings: '排行榜',
+    globalSector: '全域排名',
+    wallet: '錢包',
+    secured: '已保護',
+    activity: '最新動態',
+    recentTraces: '最新追蹤',
+    withdrawalSuccess: '提領已成功',
+    loginDetected: '偵測到新登入：192.168.1.1',
+    inventory: '背包',
+    items: '14 項物品',
+    vipProtocol: 'VIP 機制',
+    eliteRank: '菁英等級',
+    tierActive: '等階 4 啟用中',
+    multiplier: '1.5x 倍率加成生效中',
+    adminOverride: '管理中心',
+    authorizedOnly: '限授權操作',
+    adminSummary: '系統設定與管理工具',
+    systemSecure: '系統安全',
+    vipLevels: 'VIP 等級說明',
+    vipSubtitle: '等級特權一覽',
+    gameOdds: '遊戲機率',
+    oddsSubtitle: 'RTP 與公平性說明',
+    itemsCatalog: '物品圖鑑',
+    itemsSubtitle: '道具稀有度說明',
   };
 
   return (
@@ -138,7 +150,7 @@ export default function LobbyView() {
                 {username || (address ? address.slice(0, 8) : isZh ? zh.anonymous : 'ANONYMOUS')}
               </h2>
               <div className="mt-2 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#fcc025] animate-pulse" />
+                <span className="h-2 w-2 animate-pulse rounded-full bg-[#fcc025]" />
                 <span className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
                   {isZh ? zh.encryptionActive : 'Encryption Active: AES-256'}
                 </span>
@@ -187,7 +199,7 @@ export default function LobbyView() {
             to="/app/leaderboard"
             icon={Trophy}
             title={isZh ? zh.rankings : 'Rankings'}
-            value="#128"
+            value={selfRank ? `#${selfRank}` : '-'}
             subtitle={isZh ? zh.globalSector : 'Global Sector'}
           />
           <GlassCard
@@ -229,17 +241,46 @@ export default function LobbyView() {
             </div>
           </GlassCard>
           <GlassCard
-            to="/app/vip"
-            icon={ShieldCheck}
-            title={isZh ? zh.vipProtocol : 'VIP Protocol'}
-            subtitle={isZh ? zh.eliteRank : 'Elite Rank'}
+            to="/app/info"
+            icon={Crown}
+            title={isZh ? '資訊中心' : 'Information Center'}
+            subtitle={isZh ? '說明與指南' : 'Guides & Information'}
+            border
           >
-            <div className="mt-2 inline-block rounded border border-[#fcc025]/20 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[#fcc025]">
-              {isZh ? zh.tierActive : 'Tier 4 Active'}
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center gap-3 rounded-lg border border-[#494847]/20 bg-[#262626] p-3 transition-colors hover:border-[#fcc025]/40">
+                <Crown className="h-5 w-5 text-[#fcc025]" />
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-bold text-white">{isZh ? 'VIP 等級說明' : 'VIP Levels'}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
+                    {isZh ? zh.tierActive : 'Tier 4 Active'}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-[#adaaaa]" />
+              </div>
+              
+              <div className="flex items-center gap-3 rounded-lg border border-[#494847]/20 bg-[#262626] p-3 transition-colors hover:border-emerald-400/40">
+                <Dice5 className="h-5 w-5 text-emerald-400" />
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-bold text-white">{isZh ? '遊戲機率' : 'Game Odds'}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
+                    {isZh ? 'RTP 與公平性' : 'RTP & Fairness'}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-[#adaaaa]" />
+              </div>
+              
+              <div className="flex items-center gap-3 rounded-lg border border-[#494847]/20 bg-[#262626] p-3 transition-colors hover:border-purple-400/40">
+                <Package className="h-5 w-5 text-purple-400" />
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-bold text-white">{isZh ? '物品圖鑑' : 'Items Catalog'}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#adaaaa]">
+                    {isZh ? '收藏品與道具' : 'Collectibles & Items'}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-[#adaaaa]" />
+              </div>
             </div>
-            <p className="mt-3 text-[11px] font-bold uppercase tracking-tight text-[#adaaaa]">
-              {isZh ? zh.multiplier : '1.5x Multiplier Enabled'}
-            </p>
           </GlassCard>
           <GlassCard
             to="/app/admin"
@@ -251,7 +292,7 @@ export default function LobbyView() {
               {isZh ? zh.adminSummary : 'System configuration and operator tools.'}
             </p>
             <div className="mt-4 flex items-center gap-2">
-              <div className="h-1 w-1 rounded-full bg-[#fcc025] animate-pulse" />
+              <div className="h-1 w-1 animate-pulse rounded-full bg-[#fcc025]" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#fcc025]">
                 {isZh ? zh.systemSecure : 'System Secure'}
               </span>

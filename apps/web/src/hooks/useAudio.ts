@@ -1,3 +1,5 @@
+import { Howl, Howler } from 'howler';
+
 type AudioPrefs = {
   masterVolume: number;
   bgmEnabled: boolean;
@@ -21,15 +23,6 @@ type SoundKey =
 
 declare global {
   interface Window {
-    Howl?: new (options: Record<string, unknown>) => any;
-    Howler?: {
-      autoUnlock?: boolean;
-      html5PoolSize?: number;
-      ctx?: {
-        state?: string;
-        resume?: () => Promise<void> | void;
-      };
-    };
     __deviceLinkerAudioManager?: AudioManager;
   }
 }
@@ -37,14 +30,11 @@ declare global {
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 
 class AudioManager {
-  private sounds: Partial<Record<SoundKey, any>> = {};
+  private sounds: Partial<Record<SoundKey, Howl>> = {};
   private currentBgmKey = '';
   private currentBgmId: number | null = null;
   private pendingBgmKey = '';
   private initialized = false;
-  private initializing = false;
-  private loadingHowler = false;
-  private pendingBgmReplay = false;
   private gestureBound = false;
   private clickBound = false;
   private userInteracted = false;
@@ -57,7 +47,7 @@ class AudioManager {
     sfxVolume: 0.75,
   };
 
-  private soundConfig: Record<SoundKey, string> = {
+  private soundConfig: Record<Exclude<SoundKey, `bgm_${string}`>, string> = {
     click: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
     win_small: 'https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3',
     win_big: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3',
@@ -66,9 +56,12 @@ class AudioManager {
     slot_stop: 'https://assets.mixkit.co/active_storage/sfx/2021/2021-preview.mp3',
     crash_engine: 'https://assets.mixkit.co/active_storage/sfx/2022/2022-preview.mp3',
     crash_explosion: 'https://assets.mixkit.co/active_storage/sfx/2023/2023-preview.mp3',
-    bgm_lobby: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    bgm_casino: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-    bgm_tense: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+  };
+
+  private bgmConfig: Record<Extract<SoundKey, `bgm_${string}`>, string> = {
+    bgm_lobby: '/audio/SoundHelix-Song-1.mp3',
+    bgm_casino: '/audio/SoundHelix-Song-2.mp3',
+    bgm_tense: '/audio/SoundHelix-Song-3.mp3',
   };
 
   private isBgmKey(key: string): key is Extract<SoundKey, `bgm_${string}`> {
@@ -88,68 +81,32 @@ class AudioManager {
     return !this.state.sfxEnabled || this.state.sfxVolume <= 0;
   }
 
-  private ensureHowlerScript() {
-    if (typeof window === 'undefined' || window.Howl || this.loadingHowler) return;
-    const existing = document.querySelector('script[data-audio-manager="howler"]');
-    if (existing) {
-      this.loadingHowler = true;
-      return;
-    }
-
-    this.loadingHowler = true;
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js';
-    script.async = true;
-    script.dataset.audioManager = 'howler';
-    script.onload = () => {
-      this.loadingHowler = false;
-      this.finishInit();
-    };
-    script.onerror = () => {
-      this.loadingHowler = false;
-      this.initializing = false;
-    };
-    document.head.appendChild(script);
-  }
-
-  private finishInit() {
-    if (this.initialized || typeof window === 'undefined' || !window.Howl) return;
-    if (window.Howler) {
-      window.Howler.autoUnlock = true;
-      if (typeof window.Howler.html5PoolSize === 'number' && window.Howler.html5PoolSize < 24) {
-        window.Howler.html5PoolSize = 24;
-      }
-    }
-    this.initialized = true;
-    this.initializing = false;
-    this.preloadSfx();
-    this.applyAllSoundStates();
-    this.flushPendingBgmReplay();
+  private resumeAudioContext() {
+    const ctx = Howler.ctx as AudioContext | undefined;
+    if (!ctx || typeof ctx.resume !== 'function' || ctx.state === 'running') return;
+    void ctx.resume();
   }
 
   init() {
     if (typeof window === 'undefined') return;
     this.bindGestureUnlock();
     this.bindGlobalClickSound();
-    if (this.initialized || this.initializing) return;
-    this.initializing = true;
-    if (window.Howl) {
-      this.finishInit();
-      return;
+    if (this.initialized) return;
+
+    Howler.autoUnlock = true;
+    if (typeof Howler.html5PoolSize === 'number' && Howler.html5PoolSize < 24) {
+      Howler.html5PoolSize = 24;
     }
-    this.ensureHowlerScript();
+
+    this.initialized = true;
+    this.preloadSfx();
+    this.applyAllSoundStates();
   }
 
   private preloadSfx() {
-    (Object.keys(this.soundConfig) as SoundKey[]).forEach((key) => {
-      if (!this.isBgmKey(key)) this.ensureSound(key);
+    (Object.keys(this.soundConfig) as Array<Exclude<SoundKey, `bgm_${string}`>>).forEach((key) => {
+      this.ensureSound(key);
     });
-  }
-
-  private resumeAudioContext() {
-    const ctx = window.Howler?.ctx;
-    if (!ctx || typeof ctx.resume !== 'function' || ctx.state === 'running') return;
-    void ctx.resume().catch(() => {});
   }
 
   private bindGestureUnlock() {
@@ -160,7 +117,9 @@ class AudioManager {
       this.userInteracted = true;
       this.init();
       this.resumeAudioContext();
-      this.flushPendingBgmReplay();
+      if (this.pendingBgmKey && this.state.bgmEnabled) {
+        this.playBGM(this.pendingBgmKey);
+      }
     };
 
     window.addEventListener('pointerdown', unlock, { once: true, passive: true });
@@ -182,28 +141,20 @@ class AudioManager {
   }
 
   private ensureSound(key: SoundKey) {
-    if (typeof window === 'undefined' || !window.Howl) return null;
     if (this.sounds[key]) return this.sounds[key] || null;
 
-    const sound = new window.Howl({
-      src: [this.soundConfig[key]],
-      html5: false,
-      preload: !this.isBgmKey(key),
+    const src = this.isBgmKey(key) ? this.bgmConfig[key] : this.soundConfig[key];
+
+    const sound = new Howl({
+      src: [src],
+      html5: this.isBgmKey(key),
+      preload: true,
       mute: this.isMuted(key),
       volume: this.getEffectiveVolume(key),
     });
+
     this.sounds[key] = sound;
     return sound;
-  }
-
-  private releaseSound(key: SoundKey) {
-    const sound = this.sounds[key];
-    if (!sound) return;
-    try {
-      sound.stop();
-      if (typeof sound.unload === 'function') sound.unload();
-    } catch {}
-    delete this.sounds[key];
   }
 
   private applySoundState(key: SoundKey) {
@@ -220,28 +171,18 @@ class AudioManager {
   private normalizeBgmKey(trackName?: string): Extract<SoundKey, `bgm_${string}`> {
     const raw = String(trackName || '').trim().toLowerCase();
     if (!raw) return 'bgm_lobby';
-    if (raw in this.soundConfig && this.isBgmKey(raw)) return raw as Extract<SoundKey, `bgm_${string}`>;
+    if (raw in this.bgmConfig) return raw as Extract<SoundKey, `bgm_${string}`>;
     const prefixed = raw.startsWith('bgm_') ? raw : `bgm_${raw}`;
-    if (prefixed in this.soundConfig && this.isBgmKey(prefixed)) return prefixed as Extract<SoundKey, `bgm_${string}`>;
+    if (prefixed in this.bgmConfig) return prefixed as Extract<SoundKey, `bgm_${string}`>;
     return 'bgm_lobby';
   }
 
-  private flushPendingBgmReplay() {
-    if (!this.pendingBgmReplay || !this.userInteracted) return;
-    this.pendingBgmReplay = false;
-    if (this.pendingBgmKey && this.state.bgmEnabled) {
-      this.playBGM(this.pendingBgmKey);
-    }
-  }
-
-  play(key: Exclude<SoundKey, `bgm_${string}`> | Extract<SoundKey, `bgm_${string}`>, options?: { loop?: boolean; volume?: number }) {
+  play(key: SoundKey, options?: { loop?: boolean; volume?: number }): number | null {
     this.init();
-    if (!this.initialized || !window.Howl) return null;
-    if (this.isBgmKey(key) && !this.userInteracted) {
-      this.pendingBgmReplay = true;
-      this.pendingBgmKey = key;
-      return null;
-    }
+    if (this.isBgmKey(key)) return null;
+
+    if (!this.userInteracted) return null;
+
     const sound = this.ensureSound(key);
     if (!sound || this.isMuted(key)) return null;
 
@@ -253,7 +194,6 @@ class AudioManager {
     if (this.isBgmKey(key)) {
       this.currentBgmKey = key;
       this.currentBgmId = id;
-      this.pendingBgmKey = key;
     }
     return id;
   }
@@ -264,25 +204,25 @@ class AudioManager {
     if (id) sound.stop(id);
     else sound.stop();
 
-    if (this.currentBgmKey === key && (!id || this.currentBgmId === id)) {
+    if (this.isBgmKey(key) && this.currentBgmKey === key && (!id || this.currentBgmId === id)) {
       this.currentBgmId = null;
     }
   }
 
-  playBGM(trackName?: string) {
+  playBGM(trackName?: string): number | null {
     const key = this.normalizeBgmKey(trackName);
     this.pendingBgmKey = key;
     this.init();
 
-    if (!this.userInteracted) {
-      this.pendingBgmReplay = true;
-      return null;
+    if (!this.userInteracted) return null;
+    if (this.isMuted(key)) return null;
+
+    this.resumeAudioContext();
+
+    if (this.currentBgmKey === key && this.currentBgmId) {
+      this.applySoundState(key);
+      return this.currentBgmId;
     }
-    if (this.initializing && !this.initialized) {
-      this.pendingBgmReplay = true;
-      return null;
-    }
-    if (!this.initialized || this.isMuted(key)) return null;
 
     if (this.currentBgmKey && this.currentBgmKey !== key) {
       this.stop(this.currentBgmKey as SoundKey, this.currentBgmId);
@@ -290,18 +230,21 @@ class AudioManager {
       this.currentBgmId = null;
     }
 
-    if (this.currentBgmKey === key && this.currentBgmId) {
-      this.applySoundState(key);
-      return this.currentBgmId;
-    }
+    const sound = this.ensureSound(key);
+    if (!sound) return null;
 
-    return this.play(key, { loop: true, volume: 1 });
+    sound.loop(true);
+    sound.mute(this.isMuted(key));
+    sound.volume(this.getEffectiveVolume(key, 1));
+    const id = sound.play();
+    this.currentBgmKey = key;
+    this.currentBgmId = id;
+    return id;
   }
 
   stopBGM() {
     if (!this.currentBgmKey) return;
-    const currentKey = this.currentBgmKey as SoundKey;
-    this.stop(currentKey, this.currentBgmId);
+    this.stop(this.currentBgmKey as SoundKey, this.currentBgmId);
     this.currentBgmKey = '';
     this.currentBgmId = null;
   }
@@ -314,6 +257,7 @@ class AudioManager {
     if (typeof prefs.sfxVolume === 'number') this.state.sfxVolume = clamp(prefs.sfxVolume);
 
     this.applyAllSoundStates();
+
     if (!this.state.bgmEnabled || this.state.masterVolume <= 0 || this.state.bgmVolume <= 0) {
       this.stopBGM();
     } else if (this.pendingBgmKey && this.userInteracted) {

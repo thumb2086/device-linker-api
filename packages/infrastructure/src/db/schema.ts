@@ -81,7 +81,38 @@ export const userProfiles = pgTable("user_profiles", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// ─── Levels & Betting ─────────────────────────────────────────────────────────
+// ─── Leaderboard & Betting Totals ───────────────────────────────────────────────
+
+export const totalBets = pgTable("total_bets", {
+  periodType: text("period_type").notNull(), // 'all' | 'week' | 'month' | 'season'
+  periodId: text("period_id").notNull(),     // '' | '20260309' | '2026-03' | 'S15-20260223'
+  address: text("address").notNull(),
+  amount: bigint("amount", { mode: "number" }).default(0),
+}, (t) => ({
+  pk: index("total_bets_pk").on(t.periodType, t.periodId, t.address),
+  addressIdx: index("total_bets_address_idx").on(t.address),
+}));
+
+export type TotalBets = typeof totalBets.$inferSelect;
+export type NewTotalBets = typeof totalBets.$inferInsert;
+
+export const leaderboardKings = pgTable("leaderboard_kings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  category: text("category").notNull(), // 'weekly' | 'monthly' | 'season'
+  userId: uuid("user_id").notNull().references(() => users.id),
+  address: text("address").notNull(),
+  displayName: text("display_name"),
+  winCount: integer("win_count").notNull().default(0),
+  lastWinAt: timestamp("last_win_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  periodId: text("period_id"),
+}, (t) => ({
+  categoryUserIdx: index("leaderboard_kings_category_user_idx").on(t.category, t.userId),
+  addressIdx: index("leaderboard_kings_address_idx").on(t.address),
+}));
+
+export type LeaderboardKing = typeof leaderboardKings.$inferSelect;
+export type NewLeaderboardKing = typeof leaderboardKings.$inferInsert;
 
 export const levelSnapshots = pgTable("level_snapshots", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -192,6 +223,27 @@ export const txReceipts = pgTable("tx_receipts", {
   confirmedAt: timestamp("confirmed_at").notNull().defaultNow(),
 });
 
+// ─── Game Sessions (Phase 3) ───────────────────────────────────────────────────
+
+export const gameSessions = pgTable("game_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  address: text("address").notNull(),
+  game: text("game").notNull(), // 'shoot_dragon_gate' | 'horse_race' | 'dice' | etc.
+  betAmount: numeric("bet_amount").notNull(),
+  result: text("result").notNull(), // 'win' | 'lose' | 'draw'
+  payout: numeric("payout").notNull().default("0"),
+  meta: jsonb("meta").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  addressIdx: index("game_sessions_address_idx").on(t.address),
+  gameIdx: index("game_sessions_game_idx").on(t.game),
+  createdAtIdx: index("game_sessions_created_at_idx").on(t.createdAt),
+}));
+
+export type GameSession = typeof gameSessions.$inferSelect;
+export type NewGameSession = typeof gameSessions.$inferInsert;
+
 // ─── Games ─────────────────────────────────────────────────────────────────────
 
 export const gameRounds = pgTable("game_rounds", {
@@ -293,6 +345,46 @@ export const rewardGrants = pgTable("reward_grants", {
   expiresAt: timestamp("expires_at"),
   meta: jsonb("meta"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ─── Reward Campaigns claim tracking + grant logs ────────────────────────────
+
+export const rewardCampaignClaims = pgTable("reward_campaign_claims", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campaignId: text("campaign_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  address: text("address").notNull(),
+  claimedAt: timestamp("claimed_at").notNull().defaultNow(),
+});
+
+export const rewardGrantLogs = pgTable("reward_grant_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  targetAddress: text("target_address").notNull(),
+  operatorAddress: text("operator_address"),
+  source: text("source").notNull(), // admin | campaign | system
+  note: text("note"),
+  bundle: jsonb("bundle").notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ─── Reward Submissions (user-proposed avatars / titles awaiting review) ──────
+
+export const rewardSubmissions = pgTable("reward_submissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  submissionId: text("submission_id").notNull().unique(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  address: text("address").notNull(),
+  type: text("type").notNull(), // avatar | title
+  name: text("name").notNull(),
+  icon: text("icon"), // emoji for avatars; optional for titles
+  description: text("description"),
+  rarity: text("rarity").notNull().default("common"),
+  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  reviewedBy: text("reviewed_by"),
+  reviewNote: text("review_note"),
+  approvedItemId: text("approved_item_id"), // reward_catalog.item_id after approval
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // ─── Market Simulation ─────────────────────────────────────────────────────────

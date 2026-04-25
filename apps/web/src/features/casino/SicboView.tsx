@@ -1,153 +1,92 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/useAuth';
 import './Sicbo.css';
-
-const SICBO_ROUND_MS = 20000;
-const SICBO_LOCK_MS = 4000;
+import './CasinoCommon.css';
+import { extractGameError, unwrapGameEnvelope } from './gameClient';
+import { BetQuickActions } from './BetQuickActions';
 
 export const SicboView: React.FC = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
   const [betAmount, setBetAmount] = useState('10');
-  const [selectedBet, setSelectedBet] = useState<'big' | 'small' | 'total'>('big');
-  const [dice, setDice] = useState<number[]>([1, 1, 1]);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [status, setStatus] = useState('🎲 猜大小或點數總和！');
+  const [selectedBet, setSelectedBet] = useState<'big' | 'small'>('big');
+  const [result, setResult] = useState<any>(null);
+  const [status, setStatus] = useState('🎲 請選擇大小並下注');
   const [statusColor, setStatusColor] = useState('#ffd36a');
-  const [pendingBets, setPendingBets] = useState<any[]>([]);
-
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const currentRoundId = Math.floor(now / SICBO_ROUND_MS);
-  const closesAt = (currentRoundId + 1) * SICBO_ROUND_MS;
-  const isBettingOpen = now < (closesAt - SICBO_LOCK_MS);
-  const secLeft = Math.max(0, Math.ceil((closesAt - now) / 1000));
-
-  const [lastRoundId, setLastRoundId] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (lastRoundId !== null && lastRoundId !== currentRoundId) {
-      handleDraw(lastRoundId);
-    }
-    setLastRoundId(currentRoundId);
-  }, [currentRoundId]);
-
-  const handleDraw = async (roundId: number) => {
-    if (isDrawing) return;
-    setIsDrawing(true);
-    setStatus('🎲 骰子正在滾動中...');
-    setStatusColor('#ffd36a');
-
-    // Deterministic result
-    const seed = `sicbo:${roundId}`;
-    const hash = Array.from(seed).reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0;
-    const resultDice = [
-      (hash % 6) + 1,
-      (Math.floor(hash / 6) % 6) + 1,
-      (Math.floor(hash / 36) % 6) + 1
-    ];
-    const total = resultDice.reduce((a, b) => a + b, 0);
-    const isBig = total >= 11 && total <= 17;
-    const isSmall = total >= 4 && total <= 10;
-
-    // Shake animation
-    for (let i = 0; i < 10; i++) {
-      setDice([
-        Math.floor(Math.random() * 6) + 1,
-        Math.floor(Math.random() * 6) + 1,
-        Math.floor(Math.random() * 6) + 1
-      ]);
-      await new Promise(r => setTimeout(r, 100));
-    }
-
-    setDice(resultDice);
-
-    const roundBets = pendingBets.filter(b => b.roundId === roundId);
-    if (roundBets.length > 0) {
-      let win = false;
-      roundBets.forEach(b => {
-        if (b.type === 'big' && isBig) win = true;
-        if (b.type === 'small' && isSmall) win = true;
-      });
-
-      if (win) {
-        setStatus(`🏆 恭喜！總和 ${total} (${isBig ? '大' : '小'})，獲得派彩！`);
-        setStatusColor('#00ff88');
-      } else {
-        setStatus(`💀 總和 ${total} (${isBig ? '大' : '小'})，未中獎。`);
-        setStatusColor('#ff4d4d');
-      }
-      setPendingBets(prev => prev.filter(b => b.roundId !== roundId));
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-    } else {
-      setStatus(`🏁 第 ${roundId} 局結果：${total} (${isBig ? '大' : (isSmall ? '小' : '豹子')})`);
-      setStatusColor('#ffd36a');
-    }
-
-    setIsDrawing(false);
-  };
+  const [dicePreview, setDicePreview] = useState([1, 1, 1]);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const [roundNo, setRoundNo] = useState(1);
 
   const betMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/games/sicbo/rounds', {
+      if (!session) throw new Error('未登入');
+
+      const res = await fetch('/api/v1/games/sicbo/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(betAmount), action: { bets: [{ type: selectedBet }] } })
+        body: JSON.stringify({
+          sessionId: session.id,
+          betAmount: Number(betAmount),
+          bets: [{ type: selectedBet }],
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || '下注失敗');
-      return data.data;
+
+      const payload = await res.json();
+      if (!res.ok || payload?.success === false) {
+        throw new Error(extractGameError(payload));
+      }
+
+      return unwrapGameEnvelope<any>(payload);
     },
     onSuccess: (data) => {
-      setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), type: selectedBet, roundId: data.roundId }]);
-      setStatus('✅ 下注成功，等待開獎...');
-      setStatusColor('#00ff88');
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      setIsRevealing(true);
+      setStatus('🎲 開獎中...');
+      setStatusColor('#ffd36a');
+      window.setTimeout(() => {
+        setResult(data);
+        setDicePreview(data.dice || [1, 1, 1]);
+        setStatus(`🎯 第 ${roundNo} 局開獎總點 ${data.total}（${data.isBig ? '大' : '小'}）`);
+        setStatusColor(data.result === 'win' ? '#00ff88' : '#ff4d4d');
+        setRoundNo((prev) => prev + 1);
+        setIsRevealing(false);
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+      }, 1100);
     },
     onError: (err: Error) => {
-      setStatus(`❌ 錯誤: ${err.message}`);
+      setStatus(`❌ 下注失敗：${err.message}`);
       setStatusColor('#ff4d4d');
-    }
+    },
   });
+
+  useEffect(() => {
+    if (!betMutation.isPending && !isRevealing) return;
+    const rolling = window.setInterval(() => {
+      setDicePreview([
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+      ]);
+    }, 120);
+    return () => window.clearInterval(rolling);
+  }, [betMutation.isPending, isRevealing]);
 
   return (
     <div className="sicbo-container">
-      <div className="text-center mb-6">
-        <h3 className="text-slate-400">第 {currentRoundId} 局</h3>
-        <p className={isBettingOpen ? "text-yellow-500 font-mono" : "text-red-500 font-mono"}>
-          {isBettingOpen ? `BETTING CLOSES: ${secLeft}s` : `DICE ROLLING: ${secLeft}s`}
-        </p>
-      </div>
-
       <div className="dice-area">
-        {dice.map((d, i) => (
-          <div key={i} className={`die ${isDrawing ? 'animate-bounce' : ''}`}>
-            {d === 1 ? '⚀' : d === 2 ? '⚁' : d === 3 ? '⚂' : d === 4 ? '⚃' : d === 5 ? '⚄' : '⚅'}
-          </div>
+        {((betMutation.isPending || isRevealing) ? dicePreview : result?.dice || dicePreview).map((d: number, i: number) => (
+          <div key={i} className="die">{d}</div>
         ))}
       </div>
 
       <div className="sicbo-betting-grid">
-        <div
-          className={`bet-option ${selectedBet === 'small' ? 'active' : ''}`}
-          onClick={() => !isDrawing && setSelectedBet('small')}
-        >
+        <div className={`bet-option ${selectedBet === 'small' ? 'active' : ''}`} onClick={() => setSelectedBet('small')}>
           <span className="bet-label">小 (4-10)</span>
           <span className="bet-odds">x2.0</span>
         </div>
-        <div
-          className={`bet-option ${selectedBet === 'big' ? 'active' : ''}`}
-          onClick={() => !isDrawing && setSelectedBet('big')}
-        >
+        <div className={`bet-option ${selectedBet === 'big' ? 'active' : ''}`} onClick={() => setSelectedBet('big')}>
           <span className="bet-label">大 (11-17)</span>
           <span className="bet-odds">x2.0</span>
-        </div>
-        <div className="bet-option opacity-50 cursor-not-allowed">
-          <span className="bet-label">全圍 (豹子)</span>
-          <span className="bet-odds">x24.0</span>
         </div>
       </div>
 
@@ -156,21 +95,20 @@ export const SicboView: React.FC = () => {
           type="number"
           value={betAmount}
           onChange={(e) => setBetAmount(e.target.value)}
-          disabled={isDrawing || !isBettingOpen}
           className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-lg text-white font-mono"
+          disabled={betMutation.isPending || isRevealing}
         />
+        <BetQuickActions amount={betAmount} onChange={setBetAmount} disabled={betMutation.isPending || isRevealing} />
         <button
           className="bg-yellow-500 text-black font-bold px-12 rounded-lg hover:bg-yellow-400 disabled:opacity-50"
           onClick={() => betMutation.mutate()}
-          disabled={isDrawing || !isBettingOpen || betMutation.isPending}
+          disabled={betMutation.isPending || isRevealing}
         >
-          {betMutation.isPending ? '處理中...' : '確認下注'}
+          {betMutation.isPending || isRevealing ? '開獎中…' : '下注並開獎'}
         </button>
       </div>
 
-      <div className="sicbo-status" style={{ color: statusColor }}>
-        {status}
-      </div>
+      <div className="sicbo-status" style={{ color: statusColor }}>{status}</div>
     </div>
   );
 };

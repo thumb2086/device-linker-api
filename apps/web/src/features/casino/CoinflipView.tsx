@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/useAuth';
+import { useUserStore } from '../../store/useUserStore';
+import { ChipAnimation } from '../../components/ChipAnimation';
 import './Coinflip.css';
 
 const COINFLIP_ROUND_MS = 15000;
@@ -7,6 +10,8 @@ const COINFLIP_LOCK_MS = 4000;
 
 export const CoinflipView: React.FC = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const { balance } = useUserStore();
   const [betAmount, setBetAmount] = useState('10');
   const [selection, setSelection] = useState<'heads' | 'tails'>('heads');
   const [isDrawing, setIsDrawing] = useState(false);
@@ -14,6 +19,9 @@ export const CoinflipView: React.FC = () => {
   const [status, setStatus] = useState('🎲 選擇正面或反面，然後開始！');
   const [statusColor, setStatusColor] = useState('#ffd36a');
   const [pendingBets, setPendingBets] = useState<any[]>([]);
+  const [chipAnimations, setChipAnimations] = useState<{ id: number; amount: number; startX: number; startY: number; endX: number; endY: number }[]>([]);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const coinRef = useRef<HTMLDivElement>(null);
 
   // Timer logic for round tracking
   const [now, setNow] = useState(Date.now());
@@ -76,26 +84,67 @@ export const CoinflipView: React.FC = () => {
 
   const betMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/v1/games/coinflip/rounds', {
+      if (!session) throw new Error('未登入');
+      const res = await fetch('/api/v1/games/coinflip/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(betAmount), action: { selection } })
+        body: JSON.stringify({
+          sessionId: session.id,
+          betAmount: parseFloat(betAmount),
+          selection
+        })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || '下注失敗');
+      if (!res.ok) throw new Error(data.error || '下注失敗');
+      if (!data.success) throw new Error(data.error || '下注失敗');
       return data.data;
     },
-    onSuccess: (data) => {
-      setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), selection, roundId: data.roundId }]);
-      setStatus('✅ 下注成功，等待開獎...');
-      setStatusColor('#00ff88');
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+    onMutate: () => {
+      // Trigger chip animation
+      if (buttonRef.current && coinRef.current) {
+        const buttonRect = buttonRef.current.getBoundingClientRect();
+        const coinRect = coinRef.current.getBoundingClientRect();
+        const startX = buttonRect.left + buttonRect.width / 2;
+        const startY = buttonRect.top + buttonRect.height / 2;
+        const endX = coinRect.left + coinRect.width / 2;
+        const endY = coinRect.top + coinRect.height / 2;
+        
+        const id = Date.now();
+        setChipAnimations(prev => [...prev, { id, amount: parseFloat(betAmount), startX, startY, endX, endY }]);
+        
+        setTimeout(() => {
+          setChipAnimations(prev => prev.filter(a => a.id !== id));
+        }, 800);
+      }
+    },
+    onSuccess: (responseData) => {
+      // Handle both direct response and envelope response
+      const data = responseData?.data || responseData;
+      const roundId = data?.roundId;
+      
+      if (roundId !== undefined) {
+        setPendingBets(prev => [...prev, { amount: parseFloat(betAmount), selection, roundId }]);
+        setStatus('✅ 下注成功，等待開獎...');
+        setStatusColor('#00ff88');
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+      } else {
+        console.log('Full response data:', responseData);
+        setStatus('❌ 錯誤: roundId 未返回');
+        setStatusColor('#ff4d4d');
+      }
     },
     onError: (err: Error) => {
       setStatus(`❌ 錯誤: ${err.message}`);
       setStatusColor('#ff4d4d');
     }
   });
+
+  const handleAllIn = () => {
+    const currentBalance = parseFloat(balance) || 0;
+    if (currentBalance > 0) {
+      setBetAmount(Math.floor(currentBalance).toString());
+    }
+  };
 
   return (
     <div className="coinflip-container">
@@ -106,7 +155,7 @@ export const CoinflipView: React.FC = () => {
         </p>
       </div>
 
-      <div className="coin-wrapper">
+      <div className="coin-wrapper" ref={coinRef}>
         <div className="coin" style={{ transform: `rotateY(${rotation}deg)` }}>
           <div className="coin-face coin-front">🪙</div>
           <div className="coin-face coin-back">📀</div>
@@ -123,26 +172,35 @@ export const CoinflipView: React.FC = () => {
             className={`btn-choice ${selection === 'heads' ? 'active' : ''}`}
             onClick={() => !isDrawing && setSelection('heads')}
           >
-            正面 (Heads)
+            正面
           </button>
           <button
             className={`btn-choice ${selection === 'tails' ? 'active' : ''}`}
             onClick={() => !isDrawing && setSelection('tails')}
           >
-            反面 (Tails)
+            反面
           </button>
         </div>
 
-        <div className="flex gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-stretch">
           <input
             type="number"
             value={betAmount}
             onChange={(e) => setBetAmount(e.target.value)}
             disabled={isDrawing || !isBettingOpen}
-            className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-lg text-white"
+            className="min-w-0 rounded-lg border border-slate-700 bg-slate-800 p-4 text-white"
           />
           <button
-            className="btn-play px-8"
+            className="min-h-[56px] rounded-lg bg-purple-600 px-4 font-bold text-white hover:bg-purple-700 disabled:opacity-50 sm:min-w-[96px]"
+            onClick={handleAllIn}
+            disabled={isDrawing || !isBettingOpen}
+            title="全部下注"
+          >
+            全下
+          </button>
+          <button
+            ref={buttonRef}
+            className="btn-play min-h-[56px] px-8 sm:min-w-[132px]"
             onClick={() => betMutation.mutate()}
             disabled={isDrawing || !isBettingOpen || betMutation.isPending}
           >
@@ -153,9 +211,20 @@ export const CoinflipView: React.FC = () => {
 
       {pendingBets.length > 0 && (
         <div className="text-sm text-slate-500">
-          目前下注：{pendingBets.map(b => `${b.selection === 'heads' ? '正' : '反'}(#${b.roundId})`).join(', ')}
+          目前下注：{pendingBets.map(b => `${b.selection === 'heads' ? '正' : '反'}(${b.roundId !== undefined ? '#' + b.roundId : '未知'})`).join(', ')}
         </div>
       )}
+
+      {chipAnimations.map(chip => (
+        <ChipAnimation
+          key={chip.id}
+          amount={chip.amount}
+          startX={chip.startX}
+          startY={chip.startY}
+          endX={chip.endX}
+          endY={chip.endY}
+        />
+      ))}
     </div>
   );
 };

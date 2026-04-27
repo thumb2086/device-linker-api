@@ -1,12 +1,12 @@
 services:
-  # API Web Service
+  # API Backend
   - type: web
-    name: zixi-wallet-api
+    name: zixi-casino
     env: node
     plan: free
     region: oregon
-    buildCommand: pnpm install && pnpm build
-    startCommand: pnpm migrate:neon && pnpm --filter api start
+    buildCommand: npm install -g pnpm && pnpm install && pnpm build
+    startCommand: pnpm migrate:neon && pnpm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -14,7 +14,7 @@ services:
         value: 10000
       - key: DATABASE_URL
         fromDatabase:
-          name: zixi-wallet-db
+          name: zixi-casino-db
           property: connectionString
       - key: KV_URL
         value: redis://your-redis-url
@@ -23,32 +23,8 @@ services:
       - key: KV_REST_API_TOKEN
         value: your-token
 
-  # Frontend Static Site
-  - type: static
-    name: zixi-wallet-web
-    env: static
-    buildCommand: pnpm install && pnpm build
-    publishPath: apps/web/dist
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://zixi-wallet-api.onrender.com
-
-  # Background Worker
-  - type: worker
-    name: zixi-wallet-worker
-    env: node
-    plan: free
-    region: oregon
-    buildCommand: pnpm install && pnpm build
-    startCommand: pnpm --filter worker start
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: zixi-wallet-db
-          property: connectionString
-
 databases:
-  - name: zixi-wallet-db
+  - name: zixi-casino-db
     plan: free
     region: oregon
     postgresMajorVersion: 15

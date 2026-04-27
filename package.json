@@ -1,15 +1,11 @@
 {
-  "name": "zixi-wallet",
+  "name": "zixi-wallet-frontend",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm -r dev",
-    "build": "pnpm -r --filter \"@repo/*\" build && pnpm -r --filter \"api\" build && pnpm -r --filter \"web\" build",
-    "postbuild": "shx cp apps/web/dist/index.html ./index.html && shx cp -r apps/web/dist/assets ./assets || shx true",
-    "db:push": "tsx scripts/db-push.ts",
-    "migrate:neon": "pnpm db:push && tsx scripts/migrate-kv-to-neon.ts",
-    "test": "pnpm -r test",
-    "lint": "pnpm -r lint"
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "preview": "pnpm --filter web preview"
   },
   "devDependencies": {
     "drizzle-orm": "^0.30.10",
@@ -24,5 +20,6 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {}
 }

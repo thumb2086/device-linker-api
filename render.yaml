@@ -31,7 +31,7 @@ services:
     publishPath: apps/web/dist
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://zixi-casino.vercel.app
+        value: https://zixi-wallet-api.onrender.com
 
   # Background Worker
   - type: worker

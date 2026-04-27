@@ -202,8 +202,24 @@ export default function AdminView() {
         setHealth(h);
         setMaintenanceOn(Boolean(h.maintenance));
       }
-      if (eventsRes?.data?.data?.events) setEvents(eventsRes.data.data.events);
+
+      // Surface admin auth failures clearly. The admin GET endpoints return
+      // { error: { code: "UNAUTHORIZED", reason, message } } when the request
+      // is authenticated as a non-admin or when ADMIN_ADDRESS env is not set.
+      // Without surfacing this the UI just shows "0" for every list and the
+      // operator has no idea why.
+      const firstErr = [annRes, catRes, subsRes, campRes, eventsRes]
+        .map((r) => r?.data?.data?.error)
+        .find((e) => e && e.code);
+      if (firstErr) {
+        const reason = firstErr.message || firstErr.reason || firstErr.code;
+        setAuthErr(`管理員資料讀取失敗：${reason}`);
+      } else {
+        setAuthErr(null);
+      }
+
       if (annRes?.data?.data?.announcements) setAnnouncements(annRes.data.data.announcements);
+      if (eventsRes?.data?.data?.events) setEvents(eventsRes.data.data.events);
       if (catRes?.data?.data?.items) setCatalog(catRes.data.data.items);
       if (subsRes?.data?.data?.submissions) setSubmissions(subsRes.data.data.submissions);
       if (campRes?.data?.data?.campaigns) setCampaigns(campRes.data.data.campaigns);

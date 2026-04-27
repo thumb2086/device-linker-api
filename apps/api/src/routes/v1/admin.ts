@@ -31,19 +31,54 @@ export async function adminRoutes(fastify: FastifyInstance) {
   const submissionRepo = new RewardSubmissionRepository();
   const campaignRepo = new RewardCampaignRepository();
 
-  const ADMIN_ADDRESS = process.env.ADMIN_ADDRESS?.toLowerCase();
+  // Default admin wallet (hardcoded fallback). Override with ADMIN_ADDRESS env var if needed.
+  const DEFAULT_ADMIN_ADDRESS = "0x0da1c7e7a1d5135c69a02d04f8ab230bc6a78ad0";
+  const ADMIN_ADDRESS = (process.env.ADMIN_ADDRESS || DEFAULT_ADMIN_ADDRESS).toLowerCase();
 
+  // Returns the admin context when the requester is an admin. Otherwise returns
+  // null and (in dev / staging) logs a one-line reason so we can tell apart
+  // "no session", "session expired", "wrong wallet", and "ADMIN_ADDRESS env not
+  // set". Public endpoints don't need this — only admin endpoints call it.
   const getAdminContext = async (req: any) => {
     const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
-    if (!sessionId) return null;
+    if (!sessionId) {
+      console.warn("[admin] auth failed: no session id");
+      return null;
+    }
+    if (!ADMIN_ADDRESS) {
+      console.warn("[admin] auth failed: ADMIN_ADDRESS env var not configured");
+      return null;
+    }
     const session = await sessionRepo.getSessionById(sessionId as string);
-    if (!session || session.status !== "authorized") return null;
-    
-    // Admin check
-    if (session.address.toLowerCase() !== ADMIN_ADDRESS) return null;
-    
+    if (!session) {
+      console.warn(`[admin] auth failed: session ${sessionId} not found`);
+      return null;
+    }
+    if (session.status !== "authorized") {
+      console.warn(`[admin] auth failed: session ${sessionId} status=${session.status}`);
+      return null;
+    }
+    if (session.address.toLowerCase() !== ADMIN_ADDRESS) {
+      console.warn(`[admin] auth failed: ${session.address.toLowerCase()} != ADMIN_ADDRESS`);
+      return null;
+    }
     const user = await userRepo.getUserById(session.userId);
     return { session, user };
+  };
+
+  // Returns the reason auth failed, suitable for the error envelope so the
+  // admin UI can show a concrete message instead of an empty list.
+  const getAdminAuthFailureReason = async (req: any): Promise<{ code: string; message: string }> => {
+    const sessionId = req.headers["x-session-id"] || req.query?.sessionId || req.body?.sessionId;
+    if (!sessionId) return { code: "NO_SESSION", message: "未提供 session" };
+    if (!ADMIN_ADDRESS) return { code: "ADMIN_ADDRESS_NOT_SET", message: "後端 ADMIN_ADDRESS 環境變數未設定" };
+    const session = await sessionRepo.getSessionById(sessionId as string);
+    if (!session) return { code: "SESSION_NOT_FOUND", message: "Session 不存在或已過期" };
+    if (session.status !== "authorized") return { code: "SESSION_NOT_AUTHORIZED", message: `Session 狀態為 ${session.status}` };
+    if (session.address.toLowerCase() !== ADMIN_ADDRESS) {
+      return { code: "NOT_ADMIN", message: `登入錢包 ${session.address.slice(0, 10)}… 不是管理員地址` };
+    }
+    return { code: "UNKNOWN", message: "未知錯誤" };
   };
 
   // ─── System Controls ──────────────────────────────────────────────────────
@@ -182,17 +217,16 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
     await announcementRepo.saveAnnouncement(ann);
 
-    const list = await kv.get<any[]>("announcements:list") || [];
-    list.unshift(ann);
-    await kv.set("announcements:list", list);
-
     return createApiEnvelope({ success: true, announcement: ann }, request.id);
   });
 
   // List all announcements (active + inactive, with pin status)
   typedFastify.get("/announcements", async (request) => {
     const ctx = await getAdminContext(request);
-    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    if (!ctx) {
+      const reason = await getAdminAuthFailureReason(request);
+      return createApiEnvelope({ error: { code: "UNAUTHORIZED", reason: reason.code, message: reason.message } }, request.id);
+    }
     const items = await announcementRepo.listAllAnnouncements(100);
     return createApiEnvelope({ announcements: items }, request.id);
   });
@@ -223,11 +257,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
       updatedBy: ctx.session.address,
     });
 
-    // Rebuild KV cache from fresh DB state so public GET /support/announcements
-    // fallback does not serve stale data.
-    const activeAfter = await announcementRepo.listActiveAnnouncements();
-    await kv.set("announcements:list", activeAfter);
-
     await opsRepo.logEvent({
       channel: "admin",
       severity: "info",
@@ -253,11 +282,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const { announcementId } = request.params as { announcementId: string };
     await announcementRepo.deleteAnnouncement(announcementId);
 
-    // Rebuild KV cache after deletion so removed items don't resurface via
-    // the KV fallback path in /support/announcements.
-    const activeAfter = await announcementRepo.listActiveAnnouncements();
-    await kv.set("announcements:list", activeAfter);
-
     await opsRepo.logEvent({
       channel: "admin",
       severity: "info",
@@ -275,7 +299,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   typedFastify.get("/reward-catalog", async (request) => {
     const ctx = await getAdminContext(request);
-    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    if (!ctx) {
+      const reason = await getAdminAuthFailureReason(request);
+      return createApiEnvelope({ error: { code: "UNAUTHORIZED", reason: reason.code, message: reason.message } }, request.id);
+    }
     const query = request.query as { type?: string; includeInactive?: string };
     const items = await rewardCatalogRepo.listItems({
       type: query?.type,
@@ -368,7 +395,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   typedFastify.get("/submissions", async (request) => {
     const ctx = await getAdminContext(request);
-    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    if (!ctx) {
+      const reason = await getAdminAuthFailureReason(request);
+      return createApiEnvelope({ error: { code: "UNAUTHORIZED", reason: reason.code, message: reason.message } }, request.id);
+    }
     const q = request.query as { status?: string };
     const items = await submissionRepo.listByStatus(q?.status ?? null, 100);
     return createApiEnvelope({ submissions: items }, request.id);
@@ -625,7 +655,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   typedFastify.get("/campaigns", async (request) => {
     const ctx = await getAdminContext(request);
-    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    if (!ctx) {
+      const reason = await getAdminAuthFailureReason(request);
+      return createApiEnvelope({ error: { code: "UNAUTHORIZED", reason: reason.code, message: reason.message } }, request.id);
+    }
     const campaigns = await campaignRepo.listAll(200);
     return createApiEnvelope({ campaigns }, request.id);
   });
@@ -777,8 +810,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   typedFastify.get("/ops/events", async (request) => {
     const ctx = await getAdminContext(request);
-    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
-    
+    if (!ctx) {
+      const reason = await getAdminAuthFailureReason(request);
+      return createApiEnvelope({ error: { code: "UNAUTHORIZED", reason: reason.code, message: reason.message } }, request.id);
+    }
+
     const events = await opsRepo.listEvents({ limit: 100 });
     return createApiEnvelope({ events }, request.id);
   });
@@ -824,7 +860,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   typedFastify.get("/blacklist", async (request) => {
     const ctx = await getAdminContext(request);
-    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    if (!ctx) {
+      const reason = await getAdminAuthFailureReason(request);
+      return createApiEnvelope({ error: { code: "UNAUTHORIZED", reason: reason.code, message: reason.message } }, request.id);
+    }
     const entries: any[] = [];
     const scanStartedAt = Date.now();
     try {
@@ -853,7 +892,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   typedFastify.get("/tickets", async (request) => {
     const ctx = await getAdminContext(request);
-    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+    if (!ctx) {
+      const reason = await getAdminAuthFailureReason(request);
+      return createApiEnvelope({ error: { code: "UNAUTHORIZED", reason: reason.code, message: reason.message } }, request.id);
+    }
     const q = (request.query as any) || {};
     const limit = Math.min(200, Math.max(1, Number(q.limit) || 50));
     const status = typeof q.status === "string" && q.status ? String(q.status).toLowerCase() : null;

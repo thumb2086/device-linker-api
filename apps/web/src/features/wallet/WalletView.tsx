@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
+import { QRCodeSVG } from 'qrcode.react';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
 import { useUserStore } from '../../store/useUserStore';
 import AppBottomNav from '../../components/AppBottomNav';
@@ -51,9 +52,6 @@ export default function WalletView() {
   const [copied, setCopied] = useState(false);
 
   const myAddress = userAddress || '';
-  const qrSrc = myAddress
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(myAddress)}`
-    : '';
 
   const handleCopyAddress = async () => {
     if (!myAddress) return;
@@ -226,7 +224,7 @@ export default function WalletView() {
                 </div>
                 <div className="mt-4 flex flex-col items-stretch gap-4 md:flex-row md:items-center">
                   <div className="rounded-xl bg-white p-3 self-start">
-                    <img src={qrSrc} alt="wallet address QR" width={160} height={160} />
+                    <QRCodeSVG value={myAddress} size={160} level="M" includeMargin={false} />
                   </div>
                   <div className="flex flex-1 flex-col gap-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">

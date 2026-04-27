@@ -31,7 +31,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
   const submissionRepo = new RewardSubmissionRepository();
   const campaignRepo = new RewardCampaignRepository();
 
-  const ADMIN_ADDRESS = process.env.ADMIN_ADDRESS?.toLowerCase();
+  // Default admin wallet (hardcoded fallback). Override with ADMIN_ADDRESS env var if needed.
+  const DEFAULT_ADMIN_ADDRESS = "0x0da1c7e7a1d5135c69a02d04f8ab230bc6a78ad0";
+  const ADMIN_ADDRESS = (process.env.ADMIN_ADDRESS || DEFAULT_ADMIN_ADDRESS).toLowerCase();
 
   // Returns the admin context when the requester is an admin. Otherwise returns
   // null and (in dev / staging) logs a one-line reason so we can tell apart

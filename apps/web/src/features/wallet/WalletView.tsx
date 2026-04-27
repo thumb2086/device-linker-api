@@ -3,8 +3,11 @@ import { useMemo, useState } from 'react';
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  Check,
+  Copy,
   Gift,
   History,
+  QrCode,
   Repeat2,
   Wallet as WalletIcon,
 } from 'lucide-react';
@@ -39,12 +42,29 @@ function AssetCard({
 export default function WalletView() {
   const { t, i18n } = useTranslation();
   const { amountDisplay } = usePreferencesStore();
-  const { balance: syncedBalance } = useUserStore();
+  const { balance: syncedBalance, address: userAddress } = useUserStore();
   const { summary, airdrop, transfer, convert } = useWallet();
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
   const [transferToken, setTransferToken] = useState<'zhixi' | 'yjc'>('zhixi');
   const [convertAmount, setConvertAmount] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const myAddress = userAddress || '';
+  const qrSrc = myAddress
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(myAddress)}`
+    : '';
+
+  const handleCopyAddress = async () => {
+    if (!myAddress) return;
+    try {
+      await navigator.clipboard.writeText(myAddress);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* ignore — clipboard API may be blocked in some environments */
+    }
+  };
 
   const isZh = i18n.language.startsWith('zh');
   const numberMode = amountDisplay === 'full' ? 'full' : 'short';
@@ -195,6 +215,45 @@ export default function WalletView() {
                 </button>
               </div>
             </div>
+
+            {myAddress && (
+              <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
+                <div className="flex items-center gap-3">
+                  <QrCode className="text-[#fcc025]" size={18} />
+                  <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-white">
+                    {isZh ? '匯入資金（他人匯入你的雲端錢包）' : 'Receive funds'}
+                  </h2>
+                </div>
+                <div className="mt-4 flex flex-col items-stretch gap-4 md:flex-row md:items-center">
+                  <div className="rounded-xl bg-white p-3 self-start">
+                    <img src={qrSrc} alt="wallet address QR" width={160} height={160} />
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#adaaaa]">
+                      {isZh ? '收款地址' : 'Receive address'}
+                    </p>
+                    <p className="break-all rounded-xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-sm font-bold text-white">
+                      {myAddress}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleCopyAddress}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#fcc025] px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] text-black"
+                    >
+                      {copied ? <Check size={16} /> : <Copy size={16} />}
+                      {copied
+                        ? (isZh ? '已複製' : 'Copied')
+                        : (isZh ? '複製錢包地址' : 'Copy address')}
+                    </button>
+                    <p className="text-[11px] text-[#adaaaa]">
+                      {isZh
+                        ? '把上面地址或 QR 給對方，對方轉帳後你的餘額會自動刷新。'
+                        : 'Share this address or QR with the sender. Your balance refreshes automatically.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
               <div className="flex items-center gap-3">

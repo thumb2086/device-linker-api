@@ -1,22 +1,6 @@
 {
-  "version": 2,
-  "public": false,
-  "buildCommand": "pnpm build",
+  "buildCommand": "pnpm install && pnpm build",
   "installCommand": "pnpm install",
-  "framework": "vite",
-  "outputDirectory": "apps/web/dist",
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/app",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/app/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  "framework": null,
+  "outputDirectory": "apps/web/dist"
 }

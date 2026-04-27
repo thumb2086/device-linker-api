@@ -1,11 +1,7 @@
 {
-  "name": "device-linker-monolith",
+  "name": "zixi-wallet",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
     "dev": "pnpm -r dev",
     "build": "pnpm -r --filter \"@repo/*\" build && pnpm -r --filter \"api\" build && pnpm -r --filter \"web\" build",
@@ -24,5 +20,9 @@
     "shx": "^0.4.0",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0"
-  }
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }

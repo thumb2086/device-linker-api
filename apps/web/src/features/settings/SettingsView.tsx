@@ -412,7 +412,7 @@ export default function SettingsView() {
               <ChevronRight size={16} className="text-[#adaaaa]" />
             </Link>
             <a
-              href="https://github.com/thumb2086/device-linker-api"
+              href="https://github.com/thumb2086/zixi-casino"
               target="_blank"
               rel="noreferrer"
               className="flex items-center justify-between p-4 transition-colors hover:bg-[#1a1919]"

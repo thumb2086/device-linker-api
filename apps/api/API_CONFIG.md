@@ -6,7 +6,7 @@
 
 | 環境 | URL |
 |------|-----|
-| 生產環境 | `https://device-linker-api.vercel.app/` |
+| 生產環境 | `https://zixi-casino.vercel.app/` |
 | 本地開發 | `http://localhost:3000` |
 
 ## API 端點總覽
@@ -46,7 +46,7 @@
 ### Flutter App 串接
 
 - **專案**: [zixi-wallet-frontend](../flutter_app/)
-- **Base URL**: `https://device-linker-api.vercel.app/api/`
+- **Base URL**: `https://zixi-casino.vercel.app/api/`
 - **主要端點**: `/api/user`, `/api/wallet`
 
 ### 前端 Web 串接

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter web dev",
-    "build": "pnpm --filter web build",
+    "build": "pnpm --filter @repo/shared build && pnpm --filter web build",
     "preview": "pnpm --filter web preview"
   },
   "devDependencies": {

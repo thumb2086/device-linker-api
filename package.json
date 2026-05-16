@@ -2,9 +2,8 @@
   "name": "zixi-wallet-frontend",
   "private": true,
   "type": "module",
-  "main": "render-server.js",
   "scripts": {
-    "start": "node render-server.js",
+    "start": "node apps/api/dist/index.js",
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter @repo/shared build && pnpm --filter web build",
     "preview": "pnpm --filter web preview"

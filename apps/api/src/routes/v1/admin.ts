@@ -711,7 +711,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       kind: "campaign_upsert",
       userId: ctx.user.id,
       message: `Campaign ${campaignId} saved`,
-      meta: { campaignId, title: body.title, isActive: record?.isActive },
+      meta: { campaignId, title: body.title },
     });
     return createApiEnvelope({ campaign: record }, request.id);
   });

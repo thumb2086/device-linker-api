@@ -240,7 +240,7 @@ export async function chestRoutes(fastify: FastifyInstance) {
           chestType,
           free: Boolean(free),
           charged,
-          drops: outcome.result.items.map((i) => i.item.id),
+          drops: outcome.result.items.map((i: any) => i.item.id),
           isPityTrigger: outcome.result.isPityTrigger,
         },
       });
@@ -253,7 +253,7 @@ export async function chestRoutes(fastify: FastifyInstance) {
           charged,
           balanceBefore,
           balanceAfter,
-          items: outcome.result.items.map((drop) => ({
+          items: outcome.result.items.map((drop: any) => ({
             item: drop.item,
             isNew: drop.isNew,
             quantity: drop.quantity,

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useUserStore } from '../store/useUserStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { api } from '../store/api';
 import { useQuery } from '@tanstack/react-query';
 import { resolvePreferredBalance } from '../utils/balance';
 
@@ -22,21 +23,19 @@ export function useSyncUser() {
     queryKey: ['user-me', address, sessionId],
     queryFn: async () => {
       const [meResult, walletResult] = await Promise.allSettled([
-        fetch(`/api/v1/auth/me?sessionId=${sessionId}`),
-        fetch(`/api/v1/wallet/summary?sessionId=${sessionId}`),
+        api.get('/api/v1/auth/me', { params: { sessionId } }),
+        api.get('/api/v1/wallet/summary', { params: { sessionId } }),
       ]);
 
       let authData: Record<string, any> = {};
       let walletData: Record<string, any> = {};
 
       if (meResult.status === 'fulfilled') {
-        const mePayload = await meResult.value.json();
-        authData = mePayload?.data || {};
+        authData = meResult.value.data?.data || {};
       }
 
       if (walletResult.status === 'fulfilled') {
-        const walletPayload = await walletResult.value.json();
-        walletData = walletPayload?.data || {};
+        walletData = walletResult.value.data?.data || {};
       }
 
       const walletBalance = resolvePreferredBalance({

@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUserStore } from '../../store/useUserStore';
+import { api } from '../../store/api';
 import { usePreferencesStore } from '../../store/usePreferencesStore';
 import AppBottomNav from '../../components/AppBottomNav';
 import { useWallet } from '../wallet/useWallet';
@@ -129,9 +130,9 @@ export default function SettingsView() {
       return;
     }
 
-    fetch(`/api/v1/profile/prefs?sessionId=${sessionId}`)
-      .then((res) => res.json())
-      .then((payload) => {
+    api.get('/api/v1/profile/prefs', { params: { sessionId } })
+      .then((res) => {
+        const payload = res.data;
         if (payload?.success !== false && payload?.data?.prefs) {
           replacePrefs(payload.data.prefs);
           if (payload.data.displayName) setUsername(payload.data.displayName);
@@ -154,12 +155,8 @@ export default function SettingsView() {
     setSaving(true);
     setStatusText(isZh ? zh.syncingSettings : 'Syncing settings...');
     try {
-      const res = await fetch('/api/v1/profile/prefs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, prefs: updates }),
-      });
-      const payload = await res.json();
+      const res = await api.post('/api/v1/profile/prefs', { sessionId, prefs: updates });
+      const payload = res.data;
       if (payload?.success === false) {
         setStatusText(isZh ? zh.syncFailed : 'Failed to sync settings');
       } else {
@@ -182,20 +179,16 @@ export default function SettingsView() {
 
     setSaving(true);
     try {
-      const res = await fetch('/api/v1/profile/set-username', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, username: nextName }),
-      });
-      const payload = await res.json();
+      const res = await api.post('/api/v1/profile/set-username', { sessionId, username: nextName });
+      const payload = res.data;
       if (payload?.success === false) {
         setStatusText(payload?.error || (isZh ? zh.nameUpdateFailed : 'Failed to update display name'));
         return;
       }
 
       // Reload canonical profile name from server to avoid stale local state
-      const profileRes = await fetch(`/api/v1/profile/prefs?sessionId=${sessionId}`);
-      const profilePayload = await profileRes.json();
+      const profileRes = await api.get('/api/v1/profile/prefs', { params: { sessionId } });
+      const profilePayload = profileRes.data;
       const syncedName = profilePayload?.data?.displayName || nextName;
       setUsername(syncedName);
       setDisplayNameDraft(syncedName);

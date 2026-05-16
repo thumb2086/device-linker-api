@@ -10,7 +10,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@fastify/cors": "^11.2.0",
+    "@fastify/cors": "^9.0.1",
     "@repo/domain": "workspace:*",
     "@repo/infrastructure": "workspace:*",
     "@repo/on-chain": "workspace:*",

@@ -5,7 +5,7 @@ services:
     env: node
     plan: free
     region: oregon
-    buildCommand: npm install -g pnpm && pnpm install && pnpm --filter @repo/api... build
+    buildCommand: npm install -g pnpm && pnpm install && pnpm build
     startCommand: node apps/api/dist/index.js
     envVars:
       - key: NODE_ENV

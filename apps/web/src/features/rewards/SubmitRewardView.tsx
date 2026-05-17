@@ -55,6 +55,10 @@ export default function SubmitRewardView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
+  useEffect(() => {
+    if (resultMsg) { const t = setTimeout(() => setResultMsg(null), 3000); return () => clearTimeout(t); }
+  }, [resultMsg]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!sessionId) {
@@ -237,7 +241,9 @@ export default function SubmitRewardView() {
             </button>
 
             {resultMsg && (
-              <p className="text-center text-xs text-[#fcc025]">{resultMsg}</p>
+              <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl bg-[#1a1919] border border-[#fcc025]/40 shadow-lg shadow-black/50 text-sm font-bold text-white animate-[fadeIn_0.3s_ease-out] whitespace-nowrap">
+                {resultMsg}
+              </div>
             )}
           </form>
         </section>

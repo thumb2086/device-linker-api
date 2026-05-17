@@ -65,6 +65,10 @@ export default function SupportView() {
   }, []);
 
   useEffect(() => {
+    if (ticketResult) { const t = setTimeout(() => setTicketResult(null), 3000); return () => clearTimeout(t); }
+  }, [ticketResult]);
+
+  useEffect(() => {
     let cancelled = false;
     async function loadChat() {
       setChatLoading(true);
@@ -236,7 +240,9 @@ export default function SupportView() {
                 提交工單
               </button>
               {ticketResult && (
-                <p className="text-xs text-[#fcc025] mt-2">{ticketResult}</p>
+                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl bg-[#1a1919] border border-[#fcc025]/40 shadow-lg shadow-black/50 text-sm font-bold text-white animate-[fadeIn_0.3s_ease-out] whitespace-nowrap">
+                  {ticketResult}
+                </div>
               )}
             </form>
           )}

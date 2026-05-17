@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BarChart3,
@@ -57,30 +57,15 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
 
 export default function MarketView() {
   const { t } = useTranslation();
-  const { amountDisplay } = usePreferencesStore();
-  const { snapshot, account, execute } = useMarket();
+  const navigate = useNavigate();
   const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
   const [tradeQuantity, setTradeQuantity] = useState('1');
   const [cashMoveAmount, setCashMoveAmount] = useState('1000');
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const numberMode = amountDisplay === 'full' ? 'full' : 'short';
-  const marketSnapshot = snapshot.data;
-  const summary = account.data;
-  const symbols = useMemo(() => Object.values(marketSnapshot?.symbols || {}) as Quote[], [marketSnapshot]);
-  const stockSymbols = useMemo(() => symbols.filter((quote) => quote.type === 'stock'), [symbols]);
-  const selectedQuote = marketSnapshot?.symbols?.[selectedSymbol] as Quote | undefined;
-  const historyBySymbol = marketSnapshot?.history || {};
-
-  const runAction = (params: MarketActionParams, successMessage: string) => {
-    execute.mutate(params, {
-      onSuccess: () => setActionNotice({ type: 'success', message: successMessage }),
-      onError: (error: unknown) => {
-        const message = error instanceof Error ? error.message : t('market.action_failed');
-        setActionNotice({ type: 'error', message });
-      },
-    });
-  };
+  useEffect(() => {
+    if (actionNotice) { const t = setTimeout(() => setActionNotice(null), 3000); return () => clearTimeout(t); }
+  }, [actionNotice]);
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] pb-32 font-['Manrope'] text-white">
@@ -98,14 +83,12 @@ export default function MarketView() {
 
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 pt-24">
         {actionNotice && (
-          <div
-            className={`rounded-xl border px-4 py-3 text-sm font-bold ${
-              actionNotice.type === 'success'
-                ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300'
-                : 'border-[#ff7351]/40 bg-[#ff7351]/10 text-[#ffc8ba]'
-            }`}
-          >
-            {actionNotice.message}
+          <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl bg-[#1a1919] border shadow-lg shadow-black/50 text-sm font-bold animate-[fadeIn_0.3s_ease-out] whitespace-nowrap ${
+            actionNotice.type === 'success'
+              ? 'border-emerald-400/40 text-emerald-300'
+              : 'border-red-400/40 text-red-400'
+          }`}>
+            {actionNotice.type === 'success' ? '✅ ' : '❌ '}{actionNotice.message}
           </div>
         )}
         <section className="grid gap-4 lg:grid-cols-3">

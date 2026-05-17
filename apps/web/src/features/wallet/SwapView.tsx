@@ -121,7 +121,9 @@ function SwapPanel({
         </button>
 
         {result && (
-          <p className="text-xs text-[#fcc025] text-center">{result}</p>
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl bg-[#1a1919] border border-[#fcc025]/40 shadow-lg shadow-black/50 text-sm font-bold text-white animate-[fadeIn_0.3s_ease-out] whitespace-nowrap">
+            {result}
+          </div>
         )}
       </form>
 
@@ -143,6 +145,10 @@ export default function SwapView() {
   const [inputAmount, setInputAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (result) { const t = setTimeout(() => setResult(null), 3000); return () => clearTimeout(t); }
+  }, [result]);
 
   const s = summary.data;
   const zxcBalance = String(s?.balances?.zhixi?.balance ?? s?.summary?.balances?.ZXC ?? '0');

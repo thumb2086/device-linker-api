@@ -12,6 +12,8 @@
     "copied": "Copied",
     "english": "English",
     "chinese": "中文",
+    "just_now": "JUST NOW",
+    "minutes_ago": "{{count}} MIN AGO",
     "hours_ago": "{{count}} HOURS AGO",
     "yesterday": "YESTERDAY",
     "days_ago": "{{count}} DAYS AGO"

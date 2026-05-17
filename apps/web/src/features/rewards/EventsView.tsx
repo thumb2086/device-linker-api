@@ -105,6 +105,10 @@ export default function EventsView() {
     refresh();
   }, [sessionId]);
 
+  useEffect(() => {
+    if (msg) { const t = setTimeout(() => setMsg(null), 3000); return () => clearTimeout(t); }
+  }, [msg]);
+
   async function claim(campaignId: string) {
     if (!sessionId) {
       setMsg('請先登入');
@@ -154,7 +158,7 @@ export default function EventsView() {
 
       <main className="mx-auto max-w-xl px-4 py-6 space-y-4">
         {msg && (
-          <div className="rounded-lg border border-[#fcc025]/40 bg-[#fcc025]/10 px-3 py-2 text-xs text-[#fcc025]">
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl bg-[#1a1919] border border-[#fcc025]/40 shadow-lg shadow-black/50 text-sm font-bold text-white animate-[fadeIn_0.3s_ease-out] whitespace-nowrap">
             {msg}
           </div>
         )}

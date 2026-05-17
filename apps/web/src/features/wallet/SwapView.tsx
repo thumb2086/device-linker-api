@@ -1,4 +1,4 @@
-import { useState, FormEvent, useCallback } from 'react';
+import { useState, FormEvent, useCallback, useEffect } from 'react';
 import { ArrowDownUp, Loader2, Coins, ShoppingBag, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AppBottomNav from '../../components/AppBottomNav';
@@ -33,7 +33,6 @@ function SwapPanel({
   result,
   zxcBalance,
   yjcBalance,
-  loadingBalances,
   isAuthorized,
   setDirection,
   setInputAmount,
@@ -140,7 +139,6 @@ function SwapPanel({
         <p>• 手續費：0</p>
         <p>• 雙向兌換，兌換以整數為單位，小數部分自動捨去</p>
         <p>• 兌換直接上鏈，最終金額以鏈上交易為準</p>
-        {loadingBalances && <p className="flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> 載入餘額中...</p>}
       </div>
     </section>
   );
@@ -381,7 +379,6 @@ export default function SwapView() {
             result={result}
             zxcBalance={zxcBalance}
             yjcBalance={yjcBalance}
-            loadingBalances={loadingBalances}
             isAuthorized={isAuthorized}
             setDirection={setDirection}
             setInputAmount={setInputAmount}

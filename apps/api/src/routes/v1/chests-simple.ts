@@ -239,6 +239,10 @@ export async function chestRoutes(fastify: FastifyInstance) {
       let outcome;
       try {
         outcome = await openChestForUser(ctx.userId, ctx.address, chestType);
+        if (outcome.compensationZXC > 0) {
+          const bal = await gameSettlement.getBalance(ctx.address, "zhixi");
+          await gameSettlement.setBalance(ctx.address, "zhixi", (Number(bal) + outcome.compensationZXC).toString());
+        }
       } catch (error: any) {
         if (keyId) {
           state.inventory[keyId] = (state.inventory[keyId] || 0) + 1;
@@ -305,6 +309,7 @@ export async function chestRoutes(fastify: FastifyInstance) {
           pityCount: outcome.state.chestPity[chestType],
           keyCounts: newKeyCounts,
           totalValue: outcome.result.totalValue,
+          compensationZXC: outcome.compensationZXC,
           inventoryCount: countInventorySlots(outcome.state.inventory),
         },
         request.id,

@@ -173,7 +173,13 @@ function toChestManagerInventory(state: ProfileInventoryState): UserInventory {
 export interface OpenChestOutcome {
   result: ChestOpenResult;
   state: ProfileInventoryState;
+  compensationZXC: number;
 }
+
+const DUPLICATE_COMPENSATION: Record<string, number> = {
+  avatar: 500,
+  title: 300,
+};
 
 export async function openChestForUser(
   userId: string,
@@ -199,19 +205,33 @@ export async function openChestForUser(
     chestPity: nextPity,
   };
 
+  let compensationZXC = 0;
+
   for (const reward of result.items) {
     const itemId = reward.item.id;
+    const def = ALL_ITEMS[itemId];
+
+    if (def?.type === "avatar") {
+      if (!nextState.ownedAvatars.includes(itemId)) {
+        nextState.ownedAvatars.push(itemId);
+      } else {
+        compensationZXC += DUPLICATE_COMPENSATION.avatar;
+      }
+      continue;
+    }
+    if (def?.type === "title") {
+      if (!nextState.ownedTitles.includes(itemId)) {
+        nextState.ownedTitles.push(itemId);
+      } else {
+        compensationZXC += DUPLICATE_COMPENSATION.title;
+      }
+      continue;
+    }
     nextState.inventory[itemId] = (nextState.inventory[itemId] || 0) + 1;
-    if (reward.item.type === "avatar" && !nextState.ownedAvatars.includes(itemId)) {
-      nextState.ownedAvatars.push(itemId);
-    }
-    if (reward.item.type === "title" && !nextState.ownedTitles.includes(itemId)) {
-      nextState.ownedTitles.push(itemId);
-    }
   }
 
   await persistInventoryState(userId, nextState);
-  return { result, state: nextState };
+  return { result, state: nextState, compensationZXC };
 }
 
 export function isDailyFreeChestReady(lastFreeChestAt: string | null): boolean {
@@ -324,11 +344,19 @@ export async function useItem(
     case "avatar":
       if (!nextState.ownedAvatars.includes(itemId)) nextState.ownedAvatars.push(itemId);
       nextState.activeAvatar = itemId;
+      if (nextState.inventory[itemId]) {
+        nextState.inventory[itemId] -= 1;
+        if (nextState.inventory[itemId] <= 0) delete nextState.inventory[itemId];
+      }
       effectSummary = `已裝備頭像：${def.name}`;
       break;
     case "title":
       if (!nextState.ownedTitles.includes(itemId)) nextState.ownedTitles.push(itemId);
       nextState.activeTitle = itemId;
+      if (nextState.inventory[itemId]) {
+        nextState.inventory[itemId] -= 1;
+        if (nextState.inventory[itemId] <= 0) delete nextState.inventory[itemId];
+      }
       effectSummary = `已裝備稱號：${def.name}`;
       break;
     case "collectible":

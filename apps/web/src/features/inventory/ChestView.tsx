@@ -109,6 +109,8 @@ export default function ChestView() {
   const [selectedChest, setSelectedChest] = useState<ChestConfig | null>(null);
   const [isOpening, setIsOpening] = useState(false);
   const [openedItems, setOpenedItems] = useState<ChestItem[]>([]);
+  const [openCompensation, setOpenCompensation] = useState(0);
+  const [compToast, setCompToast] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [status, setStatus] = useState<ChestStatus | null>(null);
   const [inventory, setInventory] = useState<InventoryState>({
@@ -170,6 +172,12 @@ export default function ChestView() {
 
       if (data?.success) {
         setOpenedItems(data.data.items);
+        const comp = data.data.compensationZXC || 0;
+        setOpenCompensation(comp);
+        if (comp > 0) {
+          setCompToast(`重複物品補償 +${comp} ZXC`);
+          setTimeout(() => setCompToast(null), 4000);
+        }
         setShowResult(true);
         // Update pity and key counts instantly from response
         const d = data.data;
@@ -493,11 +501,20 @@ export default function ChestView() {
                 ))}
               </div>
 
+              {openCompensation > 0 && (
+                <div className="text-center mb-4">
+                  <span className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl px-4 py-2 text-sm font-bold">
+                    重複物品補償 +{openCompensation} ZXC
+                  </span>
+                </div>
+              )}
+
               <div className="text-center">
                 <button
                   onClick={() => {
                     setShowResult(false);
                     setOpenedItems([]);
+                    setOpenCompensation(0);
                     setSelectedChest(null);
                   }}
                   className="bg-[#494847] hover:bg-[#5a5858] text-white font-bold px-8 py-3
@@ -511,6 +528,12 @@ export default function ChestView() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {compToast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 shadow-lg shadow-black/50 text-sm font-bold text-emerald-400 animate-[fadeIn_0.3s_ease-out] whitespace-nowrap">
+          {compToast}
+        </div>
+      )}
     </div>
   );
 }

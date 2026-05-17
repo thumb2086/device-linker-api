@@ -227,6 +227,7 @@ export async function chestRoutes(fastify: FastifyInstance) {
         }
         state.inventory[keyId] = keyCount - 1;
         if (state.inventory[keyId] <= 0) delete state.inventory[keyId];
+        await persistInventoryState(ctx.userId, state);
       }
 
       let outcome;

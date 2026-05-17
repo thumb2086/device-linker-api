@@ -33,7 +33,7 @@ export default function ShopView() {
     try {
       const [catalogRes, summaryRes] = await Promise.all([
         api.get('/api/v1/rewards/catalog'),
-        api.get('/api/v1/wallet/summary').catch(() => null),
+        api.get('/api/v1/wallet/summary', { params: { sessionId } }).catch(() => null),
       ]);
       const catalog = catalogRes.data?.data?.customItems || [];
       const shopItems = catalog.filter((i: any) => i.source === 'shop' && Number(i.price) > 0);

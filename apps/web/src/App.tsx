@@ -23,7 +23,6 @@ import ProfileSetup from './features/profile/ProfileSetup';
 import AnnouncementCenter from './features/announcement/AnnouncementCenter';
 import SettingsView from './features/settings/SettingsView';
 import ShopView from './features/shop/ShopView';
-import StatusView from './features/status/StatusView';
 import PublicTransactionsView from './features/transactions/PublicTransactionsView';
 import TransactionsDashboardView from './features/dashboard/TransactionsDashboardView';
 import SoundPlayer from './components/SoundPlayer';
@@ -112,7 +111,6 @@ function AppContent() {
             <Route path="wallet" element={<WalletView />} />
             <Route path="swap" element={<SwapView />} />
             <Route path="shop" element={<ShopView />} />
-            <Route path="status" element={<StatusView />} />
             <Route path="market" element={<MarketView />} />
             <Route path="rewards" element={<RewardsView />} />
             <Route path="rewards/submit" element={<SubmitRewardView />} />

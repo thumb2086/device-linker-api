@@ -1,8 +1,10 @@
-import { rewardCatalogRepo } from '@repo/infrastructure';
+import postgres from 'postgres';
+
+const DATABASE_URL = process.env.DATABASE_URL || process.env.DB_URL || '';
 
 const SHOP_ITEMS = [
   {
-    type: 'avatar',
+    type: 'bundle',
     itemId: 'combo_starter',
     name: '新手上路組合包',
     nameEn: 'Starter Pack',
@@ -22,7 +24,7 @@ const SHOP_ITEMS = [
     },
   },
   {
-    type: 'avatar',
+    type: 'bundle',
     itemId: 'combo_lucky',
     name: '幸運組合包',
     nameEn: 'Lucky Pack',
@@ -42,7 +44,7 @@ const SHOP_ITEMS = [
     },
   },
   {
-    type: 'avatar',
+    type: 'bundle',
     itemId: 'combo_xp',
     name: '升級組合包',
     nameEn: 'XP Pack',
@@ -62,7 +64,7 @@ const SHOP_ITEMS = [
     },
   },
   {
-    type: 'avatar',
+    type: 'bundle',
     itemId: 'combo_zxc_v1',
     name: '子熙幣超值包',
     nameEn: 'ZXC Value Pack',
@@ -83,15 +85,27 @@ const SHOP_ITEMS = [
 ];
 
 async function main() {
+  const url = DATABASE_URL;
+  if (!url) {
+    console.error('❌ 請設定 DATABASE_URL 環境變數');
+    console.error('   範例: DATABASE_URL=postgres://user:pass@host:5432/db npx tsx apps/api/scripts/seed-shop.ts');
+    process.exit(1);
+  }
   console.log('🌱 Seeding shop items...');
+  const sql = postgres(url, { ssl: 'require', max: 1 });
   for (const item of SHOP_ITEMS) {
     try {
-      await rewardCatalogRepo.upsert(item);
+      await sql`
+        INSERT INTO reward_catalog (item_id, type, name, rarity, source, price, is_active, meta)
+        VALUES (${item.itemId}, ${item.type}, ${item.name}, ${item.rarity}, ${item.source}, ${item.price}, ${item.isActive}, ${JSON.stringify(item.meta)})
+        ON CONFLICT (item_id) DO UPDATE SET type = EXCLUDED.type, name = EXCLUDED.name, rarity = EXCLUDED.rarity, price = EXCLUDED.price, meta = EXCLUDED.meta, updated_at = NOW()
+      `;
       console.log(`  ✅ ${item.itemId} — ${item.name}`);
     } catch (err: any) {
       console.error(`  ❌ ${item.itemId} — ${err.message}`);
     }
   }
+  await sql.end();
   console.log('✅ Seed complete!');
   process.exit(0);
 }

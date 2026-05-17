@@ -27,6 +27,10 @@ const RARITY_STYLES = {
   vip: { bg: 'bg-[#fcc025]/20', text: 'text-[#fcc025]', border: 'border-[#fcc025]/30', label: 'VIP' },
 };
 
+const RARITY_RANK: Record<string, number> = {
+  mythic: 0, legendary: 1, epic: 2, rare: 3, common: 4, vip: 5,
+};
+
 const TYPE_ICONS = {
   avatar: Package,
   title: Crown,
@@ -101,7 +105,11 @@ export default function ItemsTab() {
             price: Number(item.price) || 0,
             meta: item.meta,
           }));
-        setItems([...avatars, ...titles, ...chestItems, ...shopItems]);
+        setItems(
+          [...avatars, ...titles, ...chestItems, ...shopItems].sort(
+            (a, b) => (RARITY_RANK[a.rarity ?? 'common'] ?? 4) - (RARITY_RANK[b.rarity ?? 'common'] ?? 4)
+          )
+        );
       })
       .finally(() => setLoading(false));
   }, []);

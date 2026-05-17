@@ -233,7 +233,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
 
     const { type, id } = request.body;
-    const address = ctx.session.address;
+    const address = String(ctx.session.address).toLowerCase();
     
     const ownedKey = type === "title" ? `owned_titles:${address}` : `owned_avatars:${address}`;
     const owned = await kv.get<string[]>(ownedKey) || [];

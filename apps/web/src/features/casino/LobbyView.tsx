@@ -127,7 +127,7 @@ export default function LobbyView() {
             </h1>
           </div>
           <Link
-            to="/app/status"
+            to="/app/transactions"
             className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[#fcc025]/20 shadow-[0_0_15px_rgba(252,192,37,0.1)] flex items-center justify-center bg-[#1a1919]"
           >
             <User size={20} className="text-[#fcc025]" />

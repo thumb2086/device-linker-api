@@ -46,11 +46,14 @@ function useFastLogin() {
 
   useEffect(() => {
     const validateSession = async () => {
-      const rememberMe = localStorage.getItem('custody_remember_me') === 'true';
-
-      if (!sessionId || !rememberMe) {
+      if (!sessionId) {
         setIsRestoring(false);
         return;
+      }
+
+      const rememberMe = localStorage.getItem('custody_remember_me') === 'true';
+      if (!rememberMe) {
+        setIsRestoring(false);
       }
 
       try {

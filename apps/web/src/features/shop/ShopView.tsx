@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader2, RefreshCw, Coins, ShoppingBag, ChevronLeft, Gift, Zap, Shield, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AppBottomNav from '../../components/AppBottomNav';
@@ -170,7 +170,7 @@ export default function ShopView() {
     }
   }
 
-  const visibleItems = items.filter((item: any) => {
+  const visibleItems = useMemo(() => items.filter((item: any) => {
     const meta = item.meta as Record<string, any> | undefined;
     const bundle = meta?.bundle as Array<{ id: string; qty?: number }> | undefined;
     if (bundle) {
@@ -183,7 +183,7 @@ export default function ShopView() {
     if (item.type === 'avatar' && ownedAvatars.includes(item.itemId)) return false;
     if (item.type === 'title' && ownedTitles.includes(item.itemId)) return false;
     return true;
-  });
+  }), [items, ownedAvatars, ownedTitles]);
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">

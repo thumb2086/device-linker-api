@@ -19,36 +19,21 @@ type SyncUserData = {
 
 export function useSyncUser() {
   const { address, sessionId } = useAuthStore();
-  const { setAddress, setBalance, setUsername, setActiveAvatar, setActiveTitle } = useUserStore();
+  const { setBalance } = useUserStore();
 
   const { data: userData, isLoading } = useQuery<SyncUserData>({
-    queryKey: ['user-me', address, sessionId],
+    queryKey: ['user-wallet', address, sessionId],
     queryFn: async () => {
-      const [meResult, walletResult] = await Promise.allSettled([
-        api.get('/api/v1/auth/me', { params: { sessionId } }),
-        api.get('/api/v1/wallet/summary', { params: { sessionId } }),
-      ]);
-
-      let authData: Record<string, any> = {};
-      let walletData: Record<string, any> = {};
-
-      if (meResult.status === 'fulfilled') {
-        authData = meResult.value.data?.data || {};
-      }
-
-      if (walletResult.status === 'fulfilled') {
-        walletData = walletResult.value.data?.data || {};
-      }
+      const walletResult = await api.get('/api/v1/wallet/summary', { params: { sessionId } });
+      const walletData = walletResult.data?.data || {};
 
       const walletBalance = resolvePreferredBalance({
         onchainBalance: walletData?.onchain?.zxc?.balance,
         onchainAvailable: walletData?.onchain?.zxc?.available,
         walletBalance: walletData?.summary?.balances?.ZXC,
-        fallbackBalance: authData?.balance,
       });
 
       return {
-        ...authData,
         wallet: walletData,
         balance: walletBalance,
       } as SyncUserData;
@@ -59,24 +44,10 @@ export function useSyncUser() {
   });
 
   useEffect(() => {
-    if (userData?.address) {
-      setAddress(userData.address);
-    }
     if (userData?.balance) {
       setBalance(userData.balance);
     }
-    if (userData?.user?.displayName) {
-      setUsername(userData.user.displayName);
-    } else if (userData?.username) {
-      setUsername(userData.username);
-    }
-    if (userData?.activeAvatar) {
-      setActiveAvatar(userData.activeAvatar);
-    }
-    if (userData?.activeTitle) {
-      setActiveTitle(userData.activeTitle);
-    }
-  }, [userData, setAddress, setBalance, setUsername, setActiveAvatar, setActiveTitle]);
+  }, [userData, setBalance]);
 
   return { userData, isLoading };
 }

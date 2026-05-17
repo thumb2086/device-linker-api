@@ -8,6 +8,7 @@ import WalletView from './features/wallet/WalletView';
 import SwapView from './features/wallet/SwapView';
 import LoginView from './features/auth/LoginView';
 import { useAuthStore } from './store/useAuthStore';
+import { useUserStore } from './store/useUserStore';
 import MarketView from './features/market/MarketView';
 import RewardsView from './features/rewards/RewardsView';
 import SubmitRewardView from './features/rewards/SubmitRewardView';
@@ -40,6 +41,7 @@ const queryClient = new QueryClient();
 // 快速登入：直接 call /auth/me 驗證 session + 取得使用者資料（省去一次 round trip）
 function useFastLogin() {
   const { sessionId, setAuth, clearAuth } = useAuthStore();
+  const { setAddress, setBalance, setUsername, setActiveAvatar, setActiveTitle } = useUserStore();
   const [isRestoring, setIsRestoring] = useState(true);
 
   useEffect(() => {
@@ -58,6 +60,12 @@ function useFastLogin() {
 
         if (data.success && payload?.address) {
           setAuth(payload.address, sessionId, payload.publicKey || '0x');
+          setAddress(payload.address);
+          if (payload.balance) setBalance(payload.balance);
+          if (payload.user?.displayName) setUsername(payload.user.displayName);
+          else if (payload.username) setUsername(payload.username);
+          if (payload.activeAvatar) setActiveAvatar(payload.activeAvatar);
+          if (payload.activeTitle) setActiveTitle(payload.activeTitle);
         } else {
           clearAuth();
         }
@@ -69,7 +77,7 @@ function useFastLogin() {
     };
 
     validateSession();
-  }, [sessionId, setAuth, clearAuth]);
+  }, [sessionId, setAuth, clearAuth, setAddress, setBalance, setUsername, setActiveAvatar, setActiveTitle]);
 
   return { isRestoring };
 }

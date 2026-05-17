@@ -40,10 +40,13 @@ export default function ChatRoom() {
       };
       setLocalMessages((prev) => [...prev, optimisticMsg]);
     },
+    onSuccess: () => {
+      setLocalMessages([]);
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
     },
-    onError: () => {
+    onError: (_err) => {
       setLocalMessages((prev) => prev.filter((m) => !m.id.startsWith('temp-')));
     },
   });

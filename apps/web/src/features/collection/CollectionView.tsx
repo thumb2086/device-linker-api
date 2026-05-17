@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Archive } from 'lucide-react';
+import AppBottomNav from '../../components/AppBottomNav';
 import { api } from '../../store/api';
 import { ITEM_DROP_TABLES, RARITY_NAMES } from '@repo/shared';
 
@@ -89,6 +90,8 @@ export default function CollectionView() {
           </div>
         )}
       </main>
+
+      <AppBottomNav current="none" />
     </div>
   );
 }

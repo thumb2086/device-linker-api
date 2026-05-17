@@ -4,7 +4,7 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { RewardManager, TITLES, AVATARS } from "@repo/domain";
+import { RewardManager, TITLES } from "@repo/domain";
 import {
   SessionRepository,
   UserRepository,
@@ -78,7 +78,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
 
     const data = {
       titles: [...TITLES, ...customTitles],
-      avatars: [...AVATARS, ...customAvatars],
+      avatars: [...customAvatars],
       customItems: customRows.filter(
         (r: any) => r.type !== "avatar" && r.type !== "title"
       ),

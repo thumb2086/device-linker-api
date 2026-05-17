@@ -9,7 +9,7 @@ import { OnchainWalletManager } from "@repo/domain";
 import * as schema from "@repo/infrastructure/db/schema.js";
 import { requireDb, WalletRepository } from "@repo/infrastructure/db/index.js";
 import { ChainClient, kv, RewardCatalogRepository } from "@repo/infrastructure";
-import { TITLES, AVATARS } from "@repo/domain";
+import { TITLES } from "@repo/domain";
 
 const ASSET_LB_SYNC_KEY = "leaderboard:asset:last_onchain_sync_at";
 const ASSET_LB_SYNC_INTERVAL_MS = 60 * 60 * 1000;
@@ -26,7 +26,6 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
     const customItems = await rewardCatalogRepo.listItems({}).catch(() => [] as any[]);
     const avatarMap = new Map<string, { id: string; icon?: string; label?: string }>();
     const titleMap = new Map<string, { id: string; label?: string }>();
-    for (const a of AVATARS) avatarMap.set(a.id, { id: a.id, icon: a.icon, label: a.label });
     for (const t of TITLES) titleMap.set(t.id, { id: t.id, label: t.label });
     for (const row of customItems as any[]) {
       if (row.type === "avatar") avatarMap.set(row.itemId, { id: row.itemId, icon: row.icon, label: row.name });

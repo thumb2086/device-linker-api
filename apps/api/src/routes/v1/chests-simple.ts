@@ -164,7 +164,7 @@ typedFastify.post("/buy", {
     body: z.object({
       sessionId: z.string().optional(),
       chestType: CHEST_TYPE_ENUM,
-      quantity: z.number().int().min(1).max(999).optional().default(1),
+      quantity: z.number().int().min(1).max(9999).optional().default(1),
     }),
   },
 }, async (request: any) => {
@@ -211,8 +211,8 @@ typedFastify.post("/buy", {
   }, request.id);
 });
 
-  // Open a chest. For the daily free chest the user must use action="claim_free".
-  typedFastify.post(
+// Open a chest. For the daily free chest the user must use action="claim_free".
+typedFastify.post(
     "/open",
     {
       schema: {
@@ -377,7 +377,7 @@ typedFastify.post("/open-bulk", {
     body: z.object({
       sessionId: z.string().optional(),
       chestType: CHEST_TYPE_ENUM,
-      quantity: z.number().int().min(1).max(999),
+      quantity: z.number().int().min(1).max(9999),
     }),
   },
 }, async (request: any) => {

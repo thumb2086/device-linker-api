@@ -37,6 +37,7 @@ import { shootDragonGateRoutes } from "./routes/v1/games/shoot-dragon-gate.js";
 import { chestRoutes } from "./routes/v1/chests-simple.js";
 import { inventoryRoutes } from "./routes/v1/inventory.js";
 import { pawnRoutes } from "./routes/v1/pawn.js";
+import { giftRoutes } from "./routes/v1/gift.js";
 import postgres from "postgres";
 
 const fastify = Fastify({
@@ -244,6 +245,7 @@ fastify.register(shootDragonGateRoutes, { prefix: "/api/v1/games/shoot-dragon-ga
 fastify.register(chestRoutes, { prefix: "/api/v1/chests" });
 fastify.register(inventoryRoutes, { prefix: "/api/v1/inventory" });
 fastify.register(pawnRoutes, { prefix: "/api/v1/pawn" });
+fastify.register(giftRoutes, { prefix: "/api/v1/gift" });
 
 fastify.get("/health", async () => {
   return { status: "ok", env: process.env.NODE_ENV };

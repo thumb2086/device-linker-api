@@ -15,7 +15,7 @@ import {
   RewardSubmissionRepository,
   RewardCampaignRepository,
 } from "@repo/infrastructure";
-import { grantBundleToUser } from "../../utils/inventory.js";
+import { grantBundleToUser, ALL_ITEMS } from "../../utils/inventory.js";
 import { gameSettlement } from "../../utils/game-settlement.js";
 
 export async function adminRoutes(fastify: FastifyInstance) {
@@ -817,6 +817,30 @@ export async function adminRoutes(fastify: FastifyInstance) {
       message: `Admin granted rewards to ${normalized}`,
       meta: { ...bundleSummary, note: body.note ?? null },
     });
+
+    // Post to global chat
+    try {
+      const summaryParts: string[] = [];
+      if (body.zxc) summaryParts.push(`${body.zxc.toLocaleString()} ZXC`);
+      if (body.yjc) summaryParts.push(`${body.yjc.toLocaleString()} YJC`);
+      if (body.items?.length) {
+        for (const it of body.items) {
+          const def = ALL_ITEMS[it.id];
+          summaryParts.push(`${def?.name || it.id}${it.qty > 1 ? ` ×${it.qty}` : ''}`);
+        }
+      }
+      if (body.avatars?.length) summaryParts.push(`${body.avatars.length} 個頭像`);
+      if (body.titles?.length) summaryParts.push(`${body.titles.length} 個稱號`);
+      const chatMsg = {
+        id: crypto.randomUUID(), address: "", displayName: "🛠️ 管理員",
+        text: `🛠️ 管理員贈送 ${summaryParts.join(' + ')} 給 ${normalized.slice(0, 6)}`,
+        createdAt: Date.now(),
+      };
+      const msgs: any[] = await kv.get("chat:global:messages") || [];
+      msgs.push(chatMsg);
+      if (msgs.length > 50) msgs.shift();
+      await kv.set("chat:global:messages", msgs);
+    } catch {}
 
     return createApiEnvelope({ success: true, bundle: bundleSummary }, request.id);
   });

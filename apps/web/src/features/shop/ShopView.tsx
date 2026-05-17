@@ -255,7 +255,7 @@ export default function ShopView() {
         <section className="bg-[#1a1919] rounded-2xl p-4 border border-[#494847]/20 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Coins size={18} className="text-[#fcc025]" />
-            <span className="text-xs font-black uppercase tracking-widest text-[#adaaaa]">ZXC 餘額</span>
+            <span className="text-sm font-black uppercase tracking-widest text-[#adaaaa]">ZXC 餘額</span>
           </div>
           <span className="text-lg font-black italic text-[#fcc025]">{formatBalance(balance)}</span>
         </section>
@@ -263,13 +263,13 @@ export default function ShopView() {
         <section className="bg-[#1a1919] rounded-2xl p-4 border border-[#494847]/20">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">💎</span>
-            <span className="text-xs font-black uppercase tracking-widest text-[#adaaaa]">佑戩幣 YJC</span>
-            <span className="text-xs font-black italic text-[#4fc3f7] ml-auto">{formatBalance(yjcBalance)}</span>
+            <span className="text-sm font-black uppercase tracking-widest text-[#adaaaa]">佑戩幣 YJC</span>
+            <span className="text-sm font-black italic text-[#4fc3f7] ml-auto">{formatBalance(yjcBalance)}</span>
           </div>
-          <div className="text-[10px] text-[#adaaaa] mb-2">1 YJC = {CONVERSION_RATE.toLocaleString()} ZXC</div>
+          <div className="text-sm text-[#adaaaa] mb-2">1 YJC = {CONVERSION_RATE.toLocaleString()} ZXC</div>
           <div className="flex items-center gap-2">
             <input type="number" min={CONVERSION_RATE} step={CONVERSION_RATE} placeholder={`最少 ${CONVERSION_RATE.toLocaleString()}`} value={convertZxc} onChange={e => setConvertZxc(e.target.value)} className="flex-1 bg-[#0e0e0e] text-white text-[11px] font-bold rounded-lg px-3 py-2 border border-[#494847]/30 outline-none focus:border-[#fcc025] placeholder:text-[#494847]" />
-            <button onClick={handleConvertYjc} disabled={converting || !convertZxc || !sessionId} className="shrink-0 text-[10px] font-black uppercase tracking-widest bg-[#4fc3f7] text-[#0e0e0e] px-4 py-2 rounded-lg disabled:opacity-50">
+            <button onClick={handleConvertYjc} disabled={converting || !convertZxc || !sessionId} className="shrink-0 text-sm font-black uppercase tracking-widest bg-[#4fc3f7] text-[#0e0e0e] px-4 py-2 rounded-lg disabled:opacity-50">
               {converting ? <Loader2 size={12} className="animate-spin" /> : '兌換'}
             </button>
           </div>
@@ -291,7 +291,7 @@ export default function ShopView() {
               return (
                 <div key={chest.id} className="bg-[#0e0e0e] rounded-xl p-4 border border-[#494847]/20 flex flex-col">
                   <Gift className="w-8 h-8 mx-auto mb-2 text-[#fcc025]" />
-                  <p className="text-xs font-bold text-white text-center truncate">{chest.name}</p>
+                  <p className="text-sm font-bold text-white text-center truncate">{chest.name}</p>
                   <div className="flex items-center justify-center gap-2 mt-2">
                     <button onClick={() => setChestQty(p => ({ ...p, [chest.id]: Math.max(1, (p[chest.id] || 1) - 1) }))} className="text-[#fcc025] font-bold text-sm w-6 h-6 flex items-center justify-center rounded bg-[#1a1919]">−</button>
                     <input
@@ -310,15 +310,15 @@ export default function ShopView() {
                   </div>
                   {discount > 0 ? (
                     <div className="text-center mt-1">
-                      <span className="text-[10px] text-[#adaaaa] line-through">{chest.price.toLocaleString()} ZXC</span>
-                      <span className="text-[10px] font-black text-emerald-400 ml-1">{(discount * 100).toFixed(0)}%OFF</span>
-                      <p className="text-[10px] font-black text-[#fcc025]">{(unitPrice * qty).toLocaleString()} ZXC</p>
+                      <span className="text-sm text-[#adaaaa] line-through">{chest.price.toLocaleString()} ZXC</span>
+                      <span className="text-sm font-black text-emerald-400 ml-1">{(discount * 100).toFixed(0)}%OFF</span>
+                      <p className="text-sm font-black text-[#fcc025]">{(unitPrice * qty).toLocaleString()} ZXC</p>
                     </div>
                   ) : (
-                    <p className="text-[10px] font-black text-[#fcc025] text-center mt-1">{chest.price.toLocaleString()} ZXC / 個</p>
+                    <p className="text-sm font-black text-[#fcc025] text-center mt-1">{chest.price.toLocaleString()} ZXC / 個</p>
                   )}
                   <div className="mt-auto pt-2">
-                    <button onClick={() => handleBuyChest(chest.id, qty)} disabled={boughtHere || !sessionId} className="w-full text-[10px] font-black uppercase tracking-widest bg-[#fcc025] text-[#0e0e0e] py-1.5 rounded-lg disabled:opacity-50">
+                    <button onClick={() => handleBuyChest(chest.id, qty)} disabled={boughtHere || !sessionId} className="w-full text-sm font-black uppercase tracking-widest bg-[#fcc025] text-[#0e0e0e] py-1.5 rounded-lg disabled:opacity-50">
                       {boughtHere ? <Loader2 size={10} className="animate-spin mx-auto" /> : '購買'}
                     </button>
                   </div>
@@ -326,7 +326,7 @@ export default function ShopView() {
               );
             })}
           </div>
-          <p className="mt-3 text-[9px] text-center text-[#adaaaa]">
+          <p className="mt-3 text-sm text-center text-[#adaaaa]">
             購買後會放入背包，可到<Link to="/app/inventory" className="text-[#fcc025] underline">道具背包</Link>開啟
           </p>
         </section>
@@ -362,13 +362,13 @@ export default function ShopView() {
                   <div className="text-2xl shrink-0">{item.icon || '📦'}</div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-white truncate">{item.name}</p>
-                    <p className="text-[10px] text-[#adaaaa] truncate">{item.description || ''}</p>
+                    <p className="text-sm text-[#adaaaa] truncate">{item.description || ''}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-bold uppercase" style={{ color: RARITY_COLORS[item.rarity] || '#b0b0b0' }}>
+                      <span className="text-sm font-bold uppercase" style={{ color: RARITY_COLORS[item.rarity] || '#b0b0b0' }}>
                         {item.rarity}
                       </span>
                       {bundle && (
-                        <span className="text-[10px] font-bold text-emerald-400">📦 組合包</span>
+                        <span className="text-sm font-bold text-emerald-400">📦 組合包</span>
                       )}
                     </div>
                     {bundle && (
@@ -376,7 +376,7 @@ export default function ShopView() {
                         {bundle.map((sub: any, i: number) => {
                             const info = ITEM_MAP[sub.id];
                             return (
-                              <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                              <div key={i} className="flex items-center gap-1.5 text-sm">
                                 <span className="shrink-0">{info?.icon || '•'}</span>
                                 <span className="text-white font-medium">{info?.name || sub.id}</span>
                                 {(sub.qty || 1) > 1 && <span className="text-[#adaaaa]">×{sub.qty}</span>}
@@ -387,20 +387,20 @@ export default function ShopView() {
                     )}
                     {hasDiscount && (
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="text-[10px] text-[#adaaaa] line-through">{totalValue.toLocaleString()} ZXC</span>
+                        <span className="text-sm text-[#adaaaa] line-through">{totalValue.toLocaleString()} ZXC</span>
                         <span className="text-sm font-black text-emerald-400">{price.toLocaleString()} ZXC</span>
-                        <span className="text-[9px] font-black bg-emerald-400/20 text-emerald-400 px-1.5 py-0.5 rounded">
+                        <span className="text-sm font-black bg-emerald-400/20 text-emerald-400 px-1.5 py-0.5 rounded">
                           -{Math.round((1 - price / totalValue) * 100)}%
                         </span>
                       </div>
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className="text-xs font-black text-[#fcc025]">{price.toLocaleString()} ZXC</span>
+                    <span className="text-sm font-black text-[#fcc025]">{price.toLocaleString()} ZXC</span>
                     <button
                       onClick={() => handleBuy(item.itemId)}
                       disabled={buyingId === item.itemId || !sessionId}
-                      className="text-[10px] font-black uppercase tracking-widest bg-[#fcc025] text-[#0e0e0e] px-3 py-1.5 rounded-lg disabled:opacity-50"
+                      className="text-sm font-black uppercase tracking-widest bg-[#fcc025] text-[#0e0e0e] px-3 py-1.5 rounded-lg disabled:opacity-50"
                     >
                       {buyingId === item.itemId ? <Loader2 size={10} className="animate-spin" /> : '購買'}
                     </button>
@@ -420,7 +420,7 @@ export default function ShopView() {
             <Trash2 size={16} className="text-[#fcc025]" />
             <h2 className="text-sm font-black uppercase tracking-widest text-white">當舖</h2>
           </div>
-          <p className="text-[10px] text-[#adaaaa] mb-4">將不需要的道具典當換取 ZXC</p>
+          <p className="text-sm text-[#adaaaa] mb-4">將不需要的道具典當換取 ZXC</p>
           {invItems.length === 0 ? (
             <p className="text-sm text-[#adaaaa] text-center py-8">暫無可典當的道具</p>
           ) : (
@@ -432,20 +432,20 @@ export default function ShopView() {
                     <div className="text-2xl shrink-0">{item.icon || '📦'}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-white truncate">{item.name}</p>
-                      <p className="text-[10px] text-[#adaaaa] truncate">{item.description || ''}</p>
+                      <p className="text-sm text-[#adaaaa] truncate">{item.description || ''}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-bold uppercase" style={{ color: RARITY_COLORS[item.rarity] || '#b0b0b0' }}>
+                        <span className="text-sm font-bold uppercase" style={{ color: RARITY_COLORS[item.rarity] || '#b0b0b0' }}>
                           {item.rarity}
                         </span>
-                        <span className="text-[10px] text-[#adaaaa]">×{item.quantity}</span>
+                        <span className="text-sm text-[#adaaaa]">×{item.quantity}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="text-xs font-black text-emerald-400">+{price} ZXC</span>
+                      <span className="text-sm font-black text-emerald-400">+{price} ZXC</span>
                       <button
                         onClick={() => handlePawnSell(item.id, 1)}
                         disabled={sellingId === item.id || !sessionId}
-                        className="text-[10px] font-black uppercase tracking-widest bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg disabled:opacity-50 hover:bg-red-500/30 transition-colors"
+                        className="text-sm font-black uppercase tracking-widest bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg disabled:opacity-50 hover:bg-red-500/30 transition-colors"
                       >
                         {sellingId === item.id ? <Loader2 size={10} className="animate-spin" /> : '典當'}
                       </button>

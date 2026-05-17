@@ -5,18 +5,8 @@
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import {
-  createApiEnvelope,
-  CHEST_CONFIGS,
-  RARITY_NAMES,
-  ITEM_DROP_TABLES,
-  DAILY_FREE_CHEST_TYPE,
-  DAILY_FREE_CHEST_COOLDOWN_HOURS,
-  MAX_INVENTORY_SLOTS,
-  type ChestType,
-  type Rarity,
-} from "@repo/shared";
-import { SessionRepository, OpsRepository, kv } from "@repo/infrastructure";
+import { createApiEnvelope, ITEM_DROP_TABLES, CHEST_CONFIGS, RARITY_NAMES, DAILY_FREE_CHEST_TYPE, DAILY_FREE_CHEST_COOLDOWN_HOURS, MAX_INVENTORY_SLOTS, type ChestType, type Rarity, type ItemDefinition } from "@repo/shared";
+import { SessionRepository, OpsRepository, RewardCatalogRepository, kv } from "@repo/infrastructure";
 import { gameSettlement } from "../../utils/game-settlement.js";
 import { getSessionContext } from "../../utils/auth.js";
 import {
@@ -29,6 +19,43 @@ import {
 } from "../../utils/inventory.js";
 
 const CHEST_TYPE_ENUM = z.enum(["common", "rare", "epic", "legendary"]);
+
+let _catalogRepo: RewardCatalogRepository;
+function getCatalogRepo() {
+  if (!_catalogRepo) _catalogRepo = new RewardCatalogRepository();
+  return _catalogRepo;
+}
+
+let _customDropCache: { tables: Record<string, ItemDefinition[]>; ts: number } | null = null;
+const CUSTOM_DROP_CACHE_TTL = 120_000; // 2 min
+
+async function buildCustomDropTables(): Promise<Record<string, ItemDefinition[]> | undefined> {
+  if (_customDropCache && Date.now() - _customDropCache.ts < CUSTOM_DROP_CACHE_TTL) {
+    return _customDropCache.tables;
+  }
+  const rows = await getCatalogRepo().listItems({ includeInactive: false });
+  const userItems = rows.filter((r: any) => r.source === "user" && r.type !== "avatar" && r.type !== "title");
+  if (userItems.length === 0) return undefined;
+  const tables: Record<string, ItemDefinition[]> = {};
+  for (const item of userItems) {
+    const r = item.rarity as string;
+    if (!["common", "rare", "epic", "legendary", "mythic"].includes(r)) continue;
+    if (!tables[r]) tables[r] = [];
+    tables[r].push({
+      id: item.itemId,
+      name: item.name,
+      nameEn: item.name,
+      type: item.type ?? "collectible",
+      rarity: r as any,
+      description: item.description ?? "",
+      icon: item.icon ?? "📦",
+      tradable: false,
+      consumable: false,
+    });
+  }
+  _customDropCache = { tables, ts: Date.now() };
+  return tables;
+}
 
 function countInventorySlots(inventory: Record<string, number>): number {
   return Object.keys(inventory).length;
@@ -255,7 +282,8 @@ typedFastify.post("/buy", {
 
       let outcome;
       try {
-        outcome = await openChestForUser(ctx.userId, ctx.address, chestType);
+        const customTables = await buildCustomDropTables();
+        outcome = await openChestForUser(ctx.userId, ctx.address, chestType, customTables);
         if (outcome.compensationZXC > 0) {
           const bal = await gameSettlement.getBalance(ctx.address, "zhixi");
           await gameSettlement.setBalance(ctx.address, "zhixi", (Number(bal) + outcome.compensationZXC).toString());
@@ -360,6 +388,7 @@ typedFastify.post("/open-bulk", {
   let totalComp = 0;
   let totalValue = 0;
   let finalPity = 0;
+  const customTables = await buildCustomDropTables();
 
   for (let i = 0; i < quantity; i++) {
     state.inventory[keyId] = (state.inventory[keyId] || 0) - 1;
@@ -368,7 +397,7 @@ typedFastify.post("/open-bulk", {
 
     let outcome;
     try {
-      outcome = await openChestForUser(ctx.userId, ctx.address, chestType);
+      outcome = await openChestForUser(ctx.userId, ctx.address, chestType, customTables);
     } catch (error: any) {
       state.inventory[keyId] = (state.inventory[keyId] || 0) + 1;
       await persistInventoryState(ctx.userId, state);

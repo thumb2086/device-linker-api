@@ -71,8 +71,8 @@ export class ChestManager {
     return "common";
   }
 
-  private pickItemFromRarity(rarity: Rarity, seed: string): ItemDefinition {
-    const items = ITEM_DROP_TABLES[rarity];
+  private pickItemFromRarity(rarity: Rarity, seed: string, customTables?: Record<string, ItemDefinition[]>): ItemDefinition {
+    const items = customTables?.[rarity] ?? ITEM_DROP_TABLES[rarity];
     const hash = this.fnv1a32(seed + rarity);
     const index = hash % items.length;
     return items[index];
@@ -85,10 +85,23 @@ export class ChestManager {
   openChest(
     userId: string,
     chestType: ChestType,
-    inventory: UserInventory
+    inventory: UserInventory,
+    customTables?: Record<string, ItemDefinition[]>,
   ): ChestOpenResult {
     const config = CHEST_CONFIGS[chestType];
     const timestamp = Date.now();
+    
+    // Merge custom drop tables if provided
+    const dropTables = customTables
+      ? { ...ITEM_DROP_TABLES }
+      : ITEM_DROP_TABLES;
+    if (customTables) {
+      for (const [rarity, items] of Object.entries(customTables)) {
+        if (dropTables[rarity as Rarity]) {
+          dropTables[rarity as Rarity] = [...dropTables[rarity as Rarity], ...items];
+        }
+      }
+    }
     
     // Get current pity count
     const currentPity = inventory.chestPity[chestType] || 0;
@@ -113,7 +126,7 @@ export class ChestManager {
       const forceGuaranteed = isPityTrigger && i === 0;
       
       const rarity = this.pickWeightedRarity(chestType, seed, forceGuaranteed);
-      const item = this.pickItemFromRarity(rarity, seed + "item");
+      const item = this.pickItemFromRarity(rarity, seed + "item", dropTables);
       
       // Check if this is a new item for the user
       const isNew = item.type === "avatar"
@@ -194,7 +207,7 @@ export class ChestManager {
   }
 
   // Get all items that can drop from a chest type
-  getPossibleDrops(chestType: ChestType): { rarity: Rarity; items: ItemDefinition[]; chance: number }[] {
+  getPossibleDrops(chestType: ChestType, customTables?: Record<string, ItemDefinition[]>): { rarity: Rarity; items: ItemDefinition[]; chance: number }[] {
     const config = CHEST_CONFIGS[chestType];
     const totalWeight = Object.values(config.weights).reduce((a, b) => (a as number) + (b as number), 0) as number;
     
@@ -204,7 +217,7 @@ export class ChestManager {
       .filter(r => config.weights[r] > 0)
       .map(rarity => ({
         rarity,
-        items: ITEM_DROP_TABLES[rarity],
+        items: customTables?.[rarity] ?? ITEM_DROP_TABLES[rarity],
         chance: (config.weights[rarity] / totalWeight) * 100,
       }));
   }

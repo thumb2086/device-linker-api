@@ -244,7 +244,7 @@ export default function ChestView() {
       {/* Active Buffs */}
       {inventory.activeBuffs.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-xs font-black uppercase tracking-widest text-[#adaaaa] mb-2 flex items-center gap-2">
+          <h2 className="text-sm font-black uppercase tracking-widest text-[#adaaaa] mb-2 flex items-center gap-2">
             <Zap className="w-3 h-3 text-[#fcc025]" />
             生效中的 Buff
           </h2>
@@ -256,10 +256,10 @@ export default function ChestView() {
               >
                 <Shield className="w-5 h-5 text-[#fcc025] flex-shrink-0" />
                 <div className="min-w-0">
-                  <div className="text-xs font-black truncate">
+                  <div className="text-sm font-black truncate">
                     {BUFF_TYPE_LABEL[buff.type] || buff.type}
                   </div>
-                  <div className="text-[10px] text-[#adaaaa]">
+                  <div className="text-sm text-[#adaaaa]">
                     {buff.remaining !== undefined
                       ? `剩餘 ${buff.remaining} 次`
                       : formatExpires(buff.expiresAt)}
@@ -288,7 +288,7 @@ export default function ChestView() {
               <div className="text-4xl mb-2 text-center relative">
                 <Gift className="w-10 h-10 mx-auto text-[#fcc025]" />
                 {keys > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-[#fcc025] text-[#0e0e0e] text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-[#fcc025] text-[#0e0e0e] text-sm font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
                     {keys}
                   </span>
                 )}
@@ -306,11 +306,11 @@ export default function ChestView() {
                 />
               </div>
               <div className="flex items-center justify-between mt-1">
-                <span className="text-[10px] text-[#adaaaa]">
+                <span className="text-sm text-[#adaaaa]">
                   保底 {currentPity}/{chest.pityThreshold}
                 </span>
                 {keys > 0 && (
-                  <span className="text-[9px] font-bold text-[#fcc025]">{keys} 把鑰匙</span>
+                  <span className="text-sm font-bold text-[#fcc025]">{keys} 把鑰匙</span>
                 )}
               </div>
             </motion.button>
@@ -320,7 +320,7 @@ export default function ChestView() {
 
       {/* Inventory */}
       <section>
-        <h2 className="text-xs font-black uppercase tracking-widest text-[#adaaaa] mb-3 flex items-center gap-2">
+        <h2 className="text-sm font-black uppercase tracking-widest text-[#adaaaa] mb-3 flex items-center gap-2">
           <Package className="w-3 h-3" />
           我的道具（{inventory.items.length}）
         </h2>
@@ -339,7 +339,7 @@ export default function ChestView() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="text-3xl">{item.icon}</div>
                   <span
-                    className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    className="text-sm font-bold px-2 py-0.5 rounded-full"
                     style={{
                       backgroundColor: `${item.rarityColor || RARITY_COLORS[item.rarity]}30`,
                       color: item.rarityColor || RARITY_COLORS[item.rarity],
@@ -349,13 +349,13 @@ export default function ChestView() {
                   </span>
                 </div>
                 <div className="mt-2 text-sm font-black truncate">{item.name}</div>
-                <div className="text-[10px] text-[#adaaaa] line-clamp-2 min-h-[28px]">
+                <div className="text-sm text-[#adaaaa] line-clamp-2 min-h-[28px]">
                   {item.description}
                 </div>
                 {item.consumable && (
                   <button
                     onClick={() => useItem(item.id)}
-                    className="mt-2 w-full bg-[#fcc025] text-black font-black text-xs py-2 rounded-lg hover:bg-[#e6ad03]"
+                    className="mt-2 w-full bg-[#fcc025] text-black font-black text-sm py-2 rounded-lg hover:bg-[#e6ad03]"
                   >
                     使用
                   </button>
@@ -363,7 +363,7 @@ export default function ChestView() {
                 {!item.consumable && (item.type === 'avatar' || item.type === 'title') && (
                   <button
                     onClick={() => useItem(item.id)}
-                    className="mt-2 w-full border border-[#fcc025] text-[#fcc025] font-black text-xs py-2 rounded-lg hover:bg-[#fcc025] hover:text-black"
+                    className="mt-2 w-full border border-[#fcc025] text-[#fcc025] font-black text-sm py-2 rounded-lg hover:bg-[#fcc025] hover:text-black"
                   >
                     裝備
                   </button>
@@ -394,7 +394,7 @@ export default function ChestView() {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h2 className="text-2xl font-black italic">{selectedChest.name}</h2>
-                  <p className="text-xs text-[#adaaaa]">{selectedChest.nameEn}</p>
+                  <p className="text-sm text-[#adaaaa]">{selectedChest.nameEn}</p>
                 </div>
                 <button onClick={() => setSelectedChest(null)}>
                   <X className="w-5 h-5 text-[#adaaaa]" />
@@ -409,7 +409,7 @@ export default function ChestView() {
                 <Gift className="w-24 h-24 mx-auto text-[#fcc025]" />
               </motion.div>
 
-              <div className="space-y-2 mb-4 text-xs">
+              <div className="space-y-2 mb-4 text-sm">
                 <h3 className="font-black text-[#adaaaa] uppercase tracking-widest">掉落機率</h3>
                 {selectedChest.rarities.map((r) => (
                   <div key={r.rarity} className="flex justify-between items-center">
@@ -419,7 +419,7 @@ export default function ChestView() {
                     <span className="text-[#adaaaa]">{r.chance}%</span>
                   </div>
                 ))}
-                <div className="text-[10px] text-[#adaaaa] pt-2 border-t border-[#494847]/20">
+                <div className="text-sm text-[#adaaaa] pt-2 border-t border-[#494847]/20">
                   每次掉落 {selectedChest.dropCount.min}-{selectedChest.dropCount.max} 件，保底 {selectedChest.pityThreshold} 次
                 </div>
               </div>
@@ -449,7 +449,7 @@ export default function ChestView() {
                     className="w-16 bg-[#0e0e0e] border border-[#494847]/40 rounded-lg text-white font-bold text-lg text-center
                       focus:outline-none focus:border-[#fcc025] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <div className="text-[10px] text-[#adaaaa]">
+                  <div className="text-sm text-[#adaaaa]">
                     鑰匙 {displayKeyCounts[`chest_key_${selectedChest.id}`] || 0} 把
                   </div>
                 </div>
@@ -493,7 +493,7 @@ export default function ChestView() {
               </button>
               <Link
                 to="/app/shop"
-                className="mt-2 block w-full text-center text-[10px] font-bold text-[#adaaaa] hover:text-[#fcc025] transition-colors"
+                className="mt-2 block w-full text-center text-sm font-bold text-[#adaaaa] hover:text-[#fcc025] transition-colors"
               >
                 前往商店購買寶箱 ↗
               </Link>
@@ -532,11 +532,11 @@ export default function ChestView() {
                       style={{ borderColor: RARITY_COLORS[item.item.rarity] || '#494847' }}
                     >
                       <div className="text-2xl mb-1">{item.item.icon}</div>
-                      <h3 className="font-bold text-[10px] mb-0.5 truncate">{item.item.name}</h3>
-                      <p className="text-[9px] text-[#adaaaa] mb-1 truncate">{item.item.description}</p>
+                      <h3 className="font-bold text-sm mb-0.5 truncate">{item.item.name}</h3>
+                      <p className="text-sm text-[#adaaaa] mb-1 truncate">{item.item.description}</p>
                       <div className="flex items-center justify-center gap-1">
                         <span
-                          className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                          className="text-sm px-1.5 py-0.5 rounded-full font-bold"
                           style={{
                             backgroundColor: `${RARITY_COLORS[item.item.rarity]}30`,
                             color: RARITY_COLORS[item.item.rarity],
@@ -545,7 +545,7 @@ export default function ChestView() {
                           {item.item.rarity}
                         </span>
                         {item.isNew && (
-                          <span className="text-[9px] bg-[#fcc025] text-black px-1.5 py-0.5 rounded-full font-bold">
+                          <span className="text-sm bg-[#fcc025] text-black px-1.5 py-0.5 rounded-full font-bold">
                             NEW
                           </span>
                         )}
@@ -566,7 +566,6 @@ export default function ChestView() {
               <div className="text-center">
                 <button
                   onClick={() => {
-                    setSelectedChest(chest);
                     setOpenQty(1);
                     setShowResult(false);
                   }}

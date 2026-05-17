@@ -184,14 +184,15 @@ const DUPLICATE_COMPENSATION: Record<string, number> = {
 export async function openChestForUser(
   userId: string,
   address: string,
-  chestType: ChestType
+  chestType: ChestType,
+  customDropTables?: Record<string, ItemDefinition[]>,
 ): Promise<OpenChestOutcome> {
   if (!CHEST_CONFIGS[chestType]) throw new Error(`Unknown chest type: ${chestType}`);
 
   const state = await loadInventoryState(userId);
   const inventory = toChestManagerInventory(state);
   void address; // reserved for future chain-bound seeding
-  const result = chestManager.openChest(userId, chestType, inventory);
+  const result = chestManager.openChest(userId, chestType, inventory, customDropTables);
 
   const nextPity = { ...state.chestPity };
   const threshold = CHEST_CONFIGS[chestType].pityThreshold;

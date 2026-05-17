@@ -89,8 +89,9 @@ function AppContent() {
   const { isAuthorized } = useAuthStore();
   const { isRestoring } = useFastLogin();
   const { userData, isLoading } = useSyncUser();
+  const username = useUserStore((s) => s.username);
 
-  const needsProfileSetup = isAuthorized && !isLoading && userData && !(userData as any).user?.displayName;
+  const needsProfileSetup = isAuthorized && !isLoading && !username;
 
   // 驗證 session 時顯示 loading
   if (isRestoring) {

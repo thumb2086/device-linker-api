@@ -1317,7 +1317,8 @@ export class RewardCampaignRepository {
   }
   async upsert(data: any) {
     const conn = await requireDb();
-    await conn.insert((schema as any).rewardCampaigns).values(data).onConflictDoUpdate({
+    const id = randomUUID();
+    await conn.insert((schema as any).rewardCampaigns).values({ ...data, id }).onConflictDoUpdate({
       target: (schema as any).rewardCampaigns.campaignId,
       set: { title: data.title, description: data.description, isActive: data.isActive, rewards: data.rewards, updatedAt: new Date() }
     });

@@ -325,48 +325,86 @@ export default function ChestView() {
             尚未擁有任何道具，開啟寶箱以獲得！
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {inventory.items.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border bg-[#1a1919] p-3"
-                style={{ borderColor: item.rarityColor || RARITY_COLORS[item.rarity] || '#494847' }}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="text-3xl">{item.icon}</div>
-                  <span
-                    className="text-sm font-bold px-2 py-0.5 rounded-full"
-                    style={{
-                      backgroundColor: `${item.rarityColor || RARITY_COLORS[item.rarity]}30`,
-                      color: item.rarityColor || RARITY_COLORS[item.rarity],
-                    }}
-                  >
-                    x{item.quantity}
-                  </span>
-                </div>
-                <div className="mt-2 text-sm font-black truncate">{item.name}</div>
-                <div className="text-sm text-[#adaaaa] line-clamp-2 min-h-[28px]">
-                  {item.description}
-                </div>
-                {item.consumable && (
-                  <button
-                    onClick={() => useItem(item.id)}
-                    className="mt-2 w-full bg-[#fcc025] text-black font-black text-sm py-2 rounded-lg hover:bg-[#e6ad03]"
-                  >
-                    使用
-                  </button>
-                )}
-                {!item.consumable && (item.type === 'avatar' || item.type === 'title') && (
-                  <button
-                    onClick={() => useItem(item.id)}
-                    className="mt-2 w-full border border-[#fcc025] text-[#fcc025] font-black text-sm py-2 rounded-lg hover:bg-[#fcc025] hover:text-black"
-                  >
-                    裝備
-                  </button>
-                )}
+          (() => {
+            const groups: Record<string, InventoryEntry[]> = {};
+            for (const item of inventory.items) {
+              const key = item.type || 'other';
+              if (!groups[key]) groups[key] = [];
+              groups[key].push(item);
+            }
+            const typeOrder = ['avatar', 'title', 'buff', 'token', 'collectible', 'other'];
+            const typeLabels: Record<string, string> = {
+              avatar: '頭像',
+              title: '稱號',
+              buff: 'Buff',
+              token: '代幣',
+              collectible: '收藏品',
+              other: '其他',
+            };
+            const typeIcons: Record<string, string> = {
+              avatar: '🎭',
+              title: '👑',
+              buff: '⚡',
+              token: '🪙',
+              collectible: '💎',
+              other: '📦',
+            };
+            return (
+              <div className="space-y-6">
+                {typeOrder.filter((t) => groups[t]?.length).map((typeKey) => (
+                  <div key={typeKey}>
+                    <h3 className="text-xs font-black uppercase tracking-widest text-[#adaaaa] mb-2 flex items-center gap-2">
+                      <span>{typeIcons[typeKey]}</span>
+                      {typeLabels[typeKey]}
+                      <span className="text-[#494847]">（{groups[typeKey].length}）</span>
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {groups[typeKey].map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded-xl border bg-[#1a1919] p-3"
+                          style={{ borderColor: item.rarityColor || RARITY_COLORS[item.rarity] || '#494847' }}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="text-3xl">{item.icon}</div>
+                            <span
+                              className="text-sm font-bold px-2 py-0.5 rounded-full"
+                              style={{
+                                backgroundColor: `${item.rarityColor || RARITY_COLORS[item.rarity]}30`,
+                                color: item.rarityColor || RARITY_COLORS[item.rarity],
+                              }}
+                            >
+                              x{item.quantity}
+                            </span>
+                          </div>
+                          <div className="mt-2 text-sm font-black truncate">{item.name}</div>
+                          <div className="text-sm text-[#adaaaa] line-clamp-2 min-h-[28px]">
+                            {item.description}
+                          </div>
+                          {item.consumable && (
+                            <button
+                              onClick={() => useItem(item.id)}
+                              className="mt-2 w-full bg-[#fcc025] text-black font-black text-sm py-2 rounded-lg hover:bg-[#e6ad03]"
+                            >
+                              使用
+                            </button>
+                          )}
+                          {!item.consumable && (item.type === 'avatar' || item.type === 'title') && (
+                            <button
+                              onClick={() => useItem(item.id)}
+                              className="mt-2 w-full border border-[#fcc025] text-[#fcc025] font-black text-sm py-2 rounded-lg hover:bg-[#fcc025] hover:text-black"
+                            >
+                              裝備
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()
         )}
       </section>
 

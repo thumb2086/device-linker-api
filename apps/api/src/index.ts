@@ -50,8 +50,11 @@ fastify.register(cors, {
   origin: [
     "https://zixi-casino.vercel.app",
     "http://localhost:5173",
+    "https://zixi-casino-api.onrender.com",
   ],
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-session-id"],
 });
 
 fastify.register(compress, { global: true, threshold: 1024 });

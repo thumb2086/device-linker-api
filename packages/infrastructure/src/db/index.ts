@@ -1244,7 +1244,11 @@ export class RewardCampaignRepository {
     const conn = await requireDb();
     const now = new Date();
     return await conn.query.rewardCampaigns.findMany({
-      where: (c: any, { and, eq, lte, gte, or, isNull }: any) => and(eq(c.isActive, true), lte(c.startAt, now), or(isNull(c.endAt), gte(c.endAt, now))),
+      where: (c: any, { and, eq, lte, gte, or, isNull }: any) => and(
+        eq(c.isActive, true),
+        or(isNull(c.startAt), lte(c.startAt, now)),
+        or(isNull(c.endAt), gte(c.endAt, now)),
+      ),
       limit: limit || 50,
     });
   }

@@ -1564,7 +1564,7 @@ export default function AdminView() {
                 value={campaignDescription}
                 onChange={(e) => setCampaignDescription(e.target.value)}
                 placeholder="活動說明"
-                rows={2}
+                rows={4}
                 className="w-full rounded-lg border border-[#494847]/30 bg-[#1a1919] px-3 py-2 text-xs text-white focus:border-[#fcc025] focus:outline-none"
               />
               <div className="grid grid-cols-2 gap-2">

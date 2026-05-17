@@ -108,6 +108,7 @@ export default function ChestView() {
   const [chests, setChests] = useState<ChestConfig[]>([]);
   const [selectedChest, setSelectedChest] = useState<ChestConfig | null>(null);
   const [isOpening, setIsOpening] = useState(false);
+  const [openQty, setOpenQty] = useState(1);
   const [openedItems, setOpenedItems] = useState<ChestItem[]>([]);
   const [openCompensation, setOpenCompensation] = useState(0);
   const [compToast, setCompToast] = useState<string | null>(null);
@@ -173,7 +174,10 @@ export default function ChestView() {
     setOpenedItems([]);
 
     try {
-      const res = await api.post('/api/v1/chests/open', { chestType, free });
+      const qty = free ? 1 : openQty;
+      const endpoint = qty > 1 ? '/api/v1/chests/open-bulk' : '/api/v1/chests/open';
+      const body = qty > 1 ? { chestType, quantity: qty } : { chestType, free };
+      const res = await api.post(endpoint, body);
       const data = res.data;
 
       if (data?.success) {
@@ -420,6 +424,37 @@ export default function ChestView() {
                 </div>
               </div>
 
+              {/* Quantity selector for opening */}
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <button
+                  onClick={() => setOpenQty(Math.max(1, openQty - 1))}
+                  disabled={openQty <= 1}
+                  className="w-8 h-8 rounded-full bg-[#494847]/40 text-[#fcc025] font-bold text-lg
+                    flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed
+                    hover:bg-[#494847]/60 transition-colors"
+                >
+                  −
+                </button>
+                <div className="text-center">
+                  <div className="text-white font-bold text-lg">{openQty}</div>
+                  <div className="text-[10px] text-[#adaaaa]">
+                    鑰匙 {displayKeyCounts[`chest_key_${selectedChest.id}`] || 0} 把
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const max = displayKeyCounts[`chest_key_${selectedChest.id}`] || 99;
+                    setOpenQty(Math.min(max, openQty + 1));
+                  }}
+                  disabled={openQty >= (displayKeyCounts[`chest_key_${selectedChest.id}`] || 99)}
+                  className="w-8 h-8 rounded-full bg-[#494847]/40 text-[#fcc025] font-bold text-lg
+                    flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed
+                    hover:bg-[#494847]/60 transition-colors"
+                  >
+                  +
+                </button>
+              </div>
+
               <button
                 onClick={() => openChest(selectedChest.id)}
                 disabled={isOpening}
@@ -440,7 +475,7 @@ export default function ChestView() {
                 ) : (
                   <>
                     <Gift className="w-5 h-5" />
-                    開啟寶箱
+                    開啟{openQty > 1 ? ` ${openQty} 個` : '寶箱'}
                   </>
                 )}
               </button>
@@ -517,10 +552,9 @@ export default function ChestView() {
               <div className="text-center">
                 <button
                   onClick={() => {
+                    setSelectedChest(chest);
+                    setOpenQty(1);
                     setShowResult(false);
-                    setOpenedItems([]);
-                    setOpenCompensation(0);
-                    setSelectedChest(null);
                   }}
                   className="bg-[#494847] hover:bg-[#5a5858] text-white font-bold px-8 py-3
                     rounded-xl transition-colors inline-flex items-center gap-2"

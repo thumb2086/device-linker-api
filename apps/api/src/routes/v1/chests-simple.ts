@@ -333,4 +333,94 @@ typedFastify.post("/buy", {
       );
     },
   );
+
+// Bulk open chests
+typedFastify.post("/open-bulk", {
+  schema: {
+    body: z.object({
+      sessionId: z.string().optional(),
+      chestType: CHEST_TYPE_ENUM,
+      quantity: z.number().int().min(1).max(99),
+    }),
+  },
+}, async (request: any) => {
+  const ctx = await getContext(request);
+  if (!ctx) return createApiEnvelope({ success: false }, request.id, false, "UNAUTHORIZED");
+
+  const { chestType, quantity } = request.body as { chestType: ChestType; quantity: number };
+  const config = CHEST_CONFIGS[chestType];
+  const keyId = `chest_key_${chestType}`;
+  let state = await loadInventoryState(ctx.userId);
+  const keyCount = state.inventory[keyId] || 0;
+  if (keyCount < quantity) {
+    return createApiEnvelope({ success: false }, request.id, false, `鑰匙不足，需要 ${quantity} 把，目前 ${keyCount} 把`);
+  }
+
+  const allItems: any[] = [];
+  let totalComp = 0;
+  let totalValue = 0;
+  let finalPity = 0;
+
+  for (let i = 0; i < quantity; i++) {
+    state.inventory[keyId] = (state.inventory[keyId] || 0) - 1;
+    if (state.inventory[keyId] <= 0) delete state.inventory[keyId];
+    await persistInventoryState(ctx.userId, state);
+
+    let outcome;
+    try {
+      outcome = await openChestForUser(ctx.userId, ctx.address, chestType);
+    } catch (error: any) {
+      state.inventory[keyId] = (state.inventory[keyId] || 0) + 1;
+      await persistInventoryState(ctx.userId, state);
+      return createApiEnvelope({ success: false }, request.id, false, error?.message || "CHEST_OPEN_FAILED");
+    }
+
+    for (const drop of outcome.result.items) {
+      const existing = allItems.find((x) => x.item.id === drop.item.id);
+      if (existing) {
+        existing.quantity += drop.quantity;
+      } else {
+        allItems.push({ item: drop.item, isNew: drop.isNew, quantity: drop.quantity });
+      }
+    }
+    totalComp += outcome.compensationZXC;
+    totalValue += outcome.result.totalValue;
+    finalPity = outcome.state.chestPity[chestType];
+    state = outcome.state;
+  }
+
+  if (totalComp > 0) {
+    const bal = await gameSettlement.getBalance(ctx.address, "zhixi");
+    await gameSettlement.setBalance(ctx.address, "zhixi", (Number(bal) + totalComp).toString());
+  }
+
+  const newKeyCounts: Record<string, number> = {};
+  for (const ct of Object.keys(CHEST_CONFIGS) as ChestType[]) {
+    newKeyCounts[ct] = state.inventory[`chest_key_${ct}`] || 0;
+  }
+
+  await opsRepo.logEvent({
+    channel: "rewards",
+    severity: "info",
+    source: "chests",
+    kind: "chests_opened_bulk",
+    userId: ctx.userId,
+    address: ctx.address,
+    message: `Opened ${quantity} x ${chestType} chests`,
+    meta: { chestType, quantity, drops: allItems.map((i) => i.item.id) },
+  });
+
+  return createApiEnvelope({
+    success: true,
+    chestType,
+    quantity,
+    items: allItems,
+    compensationZXC: totalComp,
+    totalValue,
+    pityCount: finalPity,
+    keyCounts: newKeyCounts,
+    inventoryCount: countInventorySlots(state.inventory),
+  }, request.id);
+});
+
 }

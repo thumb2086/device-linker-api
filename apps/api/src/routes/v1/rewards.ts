@@ -46,9 +46,12 @@ export async function rewardRoutes(fastify: FastifyInstance) {
   // ─── Rewards Catalog ──────────────────────────────────────────────────────
 
   typedFastify.get("/catalog", async (request) => {
-    // Merge code-defined TITLES/AVATARS with admin-managed reward_catalog rows
-    // so custom avatars/titles stored via the admin panel show up in the
-    // client's ItemsTab alongside the built-in ones.
+    const cacheKey = "rewards:catalog";
+    const cached = await kv.get<string>(cacheKey);
+    if (cached) {
+      try { return createApiEnvelope(JSON.parse(cached), request.id); } catch {}
+    }
+
     const customRows = await rewardCatalogRepo.listItems({});
     const customAvatars = customRows
       .filter((r: any) => r.type === "avatar")
@@ -73,7 +76,7 @@ export async function rewardRoutes(fastify: FastifyInstance) {
         source: r.source || "admin",
       }));
 
-    return createApiEnvelope({
+    const data = {
       titles: [...TITLES, ...customTitles],
       avatars: [...AVATARS, ...customAvatars],
       customItems: customRows.filter(
@@ -84,7 +87,10 @@ export async function rewardRoutes(fastify: FastifyInstance) {
         { id: "silver", label: "白銀寶箱", price: "5000", rarity: "rare" },
         { id: "gold", label: "黃金寶箱", price: "25000", rarity: "epic" }
       ]
-    }, request.id);
+    };
+
+    await kv.set(cacheKey, JSON.stringify(data), { ex: 60 });
+    return createApiEnvelope(data, request.id);
   });
 
   // ─── User Rewards (Owned titles, avatars) ────────────────────────────────

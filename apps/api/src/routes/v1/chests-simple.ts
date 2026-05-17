@@ -43,6 +43,12 @@ export async function chestRoutes(fastify: FastifyInstance) {
 
   // Catalog of chest types with drop-rate breakdown and pity rules
   typedFastify.get("/", async (request: any) => {
+    const cacheKey = "chests:catalog";
+    const cached = await kv.get<string>(cacheKey);
+    if (cached) {
+      try { return createApiEnvelope(JSON.parse(cached), request.id); } catch {}
+    }
+
     const chests = Object.values(CHEST_CONFIGS).map((config) => {
       const weights = config.weights;
       const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
@@ -66,6 +72,7 @@ export async function chestRoutes(fastify: FastifyInstance) {
       };
     });
 
+    await kv.set(cacheKey, JSON.stringify(chests), { ex: 60 });
     return createApiEnvelope(chests, request.id);
   });
 

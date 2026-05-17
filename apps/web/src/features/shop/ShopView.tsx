@@ -57,6 +57,12 @@ export default function ShopView() {
   const [pawnLoading, setPawnLoading] = useState(false);
   const [sellingId, setSellingId] = useState<string | null>(null);
 
+  // ── YJC exchange state ────────────────────────────────────────────────────
+  const [yjcBalance, setYjcBalance] = useState('0');
+  const [convertZxc, setConvertZxc] = useState('');
+  const [converting, setConverting] = useState(false);
+  const CONVERSION_RATE = 100_000_000; // 1 YJC = 100M ZXC
+
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
@@ -80,6 +86,7 @@ export default function ShopView() {
         const s = summaryRes.data.data;
         const bal = s?.summary?.balances?.ZXC || s?.balances?.zhixi?.balance || '0';
         setBalance(String(bal));
+        setYjcBalance(s?.summary?.balances?.YJC || s?.balances?.yjc?.balance || '0');
       }
     } catch {
       setItems([]);
@@ -129,6 +136,33 @@ export default function ShopView() {
       setTimeout(() => setMsg(null), 3000);
     } finally {
       setBuyingChest(null);
+    }
+  }
+
+  async function handleConvertYjc() {
+    if (!sessionId || converting) return;
+    const amount = parseInt(convertZxc, 10);
+    if (!amount || amount < CONVERSION_RATE) {
+      setMsg(`❌ 最低兌換 ${CONVERSION_RATE.toLocaleString()} ZXC`);
+      setTimeout(() => setMsg(null), 3000);
+      return;
+    }
+    setConverting(true);
+    setMsg(null);
+    try {
+      const res = await api.post('/api/v1/wallet/convert', { sessionId, zxcAmount: String(amount) });
+      if (res.data?.success) {
+        setMsg(`✅ 成功兌換 ${res.data.data?.yjcAmount || (amount / CONVERSION_RATE)} YJC`);
+        setConvertZxc('');
+        fetchItems();
+      } else {
+        setMsg(`❌ ${res.data?.error?.message || res.data?.error || '兌換失敗'}`);
+      }
+    } catch (err: any) {
+      setMsg(`❌ ${err?.response?.data?.error?.message || err?.message || '兌換失敗'}`);
+    } finally {
+      setConverting(false);
+      setTimeout(() => setMsg(null), 5000);
     }
   }
 
@@ -223,6 +257,21 @@ export default function ShopView() {
             <span className="text-xs font-black uppercase tracking-widest text-[#adaaaa]">ZXC 餘額</span>
           </div>
           <span className="text-lg font-black italic text-[#fcc025]">{formatBalance(balance)}</span>
+        </section>
+
+        <section className="bg-[#1a1919] rounded-2xl p-4 border border-[#494847]/20">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">💎</span>
+            <span className="text-xs font-black uppercase tracking-widest text-[#adaaaa]">佑戩幣 YJC</span>
+            <span className="text-xs font-black italic text-[#4fc3f7] ml-auto">{formatBalance(yjcBalance)}</span>
+          </div>
+          <div className="text-[10px] text-[#adaaaa] mb-2">1 YJC = {CONVERSION_RATE.toLocaleString()} ZXC</div>
+          <div className="flex items-center gap-2">
+            <input type="number" min={CONVERSION_RATE} step={CONVERSION_RATE} placeholder={`最少 ${CONVERSION_RATE.toLocaleString()}`} value={convertZxc} onChange={e => setConvertZxc(e.target.value)} className="flex-1 bg-[#0e0e0e] text-white text-[11px] font-bold rounded-lg px-3 py-2 border border-[#494847]/30 outline-none focus:border-[#fcc025] placeholder:text-[#494847]" />
+            <button onClick={handleConvertYjc} disabled={converting || !convertZxc || !sessionId} className="shrink-0 text-[10px] font-black uppercase tracking-widest bg-[#4fc3f7] text-[#0e0e0e] px-4 py-2 rounded-lg disabled:opacity-50">
+              {converting ? <Loader2 size={12} className="animate-spin" /> : '兌換'}
+            </button>
+          </div>
         </section>
 
         {tab === 'shop' && (

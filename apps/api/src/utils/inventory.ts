@@ -476,8 +476,21 @@ export async function grantBundleToUser(
   for (const it of bundle.items ?? []) {
     const id = String(it?.id || "").trim();
     if (!id) continue;
-    const qty = Math.max(1, Math.floor(Number(it?.qty || 1)));
-    nextInventory[id] = (nextInventory[id] || 0) + qty;
+    const def = ALL_ITEMS[id];
+    if (def?.type === "avatar") {
+      if (!nextAvatars.includes(id)) {
+        nextAvatars.push(id);
+        addedAvatars.push(id);
+      }
+    } else if (def?.type === "title") {
+      if (!nextTitles.includes(id)) {
+        nextTitles.push(id);
+        addedTitles.push(id);
+      }
+    } else {
+      const qty = Math.max(1, Math.floor(Number(it?.qty || 1)));
+      nextInventory[id] = (nextInventory[id] || 0) + qty;
+    }
   }
   const addedAvatars: string[] = [];
   for (const avId of bundle.avatars ?? []) {

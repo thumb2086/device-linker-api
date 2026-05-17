@@ -214,7 +214,7 @@ export default function SettingsView() {
             </h1>
           </div>
           <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#adaaaa]">
-            {saving ? (isZh ? zh.syncing : 'Syncing') : 'Phase 2'}
+            {saving ? (isZh ? zh.syncing : 'Syncing') : 'v1.0.0'}
           </div>
         </div>
       </header>
@@ -424,7 +424,8 @@ export default function SettingsView() {
         </section>
       </main>
 
-      <AppBottomNav current="settings" />
-    </div>
+          <AppBottomNav current="settings" />
+        <p className="pb-4 text-center text-[9px] font-black uppercase tracking-[0.5em] text-[#494847]">© 2026 ZiXi Simulator v1.0.0 — Aureum Edition</p>
+        </div>
   );
 }

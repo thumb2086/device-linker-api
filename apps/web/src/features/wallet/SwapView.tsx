@@ -1,5 +1,5 @@
 import { useState, FormEvent, useCallback, useEffect } from 'react';
-import { ArrowDownUp, Loader2, Coins, ShoppingBag, RefreshCw } from 'lucide-react';
+import { ArrowDownUp, Loader2, Coins } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AppBottomNav from '../../components/AppBottomNav';
 import { api } from '../../store/api';
@@ -9,7 +9,6 @@ import { useWallet } from './useWallet';
 const ZXC_PER_YJC = 100_000_000;
 
 type Direction = 'zxc_to_yjc' | 'yjc_to_zxc';
-type Tab = 'swap' | 'shop';
 
 function formatBalance(raw: string | undefined): string {
   if (!raw) return '0';
@@ -17,14 +16,6 @@ function formatBalance(raw: string | undefined): string {
   if (!Number.isFinite(n)) return raw;
   return n.toLocaleString('en-US', { maximumFractionDigits: 6 });
 }
-
-const RARITY_COLORS: Record<string, string> = {
-  common: '#b0b0b0',
-  rare: '#4fc3f7',
-  epic: '#ba68c8',
-  legendary: '#ffd54f',
-  mythic: '#ff6f00',
-};
 
 function SwapPanel({
   direction,
@@ -144,115 +135,10 @@ function SwapPanel({
   );
 }
 
-function ShopPanel({ sessionId }: { sessionId: string | null }) {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [buyingId, setBuyingId] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get('/api/v1/rewards/catalog');
-      const catalog = res.data?.data?.customItems || [];
-      const shopItems = catalog.filter((i: any) => i.source === 'shop' && Number(i.price) > 0);
-      setItems(shopItems);
-    } catch {
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
-
-  async function handleBuy(itemId: string) {
-    if (!sessionId) return;
-    setBuyingId(itemId);
-    setMsg(null);
-    try {
-      const res = await api.post('/api/v1/inventory/buy', { sessionId, itemId });
-      if (res.data?.success) {
-        setMsg(`${res.data.data?.name || itemId} 購買成功！`);
-      } else {
-        setMsg(res.data?.error || '購買失敗');
-      }
-    } catch (err: any) {
-      setMsg(err?.response?.data?.data?.error || err?.message || '購買失敗');
-    } finally {
-      setBuyingId(null);
-    }
-  }
-
-  return (
-    <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#fcc025]/20">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-black uppercase tracking-widest text-white">商店</h2>
-        <button onClick={fetchItems} className="text-[#adaaaa] hover:text-white transition-colors">
-          <RefreshCw size={14} />
-        </button>
-      </div>
-
-      {loading && (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 size={20} className="animate-spin text-[#fcc025]" />
-        </div>
-      )}
-
-      {!loading && items.length === 0 && (
-        <p className="text-sm text-[#adaaaa] text-center py-8">目前暫無商品</p>
-      )}
-
-      <div className="space-y-3">
-        {items.map((item: any) => (
-          <div
-            key={item.itemId}
-            className="flex items-center gap-4 bg-[#0e0e0e] rounded-xl p-4 border border-[#494847]/20"
-          >
-            <div className="text-2xl">{item.icon || '📦'}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white truncate">{item.name}</p>
-              <p className="text-[10px] text-[#adaaaa] truncate">{item.description || ''}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span
-                  className="text-[10px] font-bold uppercase"
-                  style={{ color: RARITY_COLORS[item.rarity] || '#b0b0b0' }}
-                >
-                  {item.rarity}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-xs font-black text-[#fcc025]">{Number(item.price).toLocaleString()} ZXC</span>
-              <button
-                onClick={() => handleBuy(item.itemId)}
-                disabled={buyingId === item.itemId || !sessionId}
-                className="text-[10px] font-black uppercase tracking-widest bg-[#fcc025] text-[#0e0e0e] px-3 py-1.5 rounded-lg disabled:opacity-50"
-              >
-                {buyingId === item.itemId ? <Loader2 size={10} className="animate-spin" /> : '購買'}
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {msg && (
-        <p className={`mt-4 text-xs text-center ${msg.includes('成功') ? 'text-green-400' : 'text-[#fcc025]'}`}>
-          {msg}
-        </p>
-      )}
-    </section>
-  );
-}
-
 export default function SwapView() {
   const { t } = useTranslation();
   const { sessionId, isAuthorized } = useAuthStore();
   const { summary, convert } = useWallet();
-
-  const [tab, setTab] = useState<Tab>('swap');
   const [direction, setDirection] = useState<Direction>('zxc_to_yjc');
   const [inputAmount, setInputAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -316,42 +202,16 @@ export default function SwapView() {
     }
   }
 
-  const FromIcon = tab === 'swap' ? ArrowDownUp : ShoppingBag;
-
   return (
     <div className="min-h-screen bg-[#0e0e0e] text-white font-['Manrope'] pb-32">
       <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
         <div className="flex items-center justify-between px-6 py-4 max-w-2xl mx-auto">
           <div className="flex items-center gap-4">
-            <FromIcon className="text-[#fcc025]" />
-            <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">
-              {tab === 'swap' ? '兌換' : '商店'}
-            </h1>
+            <ArrowDownUp className="text-[#fcc025]" />
+            <h1 className="font-extrabold tracking-tight text-xl text-[#fcc025] uppercase italic">兌換</h1>
           </div>
         </div>
       </header>
-
-      {/* Tab bar */}
-      <div className="fixed top-[73px] z-40 w-full bg-[#0e0e0e]/90 backdrop-blur-xl border-b border-[#494847]/15">
-        <div className="max-w-2xl mx-auto flex">
-          <button
-            onClick={() => setTab('swap')}
-            className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors ${
-              tab === 'swap' ? 'text-[#fcc025] border-b-2 border-[#fcc025]' : 'text-[#adaaaa]'
-            }`}
-          >
-            兌換
-          </button>
-          <button
-            onClick={() => setTab('shop')}
-            className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors ${
-              tab === 'shop' ? 'text-[#fcc025] border-b-2 border-[#fcc025]' : 'text-[#adaaaa]'
-            }`}
-          >
-            商店
-          </button>
-        </div>
-      </div>
 
       <main className="pt-12 px-6 max-w-2xl mx-auto space-y-6">
         <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20 mt-16">
@@ -371,24 +231,20 @@ export default function SwapView() {
           </div>
         </section>
 
-        {tab === 'swap' ? (
-          <SwapPanel
-            direction={direction}
-            inputAmount={inputAmount}
-            submitting={submitting}
-            result={result}
-            zxcBalance={zxcBalance}
-            yjcBalance={yjcBalance}
-            isAuthorized={isAuthorized}
-            setDirection={setDirection}
-            setInputAmount={setInputAmount}
-            setResult={setResult}
-            handleSwap={handleSwap}
-            toggle={toggle}
-          />
-        ) : (
-          <ShopPanel sessionId={sessionId} />
-        )}
+        <SwapPanel
+          direction={direction}
+          inputAmount={inputAmount}
+          submitting={submitting}
+          result={result}
+          zxcBalance={zxcBalance}
+          yjcBalance={yjcBalance}
+          isAuthorized={isAuthorized}
+          setDirection={setDirection}
+          setInputAmount={setInputAmount}
+          setResult={setResult}
+          handleSwap={handleSwap}
+          toggle={toggle}
+        />
       </main>
 
       <AppBottomNav current="none" />

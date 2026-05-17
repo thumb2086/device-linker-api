@@ -5,7 +5,7 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope, ITEM_DROP_TABLES, RARITY_NAMES, type ItemDefinition, type Rarity } from "@repo/shared";
-import { SessionRepository, OpsRepository, RewardCatalogRepository } from "@repo/infrastructure";
+import { SessionRepository, OpsRepository, RewardCatalogRepository, kv } from "@repo/infrastructure";
 import { gameSettlement } from "../../utils/game-settlement.js";
 import { getSessionContext } from "../../utils/auth.js";
 import { loadInventoryState, useItem, creditItemValue, grantBundleToUser } from "../../utils/inventory.js";
@@ -90,6 +90,11 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
           false,
           error?.message || "USE_ITEM_FAILED",
         );
+      }
+
+      if (outcome.item.type === "avatar" || outcome.item.type === "title") {
+        const key = outcome.item.type === "title" ? `active_title:${ctx.address}` : `active_avatar:${ctx.address}`;
+        await kv.set(key, outcome.item.id).catch(() => {});
       }
 
       let newBalance: string | null = null;
@@ -177,7 +182,11 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
 
       await gameSettlement.setBalance(ctx.address, "zhixi", (balance - price).toString());
 
-      const bundle = { items: [{ id: itemId, qty: 1 }] };
+      const rawMeta = catalogItem.meta as Record<string, any> | undefined;
+      const subItems = rawMeta?.bundle as Array<{ id: string; qty?: number }> | undefined;
+      const bundle = subItems
+        ? { items: subItems.map((i: any) => ({ id: i.id, qty: i.qty || 1 })) }
+        : { items: [{ id: itemId, qty: 1 }] };
       try {
         await grantBundleToUser(ctx.userId, bundle, ctx.address);
       } catch (err: any) {

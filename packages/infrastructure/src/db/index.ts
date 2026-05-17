@@ -1200,7 +1200,7 @@ export class RewardCampaignRepository {
     const conn = await requireDb();
     const now = new Date();
     return await conn.query.rewardCampaigns.findMany({
-      where: (c: any, { and, eq, lte, gte }: any) => and(eq(c.isActive, true), lte(c.startAt, now), gte(c.endAt, now)),
+      where: (c: any, { and, eq, lte, gte, or, isNull }: any) => and(eq(c.isActive, true), lte(c.startAt, now), or(isNull(c.endAt), gte(c.endAt, now))),
       limit: limit || 50,
     });
   }
@@ -1210,7 +1210,7 @@ export class RewardCampaignRepository {
   }
   async getById(id: string) {
     const conn = await requireDb();
-    return await conn.query.rewardCampaigns.findFirst({ where: (c: any, { eq }: any) => eq(c.id, id) });
+    return await conn.query.rewardCampaigns.findFirst({ where: (c: any, { eq }: any) => eq(c.campaignId, id) });
   }
   async upsert(data: any) {
     const conn = await requireDb();
@@ -1225,12 +1225,29 @@ export class RewardCampaignRepository {
     await conn.delete((schema as any).rewardCampaigns).where(eq((schema as any).rewardCampaigns.id, id));
   }
   async tryClaim(data: { campaignId: string; userId: string; address?: string; limit?: number }) {
+    const conn = await requireDb();
     const campaign = await this.getById(data.campaignId);
     if (!campaign) return false;
+    const limit = data.limit ?? (campaign as any).maxClaimsPerUser ?? 1;
+    const existing = await this.countClaims(data.campaignId, data.userId);
+    if (existing >= limit) return false;
+    await conn.insert((schema as any).rewardGrants).values({
+      userId: data.userId,
+      address: data.address || '',
+      itemId: `_campaign_claim_${data.campaignId}`,
+      type: 'claim',
+      source: 'campaign',
+      campaignId: data.campaignId,
+    });
     return true;
   }
   async countClaims(campaignId: string, userId?: string) {
-    return 0;
+    const conn = await requireDb();
+    if (!userId) return 0;
+    const rows = await conn.execute(
+      drizzleSql`SELECT COUNT(*) AS "count" FROM reward_grants WHERE campaign_id = ${campaignId} AND user_id = ${userId} AND source = 'campaign'`
+    );
+    return Number(rows?.[0]?.count || 0);
   }
   async deleteLatestClaim(campaignId: string, userId: string) { return; }
   async logGrant(data: any) { return; }

@@ -47,7 +47,7 @@ export default function ChatRoom() {
         <span className="text-xs font-black uppercase tracking-widest text-blue-400">
           {isZh ? '\u5168\u57df\u804a\u5929' : 'Global Chat'}
         </span>
-        <span className="text-[10px] text-slate-600">ONLINE: 42</span>
+        <span className="text-[10px] text-slate-600">{isZh ? '全域聊天' : 'Global'}</span>
       </div>
 
       <div ref={scrollRef} className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-4">

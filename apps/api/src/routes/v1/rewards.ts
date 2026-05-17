@@ -246,6 +246,13 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     const activeKey = type === "title" ? `active_title:${address}` : `active_avatar:${address}`;
     await kv.set(activeKey, id);
 
+    const userRepo = new UserRepository();
+    if (type === "title") {
+      await userRepo.saveUserProfile(ctx.user.id, { selectedTitleId: id }).catch(() => {});
+    } else {
+      await userRepo.saveUserProfile(ctx.user.id, { selectedAvatarId: id }).catch(() => {});
+    }
+
     return createApiEnvelope({ success: true, activeId: id }, request.id);
   });
 

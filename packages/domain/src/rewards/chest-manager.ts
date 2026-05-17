@@ -92,7 +92,8 @@ export class ChestManager {
     
     // Get current pity count
     const currentPity = inventory.chestPity[chestType] || 0;
-    const isPityTrigger = currentPity >= config.pityThreshold - 1;
+    const nextPity = currentPity + 1;
+    const isPityTrigger = nextPity >= config.pityThreshold;
     
     // Determine drop count
     const seed1 = this.generateSeed(userId, chestType, timestamp);
@@ -147,13 +148,13 @@ export class ChestManager {
     if (isPityTrigger) {
       newInventory.chestPity[chestType] = 0;
     } else {
-      newInventory.chestPity[chestType] = currentPity + 1;
+      newInventory.chestPity[chestType] = nextPity;
     }
     
     return {
       items,
       isPityTrigger,
-      pityCount: isPityTrigger ? config.pityThreshold : currentPity + 1,
+      pityCount: isPityTrigger ? config.pityThreshold : nextPity,
       totalValue,
     };
   }

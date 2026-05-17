@@ -188,7 +188,8 @@ export async function openChestForUser(
   const result = chestManager.openChest(userId, chestType, inventory);
 
   const nextPity = { ...state.chestPity };
-  nextPity[chestType] = result.isPityTrigger ? 0 : state.chestPity[chestType] + 1;
+  const threshold = CHEST_CONFIGS[chestType].pityThreshold;
+  nextPity[chestType] = result.pityCount >= threshold ? 0 : result.pityCount;
 
   const nextState: ProfileInventoryState = {
     ...state,

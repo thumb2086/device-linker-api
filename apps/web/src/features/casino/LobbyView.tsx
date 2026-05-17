@@ -12,6 +12,7 @@ import {
   Package,
   Settings as SettingsIcon,
   Trophy,
+  User,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '@repo/shared';
@@ -123,14 +124,10 @@ export default function LobbyView() {
             </h1>
           </div>
           <Link
-            to="/app/settings"
-            className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[#fcc025]/20 shadow-[0_0_15px_rgba(252,192,37,0.1)]"
+            to="/app/status"
+            className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[#fcc025]/20 shadow-[0_0_15px_rgba(252,192,37,0.1)] flex items-center justify-center bg-[#1a1919]"
           >
-            <img
-              className="h-full w-full object-cover opacity-80"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpYtYPXpLpsh0B4jeDEa_kksWMe2PpGKPXWScbGy-At5-Em7wzcfDWA8cQ9q422iOhMTcTEtaaOAixJdBRdNzsFWGKabd-JuGiJApAY-AHwfxrVd6ClRmZH5gGKn1IyL9iWEPxWWtLq1uhv_xhV23ANzCrcuFz_8p6N9PxAW0TQnV_eq5bHNgYynZU2AcBvOjJUKswDysFh-1Y1E8c5ubZuPaCtaUQq8SI1oKHhIFwUaLGZaWWXiwaFO4Pp8Zrp4C2lmllxJgfSJs"
-              alt="Profile"
-            />
+            <User size={20} className="text-[#fcc025]" />
           </Link>
         </div>
       </header>

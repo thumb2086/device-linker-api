@@ -13,11 +13,13 @@ type SyncUserData = {
     displayName?: string;
   };
   wallet: Record<string, any>;
+  activeAvatar?: string;
+  activeTitle?: string;
 };
 
 export function useSyncUser() {
   const { address, sessionId } = useAuthStore();
-  const { setAddress, setBalance, setUsername } = useUserStore();
+  const { setAddress, setBalance, setUsername, setActiveAvatar, setActiveTitle } = useUserStore();
 
   const { data: userData, isLoading } = useQuery<SyncUserData>({
     queryKey: ['user-me', address, sessionId],
@@ -68,7 +70,13 @@ export function useSyncUser() {
     } else if (userData?.username) {
       setUsername(userData.username);
     }
-  }, [userData, setAddress, setBalance, setUsername]);
+    if (userData?.activeAvatar) {
+      setActiveAvatar(userData.activeAvatar);
+    }
+    if (userData?.activeTitle) {
+      setActiveTitle(userData.activeTitle);
+    }
+  }, [userData, setAddress, setBalance, setUsername, setActiveAvatar, setActiveTitle]);
 
   return { userData, isLoading };
 }

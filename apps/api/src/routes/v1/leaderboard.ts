@@ -3,7 +3,7 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
-import { createApiEnvelope } from "@repo/shared";
+import { createApiEnvelope, ITEM_DROP_TABLES } from "@repo/shared";
 import { LeaderboardManager } from "@repo/domain/leaderboard/leaderboard-manager.js";
 import { OnchainWalletManager } from "@repo/domain";
 import * as schema from "@repo/infrastructure/db/schema.js";
@@ -31,6 +31,16 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
     for (const row of customItems as any[]) {
       if (row.type === "avatar") avatarMap.set(row.itemId, { id: row.itemId, icon: row.icon, label: row.name });
       if (row.type === "title") titleMap.set(row.itemId, { id: row.itemId, label: row.name });
+    }
+    for (const rarity of Object.keys(ITEM_DROP_TABLES) as (keyof typeof ITEM_DROP_TABLES)[]) {
+      for (const item of ITEM_DROP_TABLES[rarity]) {
+        if (item.type === "avatar" && !avatarMap.has(item.id)) {
+          avatarMap.set(item.id, { id: item.id, icon: item.icon, label: item.name });
+        }
+        if (item.type === "title" && !titleMap.has(item.id)) {
+          titleMap.set(item.id, { id: item.id, label: item.name });
+        }
+      }
     }
 
     // Iterate over entries directly so indices always stay aligned even when
@@ -69,7 +79,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
   typedFastify.get("/", {
     schema: {
       querystring: z.object({
-        type: z.enum(["all", "week", "month", "season", "asset", "winnings"]).default("all"),
+        type: z.enum(["all", "week", "month", "season", "asset", "kings"]).default("all"),
         limit: z.coerce.number().min(1).max(100).default(50),
         periodId: z.string().optional(),
         sync: z.enum(["auto", "force", "off"]).default("auto"),
@@ -78,7 +88,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
     },
   }, async (request) => {
     const { type, limit, periodId, sync } = request.query as {
-      type: "all" | "week" | "month" | "season" | "asset" | "winnings";
+      type: "all" | "week" | "month" | "season" | "asset" | "kings";
       limit: number;
       periodId?: string;
       sync: "auto" | "force" | "off";
@@ -160,27 +170,42 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
         return createApiEnvelope({ success: true, data: result }, request.id);
       }
 
-      if (type === "winnings") {
-        const includeMarketAssets = process.env.ASSET_LEADERBOARD_INCLUDE_MARKET === "true";
-        const assetResult = await manager.getAssetLeaderboard(selfAddress, limit, includeMarketAssets);
-        const result = {
-          ...assetResult,
-          type: "winnings" as const,
-          periodId: "winnings",
-          entries: assetResult.entries,
-          selfRank: assetResult.selfRank,
-        };
+      if (type === "kings") {
+        const counts = await kv.get<Record<string, number>>("leaderboard:king:counts") || {};
+        const names = await kv.get<Record<string, string>>("leaderboard:king:names") || {};
+        const sorted = Object.entries(counts)
+          .map(([address, count]) => ({ address, count, displayName: names[address] || null }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, limit)
+          .map((entry, i) => ({
+            rank: i + 1,
+            address: entry.address,
+            displayName: entry.displayName,
+            amount: entry.count,
+          }));
+        const result = { type: "kings", periodId: "all", entries: sorted, selfRank: null, updatedAt: new Date().toISOString() };
         await enrichEntriesWithCosmetics(result.entries);
-        if (result.selfRank) await enrichEntriesWithCosmetics([result.selfRank]);
         return createApiEnvelope({ success: true, data: result }, request.id);
       }
 
-      const result = await manager.getBetLeaderboard(
-        type,
-        selfAddress,
-        limit,
-        periodId
-      );
+      const result = await manager.getBetLeaderboard(type, selfAddress, limit, periodId);
+
+      // Track king (#1 on all-time betting leaderboard)
+      if (type === "all" && result.entries?.[0]) {
+        const kingAddr = result.entries[0].address.toLowerCase();
+        const kingName = result.entries[0].displayName;
+        const counts = await kv.get<Record<string, number>>("leaderboard:king:counts") || {};
+        const names = await kv.get<Record<string, string>>("leaderboard:king:names") || {};
+        const prevCount = counts[kingAddr] || 0;
+        if (prevCount === 0) {
+          counts[kingAddr] = 1;
+        } else {
+          counts[kingAddr] = prevCount + 1;
+        }
+        names[kingAddr] = kingName || names[kingAddr] || "";
+        await kv.set("leaderboard:king:counts", counts);
+        await kv.set("leaderboard:king:names", names);
+      }
       await enrichEntriesWithCosmetics(result.entries);
       if (result.selfRank) await enrichEntriesWithCosmetics([result.selfRank]);
       return createApiEnvelope({ success: true, data: result }, request.id);

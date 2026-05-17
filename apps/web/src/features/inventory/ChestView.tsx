@@ -284,7 +284,7 @@ export default function ChestView() {
       <section>
         <h2 className="text-xs font-black uppercase tracking-widest text-[#adaaaa] mb-3 flex items-center gap-2">
           <Package className="w-3 h-3" />
-          我的道具（{inventory.items.length}/{status?.inventorySlotsMax ?? 100}）
+          我的道具（{inventory.items.length}）
         </h2>
         {inventory.items.length === 0 ? (
           <div className="rounded-xl border border-[#494847]/20 bg-[#1a1919] p-8 text-center text-sm text-[#adaaaa]">

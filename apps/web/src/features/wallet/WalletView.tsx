@@ -127,6 +127,9 @@ export default function WalletView() {
             <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">{t('vault.title')}</h1>
           </div>
           <div className="flex items-center gap-3">
+            <Link to="/app/shop" className="text-[10px] font-black uppercase tracking-[0.18em] text-[#fcc025]">
+              商店
+            </Link>
             <Link to="/app/swap" className="text-[10px] font-black uppercase tracking-[0.18em] text-[#fcc025]">
               Swap
             </Link>

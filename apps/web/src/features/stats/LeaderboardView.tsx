@@ -6,7 +6,7 @@ import { useUserStore } from '../../store/useUserStore';
 import { useLeaderboard, type LeaderboardType } from '../../hooks/useLeaderboard';
 import AppBottomNav from '../../components/AppBottomNav';
 
-type LeaderboardCategory = 'winnings' | 'betting' | 'asset';
+type LeaderboardCategory = 'betting' | 'asset' | 'kings';
 type FilterLabel = 'WEEKLY' | 'MONTHLY' | 'SEASON' | 'ALL-TIME';
 
 const FILTER_MAP: Record<FilterLabel, LeaderboardType> = {
@@ -63,23 +63,24 @@ export default function LeaderboardView() {
 
   const currentType: LeaderboardType = useMemo(() => {
     if (category === 'asset') return 'asset';
-    if (category === 'winnings') return 'winnings';
+    if (category === 'kings') return 'kings';
     return FILTER_MAP[filter];
   }, [category, filter]);
 
   const { data, isLoading, error } = useLeaderboard(currentType, 50);
 
   const categoryTabs = [
-    { id: 'winnings' as LeaderboardCategory, icon: Trophy, label: t('leaderboard.tabs.winnings') },
-    { id: 'betting' as LeaderboardCategory, icon: Target, label: t('leaderboard.tabs.betting') },
-    { id: 'asset' as LeaderboardCategory, icon: Wallet, label: t('leaderboard.tabs.asset') },
+    { id: 'betting' as LeaderboardCategory, icon: Target, label: '\u62bc\u6ce8\u699c' },
+    { id: 'asset' as LeaderboardCategory, icon: Wallet, label: '\u8cc7\u7522\u699c' },
+    { id: 'kings' as LeaderboardCategory, icon: Crown, label: '\u699c\u738b' },
   ];
 
   const metricLabel = category === 'asset'
-    ? t('leaderboard.tabs.asset')
-    : category === 'winnings'
-      ? t('leaderboard.tabs.winnings')
-      : t('leaderboard.tabs.betting');
+    ? '\u8cc7\u7522\u699c'
+    : category === 'kings'
+      ? '\u6b21\u6578'
+      : '\u62bc\u6ce8\u699c';
+  const unit = category === 'kings' ? '\u6b21' : 'ZXC';
 
   const { topThree, otherPlayers, selfEntry } = useMemo(() => {
     const entries = data?.entries ?? [];
@@ -117,7 +118,7 @@ export default function LeaderboardView() {
     return [topThree[1], topThree[0], topThree[2]].filter(Boolean);
   }, [topThree]);
 
-  const showTimeRemaining = category !== 'asset' && category !== 'winnings' && currentType !== 'all';
+  const showTimeRemaining = category === 'betting' && currentType !== 'all';
   const timeRemaining = useMemo(() => getTimeRemaining(currentType), [currentType]);
 
   return (
@@ -199,7 +200,7 @@ export default function LeaderboardView() {
                       <p className="mt-0.5 w-full truncate text-[8px] font-bold text-[#fcc025]">{orderedTopThree[0].titleLabel}</p>
                     )}
                     <p className="mt-1 text-[10px] font-black text-slate-400">
-                      {formatNumber(orderedTopThree[0].amount, 'short')} ZXC
+                      {formatNumber(orderedTopThree[0].amount, 'short')} {unit}
                     </p>
                   </div>
                 </div>
@@ -224,7 +225,7 @@ export default function LeaderboardView() {
                       <p className="mt-0.5 w-full truncate text-[8px] font-bold text-[#fcc025]">{orderedTopThree[1].titleLabel}</p>
                     )}
                     <p className="mt-1 text-sm font-black text-[#fcc025]">
-                      {formatNumber(orderedTopThree[1].amount, 'short')} ZXC
+                      {formatNumber(orderedTopThree[1].amount, 'short')} {unit}
                     </p>
                   </div>
                 </div>
@@ -246,14 +247,14 @@ export default function LeaderboardView() {
                       <p className="mt-0.5 w-full truncate text-[8px] font-bold text-amber-500">{orderedTopThree[2].titleLabel}</p>
                     )}
                     <p className="mt-1 text-[10px] font-black text-amber-500">
-                      {formatNumber(orderedTopThree[2].amount, 'short')} ZXC
+                      {formatNumber(orderedTopThree[2].amount, 'short')} {unit}
                     </p>
                   </div>
                 </div>
               )}
             </section>
 
-            {category !== 'asset' && (
+            {category === 'betting' && (
               <div className="flex overflow-x-auto rounded-xl border border-[#494847]/20 bg-[#1a1919] p-1.5">
                 {FILTER_LABELS.map((entry) => (
                   <button
@@ -309,7 +310,7 @@ export default function LeaderboardView() {
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-black italic tracking-tighter ${player.isSelf ? 'text-[#fcc025]' : 'text-white'}`}>
-                      {formatNumber(player.amount, 'short')} ZXC
+                      {formatNumber(player.amount, 'short')} {unit}
                     </p>
                     <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[#494847]">{metricLabel}</p>
                   </div>
@@ -334,7 +335,7 @@ export default function LeaderboardView() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-black italic tracking-tighter text-[#fcc025]">
-                      {formatNumber(selfEntry.amount, 'short')} ZXC
+                      {formatNumber(selfEntry.amount, 'short')} {unit}
                     </p>
                     <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[#494847]">{metricLabel}</p>
                   </div>

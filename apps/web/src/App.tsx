@@ -22,10 +22,13 @@ import SupportView from './features/support/SupportView';
 import ProfileSetup from './features/profile/ProfileSetup';
 import AnnouncementCenter from './features/announcement/AnnouncementCenter';
 import SettingsView from './features/settings/SettingsView';
+import ShopView from './features/shop/ShopView';
+import StatusView from './features/status/StatusView';
 import PublicTransactionsView from './features/transactions/PublicTransactionsView';
 import TransactionsDashboardView from './features/dashboard/TransactionsDashboardView';
 import SoundPlayer from './components/SoundPlayer';
 import TransactionQueueIndicator from './components/TransactionQueueIndicator';
+import DanmakuOverlay from './components/DanmakuOverlay';
 import { useSyncUser } from './hooks/useSyncUser';
 import Layout from './components/Layout';
 import VIPLevelsView from './features/info/VIPLevelsView';
@@ -34,35 +37,31 @@ import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient();
 
-// 快速登入：驗證 stored session（只有勾選「記住我」時才執行）
+// 快速登入：直接 call /auth/me 驗證 session + 取得使用者資料（省去一次 round trip）
 function useFastLogin() {
   const { sessionId, setAuth, clearAuth } = useAuthStore();
   const [isRestoring, setIsRestoring] = useState(true);
 
   useEffect(() => {
     const validateSession = async () => {
-      // 檢查是否勾選了「記住我」
       const rememberMe = localStorage.getItem('custody_remember_me') === 'true';
-      
+
       if (!sessionId || !rememberMe) {
         setIsRestoring(false);
         return;
       }
 
       try {
-        const res = await api.get('/api/v1/auth/status', { params: { sessionId } });
+        const res = await api.get('/api/v1/auth/me', { params: { sessionId } });
         const data = res.data;
         const payload = data?.data;
 
-        if (data.success && payload?.status === 'authorized' && payload?.address) {
-          // Session 有效，恢復登入狀態
+        if (data.success && payload?.address) {
           setAuth(payload.address, sessionId, payload.publicKey || '0x');
         } else {
-          // Session 無效或過期，清除 auth 狀態
           clearAuth();
         }
-      } catch (err) {
-        console.error('[FastLogin] Session validation failed:', err);
+      } catch {
         clearAuth();
       } finally {
         setIsRestoring(false);
@@ -98,6 +97,7 @@ function AppContent() {
     <div className="relative min-h-screen bg-[#0e0e0e]">
       <SoundPlayer />
       {isAuthorized && <TransactionQueueIndicator />}
+      {isAuthorized && <DanmakuOverlay />}
       <Routes>
         {!isAuthorized ? (
           <Route path="*" element={<LoginView />} />
@@ -111,6 +111,8 @@ function AppContent() {
             <Route path="casino/lobby" element={<RoomLobbyView />} />
             <Route path="wallet" element={<WalletView />} />
             <Route path="swap" element={<SwapView />} />
+            <Route path="shop" element={<ShopView />} />
+            <Route path="status" element={<StatusView />} />
             <Route path="market" element={<MarketView />} />
             <Route path="rewards" element={<RewardsView />} />
             <Route path="rewards/submit" element={<SubmitRewardView />} />

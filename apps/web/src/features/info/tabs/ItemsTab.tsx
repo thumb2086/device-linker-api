@@ -13,6 +13,9 @@ interface CatalogItem {
   icon?: string;
   source?: string;
   howToGet: string;
+  effect?: { type: string; value: number; duration?: number; currency?: string };
+  price?: number;
+  meta?: { bundle?: Array<{ id: string; qty?: number }>; totalValue?: number };
 }
 
 const RARITY_STYLES = {
@@ -70,12 +73,31 @@ export default function ItemsTab() {
             description: item.description,
             icon: item.icon || '🎁',
             rarity: item.rarity,
-            source: 'chest',
+            source: item.source || 'chest',
             type: isBuff ? ('buff' as const) : ('item' as const),
-            howToGet: '寶箱開啟',
+            howToGet: getHowToGet(item.source),
+            effect: item.effect,
+            price: item.price,
+            meta: item.meta,
           };
         });
-        setItems([...avatars, ...titles, ...chestItems]);
+        const shopItems = ((payload.customItems ?? []) as any[])
+          .filter((i: any) => i.source === 'shop')
+          .map((item: any) => ({
+            id: item.itemId,
+            name: item.name,
+            label: item.name,
+            description: item.description || '',
+            icon: item.icon || '🎁',
+            rarity: item.rarity || 'common',
+            source: 'shop',
+            type: item.type === 'buff' ? ('buff' as const) : ('item' as const),
+            howToGet: '商城兌換',
+            effect: item.effect,
+            price: Number(item.price) || 0,
+            meta: item.meta,
+          }));
+        setItems([...avatars, ...titles, ...chestItems, ...shopItems]);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -184,6 +206,32 @@ export default function ItemsTab() {
                     </span>
                   </div>
                   <p className="mt-1 line-clamp-2 text-xs font-bold text-[#adaaaa]">{item.description || '暫無說明'}</p>
+                  {item.effect?.type === 'currency' && (
+                    <p className="mt-1 text-[10px] font-bold text-[#fcc025]">
+                      {item.effect.currency === 'yjc' ? `💎 ${item.effect.value} YJC` : `🪙 ${Number(item.effect.value).toLocaleString()} ZXC`}
+                    </p>
+                  )}
+                  {item.effect?.type === 'xp_boost' && (
+                    <p className="mt-1 text-[10px] font-bold text-[#adaaaa]">⚡ 經驗 ×{item.effect.value}{item.effect.duration ? ` · ${item.effect.duration}h` : ''}</p>
+                  )}
+                  {item.effect?.type === 'luck_boost' && (
+                    <p className="mt-1 text-[10px] font-bold text-[#adaaaa]">🍀 運氣 +{Math.round(item.effect.value * 100)}%{item.effect.duration ? ` · ${item.effect.duration}h` : ' · 永久'}</p>
+                  )}
+                  {item.effect?.type === 'prevent_loss' && (
+                    <p className="mt-1 text-[10px] font-bold text-[#adaaaa]">🛡️ 護盾 ×{item.effect.value} 次</p>
+                  )}
+                  {item.effect?.type === 'vip_trial' && (
+                    <p className="mt-1 text-[10px] font-bold text-[#adaaaa]">👑 VIP 試用{item.effect.duration ? ` · ${item.effect.duration}h` : ''}</p>
+                  )}
+                  {item.price && item.price > 0 && (
+                    <p className="mt-1 text-[10px] font-bold text-[#fcc025]">🛒 {item.price.toLocaleString()} ZXC</p>
+                  )}
+                  {item.meta?.bundle && (
+                    <p className="mt-1 text-[10px] font-bold text-emerald-400">
+                      📦 內容 {item.meta.bundle.length} 項{item.meta.totalValue ? ` · ~~${item.meta.totalValue.toLocaleString()} ZXC~~` : ''}
+                      {item.price && item.meta.totalValue ? ` → ${item.price.toLocaleString()} ZXC (${Math.round((1 - item.price / item.meta.totalValue) * 100)}% OFF)` : ''}
+                    </p>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="flex items-center gap-1 rounded bg-[#0e0e0e] px-2 py-1 text-[9px] font-bold text-[#adaaaa]">
                       <TypeIcon className="h-3 w-3" />

@@ -433,6 +433,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         const user = await userRepo.getUserById(session.userId);
         const balance = await getLiveZhixiBalance(session.address);
         const totalBet = String(await kv.get<string | number>(`total_bet:${session.address}`) || "0");
+        const activeAvatar = typeof user?.selectedAvatarId === "string" ? user.selectedAvatarId : "classic_chip";
+        const activeTitle = typeof user?.selectedTitleId === "string" ? user.selectedTitleId : "";
 
         return createApiEnvelope({
           user,
@@ -441,6 +443,8 @@ export async function authRoutes(fastify: FastifyInstance) {
           username: session.accountId,
           balance,
           totalBet,
+          activeAvatar,
+          activeTitle,
         }, request.id);
     } catch (e: any) {
         console.error(e);

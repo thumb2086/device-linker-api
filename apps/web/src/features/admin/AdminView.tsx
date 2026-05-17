@@ -424,20 +424,22 @@ export default function AdminView() {
 
   async function handleCatalogCreate(e: FormEvent) {
     e.preventDefault();
-    if (!catalogItemId.trim() || !catalogName.trim()) return;
+    const name = catalogName.trim();
+    if (!name) return;
+    const autoId = catalogItemId.trim() || `admin_${catalogType}_${Date.now().toString(36)}`;
     try {
       await api.post('/api/v1/admin/reward-catalog', {
         sessionId,
-        itemId: catalogItemId.trim(),
+        itemId: autoId,
         type: catalogType,
-        name: catalogName.trim(),
+        name,
         rarity: catalogRarity,
         source: 'admin',
         description: catalogDescription.trim() || undefined,
         icon: catalogIcon.trim() || undefined,
         isActive: true,
       });
-      show(`已新增 / 更新：${catalogName}`);
+      show(`已新增 / 更新：${name}（${autoId}）`);
       setCatalogItemId('');
       setCatalogName('');
       setCatalogIcon('');
@@ -1389,7 +1391,7 @@ export default function AdminView() {
                     value={catalogItemId}
                     onChange={(e) => setCatalogItemId(e.target.value)}
                     className="bg-[#0e0e0e] border border-[#494847]/30 rounded-lg px-3 py-2 text-sm"
-                    placeholder="itemId（唯一，英數）"
+                    placeholder="itemId（留空自動產生）"
                   />
                   <select
                     value={catalogType}

@@ -116,7 +116,11 @@ export class ChestManager {
       const item = this.pickItemFromRarity(rarity, seed + "item");
       
       // Check if this is a new item for the user
-      const isNew = !inventory.items[item.id] || inventory.items[item.id] === 0;
+      const isNew = item.type === "avatar"
+        ? !inventory.avatars.includes(item.id)
+        : item.type === "title"
+        ? !inventory.titles.includes(item.id)
+        : !inventory.items[item.id] || inventory.items[item.id] === 0;
       
       // Update inventory
       if (!newInventory.items[item.id]) {

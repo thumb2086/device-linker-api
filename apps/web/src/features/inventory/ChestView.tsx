@@ -120,6 +120,12 @@ export default function ChestView() {
     ownedTitles: [],
   });
   const [useStatusMessage, setUseStatusMessage] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
 
   const pity = status?.chestPity || {};
   const keyCounts = status?.keyCounts || {};
@@ -189,11 +195,13 @@ export default function ChestView() {
         }
         await Promise.all([refreshStatus(), refreshInventory()]);
       } else {
-        setUseStatusMessage(data?.error || '開啟失敗');
+        setSelectedChest(null);
+        showToast(data?.error || '開啟失敗');
       }
     } catch (err: any) {
       console.error('Failed to open chest:', err);
-      setUseStatusMessage(err?.response?.data?.error || '開啟失敗');
+      setSelectedChest(null);
+      showToast(err?.response?.data?.data?.error || err?.response?.data?.error || '開啟失敗');
     } finally {
       setIsOpening(false);
     }
@@ -203,13 +211,13 @@ export default function ChestView() {
     try {
       const res = await api.post('/api/v1/inventory/use', { itemId });
       if (res.data?.success) {
-        setUseStatusMessage(res.data.data.effectSummary || '使用成功');
+        showToast(res.data.data.effectSummary || '使用成功');
         await Promise.all([refreshStatus(), refreshInventory()]);
       } else {
-        setUseStatusMessage(res.data?.error || '使用失敗');
+        showToast(res.data?.error || '使用失敗');
       }
     } catch (err: any) {
-      setUseStatusMessage(err?.response?.data?.error || '使用失敗');
+      showToast(err?.response?.data?.data?.error || err?.response?.data?.error || '使用失敗');
     }
   };
 
@@ -223,12 +231,9 @@ export default function ChestView() {
         </div>
       </div>
 
-      {useStatusMessage && (
-        <div className="mb-4 rounded-xl border border-[#fcc025]/40 bg-[#fcc025]/10 px-4 py-3 text-sm text-[#fcc025] flex items-center justify-between">
-          <span>{useStatusMessage}</span>
-          <button onClick={() => setUseStatusMessage(null)}>
-            <X className="w-4 h-4" />
-          </button>
+      {toastMsg && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl bg-[#1a1919] border border-[#fcc025]/40 shadow-lg shadow-black/50 text-sm font-bold text-white animate-[fadeIn_0.3s_ease-out] whitespace-nowrap">
+          {toastMsg}
         </div>
       )}
 

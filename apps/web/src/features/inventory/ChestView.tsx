@@ -69,6 +69,7 @@ interface InventoryState {
 
 interface ChestStatus {
   chestPity: Record<string, number>;
+  keyCounts: Record<string, number>;
   nextFreeChestAvailable: boolean;
   dailyFreeChestType: string;
   dailyFreeCooldownHours: number;
@@ -119,6 +120,7 @@ export default function ChestView() {
   const [useStatusMessage, setUseStatusMessage] = useState<string | null>(null);
 
   const pity = status?.chestPity || {};
+  const keyCounts = status?.keyCounts || {};
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -245,6 +247,7 @@ export default function ChestView() {
         {chests.map((chest) => {
           const currentPity = pity[chest.id] ?? 0;
           const pityPercent = Math.min(100, (currentPity / chest.pityThreshold) * 100);
+          const keys = keyCounts[chest.id] ?? 0;
           return (
             <motion.button
               key={chest.id}
@@ -253,18 +256,33 @@ export default function ChestView() {
               onClick={() => setSelectedChest(chest)}
               className="bg-[#1a1919] rounded-2xl p-4 border border-[#494847]/20 text-left hover:border-[#fcc025]/50 transition-colors"
             >
-              <div className="text-4xl mb-2 text-center">
+              <div className="text-4xl mb-2 text-center relative">
                 <Gift className="w-10 h-10 mx-auto text-[#fcc025]" />
+                {keys > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#fcc025] text-[#0e0e0e] text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                    {keys}
+                  </span>
+                )}
               </div>
               <h3 className="font-black text-sm mb-1">{chest.name}</h3>
-              <div className="h-1 bg-[#494847]/30 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-[#494847]/30 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#fcc025]"
-                  style={{ width: `${pityPercent}%` }}
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${pityPercent}%`,
+                    background: pityPercent >= 100
+                      ? 'linear-gradient(90deg, #fcc025, #ff6f00)'
+                      : '#fcc025',
+                  }}
                 />
               </div>
-              <div className="text-[10px] text-[#adaaaa] mt-1">
-                保底 {currentPity}/{chest.pityThreshold}
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[10px] text-[#adaaaa]">
+                  保底 {currentPity}/{chest.pityThreshold}
+                </span>
+                {keys > 0 && (
+                  <span className="text-[9px] font-bold text-[#fcc025]">{keys} 把鑰匙</span>
+                )}
               </div>
             </motion.button>
           );
@@ -405,7 +423,7 @@ export default function ChestView() {
                 to="/app/shop"
                 className="mt-2 block w-full text-center text-[10px] font-bold text-[#adaaaa] hover:text-[#fcc025] transition-colors"
               >
-                前往商店購買寶箱鑰匙 ↗
+                前往商店購買寶箱 ↗
               </Link>
             </motion.div>
           </motion.div>

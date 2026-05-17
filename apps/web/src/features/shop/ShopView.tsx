@@ -75,14 +75,17 @@ export default function ShopView() {
     try {
       const res = await api.post('/api/v1/chests/buy', { sessionId, chestType });
       if (res.data?.success) {
-        setMsg(`購買成功！獲得 1 個 ${chestType} 寶箱鑰匙`);
+        setMsg(`✅ ${chestType === 'common' ? '普通' : chestType === 'rare' ? '稀有' : chestType === 'epic' ? '史詩' : '傳奇'}寶箱 已放入背包！`);
         const newBal = res.data.data?.balanceAfter;
         if (newBal) setBalance(newBal);
+        setTimeout(() => setMsg(null), 3000);
       } else {
-        setMsg(res.data?.error || '購買失敗');
+        setMsg(`❌ ${res.data?.error || '購買失敗'}`);
+        setTimeout(() => setMsg(null), 3000);
       }
     } catch (err: any) {
-      setMsg(err?.response?.data?.data?.error || err?.message || '購買失敗');
+      setMsg(`❌ ${err?.response?.data?.data?.error || err?.message || '購買失敗'}`);
+      setTimeout(() => setMsg(null), 3000);
     } finally {
       setBuyingChest(null);
     }
@@ -135,24 +138,30 @@ export default function ShopView() {
         <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#fcc025]/20">
           <div className="flex items-center gap-2 mb-4">
             <Gift size={16} className="text-[#fcc025]" />
-            <h2 className="text-sm font-black uppercase tracking-widest text-white">寶箱鑰匙</h2>
+            <h2 className="text-sm font-black uppercase tracking-widest text-white">寶箱</h2>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {chests.map((chest: any) => (
-              <div key={chest.id} className="bg-[#0e0e0e] rounded-xl p-4 border border-[#494847]/20">
-                <Gift className="w-8 h-8 mx-auto mb-2 text-[#fcc025]" />
-                <p className="text-xs font-bold text-white text-center truncate">{chest.name}</p>
-                <p className="text-[10px] font-black text-[#fcc025] text-center mt-1">{chest.price.toLocaleString()} ZXC</p>
-                <button
-                  onClick={() => handleBuyChest(chest.id)}
-                  disabled={buyingChest === chest.id || !sessionId}
-                  className="mt-2 w-full text-[10px] font-black uppercase tracking-widest bg-[#fcc025] text-[#0e0e0e] py-1.5 rounded-lg disabled:opacity-50"
-                >
-                  {buyingChest === chest.id ? <Loader2 size={10} className="animate-spin mx-auto" /> : '購買'}
-                </button>
-              </div>
-            ))}
+            {chests.map((chest: any) => {
+              const boughtHere = buyingChest === chest.id;
+              return (
+                <div key={chest.id} className="bg-[#0e0e0e] rounded-xl p-4 border border-[#494847]/20">
+                  <Gift className="w-8 h-8 mx-auto mb-2 text-[#fcc025]" />
+                  <p className="text-xs font-bold text-white text-center truncate">{chest.name}</p>
+                  <p className="text-[10px] font-black text-[#fcc025] text-center mt-1">{chest.price.toLocaleString()} ZXC</p>
+                  <button
+                    onClick={() => handleBuyChest(chest.id)}
+                    disabled={boughtHere || !sessionId}
+                    className="mt-2 w-full text-[10px] font-black uppercase tracking-widest bg-[#fcc025] text-[#0e0e0e] py-1.5 rounded-lg disabled:opacity-50"
+                  >
+                    {boughtHere ? <Loader2 size={10} className="animate-spin mx-auto" /> : '購買'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
+          <p className="mt-3 text-[9px] text-center text-[#adaaaa]">
+            購買後會放入背包，可到<Link to="/app/inventory" className="text-[#fcc025] underline">道具背包</Link>開啟
+          </p>
         </section>
 
         <section className="bg-[#1a1919] rounded-2xl p-6 border border-[#494847]/20">
@@ -224,13 +233,14 @@ export default function ShopView() {
             })}
           </div>
 
-          {msg && (
-            <p className={`mt-4 text-xs text-center ${msg.includes('成功') ? 'text-green-400' : 'text-[#fcc025]'}`}>
-              {msg}
-            </p>
-          )}
         </section>
       </main>
+
+      {msg && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl bg-[#1a1919] border border-[#fcc025]/40 shadow-lg shadow-black/50 text-sm font-bold text-white animate-[fadeIn_0.3s_ease-out] whitespace-nowrap">
+          {msg}
+        </div>
+      )}
 
       <AppBottomNav current="none" />
     </div>

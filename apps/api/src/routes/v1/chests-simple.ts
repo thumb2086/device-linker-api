@@ -94,9 +94,15 @@ export async function chestRoutes(fastify: FastifyInstance) {
       gameSettlement.getBalance(ctx.address, "zhixi"),
     ]);
 
+    const keyCounts: Record<string, number> = {};
+    for (const ct of Object.keys(CHEST_CONFIGS) as ChestType[]) {
+      keyCounts[ct] = state.inventory[`chest_key_${ct}`] || 0;
+    }
+
     return createApiEnvelope(
       {
         chestPity: state.chestPity,
+        keyCounts,
         lastFreeChestAt: state.lastFreeChestAt,
         nextFreeChestAvailable: isDailyFreeChestReady(state.lastFreeChestAt),
         dailyFreeChestType: DAILY_FREE_CHEST_TYPE,

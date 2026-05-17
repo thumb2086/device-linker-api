@@ -122,6 +122,11 @@ export default function ChestView() {
   });
   const [useStatusMessage, setUseStatusMessage] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [useQty, setUseQty] = useState<Record<string, number>>({});
+  const [giftDialog, setGiftDialog] = useState<{ itemId: string; name: string; maxQty: number } | null>(null);
+  const [giftAddress, setGiftAddress] = useState('');
+  const [giftQty, setGiftQty] = useState(1);
+  const [giftSending, setGiftSending] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -207,9 +212,9 @@ export default function ChestView() {
     }
   };
 
-  const useItem = async (itemId: string) => {
+  const useItem = async (itemId: string, qty: number = 1) => {
     try {
-      const res = await api.post('/api/v1/inventory/use', { itemId });
+      const res = await api.post('/api/v1/inventory/use', { itemId, quantity: qty });
       if (res.data?.success) {
         showToast(res.data.data.effectSummary || '使用成功');
         await Promise.all([refreshStatus(), refreshInventory()]);
@@ -382,20 +387,79 @@ export default function ChestView() {
                             {item.description}
                           </div>
                           {item.consumable && (
-                            <button
-                              onClick={() => useItem(item.id)}
-                              className="mt-2 w-full bg-[#fcc025] text-black font-black text-sm py-2 rounded-lg hover:bg-[#e6ad03]"
-                            >
-                              使用
-                            </button>
+                            <div className="mt-2 flex items-center gap-1">
+                              <div className="flex items-center border border-[#494847]/40 rounded-lg overflow-hidden flex-shrink-0">
+                                <button
+                                  onClick={() =>
+                                    setUseQty((prev) => ({
+                                      ...prev,
+                                      [item.id]: Math.max(1, (prev[item.id] || 1) - 1),
+                                    }))
+                                  }
+                                  className="w-7 h-7 flex items-center justify-center text-sm text-[#adaaaa] hover:text-white hover:bg-[#494847]/40 transition-colors"
+                                >
+                                  −
+                                </button>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={item.quantity}
+                                  value={useQty[item.id] || 1}
+                                  onChange={(e) => {
+                                    const v = parseInt(e.target.value) || 1;
+                                    setUseQty((prev) => ({
+                                      ...prev,
+                                      [item.id]: Math.max(1, Math.min(item.quantity, v)),
+                                    }));
+                                  }}
+                                  className="w-10 bg-[#0e0e0e] text-white text-sm font-bold text-center border-x border-[#494847]/40
+                                    focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <button
+                                  onClick={() =>
+                                    setUseQty((prev) => ({
+                                      ...prev,
+                                      [item.id]: Math.min(item.quantity, (prev[item.id] || 1) + 1),
+                                    }))
+                                  }
+                                  className="w-7 h-7 flex items-center justify-center text-sm text-[#adaaaa] hover:text-white hover:bg-[#494847]/40 transition-colors"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <button
+                                onClick={() => useItem(item.id, useQty[item.id] || 1)}
+                                className="flex-1 bg-[#fcc025] text-black font-black text-sm py-2 rounded-lg hover:bg-[#e6ad03]"
+                              >
+                                使用
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setGiftDialog({ itemId: item.id, name: item.name, maxQty: item.quantity })
+                                }
+                                className="border border-[#fcc025] text-[#fcc025] font-black text-sm px-3 py-2 rounded-lg hover:bg-[#fcc025]/10"
+                              >
+                                贈送
+                              </button>
+                            </div>
                           )}
                           {!item.consumable && (item.type === 'avatar' || item.type === 'title') && (
-                            <button
-                              onClick={() => useItem(item.id)}
-                              className="mt-2 w-full border border-[#fcc025] text-[#fcc025] font-black text-sm py-2 rounded-lg hover:bg-[#fcc025] hover:text-black"
-                            >
-                              裝備
-                            </button>
+                            <div className="mt-2 flex gap-1">
+                              <button
+                                onClick={() => useItem(item.id)}
+                                className="flex-1 border border-[#fcc025] text-[#fcc025] font-black text-sm py-2 rounded-lg hover:bg-[#fcc025] hover:text-black"
+                              >
+                                裝備
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setGiftDialog({ itemId: item.id, name: item.name, maxQty: item.quantity })
+                                }
+                                className="border border-[#fcc025] text-[#fcc025] font-black text-sm px-3 py-2 rounded-lg hover:bg-[#fcc025]/10"
+                              >
+                                贈送
+                              </button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -625,6 +689,119 @@ export default function ChestView() {
                 >
                   繼續
                   <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Gift Dialog */}
+      <AnimatePresence>
+        {giftDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setGiftDialog(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#1a1919] rounded-2xl p-6 max-w-sm w-full border border-[#494847]/30"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-black">贈送 {giftDialog.name}</h2>
+                <button onClick={() => setGiftDialog(null)}>
+                  <X className="w-5 h-5 text-[#adaaaa]" />
+                </button>
+              </div>
+
+              <label className="block text-sm font-bold text-[#adaaaa] mb-1">接收地址</label>
+              <input
+                type="text"
+                value={giftAddress}
+                onChange={(e) => setGiftAddress(e.target.value)}
+                placeholder="0x..."
+                className="w-full bg-[#0e0e0e] border border-[#494847]/40 rounded-lg px-3 py-2 text-white text-sm
+                  focus:outline-none focus:border-[#fcc025] mb-4"
+              />
+
+              <label className="block text-sm font-bold text-[#adaaaa] mb-1">數量</label>
+              <div className="flex items-center gap-2 mb-4">
+                <button
+                  onClick={() => setGiftQty(Math.max(1, giftQty - 1))}
+                  disabled={giftQty <= 1}
+                  className="w-8 h-8 rounded-full bg-[#494847]/40 text-[#fcc025] font-bold text-lg
+                    flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed
+                    hover:bg-[#494847]/60 transition-colors"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  max={giftDialog.maxQty}
+                  value={giftQty}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value) || 1;
+                    setGiftQty(Math.max(1, Math.min(giftDialog.maxQty, v)));
+                  }}
+                  className="w-16 bg-[#0e0e0e] border border-[#494847]/40 rounded-lg text-white font-bold text-lg text-center
+                    focus:outline-none focus:border-[#fcc025] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  onClick={() => setGiftQty(Math.min(giftDialog.maxQty, giftQty + 1))}
+                  disabled={giftQty >= giftDialog.maxQty}
+                  className="w-8 h-8 rounded-full bg-[#494847]/40 text-[#fcc025] font-bold text-lg
+                    flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed
+                    hover:bg-[#494847]/60 transition-colors"
+                >
+                  +
+                </button>
+                <span className="text-sm text-[#adaaaa]">/ {giftDialog.maxQty}</span>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setGiftDialog(null)}
+                  className="flex-1 border border-[#494847]/40 text-[#adaaaa] font-bold text-sm py-2 rounded-lg hover:bg-[#494847]/20"
+                >
+                  取消
+                </button>
+                <button
+                  disabled={giftSending || !giftAddress.trim()}
+                  onClick={async () => {
+                    if (!giftAddress.trim() || !giftDialog) return;
+                    setGiftSending(true);
+                    try {
+                      const res = await api.post('/api/v1/gift/send', {
+                        recipient: giftAddress.trim(),
+                        itemId: giftDialog.itemId,
+                        quantity: giftQty,
+                      });
+                      if (res.data?.success) {
+                        showToast('贈送成功！');
+                        setGiftDialog(null);
+                        setGiftAddress('');
+                        setGiftQty(1);
+                        await refreshInventory();
+                      } else {
+                        showToast(res.data?.error || '贈送失敗');
+                      }
+                    } catch (err: any) {
+                      showToast(err?.response?.data?.data?.error || err?.response?.data?.error || '贈送失敗');
+                    } finally {
+                      setGiftSending(false);
+                    }
+                  }}
+                  className="flex-1 bg-[#fcc025] text-black font-black text-sm py-2 rounded-lg
+                    disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#e6ad03]"
+                >
+                  {giftSending ? '發送中...' : '確認贈送'}
                 </button>
               </div>
             </motion.div>

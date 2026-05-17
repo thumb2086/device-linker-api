@@ -293,7 +293,18 @@ export default function ShopView() {
                   <p className="text-xs font-bold text-white text-center truncate">{chest.name}</p>
                   <div className="flex items-center justify-center gap-2 mt-2">
                     <button onClick={() => setChestQty(p => ({ ...p, [chest.id]: Math.max(1, (p[chest.id] || 1) - 1) }))} className="text-[#fcc025] font-bold text-sm w-6 h-6 flex items-center justify-center rounded bg-[#1a1919]">−</button>
-                    <span className="text-sm font-black text-white w-6 text-center">{qty}</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={qty}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value) || 1;
+                        setChestQty(p => ({ ...p, [chest.id]: Math.max(1, Math.min(99, v)) }));
+                      }}
+                      className="w-10 bg-[#0e0e0e] border border-[#494847]/40 rounded text-sm font-black text-white text-center
+                        focus:outline-none focus:border-[#fcc025] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
                     <button onClick={() => setChestQty(p => ({ ...p, [chest.id]: Math.min(99, (p[chest.id] || 1) + 1) }))} className="text-[#fcc025] font-bold text-sm w-6 h-6 flex items-center justify-center rounded bg-[#1a1919]">+</button>
                   </div>
                   {discount > 0 ? (

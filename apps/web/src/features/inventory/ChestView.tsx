@@ -436,7 +436,19 @@ export default function ChestView() {
                   −
                 </button>
                 <div className="text-center">
-                  <div className="text-white font-bold text-lg">{openQty}</div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={displayKeyCounts[`chest_key_${selectedChest.id}`] || 99}
+                    value={openQty}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value) || 1;
+                      const max = displayKeyCounts[`chest_key_${selectedChest.id}`] || 99;
+                      setOpenQty(Math.max(1, Math.min(max, v)));
+                    }}
+                    className="w-16 bg-[#0e0e0e] border border-[#494847]/40 rounded-lg text-white font-bold text-lg text-center
+                      focus:outline-none focus:border-[#fcc025] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
                   <div className="text-[10px] text-[#adaaaa]">
                     鑰匙 {displayKeyCounts[`chest_key_${selectedChest.id}`] || 0} 把
                   </div>

@@ -19,12 +19,12 @@ import {
   SessionRepository,
   UserRepository,
   ChainClient,
-  kv,
 } from "@repo/infrastructure";
 import { consumePreventLossBuff, restorePreventLossBuff, grantBundleToUser, loadInventoryState } from "./inventory.js";
 import { getOnChainConfig, SettlementServiceImpl, ViemRepository, VipBetLevelService, BetPayoutService } from "@repo/on-chain";
 import type { Game, TokenSymbol } from "@repo/shared";
 import type { TxIntent } from "@repo/shared";
+import { sql } from "drizzle-orm";
 
 export interface SettlementContext {
   userId: string;
@@ -88,44 +88,25 @@ export class GameSettlementWrapper {
     );
   }
 
-  private getBalanceKey(token: "zhixi" | "yjc", address: string): string {
-    return token === "yjc" ? `balance_yjc:${address}` : `balance:${address}`;
-  }
-
   private isAsyncSettlementEnabled(): boolean {
     const raw = String(process.env.GAME_SETTLEMENT_ASYNC ?? "true").toLowerCase();
     return raw !== "false" && raw !== "0";
   }
 
   /**
-   * Read legacy mirror balance from KV.
-   */
-  async getMirrorBalance(address: string, token: "zhixi" | "yjc"): Promise<string | null> {
-    const key = this.getBalanceKey(token, address);
-    const balance = await kv.get<string>(key);
-    return balance ?? null;
-  }
-
-  /**
-   * Keep the legacy KV balance in sync with the balance source used by game routes.
+   * Persist balance to DB wallet_accounts (source of truth). KV no longer used.
    */
   async setBalance(address: string, token: "zhixi" | "yjc", balance: string): Promise<void> {
     const normalizedAddress = address.toLowerCase();
-    const key = this.getBalanceKey(token, normalizedAddress);
-    await kv.set(key, balance);
     await this.walletRepo.updateBalance(normalizedAddress, balance, token);
   }
 
   /**
-   * Resolve the playable balance using the same source priority as wallet summary:
-   * on-chain when available, otherwise DB wallet, then legacy KV mirror.
-   * The resolved balance is also backfilled into DB/KV so later steps see the same value.
+   * Resolve the playable balance: on-chain when available, otherwise DB wallet.
    */
   async getBalance(address: string, token: "zhixi" | "yjc"): Promise<string> {
     const normalizedAddress = address.toLowerCase();
     const dbBalance = await this.walletRepo.getBalance(normalizedAddress, token);
-    const mirrorBalance = await this.getMirrorBalance(normalizedAddress, token);
-
     let resolvedBalance = dbBalance || "0";
 
     try {
@@ -136,22 +117,12 @@ export class GameSettlementWrapper {
         const decimals = await client.getDecimals(tokenRuntime.contractAddress, 18);
         const rawBalance = await client.getBalance(normalizedAddress, tokenRuntime.contractAddress);
         resolvedBalance = client.formatUnits(rawBalance, decimals);
-      } else if (Number(dbBalance || 0) <= 0 && mirrorBalance !== null) {
-        resolvedBalance = mirrorBalance;
       }
-    } catch {
-      if (Number(dbBalance || 0) <= 0 && mirrorBalance !== null) {
-        resolvedBalance = mirrorBalance;
-      }
-    }
+    } catch {}
 
     if (resolvedBalance !== dbBalance) {
       await this.walletRepo.updateBalance(normalizedAddress, resolvedBalance, token);
     }
-    if (resolvedBalance !== mirrorBalance) {
-      await this.setBalance(normalizedAddress, token, resolvedBalance);
-    }
-
     return resolvedBalance || "0";
   }
 
@@ -622,36 +593,42 @@ export class GameSettlementWrapper {
    * Update total bet tracking
    */
   async updateTotalBet(address: string, betAmount: number, winAmount?: number, userId?: string): Promise<void> {
-    const [totalBetRaw, totalWinRaw] = await Promise.all([
-      kv.get<string>(`total_bet:${address}`),
-      kv.get<string>(`total_win:${address}`),
-    ]);
-    const newBet = (parseFloat(totalBetRaw || "0") + betAmount).toString();
-    const newWin = (parseFloat(totalWinRaw || "0") + (winAmount || 0)).toString();
-    await Promise.all([
-      kv.set(`total_bet:${address}`, newBet),
-      kv.set(`total_win:${address}`, newWin),
-    ]);
+    const { requireDb } = await import("@repo/infrastructure/db/index.js");
+    const db = await requireDb();
+    const addr = address.toLowerCase();
+
+    await db.execute(sql`
+      INSERT INTO total_bets (period_type, period_id, address, amount)
+      VALUES ('all', '', ${addr}, ${betAmount})
+      ON CONFLICT (period_type, period_id, address)
+      DO UPDATE SET amount = total_bets.amount + ${betAmount}
+    `);
+    if (winAmount && winAmount > 0) {
+      await db.execute(sql`
+        UPDATE total_bets SET total_win = COALESCE(total_win, 0) + ${winAmount}
+        WHERE period_type = 'all' AND period_id = '' AND address = ${addr}
+      `);
+    }
     if (userId) {
       await this.checkAndUnlockTitles(userId, address);
     }
   }
 
   async updateTotalWin(address: string, winAmount: number): Promise<void> {
-    const key = `total_win:${address}`;
-    const current = parseFloat(await kv.get<string>(key) || "0");
-    await kv.set(key, (current + winAmount).toString());
+    await this.updateTotalBet(address, 0, winAmount);
   }
 
   async checkAndUnlockTitles(userId: string, address: string): Promise<void> {
     try {
-      const [totalBetRaw, totalWinRaw] = await Promise.all([
-        kv.get<string>(`total_bet:${address}`),
-        kv.get<string>(`total_win:${address}`),
-      ]);
+      const db = await (await import("@repo/infrastructure/db/index.js")).requireDb();
+      const addr = address.toLowerCase();
+      const [row] = await db.execute(sql`
+        SELECT COALESCE(amount, 0) as total_bet, COALESCE(total_win, 0) as total_win
+        FROM total_bets WHERE period_type = 'all' AND period_id = '' AND address = ${addr}
+      `);
       const stats = {
-        totalBet: parseFloat(totalBetRaw || "0"),
-        totalWin: parseFloat(totalWinRaw || "0"),
+        totalBet: Number(row?.totalBet || row?.total_bet || 0),
+        totalWin: Number(row?.totalWin || row?.total_win || 0),
       };
       const rewardManager = new RewardManager();
       const unlocked = rewardManager.checkTitleUnlock(userId, stats);

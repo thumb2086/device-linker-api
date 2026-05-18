@@ -258,18 +258,33 @@ export default async (req: any, res: any) => {
   fastify.server.emit('request', req, res);
 };
 
+// Global error handlers to prevent silent crashes
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT_EXCEPTION:", err?.message, err?.stack);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("UNHANDLED_REJECTION:", reason, promise);
+});
+
 // 本機執行啟動
 const port = Number(process.env.PORT) || 3000;
 const start = async () => {
   try {
+    console.log("Starting server...");
     await fastify.listen({ port, host: "0.0.0.0" });
     console.log(`🚀 Server ready at http://localhost:${port}`);
-  } catch (err) {
-    console.error(err);
+  } catch (err: any) {
+    console.error("SERVER_START_ERROR:", err?.message || err, err?.stack || "");
     process.exit(1);
   }
 };
 
 if (!process.env.VERCEL) {
-  start();
+  console.log("Node version:", process.version);
+  console.log("Calling start()...");
+  start().catch((err) => {
+    console.error("start() promise rejected:", err?.message || err);
+    process.exit(1);
+  });
 }

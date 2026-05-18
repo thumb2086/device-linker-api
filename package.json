@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node apps/api/dist/index.js",
     "dev": "pnpm --filter web dev",
-    "build": "pnpm --filter @repo/api... build && pnpm --filter web build",
+    "clean": "shx rm -rf packages/shared/dist packages/infrastructure/dist packages/on-chain/dist packages/domain/dist apps/api/dist",
+    "build": "pnpm clean && pnpm --filter @repo/api... build && pnpm --filter web build",
     "build:web": "pnpm --filter @repo/shared build && pnpm --filter web build",
     "preview": "pnpm --filter web preview"
   },

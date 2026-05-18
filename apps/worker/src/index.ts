@@ -4,6 +4,22 @@ import { getOnChainConfig, SettlementServiceImpl, ViemRepository } from "@repo/o
 
 const FIXED_TREASURY_ADDRESS = getOnChainConfig().treasuryAddress;
 
+async function getPendingAndFailedIntents(walletRepo: WalletRepository) {
+  const [pending, failed] = await Promise.all([
+    walletRepo.getPendingIntents(),
+    walletRepo.getFailedIntents(),
+  ]);
+  const seen = new Set<string>();
+  const allIntents: any[] = [];
+  for (const intent of [...pending, ...failed]) {
+    if (!seen.has(intent.id)) {
+      seen.add(intent.id);
+      allIntents.push(intent);
+    }
+  }
+  return allIntents;
+}
+
 export async function processIntents() {
   console.log("Worker tick: Processing intents...");
   const walletRepo = new WalletRepository();
@@ -23,12 +39,18 @@ export async function processIntents() {
   );
 
   try {
-    const intents = await walletRepo.getPendingIntents();
+    const intents = await getPendingAndFailedIntents(walletRepo);
     if (intents.length === 0) return;
 
     console.log(`Found ${intents.length} pending intents.`);
     for (const intent of intents) {
       try {
+        const retryCount = Number(intent.retryCount || 0);
+        if (retryCount >= 5) {
+          console.warn(`Skipping intent ${intent.id}: max retries (5) reached.`);
+          continue;
+        }
+
         await opsRepo.logEvent({
           channel: "worker",
           severity: "info",
@@ -38,7 +60,7 @@ export async function processIntents() {
           game: intent.game,
           roundId: intent.roundId,
           txIntentId: intent.id,
-          message: `Broadcasting ${intent.type} for intent ${intent.id}`
+          message: `Broadcasting ${intent.type} for intent ${intent.id} (retry ${retryCount})`
         });
 
         const tokenKey = tokenSymbolToOnchainKey(intent.token);
@@ -53,16 +75,30 @@ export async function processIntents() {
         const treasuryAddress = FIXED_TREASURY_ADDRESS;
         const explicitFromAddress = String((meta as any).fromAddress || "").toLowerCase();
         const explicitToAddress = String((meta as any).toAddress || "").toLowerCase();
-        const fromAddress =
-          intent.type === "payout" || intent.type === "deposit"
-            ? (explicitFromAddress || treasuryAddress)
-            : userAddress;
-        const toAddress =
-          intent.type === "transfer"
-            ? explicitToAddress
-            : intent.type === "withdrawal" || intent.type === "bet"
-              ? treasuryAddress
-              : explicitToAddress || userAddress;
+
+        let fromAddress: string;
+        let toAddress: string;
+
+        if (intent.type === "admin_credit" || intent.type === "deposit") {
+          fromAddress = explicitFromAddress || treasuryAddress;
+          toAddress = userAddress;
+        } else if (intent.type === "payout") {
+          fromAddress = explicitFromAddress || treasuryAddress;
+          toAddress = userAddress;
+        } else if (intent.type === "bet") {
+          fromAddress = userAddress;
+          toAddress = treasuryAddress;
+        } else if (intent.type === "withdrawal") {
+          fromAddress = userAddress;
+          toAddress = treasuryAddress;
+        } else if (intent.type === "transfer") {
+          fromAddress = explicitFromAddress || userAddress;
+          toAddress = explicitToAddress;
+        } else {
+          fromAddress = explicitFromAddress || userAddress;
+          toAddress = explicitToAddress || userAddress;
+        }
+
         let txHash = `0xmock_hash_${Date.now()}`;
 
         if (contractAddress) {
@@ -97,7 +133,9 @@ export async function processIntents() {
         });
       } catch (err: any) {
         console.error(`Failed to process intent ${intent.id}:`, err);
-        await walletRepo.saveTxIntent(walletManager.processTxIntent(intent, "failed", undefined, err.message));
+        const failedIntent = walletManager.processTxIntent(intent, "failed", undefined, err.message);
+        failedIntent.retryCount = Number(intent.retryCount || 0) + 1;
+        await walletRepo.saveTxIntent(failedIntent);
         await opsRepo.logEvent({
             channel: "worker",
             severity: "error",

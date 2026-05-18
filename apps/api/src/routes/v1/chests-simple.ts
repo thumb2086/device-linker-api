@@ -6,8 +6,8 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope, ITEM_DROP_TABLES, CHEST_CONFIGS, RARITY_NAMES, DAILY_FREE_CHEST_TYPE, DAILY_FREE_CHEST_COOLDOWN_HOURS, MAX_INVENTORY_SLOTS, type ChestType, type Rarity, type ItemDefinition } from "@repo/shared";
-import { SessionRepository, OpsRepository, RewardCatalogRepository, kv } from "@repo/infrastructure";
-import { ChestManager, type UserInventory } from "@repo/domain";
+import { SessionRepository, OpsRepository, WalletRepository, RewardCatalogRepository, kv } from "@repo/infrastructure";
+import { ChestManager, WalletManager, type UserInventory } from "@repo/domain";
 import { gameSettlement } from "../../utils/game-settlement.js";
 import { getSessionContext } from "../../utils/auth.js";
 import {
@@ -26,6 +26,7 @@ const DUPLICATE_COMPENSATION: Record<string, number> = {
   collectible: 200,
 };
 const chestManager = new ChestManager();
+const walletManager = new WalletManager();
 
 const CHEST_TYPE_ENUM = z.enum(["common", "rare", "epic", "legendary", "mythic"]);
 
@@ -73,6 +74,7 @@ function countInventorySlots(inventory: Record<string, number>): number {
 export async function chestRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
   const sessionRepo = new SessionRepository();
+  const walletRepo = new WalletRepository();
   const opsRepo = new OpsRepository();
 
   const getContext = (req: any) => getSessionContext(req, sessionRepo);
@@ -194,6 +196,12 @@ typedFastify.post("/buy", {
 
   await gameSettlement.setBalance(ctx.address, "zhixi", (balanceBeforeNum - totalPrice).toString());
 
+  // Create tx_intent for the purchase so the chain balance is synced
+  const buyIntent: any = walletManager.createTxIntent(ctx.userId, "ZXC", "admin_debit", totalPrice.toString());
+  buyIntent.address = ctx.address;
+  buyIntent.meta = { source: "chest_buy", chestType, quantity, unitPrice, keyId: `chest_key_${chestType}` };
+  await walletRepo.saveTxIntent(buyIntent);
+
   const keyId = `chest_key_${chestType}`;
   const nextState = { ...state, inventory: { ...state.inventory } };
   nextState.inventory[keyId] = (nextState.inventory[keyId] || 0) + quantity;
@@ -298,6 +306,10 @@ typedFastify.post(
         if (outcome.compensationZXC > 0) {
           const bal = await gameSettlement.getBalance(ctx.address, "zhixi");
           await gameSettlement.setBalance(ctx.address, "zhixi", (Number(bal) + outcome.compensationZXC).toString());
+          const compIntent: any = walletManager.createTxIntent(ctx.userId, "ZXC", "admin_credit", outcome.compensationZXC.toString());
+          compIntent.address = ctx.address;
+          compIntent.meta = { source: "chest_compensation", chestType };
+          await walletRepo.saveTxIntent(compIntent);
         }
       } catch (error: any) {
         if (keyId) {
@@ -477,6 +489,10 @@ typedFastify.post("/open-bulk", {
   if (totalComp > 0) {
     const bal = await gameSettlement.getBalance(ctx.address, "zhixi");
     await gameSettlement.setBalance(ctx.address, "zhixi", (Number(bal) + totalComp).toString());
+    const compIntent: any = walletManager.createTxIntent(ctx.userId, "ZXC", "admin_credit", totalComp.toString());
+    compIntent.address = ctx.address;
+    compIntent.meta = { source: "chest_compensation_bulk", chestType, quantity };
+    await walletRepo.saveTxIntent(compIntent);
   }
 
   const newKeyCounts: Record<string, number> = {};

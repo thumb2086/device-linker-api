@@ -529,7 +529,9 @@ const ensureCoreSchema = async () => {
       }
     })().catch((error) => {
       ensureCoreSchemaPromise = null;
-      throw error;
+      console.error("ensureCoreSchema failed:", error?.message, error?.stack);
+      // Don't re-throw to avoid unhandled rejection crashes.
+      // Route handlers will get their own connection errors naturally.
     });
   }
 }
@@ -754,6 +756,19 @@ export class WalletRepository implements IWalletRepository {
     const conn = await requireDb();
     try {
         return await conn.query.txIntents.findMany({ where: (txIntents: any, { eq }: any) => eq(txIntents.status, "pending") });
+    } catch(e) { return []; }
+  }
+
+  async getFailedIntents() {
+    const conn = await requireDb();
+    try {
+      return await conn.query.txIntents.findMany({
+        where: (txIntents: any, { and, eq, lt }: any) => and(
+          eq(txIntents.status, "failed"),
+          lt(txIntents.retryCount, 5)
+        ),
+        orderBy: (txIntents: any, { asc }: any) => [asc(txIntents.updatedAt)],
+      });
     } catch(e) { return []; }
   }
 

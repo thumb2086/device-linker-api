@@ -363,6 +363,13 @@ export async function walletRoutes(fastify: FastifyInstance) {
         const prevBalance = await gameSettlement.getBalance(address, token);
         const newBalance = (parseFloat(prevBalance || "0") + parseFloat(fallbackAmount)).toString();
         await gameSettlement.setBalance(address, token, newBalance);
+
+        // Create a tx_intent so the worker can sync this to chain later
+        const airdropIntent: any = walletManager.createTxIntent(ctx.user.id, "ZXC", "admin_credit", fallbackAmount);
+        airdropIntent.address = address;
+        airdropIntent.meta = { source: "daily_airdrop", mode: "direct_credit_fallback" };
+        await walletRepo.saveTxIntent(airdropIntent);
+
         await walletRepo.saveLedgerEntry({
           id: randomUUID(),
           userId: ctx.user.id,
@@ -372,9 +379,9 @@ export async function walletRoutes(fastify: FastifyInstance) {
           amount: fallbackAmount,
           balanceBefore: prevBalance || "0",
           balanceAfter: newBalance,
-          txIntentId: null,
+          txIntentId: airdropIntent.id,
           txHash: null,
-          meta: { source: "daily_airdrop", mode: "direct_credit" },
+          meta: { source: "daily_airdrop", mode: "direct_credit", intentId: airdropIntent.id },
           createdAt: new Date(),
         });
         await kv.set(`last_airdrop:${address}`, now);
@@ -386,9 +393,9 @@ export async function walletRoutes(fastify: FastifyInstance) {
           userId: ctx.user.id,
           address,
           message: `Direct credit airdrop: ${fallbackAmount} ZXC to ${address}`,
-          meta: { mode: "direct_credit", fallbackAmount },
+          meta: { mode: "direct_credit", fallbackAmount, intentId: airdropIntent.id },
         });
-        return createApiEnvelope({ reward: fallbackAmount, method: "direct_credit" }, request.id);
+        return createApiEnvelope({ reward: fallbackAmount, method: "direct_credit", intentId: airdropIntent.id }, request.id);
       }
 
       const { client, tokenRuntime, decimals } = onChainRuntime!;

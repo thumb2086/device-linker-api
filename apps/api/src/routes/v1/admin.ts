@@ -1,14 +1,16 @@
 // apps/api/src/routes/v1/admin.ts
 
+import { randomUUID } from "crypto";
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { SupportManager, IdentityManager, OnchainWalletManager } from "@repo/domain";
+import { SupportManager, IdentityManager, OnchainWalletManager, WalletManager } from "@repo/domain";
 import {
   AnnouncementRepository,
   SessionRepository,
   UserRepository,
+  WalletRepository,
   ChainClient,
   kv,
   OpsRepository,
@@ -24,9 +26,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
   
   const supportManager = new SupportManager();
   const identityManager = new IdentityManager();
+  const walletManager = new WalletManager();
   
   const sessionRepo = new SessionRepository();
   const userRepo = new UserRepository();
+  const walletRepo = new WalletRepository();
   const opsRepo = new OpsRepository();
   const announcementRepo = new AnnouncementRepository();
   const rewardCatalogRepo = new RewardCatalogRepository();
@@ -184,6 +188,15 @@ export async function adminRoutes(fastify: FastifyInstance) {
     
     await kv.set(balanceKey, result);
 
+    // Create tx_intent for auto-sync: positive adjustments credit from treasury
+    const tokenSymbol = token === "yjc" ? "YJC" : "ZXC";
+    const intentType = delta > 0 ? "admin_credit" : "admin_debit";
+    const intentAmount = Math.abs(delta).toString();
+    const txIntent: any = walletManager.createTxIntent(ctx.user.id, tokenSymbol, intentType, intentAmount);
+    txIntent.address = normalized;
+    txIntent.meta = { source: "admin_adjust_balance", reason, originalDelta: delta, adminAddress: ctx.session.address };
+    await walletRepo.saveTxIntent(txIntent);
+
     await opsRepo.logEvent({
       channel: "admin",
       severity: "important",
@@ -192,10 +205,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
       userId: ctx.user.id,
       address: normalized,
       message: `Manual balance adjustment for ${normalized}: ${amount} ${token}. Reason: ${reason}`,
-      meta: { from: current, to: result, delta, token, reason }
+      meta: { from: current, to: result, delta, token, reason, intentId: txIntent.id }
     });
 
-    return createApiEnvelope({ success: true, newBalance: result }, request.id);
+    return createApiEnvelope({ success: true, newBalance: result, intentId: txIntent.id }, request.id);
   });
 
   typedFastify.post("/sync-to-chain", {
@@ -862,19 +875,28 @@ export async function adminRoutes(fastify: FastifyInstance) {
     const user = await userRepo.getUserByAddress(normalized);
     if (!user) return createApiEnvelope({ error: { code: "NOT_FOUND", message: "User not found" } }, request.id);
 
-    // Adjust balances (if provided)
+    // Adjust balances (if provided) and create tx_intents for auto-sync
+    const grantIntentId = randomUUID();
     const bundleSummary: any = { items: body.items || [], avatars: body.avatars || [], titles: body.titles || [] };
     if (typeof body.zxc === "number" && body.zxc !== 0) {
       const current = await gameSettlement.getBalance(normalized, "zhixi");
       const next = Math.max(0, Number(current) + body.zxc).toFixed(4);
       await gameSettlement.setBalance(normalized, "zhixi", next);
       bundleSummary.zxc = body.zxc;
+      const grantIntent: any = walletManager.createTxIntent(user.id, "ZXC", "admin_credit", String(Math.abs(body.zxc)));
+      grantIntent.address = normalized;
+      grantIntent.meta = { source: "admin_grant", grantBatchId: grantIntentId, note: body.note };
+      await walletRepo.saveTxIntent(grantIntent);
     }
     if (typeof body.yjc === "number" && body.yjc !== 0) {
       const current = await gameSettlement.getBalance(normalized, "yjc");
       const next = Math.max(0, Number(current) + body.yjc).toFixed(4);
       await gameSettlement.setBalance(normalized, "yjc", next);
       bundleSummary.yjc = body.yjc;
+      const grantIntent: any = walletManager.createTxIntent(user.id, "YJC", "admin_credit", String(Math.abs(body.yjc)));
+      grantIntent.address = normalized;
+      grantIntent.meta = { source: "admin_grant", grantBatchId: grantIntentId, note: body.note };
+      await walletRepo.saveTxIntent(grantIntent);
     }
 
     // Grant items / avatars / titles
@@ -1096,6 +1118,36 @@ export async function adminRoutes(fastify: FastifyInstance) {
       meta: { reportId, status: updated.status },
     });
     return createApiEnvelope({ ticket: updated }, request.id);
+  });
+
+  // ─── Chain Sync Status ────────────────────────────────────────────────────
+  // Shows how many tx_intents are pending/failed and provides a CLI command
+  // to run the one-time catch-up tool.
+
+  typedFastify.get("/chain-sync-status", async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) {
+      const reason = await getAdminAuthFailureReason(request);
+      return createApiEnvelope({ error: { code: "UNAUTHORIZED", reason: reason.code, message: reason.message } }, request.id);
+    }
+
+    const pending = await walletRepo.getPendingIntents();
+    const failed = await walletRepo.getFailedIntents();
+
+    const totalPending = pending.length;
+    const totalFailed = failed.length;
+    const oldestPending = pending.length > 0 ? pending[0].createdAt : null;
+    const oldestFailed = failed.length > 0 ? failed[0].updatedAt : null;
+
+    return createApiEnvelope({
+      chainConfigured: Boolean(process.env.RPC_URL && process.env.ADMIN_PRIVATE_KEY),
+      pendingIntents: totalPending,
+      failedIntents: totalFailed,
+      oldestPendingIntent: oldestPending,
+      oldestFailedIntent: oldestFailed,
+      catchUpCommand: "cd /opt/render/project/src && npx tsx apps/worker/src/catchup.ts",
+      catchUpDryRunCommand: "cd /opt/render/project/src && DRY_RUN=true npx tsx apps/worker/src/catchup.ts",
+    }, request.id);
   });
 }
 

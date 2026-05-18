@@ -2,7 +2,7 @@
 import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { createApiEnvelope, ITEM_DROP_TABLES } from "@repo/shared";
 import { LeaderboardManager } from "@repo/domain/leaderboard/leaderboard-manager.js";
 import { OnchainWalletManager } from "@repo/domain";
@@ -45,23 +45,18 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
     await Promise.all(entries.map(async (entry) => {
       const addr = String(entry?.address || "").toLowerCase();
       if (!addr) return;
-      let [avId, tiId] = await Promise.all([
-        kv.get<string>(`active_avatar:${addr}`).catch(() => null),
-        kv.get<string>(`active_title:${addr}`).catch(() => null),
-      ]);
-      // Fallback: read from DB if KV misses
-      if (!avId || !tiId) {
-        try {
-          const db2 = await requireDb();
-          const profile = await db2.query.userProfiles.findFirst({
-            where: (p: any, { eq }: any) => eq(p.address, addr),
-          });
-          if (profile) {
-            if (!avId) avId = profile.selectedAvatarId || "classic_chip";
-            if (!tiId) tiId = profile.selectedTitleId || "newbie";
-          }
-        } catch {}
-      }
+      let avId = "classic_chip";
+      let tiId = "title_newbie";
+      try {
+        const db2 = await requireDb();
+        const profile = await db2.query.userProfiles.findFirst({
+          where: (p: any, { eq }: any) => eq(p.address, addr),
+        });
+        if (profile) {
+          if (profile.selectedAvatarId) avId = profile.selectedAvatarId;
+          if (profile.selectedTitleId) tiId = profile.selectedTitleId;
+        }
+      } catch {}
       const av = avatarMap.get(avId || "classic_chip") || avatarMap.get("classic_chip");
       const ti = titleMap.get(tiId || "newbie") || titleMap.get("newbie");
       entry.activeAvatarId = av?.id ?? null;
@@ -181,18 +176,17 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
       }
 
       if (type === "kings") {
-        const counts = await kv.get<Record<string, number>>("leaderboard:king:counts") || {};
-        const names = await kv.get<Record<string, string>>("leaderboard:king:names") || {};
-        const sorted = Object.entries(counts)
-          .map(([address, count]) => ({ address, count, displayName: names[address] || null }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, limit)
-          .map((entry, i) => ({
-            rank: i + 1,
-            address: entry.address,
-            displayName: entry.displayName,
-            amount: entry.count,
-          }));
+        const db = await requireDb();
+        const kings = await db.query.leaderboardKings.findMany({
+          orderBy: (k: any, { desc }: any) => [desc(k.winCount)],
+          limit,
+        });
+        const sorted = kings.map((k: any, i: number) => ({
+          rank: i + 1,
+          address: k.address,
+          displayName: k.displayName || null,
+          amount: k.winCount,
+        }));
         const result = { type: "kings", periodId: "all", entries: sorted, selfRank: null, updatedAt: new Date().toISOString() };
         await enrichEntriesWithCosmetics(result.entries);
         return createApiEnvelope({ success: true, data: result }, request.id);
@@ -202,19 +196,40 @@ export async function leaderboardRoutes(fastify: FastifyInstance) {
 
       // Track king (#1 on all-time betting leaderboard)
       if (type === "all" && result.entries?.[0]) {
-        const kingAddr = result.entries[0].address.toLowerCase();
-        const kingName = result.entries[0].displayName;
-        const counts = await kv.get<Record<string, number>>("leaderboard:king:counts") || {};
-        const names = await kv.get<Record<string, string>>("leaderboard:king:names") || {};
-        const prevCount = counts[kingAddr] || 0;
-        if (prevCount === 0) {
-          counts[kingAddr] = 1;
-        } else {
-          counts[kingAddr] = prevCount + 1;
+        try {
+          const db = await requireDb();
+          const kingAddr = result.entries[0].address.toLowerCase();
+          const kingName = result.entries[0].displayName;
+          const [existing] = await db.execute(
+            (await import("drizzle-orm")).sql`SELECT id, win_count FROM leaderboard_kings WHERE address = ${kingAddr} AND category = 'all' LIMIT 1`
+          );
+          if (existing) {
+            await db.update(schema.leaderboardKings).set({
+              winCount: Number(existing.winCount || 0) + 1,
+              displayName: kingName,
+              lastWinAt: new Date(),
+              updatedAt: new Date(),
+            }).where(eq(schema.leaderboardKings.id, existing.id));
+          } else {
+            const user = await db.query.users.findFirst({
+              where: (u: any, { eq }: any) => eq(u.address, kingAddr),
+            });
+            if (user) {
+              await db.insert(schema.leaderboardKings).values({
+                id: crypto.randomUUID(),
+                category: "all",
+                userId: user.id,
+                address: kingAddr,
+                displayName: kingName || null,
+                winCount: 1,
+                lastWinAt: new Date(),
+                periodId: "",
+              }).onConflictDoNothing();
+            }
+          }
+        } catch (e: any) {
+          console.error("king tracking error:", e?.message);
         }
-        names[kingAddr] = kingName || names[kingAddr] || "";
-        await kv.set("leaderboard:king:counts", counts);
-        await kv.set("leaderboard:king:names", names);
       }
       await enrichEntriesWithCosmetics(result.entries);
       if (result.selfRank) await enrichEntriesWithCosmetics([result.selfRank]);

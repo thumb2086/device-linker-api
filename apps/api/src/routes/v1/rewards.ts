@@ -99,17 +99,12 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     const ctx = await getContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
 
-    const address = ctx.session.address;
-    const ownedTitles = await kv.get<string[]>(`owned_titles:${address}`) || ["newbie"];
-    const ownedAvatars = await kv.get<string[]>(`owned_avatars:${address}`) || ["classic_chip"];
-    const activeTitle = await kv.get<string>(`active_title:${address}`) || "newbie";
-    const activeAvatar = await kv.get<string>(`active_avatar:${address}`) || "classic_chip";
-
+    const invState = await (await import("../../utils/inventory.js")).loadInventoryState(ctx.user.id);
     return createApiEnvelope({ 
-      ownedTitles, 
-      ownedAvatars,
-      activeTitle,
-      activeAvatar
+      ownedTitles: invState.ownedTitles, 
+      ownedAvatars: invState.ownedAvatars,
+      activeTitle: invState.activeTitle || "",
+      activeAvatar: invState.activeAvatar,
     }, request.id);
   });
 
@@ -201,18 +196,18 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     const { chestType } = request.body;
     const address = ctx.session.address;
     
-    // Check balance
+    // Check balance via DB
+    const { gameSettlement } = await import("../../utils/game-settlement.js");
     const prices = { bronze: 1000, silver: 5000, gold: 25000 };
     const price = prices[chestType];
-    const balanceStr = await kv.get<string>(`balance:${address}`) || "0";
-    const balance = parseFloat(balanceStr);
+    const balance = parseFloat(await gameSettlement.getBalance(address, "zhixi"));
 
     if (balance < price) {
       return createApiEnvelope({ error: { message: "Insufficient balance" } }, request.id);
     }
 
     // Deduct
-    await kv.set(`balance:${address}`, (balance - price).toString());
+    await gameSettlement.setBalance(address, "zhixi", (balance - price).toString());
 
     // Logic for randomized reward (stubbed in RewardManager for now)
     const seed = `${address}:${Date.now()}:${Math.random()}`;
@@ -247,24 +242,19 @@ export async function rewardRoutes(fastify: FastifyInstance) {
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
 
     const { type, id } = request.body;
-    const address = String(ctx.session.address).toLowerCase();
-    
-    const ownedKey = type === "title" ? `owned_titles:${address}` : `owned_avatars:${address}`;
-    const owned = await kv.get<string[]>(ownedKey) || [];
+    const invState = await (await import("../../utils/inventory.js")).loadInventoryState(ctx.user.id);
 
-    const defaultId = type === "title" ? "newbie" : "classic_chip";
+    const owned = type === "title" ? invState.ownedTitles : invState.ownedAvatars;
+    const defaultId = type === "title" ? "title_newbie" : "classic_chip";
     if (!owned.includes(id) && id !== defaultId) {
-      return createApiEnvelope({ error: { message: "Not owned" } }, request.id);
+      return createApiEnvelope({ error: { message: "不擁有此物品" } }, request.id);
     }
-
-    const activeKey = type === "title" ? `active_title:${address}` : `active_avatar:${address}`;
-    await kv.set(activeKey, id);
 
     const userRepo = new UserRepository();
     if (type === "title") {
-      await userRepo.saveUserProfile(ctx.user.id, { selectedTitleId: id }).catch(() => {});
+      await userRepo.saveUserProfile(ctx.user.id, { selectedTitleId: id });
     } else {
-      await userRepo.saveUserProfile(ctx.user.id, { selectedAvatarId: id }).catch(() => {});
+      await userRepo.saveUserProfile(ctx.user.id, { selectedAvatarId: id });
     }
 
     return createApiEnvelope({ success: true, activeId: id }, request.id);
@@ -342,13 +332,15 @@ export async function rewardRoutes(fastify: FastifyInstance) {
           await grantBundleToUser(handlerCtx.user.id, { items: rewards.items, avatars: rewards.avatars, titles: rewards.titles }, address);
         }
         if (typeof rewards.zxc === "number" && rewards.zxc > 0) {
-          const current = parseFloat((await kv.get<string>(`balance:${address}`)) || "0");
-          await kv.set(`balance:${address}`, (current + rewards.zxc).toString());
+          const { gameSettlement } = await import("../../utils/game-settlement.js");
+          const current = parseFloat(await gameSettlement.getBalance(address, "zhixi"));
+          await gameSettlement.setBalance(address, "zhixi", (current + rewards.zxc).toString());
           bundleSummary.zxc = rewards.zxc;
         }
         if (typeof rewards.yjc === "number" && rewards.yjc > 0) {
-          const current = parseFloat((await kv.get<string>(`balance_yjc:${address}`)) || "0");
-          await kv.set(`balance_yjc:${address}`, (current + rewards.yjc).toString());
+          const { gameSettlement } = await import("../../utils/game-settlement.js");
+          const current = parseFloat(await gameSettlement.getBalance(address, "yjc"));
+          await gameSettlement.setBalance(address, "yjc", (current + rewards.yjc).toString());
           bundleSummary.yjc = rewards.yjc;
         }
       } catch (grantErrInner: any) {

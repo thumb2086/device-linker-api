@@ -81,9 +81,29 @@ export async function supportRoutes(fastify: FastifyInstance) {
       mode: ctx.session.mode
     });
 
-    // Save ticket (KV for now, PG repo later)
-    await kv.set(`support:ticket:${ticket.reportId}`, ticket);
-    await kv.lpush(`user:tickets:${ctx.session.address}`, ticket.reportId);
+    // Save ticket to DB
+    try {
+      const db = await (await import("@repo/infrastructure/db/index.js")).requireDb();
+      const { supportTickets } = await import("@repo/infrastructure/db/schema.js");
+      await db.insert(supportTickets).values({
+        id: crypto.randomUUID(),
+        reportId: ticket.reportId,
+        userId: ctx.user.id,
+        address: ctx.session.address,
+        displayName: ctx.user.displayName,
+        category: ticket.category,
+        title: ticket.title,
+        message: ticket.message,
+        status: "open",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    } catch (dbErr: any) {
+      await opsRepo.logEvent({
+        channel: "support", severity: "error", source: "ticketing", kind: "ticket_db_failed",
+        userId: ctx.user.id, message: `Failed to save ticket to DB: ${dbErr?.message}`,
+      }).catch(() => {});
+    }
 
     await opsRepo.logEvent({
       channel: "support",

@@ -14,7 +14,7 @@ import RewardsView from './features/rewards/RewardsView';
 import SubmitRewardView from './features/rewards/SubmitRewardView';
 import EventsView from './features/rewards/EventsView';
 import AdminView from './features/admin/AdminView';
-import InventoryView from './features/profile/InventoryView';
+import ChestView from './features/inventory/ChestView';
 import LeaderboardView from './features/stats/LeaderboardView';
 
 import RoomLobbyView from './features/casino/RoomLobbyView';
@@ -141,7 +141,7 @@ function AppContent() {
             <Route path="leaderboard" element={<LeaderboardView />} />
             <Route path="announcement" element={<AnnouncementCenter />} />
             <Route path="support" element={<SupportView />} />
-            <Route path="inventory" element={<InventoryView />} />
+            <Route path="inventory" element={<ChestView />} />
             <Route path="collection" element={<CollectionView />} />
             <Route path="admin" element={<AdminView />} />
             <Route path="settings" element={<SettingsView />} />

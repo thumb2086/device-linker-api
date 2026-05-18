@@ -358,7 +358,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
       try {
         onChainRuntime = await getTokenRuntime(token);
       } catch {
-        const fallbackAmount = "10";
+        const fallbackAmount = "100000";
         const address = ctx.session.address;
         const prevBalance = await gameSettlement.getBalance(address, token);
         const newBalance = (parseFloat(prevBalance || "0") + parseFloat(fallbackAmount)).toString();

@@ -76,7 +76,8 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
             // Ensure user exists
             let user = await userRepo.getUserByAddress(normalized);
             if (!user) {
-                user = { id: randomUUID(), address: normalized, createdAt: new Date(), updatedAt: new Date() };
+                const displayName = `玩家_${normalized.slice(2, 8)}`;
+                user = { id: randomUUID(), address: normalized, displayName, createdAt: new Date(), updatedAt: new Date() };
                 await userRepo.saveUser(user);
             }
 

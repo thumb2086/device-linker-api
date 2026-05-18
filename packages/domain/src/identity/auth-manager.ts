@@ -79,10 +79,13 @@ export class AuthManager {
       user = {
         id: randomUUID(),
         address: custodyUser.address,
+        displayName: normalizedUsername,
         createdAt: new Date(),
         updatedAt: new Date()
       };
       await this.userRepo.saveUser(user);
+    } else if (!user.displayName && normalizedUsername) {
+      await this.userRepo.saveUser({ ...user, displayName: normalizedUsername });
     }
 
     const sessionId = `sess_custody_${randomUUID().slice(0, 12)}`;
@@ -194,8 +197,16 @@ export class AuthManager {
 
     let user = await this.userRepo.getUserByAddress(completed.address);
     if (!user) {
-      user = { id: randomUUID(), address: completed.address, createdAt: new Date(), updatedAt: new Date() };
+      user = {
+        id: randomUUID(),
+        address: completed.address,
+        displayName: normalizedUsername,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
       await this.userRepo.saveUser(user);
+    } else if (!user.displayName && normalizedUsername) {
+      await this.userRepo.saveUser({ ...user, displayName: normalizedUsername });
     }
 
     const sessionId = `sess_custody_${randomUUID().slice(0, 12)}`;

@@ -18,6 +18,18 @@ async function getDirectSql() {
   return postgres(connectionString!, { ssl: "require", max: 1, connect_timeout: 10 });
 }
 
+// Postgres.js returns snake_case; our Zod schemas expect camelCase.
+function toCamel(rows: any[]): any[] {
+  return rows.map((r: any) => {
+    const o: any = {};
+    for (const [k, v] of Object.entries(r)) {
+      const ck = k.replace(/_([a-z])/g, (_, c) => String(c).toUpperCase());
+      o[ck] = v instanceof Date ? v : v;
+    }
+    return o;
+  });
+}
+
 interface LedgerEntry {
   id: string;
   userId: string;
@@ -42,7 +54,7 @@ async function findUnsyncedLedgerEntries(sql: ReturnType<typeof postgres>): Prom
     ORDER BY created_at ASC
     LIMIT 500
   `;
-  return rows as LedgerEntry[];
+  return toCamel(rows) as LedgerEntry[];
 }
 
 async function findStuckIntents(sql: ReturnType<typeof postgres>) {
@@ -53,7 +65,7 @@ async function findStuckIntents(sql: ReturnType<typeof postgres>) {
     ORDER BY created_at ASC
     LIMIT 200
   `;
-  return rows as any[];
+  return toCamel(rows);
 }
 
 async function findBalanceOpsWithoutIntents(sql: ReturnType<typeof postgres>) {
@@ -72,7 +84,7 @@ async function findBalanceOpsWithoutIntents(sql: ReturnType<typeof postgres>) {
       AND CAST(w.balance AS numeric) > 0
     LIMIT 500
   `;
-  return rows as any[];
+  return toCamel(rows);
 }
 
 async function main() {
@@ -119,7 +131,12 @@ async function main() {
         continue;
       }
 
-      const txIntent: any = walletManager.createTxIntent(entry.userId, userToken, "admin_credit", amount);
+      if (!entry.userId) {
+        console.log(`    SKIP: no userId`);
+        continue;
+      }
+
+      const txIntent: any = walletManager.createTxIntent(String(entry.userId), userToken, "admin_credit", amount);
       txIntent.address = entry.address;
       txIntent.meta = {
         source: "catchup",
@@ -202,7 +219,11 @@ async function main() {
         const repo = new ViemRepository(runtime.rpcUrl, runtime.adminPrivateKey);
         const settlementService = new SettlementServiceImpl(repo);
 
-        await walletRepo.saveTxIntent(walletManager.processTxIntent(intent, "broadcasted"));
+        // Strip null/undefined values to avoid Zod rejection
+        const cleanIntent = Object.fromEntries(
+          Object.entries(intent).filter(([_, v]) => v !== null && v !== undefined)
+        );
+        await walletRepo.saveTxIntent(walletManager.processTxIntent(cleanIntent, "broadcasted"));
 
         const fromAddress = String(intent.address || "").toLowerCase();
         const userAddress = fromAddress;
@@ -231,11 +252,11 @@ async function main() {
           });
         }
 
-        await walletRepo.saveTxIntent(walletManager.processTxIntent(intent, "confirmed", txResult.txHash));
+        await walletRepo.saveTxIntent(walletManager.processTxIntent(cleanIntent, "confirmed", txResult.txHash));
         console.log(`    ✅ Confirmed: ${txResult.txHash}`);
       } catch (err: any) {
         console.log(`    ❌ Failed: ${err.message}`);
-        await walletRepo.saveTxIntent(walletManager.processTxIntent(intent, "failed", undefined, err.message));
+        await walletRepo.saveTxIntent(walletManager.processTxIntent(cleanIntent, "failed", undefined, err.message));
       }
     }
 
@@ -255,7 +276,12 @@ async function main() {
       const tokenKey = acct.token === "yjc" ? "yjc" : "zhixi";
       const tokenSymbol = tokenKey === "yjc" ? "YJC" : "ZXC";
 
-      const txIntent: any = walletManager.createTxIntent(acct.userId, tokenSymbol, "admin_credit", balance);
+      if (!acct.userId) {
+        console.log(`    SKIP: no userId`);
+        continue;
+      }
+
+      const txIntent: any = walletManager.createTxIntent(String(acct.userId), tokenSymbol, "admin_credit", balance);
       txIntent.address = acct.address;
       txIntent.meta = { source: "catchup", reason: "initial_balance_sync" };
 
@@ -303,7 +329,7 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error("Fatal error:", err);
+main().catch((err: any) => {
+  console.error("Fatal error:", err?.message || String(err), err?.stack || "");
   process.exit(1);
 });

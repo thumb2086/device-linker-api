@@ -186,7 +186,7 @@ export default function MarketView() {
 
         <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
-            <div className="sticky top-24 rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
+            <div className="lg:sticky lg:top-24 rounded-2xl border border-[#494847]/10 bg-[#1a1919] p-6 shadow-2xl">
               <div className="flex items-center gap-3">
                 <LineChart className="text-[#fcc025]" size={18} />
                 <h2 className="text-xs font-black uppercase tracking-[0.18em] text-[#adaaaa]">
@@ -240,31 +240,33 @@ export default function MarketView() {
                     銀行存款 / 提款
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                   <input
                     type="number"
                     min="1"
                     value={cashMoveAmount}
                     onChange={(event) => setCashMoveAmount(event.target.value)}
                     placeholder="金額"
-                    className="flex-1 rounded-xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-sm font-bold outline-none"
+                    className="w-full sm:flex-1 rounded-xl border border-[#494847]/20 bg-[#0e0e0e] px-4 py-3 text-sm font-bold outline-none"
                   />
-                  <button
-                    type="button"
-                    disabled={execute.isPending}
-                    onClick={() => runAction({ type: 'bank_deposit', amount: cashMoveAmount }, t('market.deposit_success'))}
-                    className="rounded-xl bg-emerald-600 px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-white disabled:opacity-50 hover:bg-emerald-500"
-                  >
-                    存入
-                  </button>
-                  <button
-                    type="button"
-                    disabled={execute.isPending}
-                    onClick={() => runAction({ type: 'bank_withdraw', amount: cashMoveAmount }, t('market.withdraw_success'))}
-                    className="rounded-xl bg-amber-600 px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-white disabled:opacity-50 hover:bg-amber-500"
-                  >
-                    提款
-                  </button>
+                  <div className="flex gap-2 sm:gap-3">
+                    <button
+                      type="button"
+                      disabled={execute.isPending}
+                      onClick={() => runAction({ type: 'bank_deposit', amount: cashMoveAmount }, t('market.deposit_success'))}
+                      className="flex-1 sm:flex-none rounded-xl bg-emerald-600 px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-white disabled:opacity-50 hover:bg-emerald-500"
+                    >
+                      存入
+                    </button>
+                    <button
+                      type="button"
+                      disabled={execute.isPending}
+                      onClick={() => runAction({ type: 'bank_withdraw', amount: cashMoveAmount }, t('market.withdraw_success'))}
+                      className="flex-1 sm:flex-none rounded-xl bg-amber-600 px-5 py-3 text-xs font-black uppercase tracking-[0.12em] text-white disabled:opacity-50 hover:bg-amber-500"
+                    >
+                      提款
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

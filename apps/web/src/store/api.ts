@@ -4,7 +4,7 @@ import axios, { InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from './useAuthStore';
 
 // Determine base URL based on environment
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://zixi-casino-api.onrender.com';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

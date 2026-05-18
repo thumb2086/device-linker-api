@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gift, Package, Sparkles, ChevronRight, X, Shield, Zap } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import AppBottomNav from '../../components/AppBottomNav';
 import { api } from '../../store/api';
 
 interface ChestConfig {
@@ -106,7 +107,8 @@ function formatExpires(expiresAt?: string | null): string {
   return `剩餘 ${hrs} 小時`;
 }
 
-export function ChestView() {
+export default function ChestView() {
+
   const navigate = useNavigate();
   const [chests, setChests] = useState<ChestConfig[]>([]);
   const [status, setStatus] = useState<ChestStatus | null>(null);
@@ -246,9 +248,6 @@ export function ChestView() {
       <header className="fixed top-0 z-50 w-full border-b border-[#494847]/15 bg-[#0e0e0e]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <Link to="/app" className="text-[#adaaaa] transition-colors hover:text-[#fcc025]">
-              <ChevronRight className="rotate-180" size={24} />
-            </Link>
             <Package className="text-[#fcc025]" />
             <div>
               <h1 className="text-xl font-extrabold uppercase italic tracking-tight text-[#fcc025]">
@@ -259,15 +258,13 @@ export function ChestView() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[#adaaaa]">空間</p>
-              <p className="text-sm font-black text-white">
-                {status?.inventorySlotsUsed || 0}
-                <span className="mx-1 text-[#494847]">/</span>
-                {status?.inventorySlotsMax || 0}
-              </p>
-            </div>
+          <div className="text-right">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#adaaaa]">空間</p>
+            <p className="text-sm font-black text-white">
+              {status?.inventorySlotsUsed || 0}
+              <span className="mx-1 text-[#494847]">/</span>
+              {status?.inventorySlotsMax || 0}
+            </p>
           </div>
         </div>
       </header>

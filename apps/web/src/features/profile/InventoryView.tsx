@@ -1,7 +1,7 @@
 import { Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AppBottomNav from '../../components/AppBottomNav';
-import ChestView from '../inventory/ChestView';
+import { ChestView } from '../inventory/ChestView';
 
 export default function InventoryView() {
   const { t } = useTranslation();

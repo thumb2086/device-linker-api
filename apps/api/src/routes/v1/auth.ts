@@ -5,7 +5,6 @@ import { createApiEnvelope, CUSTODY_REGISTER_BONUS } from "@repo/shared";
 import { IdentityManager, AuthManager, OnchainWalletManager, WalletManager } from "@repo/domain";
 import {
   ChainClient,
-  kv,
   SessionRepository,
   UserRepository,
   CustodyRepository,
@@ -30,31 +29,14 @@ export async function authRoutes(fastify: FastifyInstance) {
     sessionRepo,
     custodyRepo,
     walletRepo,
-    kv
   );
 
-  const getLegacyBalance = async (address: string, token: "zhixi" | "yjc" = "zhixi") => {
-    const key = token === "yjc" ? `balance_yjc:${address}` : `balance:${address}`;
-    const raw = await kv.get<string | number>(key);
-    if (raw === null || raw === undefined) return null;
-    return String(raw);
-  };
-
   const getLiveZhixiBalance = async (address: string) => {
-    let balance = await walletRepo.getBalance(address, "zhixi");
-    if (Number(balance || 0) === 0) {
-      const legacyBalance = await getLegacyBalance(address, "zhixi");
-      if (legacyBalance !== null && Number(legacyBalance || 0) > 0) {
-        balance = legacyBalance;
-        await walletRepo.updateBalance(address, legacyBalance, "zhixi");
-      }
-    }
-
     try {
       const runtime = onchainManager.getRuntimeConfig();
       const tokenRuntime = runtime.tokens.zhixi;
       if (!runtime.rpcUrl || !runtime.adminPrivateKey || !tokenRuntime.enabled) {
-        return balance || "0";
+        return (await walletRepo.getBalance(address, "zhixi")) || "0";
       }
 
       const client = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
@@ -66,7 +48,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       await walletRepo.updateBalance(address, onchainBalance, "zhixi");
       return onchainBalance;
     } catch {
-      return balance || "0";
+      return (await walletRepo.getBalance(address, "zhixi")) || "0";
     }
   };
 
@@ -432,7 +414,10 @@ export async function authRoutes(fastify: FastifyInstance) {
 
         const user = await userRepo.getUserById(session.userId);
         const balance = await getLiveZhixiBalance(session.address);
-        const totalBet = String(await kv.get<string | number>(`total_bet:${session.address}`) || "0");
+        const [totalBetRow] = await (await (await import("@repo/infrastructure/db/index.js")).requireDb()).execute(
+          (await import("drizzle-orm")).sql`SELECT amount FROM total_bets WHERE period_type='all' AND period_id='' AND address=${session.address.toLowerCase()}`
+        );
+        const totalBet = String(totalBetRow?.amount || "0");
         const activeAvatar = typeof user?.selectedAvatarId === "string" ? user.selectedAvatarId : "classic_chip";
         const activeTitle = typeof user?.selectedTitleId === "string" ? user.selectedTitleId : "";
 

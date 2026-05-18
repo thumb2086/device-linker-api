@@ -2,7 +2,6 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { AuthManager, IdentityManager } from "@repo/domain";
 import {
-    kv,
     SessionRepository,
     UserRepository,
     CustodyRepository,
@@ -18,7 +17,7 @@ export async function userLegacyRoutes(fastify: FastifyInstance) {
   const custodyRepo = new CustodyRepository();
   const walletRepo = new WalletRepository();
 
-  const authManager = new AuthManager(userRepo, sessionRepo, custodyRepo, walletRepo, kv);
+  const authManager = new AuthManager(userRepo, sessionRepo, custodyRepo, walletRepo);
 
   typedFastify.all("/user.js", async (request, reply) => {
     const query = request.query as any;

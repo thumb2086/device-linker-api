@@ -5,7 +5,6 @@ import {
   ISessionRepository,
   ICustodyRepository,
   IWalletRepository,
-  KVClient
 } from "@repo/infrastructure";
 
 export interface AuthResult {
@@ -27,21 +26,18 @@ export class AuthManager {
   private sessionRepo: ISessionRepository;
   private custodyRepo: ICustodyRepository;
   private walletRepo: IWalletRepository;
-  private kv: KVClient;
 
   constructor(
     userRepo: IUserRepository,
     sessionRepo: ISessionRepository,
     custodyRepo: ICustodyRepository,
     walletRepo: IWalletRepository,
-    kv: KVClient
   ) {
     this.identityManager = new IdentityManager();
     this.userRepo = userRepo;
     this.sessionRepo = sessionRepo;
     this.custodyRepo = custodyRepo;
     this.walletRepo = walletRepo;
-    this.kv = kv;
   }
 
   async registerCustody(params: {
@@ -102,11 +98,6 @@ export class AuthManager {
     const sessionWithUser = { ...session, userId: user.id };
 
     await this.sessionRepo.saveSession(sessionWithUser);
-
-    // Attempt KV but don't fail if limit reached
-    try {
-        await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
-    } catch (e) {}
 
     return { success: true, sessionId, user, address: custodyUser.address, publicKey: custodyUser.publicKey };
   }
@@ -224,11 +215,6 @@ export class AuthManager {
 
     await this.sessionRepo.saveSession(sessionWithUser);
 
-    // Attempt KV but don't fail if limit reached
-    try {
-        await this.kv.set(`session:${sessionId}`, sessionWithUser, { ex: 86400 });
-    } catch (e) {}
-
     return { success: true, sessionId, user, address: completed.address, publicKey: completed.publicKey };
   }
 
@@ -256,10 +242,6 @@ export class AuthManager {
   }
 
   async logout(sessionId: string): Promise<void> {
-    try {
-        await this.kv.del(`session:${sessionId}`);
-    } catch (e) {}
-
     const session = await this.sessionRepo.getSessionById(sessionId);
     if (session) {
       await this.sessionRepo.saveSession({ ...session, status: "expired" });

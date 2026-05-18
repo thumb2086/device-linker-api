@@ -224,6 +224,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
           const balance = client.formatUnits(rawBalance, decimals);
 
           if (token === "zhixi") {
+            balances.ZXC = balance;
             onchain.zxc = {
               available: true,
               balance,
@@ -232,6 +233,7 @@ export async function walletRoutes(fastify: FastifyInstance) {
               error: null,
             };
           } else {
+            balances.YJC = balance;
             onchain.yjc = {
               available: true,
               balance,

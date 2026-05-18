@@ -129,7 +129,7 @@ export async function giftRoutes(fastify: FastifyInstance) {
     const list = (users || []).map((u: any) => ({
       address: u.address,
       displayName: u.displayName || u.address.slice(0, 8),
-    })).filter(u => u.address.toLowerCase() !== ctx.address.toLowerCase());
+    })).filter((u: { address: string; displayName: string }) => u.address.toLowerCase() !== ctx.address.toLowerCase());
 
     return createApiEnvelope({ users: list }, request.id);
   });

@@ -5,7 +5,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
 import { IdentityManager, RewardManager, VipManager } from "@repo/domain";
-import { SessionRepository, UserRepository, kv, OpsRepository, RewardCatalogRepository } from "@repo/infrastructure";
+import { SessionRepository, UserRepository, OpsRepository, RewardCatalogRepository } from "@repo/infrastructure";
 
 export async function meRoutes(fastify: FastifyInstance) {
   const typedFastify = fastify.withTypeProvider<ZodTypeProvider>();
@@ -35,11 +35,17 @@ export async function meRoutes(fastify: FastifyInstance) {
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
 
     const address = ctx.session.address;
-    const totalBet = await kv.get<string>(`total_bet:${address}`) || "0";
     const vip = await vipManager.getVipStatus(address);
-    
-    const activeTitleId = await kv.get<string>(`active_title:${address}`) || "newbie";
-    const activeAvatarId = await kv.get<string>(`active_avatar:${address}`) || "classic_chip";
+
+    const [totalBetRow, profile] = await Promise.all([
+      (await (await import("@repo/infrastructure/db/index.js")).requireDb()).execute(
+        (await import("drizzle-orm")).sql`SELECT amount FROM total_bets WHERE period_type='all' AND period_id='' AND address=${address.toLowerCase()}`
+      ),
+      userRepo.getUserProfile(ctx.user.id),
+    ]);
+    const totalBet = String(totalBetRow?.[0]?.amount || "0");
+    const activeTitleId = profile?.selectedTitleId || "";
+    const activeAvatarId = profile?.selectedAvatarId || "classic_chip";
 
     // Merge built-in catalog with admin-defined custom items from reward_catalog
     // so custom avatars/titles equipped by users display correctly in the profile.
@@ -93,9 +99,8 @@ export async function meRoutes(fastify: FastifyInstance) {
     const ctx = await getContext(request);
     if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
 
-    const address = ctx.session.address;
-    const items = await kv.get<any[]>(`inventory:${address}`) || [];
-    return createApiEnvelope({ items }, request.id);
+    const state = await (await import("../../utils/inventory.js")).loadInventoryState(ctx.user.id);
+    return createApiEnvelope({ items: Object.entries(state.inventory).map(([id, qty]) => ({ id, qty })) }, request.id);
   });
 
   typedFastify.post("/use-item", {
@@ -111,15 +116,10 @@ export async function meRoutes(fastify: FastifyInstance) {
 
     const { itemId } = request.body;
     const address = ctx.session.address;
-    
-    const items = await kv.get<any[]>(`inventory:${address}`) || [];
-    const idx = items.findIndex(i => i.id === itemId);
-    
-    if (idx < 0) return createApiEnvelope({ error: { message: "Item not found in inventory" } }, request.id);
 
-    // Consume item
-    const [item] = items.splice(idx, 1);
-    await kv.set(`inventory:${address}`, items);
+    const { useItem, creditItemValue } = await import("../../utils/inventory.js");
+    const outcome = await useItem(ctx.user.id, itemId);
+    const newBalance = await creditItemValue(ctx.user.id, address, outcome, opsRepo);
 
     await opsRepo.logEvent({
       channel: "inventory",
@@ -128,10 +128,10 @@ export async function meRoutes(fastify: FastifyInstance) {
       kind: "item_used",
       userId: ctx.user.id,
       address,
-      message: `User used item ${item.label || itemId}`,
-      meta: { item }
+      message: `User used item ${outcome.item.name || itemId}`,
+      meta: { itemId, effect: outcome.effectSummary }
     });
 
-    return createApiEnvelope({ success: true, message: `已使用 ${item.label || itemId}` }, request.id);
+    return createApiEnvelope({ success: true, message: outcome.effectSummary, newBalance }, request.id);
   });
 }

@@ -138,14 +138,23 @@ export async function adminRoutes(fastify: FastifyInstance) {
     if (!normalized) return createApiEnvelope({ error: { message: "Invalid address" } }, request.id);
 
     if (action === "add") {
-      await kv.set(`blacklist:${normalized}`, {
+      await userRepo.saveUser({
         address: normalized,
-        reason,
+        isBlacklisted: true,
+        blacklistReason: reason || null,
         blacklistedAt: new Date(),
-        by: ctx.session.address,
+        blacklistedBy: ctx.session.address,
+        updatedAt: new Date(),
       });
     } else {
-      await kv.del(`blacklist:${normalized}`);
+      await userRepo.saveUser({
+        address: normalized,
+        isBlacklisted: false,
+        blacklistReason: null,
+        blacklistedAt: null,
+        blacklistedBy: null,
+        updatedAt: new Date(),
+      });
     }
 
     await opsRepo.logEvent({

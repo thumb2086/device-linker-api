@@ -14,7 +14,7 @@ import {
   ITEM_DROP_TABLES,
   DAILY_FREE_CHEST_COOLDOWN_HOURS,
 } from "@repo/shared";
-import { UserRepository, kv } from "@repo/infrastructure";
+import { UserRepository } from "@repo/infrastructure";
 
 const chestManager = new ChestManager();
 const userRepo = new UserRepository();
@@ -107,18 +107,22 @@ interface ChestMeta {
 }
 
 async function loadChestMeta(userId: string): Promise<ChestMeta> {
-  const raw = await kv.get<Record<string, unknown>>(chestMetaKey(userId));
+  const profile = await userRepo.getUserProfile(userId);
   return {
-    chestPity: coercePity(raw?.chestPity),
-    lastFreeChestAt: typeof raw?.lastFreeChestAt === "string" ? raw.lastFreeChestAt : null,
+    chestPity: coercePity((profile as any)?.chestPity),
+    lastFreeChestAt: typeof (profile as any)?.lastFreeChestAt === "string"
+      ? (profile as any).lastFreeChestAt
+      : (profile as any)?.lastFreeChestAt instanceof Date
+        ? (profile as any).lastFreeChestAt.toISOString()
+        : null,
   };
 }
 
 async function saveChestMeta(userId: string, meta: ChestMeta): Promise<void> {
-  await kv.set(chestMetaKey(userId), {
+  await userRepo.saveUserProfile(userId, {
     chestPity: meta.chestPity,
-    lastFreeChestAt: meta.lastFreeChestAt,
-  });
+    lastFreeChestAt: meta.lastFreeChestAt ? new Date(meta.lastFreeChestAt) : null,
+  } as any);
 }
 
 /**
@@ -534,33 +538,6 @@ export async function grantBundleToUser(
   };
   await persistInventoryState(userId, nextState);
 
-  // Sync KV-backed owned lists so /rewards/me + /rewards/equip can see new cosmetics.
-  let targetAddress = address;
-  if (!targetAddress) {
-    try {
-      const user = await userRepo.getUserById(userId);
-      targetAddress = user?.address ? String(user.address).toLowerCase() : undefined;
-    } catch {
-      targetAddress = undefined;
-    }
-  } else {
-    targetAddress = String(targetAddress).toLowerCase();
-  }
-  if (targetAddress && (addedAvatars.length || addedTitles.length)) {
-    if (addedAvatars.length) {
-      const key = `owned_avatars:${targetAddress}`;
-      const existing = (await kv.get<string[]>(key)) || [];
-      const merged = Array.from(new Set([...existing, ...addedAvatars]));
-      await kv.set(key, merged);
-    }
-    if (addedTitles.length) {
-      const key = `owned_titles:${targetAddress}`;
-      const existing = (await kv.get<string[]>(key)) || [];
-      const merged = Array.from(new Set([...existing, ...addedTitles]));
-      await kv.set(key, merged);
-    }
-  }
-
   return { nextState, preState, addedAvatars, addedTitles };
 }
 
@@ -576,35 +553,11 @@ export async function grantBundleToUser(
 export async function rollbackGrantBundle(
   userId: string,
   preState: ProfileInventoryState,
-  address: string | undefined,
-  addedAvatars: string[],
-  addedTitles: string[],
+  address?: string,
+  addedAvatars?: string[],
+  addedTitles?: string[],
 ): Promise<void> {
   await persistInventoryState(userId, preState);
-
-  let targetAddress = address ? String(address).toLowerCase() : undefined;
-  if (!targetAddress) {
-    try {
-      const user = await userRepo.getUserById(userId);
-      targetAddress = user?.address ? String(user.address).toLowerCase() : undefined;
-    } catch {
-      targetAddress = undefined;
-    }
-  }
-  if (!targetAddress) return;
-
-  if (addedAvatars.length) {
-    const key = `owned_avatars:${targetAddress}`;
-    const existing = (await kv.get<string[]>(key)) || [];
-    const next = existing.filter((id) => !addedAvatars.includes(id));
-    await kv.set(key, next);
-  }
-  if (addedTitles.length) {
-    const key = `owned_titles:${targetAddress}`;
-    const existing = (await kv.get<string[]>(key)) || [];
-    const next = existing.filter((id) => !addedTitles.includes(id));
-    await kv.set(key, next);
-  }
 }
 
 export function listAllItems(): ItemDefinition[] {

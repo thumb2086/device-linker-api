@@ -45,7 +45,6 @@ export default function LoginView() {
   const initSession = async () => {
     setError(null);
     setSessionId(null);
-    setQrCodeUrl(null);
     setDeepLinkUrl(null);
     try {
       const res = await api.post('/api/v1/auth/create-session', { platform: 'web', clientType: 'web' });

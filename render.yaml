@@ -5,7 +5,7 @@ services:
     env: node
     plan: free
     region: oregon
-    buildCommand: npx --yes pnpm@10.33.0 install && npx --yes pnpm@10.33.0 build
+    buildCommand: rm -rf packages/shared/dist packages/infrastructure/dist packages/on-chain/dist packages/domain/dist apps/api/dist && npx --yes pnpm@10.33.0 install && npx --yes pnpm@10.33.0 --filter @repo/shared build && npx --yes pnpm@10.33.0 --filter @repo/infrastructure build && npx --yes pnpm@10.33.0 --filter @repo/on-chain build && npx --yes pnpm@10.33.0 --filter @repo/domain build && npx --yes pnpm@10.33.0 --filter @repo/api build && npx --yes pnpm@10.33.0 --filter web build
     startCommand: node apps/api/dist/index.js
     healthCheckPath: /health
     envVars:

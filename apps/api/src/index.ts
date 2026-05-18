@@ -267,7 +267,7 @@ process.on("unhandledRejection", (reason, promise) => {
   console.error("UNHANDLED_REJECTION:", reason, promise);
 });
 
-// 本機執行啟動
+// Always start the server (Render doesn't set VERCEL, but be defensive)
 const port = Number(process.env.PORT) || 3000;
 const start = async () => {
   try {
@@ -280,11 +280,9 @@ const start = async () => {
   }
 };
 
-if (!process.env.VERCEL) {
-  console.log("Node version:", process.version);
-  console.log("Calling start()...");
-  start().catch((err) => {
-    console.error("start() promise rejected:", err?.message || err);
-    process.exit(1);
-  });
-}
+console.log("Node version:", process.version);
+console.log("Calling start()...");
+start().catch((err) => {
+  console.error("start() promise rejected:", err?.message || err);
+  process.exit(1);
+});

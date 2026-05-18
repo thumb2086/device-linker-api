@@ -4,11 +4,12 @@ import { FastifyInstance } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { createApiEnvelope } from "@repo/shared";
-import { SupportManager, IdentityManager } from "@repo/domain";
+import { SupportManager, IdentityManager, OnchainWalletManager } from "@repo/domain";
 import {
   AnnouncementRepository,
   SessionRepository,
   UserRepository,
+  ChainClient,
   kv,
   OpsRepository,
   RewardCatalogRepository,
@@ -195,6 +196,95 @@ export async function adminRoutes(fastify: FastifyInstance) {
     });
 
     return createApiEnvelope({ success: true, newBalance: result }, request.id);
+  });
+
+  typedFastify.post("/sync-to-chain", {
+    schema: {
+      body: z.object({
+        sessionId: z.string(),
+        address: z.string(),
+        token: z.enum(["zhixi", "yjc"]).default("zhixi"),
+      })
+    }
+  }, async (request) => {
+    const ctx = await getAdminContext(request);
+    if (!ctx) return createApiEnvelope({ error: { code: "UNAUTHORIZED" } }, request.id);
+
+    const { address, token } = request.body;
+    const normalized = identityManager.tryNormalizeAddress(address);
+    if (!normalized) return createApiEnvelope({ error: { message: "Invalid address" } }, request.id);
+
+    const balanceKey = token === "yjc" ? `balance_yjc:${normalized}` : `balance:${normalized}`;
+    const kvBalRaw = await kv.get<string>(balanceKey);
+    const kvBal = kvBalRaw ? parseFloat(kvBalRaw) : 0;
+    if (kvBal <= 0) return createApiEnvelope({ error: { message: `No ${token} balance in KV for this address` } }, request.id);
+
+    let chainClient: ChainClient;
+    let runtime: ReturnType<OnchainWalletManager["getRuntimeConfig"]>;
+    try {
+      const onchainManager = new OnchainWalletManager();
+      runtime = onchainManager.getRuntimeConfig();
+      if (!runtime.rpcUrl || !runtime.adminPrivateKey) {
+        return createApiEnvelope({ error: { message: "On-chain runtime is not configured" } }, request.id);
+      }
+      chainClient = new ChainClient(runtime.rpcUrl, runtime.adminPrivateKey);
+    } catch (e: any) {
+      return createApiEnvelope({ error: { message: e.message } }, request.id);
+    }
+
+    try {
+      const tokenRuntime = runtime.tokens[token];
+      if (!tokenRuntime.enabled) {
+        return createApiEnvelope({ error: { message: `${token} on-chain is not enabled` } }, request.id);
+      }
+
+      const decimals = await chainClient.getDecimals(tokenRuntime.contractAddress, 18);
+      const rawOnChain = await chainClient.getBalance(normalized, tokenRuntime.contractAddress);
+      const onChainBal = parseFloat(chainClient.formatUnits(rawOnChain, decimals));
+
+      if (onChainBal >= kvBal) {
+        return createApiEnvelope({
+          synced: false,
+          address: normalized,
+          token,
+          kvBalance: kvBal,
+          onChainBalance: onChainBal,
+          message: `On-chain balance (${onChainBal}) already >= KV balance (${kvBal})`,
+        }, request.id);
+      }
+
+      const deficit = (kvBal - onChainBal).toFixed(4);
+      const deficitWei = chainClient.parseUnits(deficit, decimals);
+      const tx = await chainClient.mint(normalized, deficitWei, tokenRuntime.contractAddress);
+      const receipt = await tx.wait();
+
+      if (receipt && receipt.status === 1) {
+        await opsRepo.logEvent({
+          channel: "admin",
+          severity: "important",
+          source: "sync_to_chain",
+          kind: "balance_synced_to_chain",
+          userId: ctx.user.id,
+          address: normalized,
+          message: `Synced ${deficit} ${token} to chain for ${normalized}. Tx: ${tx.hash}`,
+          meta: { deficit, token, txHash: tx.hash, kvBalance: kvBal, onChainBefore: onChainBal }
+        });
+
+        return createApiEnvelope({
+          synced: true,
+          address: normalized,
+          token,
+          kvBalance: kvBal,
+          onChainBefore: onChainBal,
+          deficit: parseFloat(deficit),
+          txHash: tx.hash,
+        }, request.id);
+      }
+
+      return createApiEnvelope({ error: { message: "Transaction reverted" } }, request.id);
+    } catch (e: any) {
+      return createApiEnvelope({ error: { message: e.message } }, request.id);
+    }
   });
 
   // ─── Announcement Management ─────────────────────────────────────────────

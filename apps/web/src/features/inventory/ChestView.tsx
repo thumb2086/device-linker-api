@@ -190,13 +190,28 @@ export default function ChestView() {
     if (opening) return;
     setOpening(true);
     try {
-      const res = await api.post('/api/v1/chests/open', { chestId, quantity });
+      const endpoint = quantity === 1 ? '/api/v1/chests/open' : '/api/v1/chests/open-bulk';
+      const body = quantity === 1
+        ? { chestType: chestId, free: false }
+        : { chestType: chestId, quantity };
+      const res = await api.post(endpoint, body);
       if (res.data?.success) {
-        const { items, compensation, status: nextStatus } = res.data.data;
+        const data = res.data.data;
+        const items = data.items || data.result?.items || [];
+        const compensation = data.compensationZXC || 0;
         setOpenedItems(items);
         setOpenCompensation(compensation);
-        setLocalPity(nextStatus.chestPity);
-        setLocalKeyCounts(nextStatus.keyCounts);
+        if (data.status) {
+          setLocalPity(data.status.chestPity);
+          setLocalKeyCounts(data.status.keyCounts);
+        } else {
+          if (data.pityCount !== undefined) {
+            setLocalPity(prev => ({ ...(prev || pity), [chestId]: data.pityCount }));
+          }
+          if (data.keyCounts) {
+            setLocalKeyCounts(prev => ({ ...(prev || keyCounts), ...data.keyCounts }));
+          }
+        }
         setShowResult(true);
         await refreshInventory();
         await refreshStatus();
@@ -300,18 +315,29 @@ export default function ChestView() {
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-black uppercase tracking-[0.2em] text-[#adaaaa]">可開啟寶箱</h2>
-            <div className="flex gap-2">
-              {[1, 5, 10].map((q) => (
+            <div className="flex items-center gap-2">
+              {[1, 5, 10, 100, 999].map((q) => (
                 <button
                   key={q}
                   onClick={() => setOpenQty(q)}
-                  className={`rounded-md px-3 py-1 text-[10px] font-black transition-all ${
+                  className={`rounded-md px-2.5 py-1 text-[10px] font-black transition-all ${
                     openQty === q ? 'bg-[#fcc025] text-black shadow-lg shadow-[#fcc025]/20' : 'bg-[#1a1919] text-[#adaaaa] border border-[#494847]/30'
                   }`}
                 >
                   x{q}
                 </button>
               ))}
+              <input
+                type="number"
+                min={1}
+                max={9999}
+                value={openQty}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value) || 1;
+                  setOpenQty(Math.max(1, Math.min(9999, v)));
+                }}
+                className="w-14 bg-[#0e0e0e] border border-[#494847]/40 rounded-lg text-white font-bold text-xs text-center py-1 focus:outline-none focus:border-[#fcc025] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
             </div>
           </div>
 
